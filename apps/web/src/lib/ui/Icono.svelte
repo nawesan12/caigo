@@ -28,7 +28,8 @@
 		cobros: 'M3 7h18v10H3zM3 11h18M7 15h3',
 		regalo:
 			'M4 11h16v9H4zM3 7h18v4H3zM12 7v13M12 7c-1.5-3-5-3-5-.5S10 7 12 7zM12 7c1.5-3 5-3 5-.5S14 7 12 7z',
-		campana: 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0'
+		campana: 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0',
+		escudo: 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z'
 	} as const;
 
 	export type NombreIcono = keyof typeof D;
