@@ -140,8 +140,9 @@ func Superponer(cuerpo []byte, v any) error {
 // el token del lugar). Quien llama ya verificó el permiso. Devuelve false si ya estaba cancelado.
 func CancelarTx(ctx context.Context, tx pgx.Tx, planID, motivo string) (bool, error) {
 	var org string
+	motivo = recortar(strings.TrimSpace(motivo), 300)
 	err := tx.QueryRow(ctx, `UPDATE planes SET cancelado_en = now(), cancelado_motivo = $2
-		WHERE id::text = $1 AND cancelado_en IS NULL RETURNING organizador_id`, planID, recortar(strings.TrimSpace(motivo), 300)).Scan(&org)
+		WHERE id::text = $1 AND cancelado_en IS NULL RETURNING organizador_id`, planID, motivo).Scan(&org)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -157,7 +158,7 @@ func CancelarTx(ctx context.Context, tx pgx.Tx, planID, motivo string) (bool, er
 	if err != nil {
 		return false, err
 	}
-	if err := outbox.Publicar(ctx, tx, "plan.cancelado", map[string]any{"planId": planID, "usuarios": usuarios}); err != nil {
+	if err := outbox.Publicar(ctx, tx, "plan.cancelado", map[string]any{"planId": planID, "usuarios": usuarios, "motivo": motivo}); err != nil {
 		return false, err
 	}
 	// Las compras sin pagar quedan anuladas; las pagadas se devuelven enteras (cargo incluido).

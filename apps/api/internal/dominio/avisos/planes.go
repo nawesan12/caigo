@@ -92,6 +92,7 @@ func (e *Enviador) planCancelado(ctx context.Context, ev outbox.Evento) error {
 	var d struct {
 		PlanID   string   `json:"planId"`
 		Usuarios []string `json:"usuarios"`
+		Motivo   string   `json:"motivo"`
 	}
 	if err := json.Unmarshal(ev.Datos, &d); err != nil {
 		return nil
@@ -100,8 +101,12 @@ func (e *Enviador) planCancelado(ctx context.Context, ev outbox.Evento) error {
 	if err != nil {
 		return ignorarSiNoEsta(err)
 	}
+	cuerpo := p.OrgNombre + " canceló el plan."
+	if d.Motivo != "" {
+		cuerpo = d.Motivo + "."
+	}
 	return e.aVarios(ctx, d.Usuarios, Aviso{Titulo: "Se canceló " + p.Titulo,
-		Cuerpo: p.OrgNombre + " canceló el plan. Si pagaste una entrada, te devolvemos todo.",
+		Cuerpo: cuerpo + " Si pagaste una entrada, te devolvemos todo.",
 		Datos:  datosPlan(d.PlanID, "detalle"), Colapso: "plan-" + d.PlanID})
 }
 

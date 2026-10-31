@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
 )
 
 // Una "foto" mínima: alcanza con la firma de JPEG.
@@ -188,8 +190,8 @@ func TestModeracion(t *testing.T) {
 }
 
 func TestBajaDeCuenta(t *testing.T) {
-	e := nuevoEntorno(t)
-	nico, lu, _, planID := planConLu(t, e)
+	e, mp, ls, duena, lugarID := lugarConMP(t)
+	nico, lu, fede, planID := planConLu(t, e)
 	var foto struct{ ID, URL string }
 	e.pedir(lu, "POST", "/v1/archivos?tipo=selfie", jpeg, http.StatusCreated, &foto)
 	var s struct{ Token string }
@@ -200,7 +202,47 @@ func TestBajaDeCuenta(t *testing.T) {
 	e.pedir(lu, "POST", "/v1/planes", map[string]any{"categoria": "juego", "empiezaEn": time.Now().Add(2 * time.Hour),
 		"ciudad": "Mar del Plata", "zona": "Centro", "lat": -38.0, "lng": -57.55, "somos": 2, "faltan": 2, "ingreso": "libre"},
 		http.StatusCreated, &suyo)
+	e.pedir(fede, "POST", "/v1/planes/"+suyo.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	// Y tiene una entrada paga para un plan de un lugar (precio $8.000 + $600 de cargo).
+	var lp struct{ ID string }
+	e.pedir(duena, "POST", "/v1/lugares/"+lugarID+"/planes", map[string]any{"titulo": "Noche de jazz", "categoria": "musica",
+		"empiezaEn": time.Now().Add(3 * time.Hour), "cupo": 20, "cobro": "entrada", "precioCentavos": 800000, "cancelacion": "strict"},
+		http.StatusCreated, &lp)
+	e.pedir(lu, "POST", "/v1/planes/"+lp.ID+"/entradas", map[string]int{"cantidad": 1}, http.StatusOK, nil)
+	if err := ls.ConciliarPago(context.Background(), mp.usuario, 99); err != nil {
+		t.Fatal(err)
+	}
+	var entrada string
+	e.valor(`SELECT id::text FROM entradas WHERE plan_id = $1 AND usuario_id = $2 AND estado = 'pagada'`, &entrada, lp.ID, lu.id)
 	e.pedir(propia, "DELETE", "/v1/yo", nil, http.StatusNoContent, nil)
+	// Su plan se cancela como si lo cancelara: aviso a Fede con el motivo.
+	cancelado := e.eventos("plan.cancelado", suyo.ID)
+	if len(cancelado) != 1 || !strings.Contains(string(cancelado[0].Datos), fede.id) ||
+		!strings.Contains(string(cancelado[0].Datos), confianza.MotivoBaja) {
+		t.Fatalf("plan.cancelado de la baja: %+v", cancelado)
+	}
+	var motivo string
+	e.valor(`SELECT cancelado_motivo FROM planes WHERE id = $1`, &motivo, suyo.ID)
+	if motivo != confianza.MotivoBaja {
+		t.Fatalf("motivo: %q", motivo)
+	}
+	// Su entrada se le devuelve: el precio, sin el cargo (lo hace el worker; dos veces no duplica).
+	evs := e.eventos("entrada.reembolsar", entrada)
+	if len(evs) != 1 {
+		t.Fatalf("entrada.reembolsar de la baja: %d", len(evs))
+	}
+	for range 2 {
+		if err := ls.Manejadores()["entrada.reembolsar"](context.Background(), evs[0]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var estado string
+	var devuelto int64
+	e.valor(`SELECT estado FROM entradas WHERE id = $1`, &estado, entrada)
+	e.valor(`SELECT reembolso_centavos FROM entradas WHERE id = $1`, &devuelto, entrada)
+	if estado != "reembolsada" || devuelto != 800000 || len(mp.reembolsos) != 1 || mp.reembolsos[0] != `{"amount":8000}` {
+		t.Fatalf("reembolso de la baja: %q %d %q", estado, devuelto, mp.reembolsos)
+	}
 	// Las sesiones mueren, la selfie se borra, su plan se cancela y deja el lugar en el de Nico.
 	e.pedir(propia, "GET", "/v1/yo", nil, http.StatusUnauthorized, nil)
 	e.pedir(nico, "GET", "/v1/archivos/"+foto.ID, nil, http.StatusNotFound, nil)

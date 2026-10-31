@@ -139,7 +139,10 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 
 ## Borrar la cuenta (31/10)
 `DELETE /v1/yo` (204): perfil anónimo, se borran fotos, selfie, DNI (archivos y verificación),
-teléfono, sesiones y dispositivos; se cancelan sus planes y pedidos que no pasaron. Los pagos y el
+teléfono, sesiones, dispositivos, género y ubicación. Sus planes futuros (no los de lugares) se cancelan como
+si los cancelara: aviso `plan.cancelado` con el motivo «La persona que organizaba se dio de baja» y reembolso
+entero de las entradas pagas; sus propias entradas pagas de planes futuros se le devuelven (el precio, sin el
+cargo), y se cancelan sus pedidos que no pasaron. Los pagos y el
 historial quedan atados al id sin datos. La cuenta de Clerk no se toca (es de todo Grupo Vimo): si
 vuelve a entrar, arranca una cuenta nueva. Plus hay que cancelarlo en la tienda.
 

@@ -305,15 +305,17 @@ func (s *Servicio) Manejadores() map[string]outbox.Manejador {
 			}
 			return s.ConciliarPago(ctx, d.Usuario, d.Pago)
 		},
-		// Plan cancelado (o pagado tarde): se devuelve la entrada entera.
+		// Plan cancelado (o pagado tarde): se devuelve la entrada entera. Baja: sólo el precio.
 		"entrada.reembolsar": func(ctx context.Context, ev outbox.Evento) error {
+			// {entradaId, total: true} devuelve todo; {entradaId, centavos} sólo ese monto (baja).
 			var d struct {
 				EntradaID string `json:"entradaId"`
+				Centavos  *int64 `json:"centavos"`
 			}
 			if err := json.Unmarshal(ev.Datos, &d); err != nil || d.EntradaID == "" {
 				return nil
 			}
-			return s.reembolsar(ctx, d.EntradaID, nil)
+			return s.reembolsar(ctx, d.EntradaID, d.Centavos)
 		},
 	}
 }
