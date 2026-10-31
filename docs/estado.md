@@ -45,6 +45,14 @@ Caigo desde la web (`/app`, 31/10): Ahora (lista y mapa), Explorar y detalle se 
 Web publicada (31/10) en https://caigo.com.ar y https://lugares.caigo.com.ar: contenedor `caigo-web` (node:22-alpine, 192m, 127.0.0.1:3500, build en /opt/caigo/web, web.conf con las PUBLIC_*). Desplegar: `infra/vps/desplegar-web.sh`. Caddy ya en `infra/vps/caigo.caddy`.
 9. Android (rama `android`, worktree `~/Trabajo/vimo/.wt/caigo-android`): Kotlin + Compose en `apps/android`, todas las pantallas del handoff contra la API. Debug apunta a `caigo.api.debug` de `local.properties` (por defecto `http://10.0.2.2:4300`); en debug hay "Entrar con token" para sesiones `cs_…` creadas a mano. Clave de Clerk (`caigo.clerk.publicable`) y Firebase (`caigo.firebase.*`) van en `local.properties`. Integrada a main el 31/10. Firma de release: llave de subida en `~/Trabajo/vimo/credenciales-android/caigo-subida.jks` (clave al lado, 600; SHA-256 57:21:D7:…:33:16), leída de `local.properties` (`caigo.firma.*`). `assembleRelease` saca APKs por arquitectura (arm64 18 MB). ML Kit por Play Services. `assetlinks.json` con la huella de subida y la de debug (Google: linked). Falta: productos de Play, Firebase, y sumar la huella de Play App Signing cuando exista la app en Play. 10. iOS.
 
+## Plus completo y pagar todo / señar (31/10, en producción c701204)
+- Las filas del paywall que antes no hacían nada ahora andan (ver el final de `docs/api.md`):
+  «Me encanta» 1 por día gratis y 5 con Plus (quien lo recibe lo ve primero), plan destacado
+  (Plus, 1 por semana, va primero en Ahora/Explorar) y filtros finos (verificados, faltan, edad de
+  quien organiza, sólo gratis: Plus; sin Plus, 403 `plus`). Migración 00009.
+- Comprar entradas con seña: el que compra elige «Pagar todo» o «Señar N %» (`modo`), como el
+  Prototipo. Web hecha; Android en la rama `android`.
+
 ## Clerk de producción (aviso de la sesión de Tu Local Web, 31/10)
 - Instancia compartida `clerk.grupovimo.com.ar` (app «Grupo Vimo»), Google y Apple activos, Access
   mode Open. Claves pk_live/sk_live: dashboard o CREDENCIALES.md de mostrador-v2, nunca al repo.
