@@ -97,6 +97,12 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		}
 		return listo(w)
 	}))
+	mux.Handle("DELETE /v1/yo", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		if err := s.Baja(r.Context(), p.ID); err != nil {
+			return err
+		}
+		return listo(w)
+	}))
 	mux.Handle("POST /v1/verificacion/selfie", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		var in struct {
 			ArchivoID string `json:"archivoId"`

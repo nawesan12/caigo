@@ -96,6 +96,7 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | POST | `/v1/webhooks/mercadopago` | pública | integraciones/mercadopago |
 | GET | `/v1/yo` | sesión | dominio/personas |
 | PATCH | `/v1/yo` | sesión | dominio/personas |
+| DELETE | `/v1/yo` | sesión | dominio/confianza |
 
 ## Caigo Plus: lo que suma (31/10)
 - `GET /v1/plus` → `estado` suma `encantasHoy`, `limiteEncantas` (1 sin Plus, 5 con Plus) y
@@ -109,3 +110,9 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
   `ciudad`, `desde`, `hasta`, `lat`, `lng`, `radio`) son para todos.
 - `POST /v1/planes/{id}/entradas` acepta `modo`: `entrada` (pagar todo) o `sena` (sólo si el plan
   tiene seña). Vacío: lo que diga el plan.
+
+## Borrar la cuenta (31/10)
+`DELETE /v1/yo` (204): perfil anónimo, se borran fotos, selfie, DNI (archivos y verificación),
+teléfono, sesiones y dispositivos; se cancelan sus planes y pedidos que no pasaron. Los pagos y el
+historial quedan atados al id sin datos. La cuenta de Clerk no se toca (es de todo Grupo Vimo): si
+vuelve a entrar, arranca una cuenta nueva. Plus hay que cancelarlo en la tienda.

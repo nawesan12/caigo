@@ -28,7 +28,8 @@ export const load: LayoutServerLoad = async (event) => {
 		conSesion<Verificacion>(event, 'GET', '/v1/verificacion')
 	]);
 	const verificada = !!verif.telefono && verif.selfie;
-	if (!verificada && event.route.id !== '/app/verificar') {
+	// Borrar la cuenta no pide verificarse antes.
+	if (!verificada && event.route.id !== '/app/verificar' && event.route.id !== '/app/borrar') {
 		const volver = event.url.pathname + event.url.search;
 		redirect(303, `/app/verificar?volver=${encodeURIComponent(volver)}`);
 	}

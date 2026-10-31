@@ -74,3 +74,8 @@ func (d Disco) Guardar(carpeta string, r io.Reader) (ruta, contenido string, n i
 func (d Disco) Abrir(ruta string) (*os.File, error) {
 	return os.Open(filepath.Join(d.Raiz, filepath.Clean("/"+ruta)))
 }
+
+// Borrar saca un archivo del disco (ruta relativa, ya validada contra la base).
+func (d Disco) Borrar(ruta string) error {
+	return os.Remove(filepath.Join(d.Raiz, filepath.Clean("/"+ruta)))
+}
