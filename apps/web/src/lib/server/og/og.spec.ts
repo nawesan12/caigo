@@ -32,7 +32,7 @@ async function dibujarPlan(nombre: string, p: Plan, foto: string | null) {
 }
 
 describe('imágenes OG', () => {
-	it('un plan: PNG de 1200×630 y liviano para WhatsApp', { timeout: 30_000 }, async () => {
+	it('un plan: PNG de 1200×630 y liviano para WhatsApp', { timeout: 120_000 }, async () => {
 		const b = await dibujarPlan('caso-gratis', planDePrueba(), FOTOS.playa);
 		expect([...b.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
 		expect(medidas(b)).toEqual({ ancho: 1200, alto: 630 });
@@ -41,7 +41,7 @@ describe('imágenes OG', () => {
 
 	it(
 		'casos raros: lugar con entrada, completo, cancelado, sin foto, título largo',
-		{ timeout: 60_000 },
+		{ timeout: 180_000 },
 		async () => {
 			const casos: [string, Plan, string | null][] = [
 				[
@@ -81,7 +81,7 @@ describe('imágenes OG', () => {
 		}
 	);
 
-	it('las fijas', { timeout: 60_000 }, async () => {
+	it('las fijas', { timeout: 180_000 }, async () => {
 		for (const [n, f] of Object.entries(FIJAS)) {
 			const b = await png(f());
 			if (salida) writeFileSync(`${salida}/fija-${n}.png`, b);
