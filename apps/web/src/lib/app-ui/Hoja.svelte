@@ -45,7 +45,7 @@
 		max-height: 88%;
 		overflow-y: auto;
 		border-radius: 32px 32px 0 0;
-		background: var(--blanco-calido);
+		background: var(--c-fondo);
 		padding: 12px 20px calc(30px + env(safe-area-inset-bottom));
 		display: flex;
 		flex-direction: column;

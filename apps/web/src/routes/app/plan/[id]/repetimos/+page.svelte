@@ -158,7 +158,7 @@
 		display: grid;
 		place-items: center;
 		color: var(--carbon);
-		background: linear-gradient(180deg, #ffffff, #f3f0fa);
+		background: var(--c-gel-blanco);
 		box-shadow:
 			inset 0 2px 0 #ffffff,
 			0 3px 0 #dcd5ee;
@@ -203,7 +203,7 @@
 	.hoja {
 		flex: 1;
 		border-radius: 32px 32px 0 0;
-		background: var(--blanco-calido);
+		background: var(--c-fondo);
 		padding: 24px 20px calc(14px + env(safe-area-inset-bottom));
 		display: flex;
 		flex-direction: column;
@@ -230,7 +230,7 @@
 		gap: 12px;
 		padding: 12px;
 		border-radius: 20px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		box-shadow: var(--sh-tarjeta-plan);
 	}
 	.pc {

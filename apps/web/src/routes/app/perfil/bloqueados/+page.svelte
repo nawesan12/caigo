@@ -71,7 +71,7 @@
 		display: flex;
 		flex-direction: column;
 		border-radius: 22px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		box-shadow: var(--sh-tarjeta-plana);
 	}
 	.fila {
@@ -79,7 +79,7 @@
 		align-items: center;
 		gap: 12px;
 		padding: 12px 14px;
-		border-bottom: 1px solid #f0ecff;
+		border-bottom: 1px solid var(--c-linea);
 	}
 	.fila:last-child {
 		border-bottom: 0;

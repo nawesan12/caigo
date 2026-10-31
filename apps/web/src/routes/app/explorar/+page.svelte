@@ -348,11 +348,8 @@
 		height: 60px;
 		padding: 0 8px 0 18px;
 		border-radius: 22px;
-		background: #ffffff;
-		box-shadow:
-			inset 0 1.5px 0 #ffffff,
-			0 2px 0 #e8e3f4,
-			0 16px 30px -12px rgba(80, 60, 160, 0.3);
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-buscar);
 	}
 	.buscar input {
 		flex: 1;
@@ -363,7 +360,7 @@
 		font-weight: 500;
 	}
 	.buscar input::placeholder {
-		color: #8a8699;
+		color: var(--c-tab);
 	}
 	.filtrar {
 		flex: none;
@@ -385,7 +382,7 @@
 		gap: 10px;
 		padding: 16px;
 		border-radius: 22px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		box-shadow: var(--sh-tarjeta-plana);
 	}
 	.chips {
@@ -506,11 +503,9 @@
 		gap: 3px;
 		padding: 10px 0;
 		border-radius: 18px;
-		background: linear-gradient(180deg, #ffffff, #f6f3ff);
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 2px 0 #e8e3f4;
-		color: #24212d;
+		background: var(--c-dia);
+		box-shadow: var(--sh-dia);
+		color: var(--carbon);
 		text-decoration: none;
 	}
 	.dia.on {
@@ -620,7 +615,7 @@
 	.sec span {
 		font-size: 13px;
 		font-weight: 700;
-		color: #7456f1;
+		color: var(--c-acento);
 	}
 	.fila {
 		display: grid;
@@ -629,11 +624,8 @@
 		align-items: center;
 		padding: 10px 14px 10px 10px;
 		border-radius: 24px;
-		background: #ffffff;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 2px 0 #e8e3f4,
-			0 12px 24px -12px rgba(80, 60, 160, 0.22);
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-info);
 		color: inherit;
 		text-decoration: none;
 		margin-top: -8px;
@@ -658,7 +650,7 @@
 	.fh {
 		font-size: 12px;
 		font-weight: 800;
-		color: #7456f1;
+		color: var(--c-acento);
 	}
 	.ft {
 		font-size: 15px;
@@ -675,12 +667,13 @@
 		white-space: nowrap;
 		padding: 7px 10px;
 		border-radius: 12px;
-		background: linear-gradient(180deg, #f8f6ff, #eae4ff);
+		background: var(--c-fb);
 		font:
 			700 15px/1 'Geist',
 			sans-serif;
 	}
 	.fb.coral {
+		color: #24212d;
 		background: linear-gradient(180deg, #ffa597, #ff7868 50%, #f2604f);
 	}
 </style>

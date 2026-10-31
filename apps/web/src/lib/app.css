@@ -49,6 +49,177 @@
 	--sh-tarjeta: inset 0 1px 0 #ffffff, 0 3px 0 #e6e0f3, 0 18px 30px -22px rgba(80, 60, 160, 0.35);
 	--sh-tarjeta-plana: inset 0 1px 0 #ffffff, 0 3px 0 #e6e0f3;
 	--sh-input: inset 0 2px 4px rgba(116, 86, 241, 0.14);
+
+	/* Superficies de /app que cambian con el tema (14a/14b). En claro valen lo de siempre. */
+	--c-fondo: #faf9f6;
+	--c-fondo-tel:
+		url(/grain.png), radial-gradient(90% 38% at 100% 0%, #ece5ff 0%, rgba(236, 229, 255, 0) 70%),
+		#faf9f6;
+	--c-tarjeta: #ffffff;
+	--c-tarjeta-lisa: #ffffff;
+	--c-linea: #f0ecff;
+	--c-borde: #ece8f2;
+	--c-borde-chip: #e4defa;
+	--c-acento: #7456f1;
+	--c-seg: #f0ecff;
+	--c-seg-on: #ffffff;
+	--sh-seg-on: inset 0 1px 0 #ffffff, 0 3px 8px -2px rgba(80, 60, 160, 0.25);
+	--c-chip-on: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
+	--sh-chip-on: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 26px -10px rgba(36, 33, 45, 0.55);
+	--c-chip-on-texto: #faf9f6;
+	--c-barra: #ffffff;
+	--c-btn-hero: #faf9f6;
+	--sh-btn-hero: none;
+	--c-contador-borde: transparent;
+	--c-gel-blanco: linear-gradient(180deg, #ffffff, #f3f0fa);
+	--sh-gel-blanco: inset 0 2px 0 #ffffff, 0 4px 0 #dcd5ee;
+	--c-tab: #8a8699;
+	--c-tab-on: #7456f1;
+	--c-tabbar: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(244, 240, 255, 0.94));
+	--sh-tabbar:
+		inset 0 1.5px 0 #ffffff, inset 0 -2px 0 rgba(116, 86, 241, 0.08),
+		0 22px 40px -14px rgba(60, 40, 140, 0.45), 0 0 0 1px rgba(116, 86, 241, 0.07);
+	--c-tab-pill: linear-gradient(180deg, #f6f3ff, #e6deff);
+	--sh-tab-pill:
+		inset 0 1.5px 0 #ffffff, inset 0 -2px 0 rgba(116, 86, 241, 0.14),
+		0 4px 10px -4px rgba(116, 86, 241, 0.35);
+	--c-fb: linear-gradient(180deg, #f8f6ff, #eae4ff);
+	--sh-dia: inset 0 1px 0 #ffffff, 0 2px 0 #e8e3f4;
+	--c-dia: linear-gradient(180deg, #ffffff, #f6f3ff);
+	--sh-buscar: inset 0 1.5px 0 #ffffff, 0 2px 0 #e8e3f4, 0 16px 30px -12px rgba(80, 60, 160, 0.3);
+	--c-adentro: #24212d;
+	--c-input-2: #f6f4f0;
+	--c-esperando-texto: #5b43c9;
+	--c-esperando: #ede8ff;
+	--sh-info: inset 0 1px 0 #ffffff, 0 2px 0 #e8e3f4, 0 12px 24px -12px rgba(80, 60, 160, 0.22);
+	--c-contador: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
+	--c-cuando-texto: #faf9f6;
+	--c-cuando: var(--grad-oscuro);
+	--c-cat-texto: #24212d;
+	--c-cat: #faf9f6;
+}
+
+/*
+ * Modo oscuro de /app (Mockups v5, 14a–14b): fondo #201D2B, tarjetas #312C42 → #28243A y el lima
+ * como acento activo. Se elige en Perfil › Ajustes (cookie caigo_tema: claro, oscuro o sistema).
+ * Dos bloques iguales: uno para «Oscuro» y otro para «Como el teléfono» con el sistema en oscuro.
+ */
+[data-tema='oscuro'] {
+	color-scheme: dark;
+	--carbon: #faf9f6;
+	--texto-2: #a8a3bd;
+	--texto-3: #b9b4cc;
+	--violeta-texto: #b3a3ff;
+	--lavanda: #2e2a3d;
+	--input: #2e2a3d;
+	--sh-input: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+	--grad-off: linear-gradient(180deg, #36314a, #2b2738);
+	--sh-off: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+	--sh-icono: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+	--sh-tarjeta-plan: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 30px -14px rgba(0, 0, 0, 0.6);
+	--sh-tarjeta: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 30px -14px rgba(0, 0, 0, 0.6);
+	--sh-tarjeta-plana: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+	--c-fondo: #201d2b;
+	--c-fondo-tel:
+		url(/grain.png), radial-gradient(100% 40% at 100% 0%, #352b6e 0%, #201d2b 65%), #201d2b;
+	--c-tarjeta: linear-gradient(180deg, #312c42, #28243a);
+	--c-tarjeta-lisa: #2b2738;
+	--c-linea: #3a3550;
+	--c-borde: #332e45;
+	--c-borde-chip: #3a3550;
+	--c-acento: #c8f36b;
+	--c-seg: #2e2a3d;
+	--c-seg-on: linear-gradient(180deg, #56506c, #454058);
+	--sh-seg-on: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+	--c-chip-on: var(--grad-lima);
+	--sh-chip-on: var(--sh-lima);
+	--c-chip-on-texto: #24212d;
+	--c-barra: rgba(26, 24, 35, 0.94);
+	--c-btn-hero: linear-gradient(180deg, #36314a, #201d2b);
+	--sh-btn-hero: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+	--c-contador-borde: #3a3550;
+	--c-gel-blanco: linear-gradient(180deg, #36314a, #2b2738);
+	--sh-gel-blanco: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 0 #0e0d14;
+	--c-tab: #9a95b0;
+	--c-tab-on: #c8f36b;
+	--c-tabbar: linear-gradient(180deg, rgba(58, 52, 80, 0.96), rgba(38, 35, 52, 0.96));
+	--sh-tabbar: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 36px -10px rgba(0, 0, 0, 0.7);
+	--c-tab-pill: linear-gradient(180deg, #4a4362, #332e45);
+	--sh-tab-pill: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 4px 10px -4px rgba(0, 0, 0, 0.6);
+	--c-fb: linear-gradient(180deg, #36314a, #2b2738);
+	--sh-dia: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+	--c-dia: linear-gradient(180deg, #312c42, #28243a);
+	--sh-buscar: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 16px 30px -12px rgba(0, 0, 0, 0.5);
+	--c-adentro: #0e0d14;
+	--c-input-2: #2e2a3d;
+	--c-esperando-texto: #b3a3ff;
+	--c-esperando: #2e2a3d;
+	--sh-info: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+	--c-contador: url(/grain.png), radial-gradient(120% 100% at 0% 0%, #3f3860 0%, #2b2738 65%);
+	--c-cuando-texto: #24212d;
+	--c-cuando: #faf9f6;
+	--c-cat-texto: #faf9f6;
+	--c-cat: #201d2b;
+}
+@media (prefers-color-scheme: dark) {
+	[data-tema='sistema'] {
+		color-scheme: dark;
+		--carbon: #faf9f6;
+		--texto-2: #a8a3bd;
+		--texto-3: #b9b4cc;
+		--violeta-texto: #b3a3ff;
+		--lavanda: #2e2a3d;
+		--input: #2e2a3d;
+		--sh-input: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+		--grad-off: linear-gradient(180deg, #36314a, #2b2738);
+		--sh-off: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+		--sh-icono: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+		--sh-tarjeta-plan:
+			inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 30px -14px rgba(0, 0, 0, 0.6);
+		--sh-tarjeta: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 30px -14px rgba(0, 0, 0, 0.6);
+		--sh-tarjeta-plana: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+		--c-fondo: #201d2b;
+		--c-fondo-tel:
+			url(/grain.png), radial-gradient(100% 40% at 100% 0%, #352b6e 0%, #201d2b 65%), #201d2b;
+		--c-tarjeta: linear-gradient(180deg, #312c42, #28243a);
+		--c-tarjeta-lisa: #2b2738;
+		--c-linea: #3a3550;
+		--c-borde: #332e45;
+		--c-borde-chip: #3a3550;
+		--c-acento: #c8f36b;
+		--c-seg: #2e2a3d;
+		--c-seg-on: linear-gradient(180deg, #56506c, #454058);
+		--sh-seg-on: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+		--c-chip-on: var(--grad-lima);
+		--sh-chip-on: var(--sh-lima);
+		--c-chip-on-texto: #24212d;
+		--c-barra: rgba(26, 24, 35, 0.94);
+		--c-btn-hero: linear-gradient(180deg, #36314a, #201d2b);
+		--sh-btn-hero: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+		--c-contador-borde: #3a3550;
+		--c-gel-blanco: linear-gradient(180deg, #36314a, #2b2738);
+		--sh-gel-blanco: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 0 #0e0d14;
+		--c-tab: #9a95b0;
+		--c-tab-on: #c8f36b;
+		--c-tabbar: linear-gradient(180deg, rgba(58, 52, 80, 0.96), rgba(38, 35, 52, 0.96));
+		--sh-tabbar: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 36px -10px rgba(0, 0, 0, 0.7);
+		--c-tab-pill: linear-gradient(180deg, #4a4362, #332e45);
+		--sh-tab-pill: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 4px 10px -4px rgba(0, 0, 0, 0.6);
+		--c-fb: linear-gradient(180deg, #36314a, #2b2738);
+		--sh-dia: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+		--c-dia: linear-gradient(180deg, #312c42, #28243a);
+		--sh-buscar: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 16px 30px -12px rgba(0, 0, 0, 0.5);
+		--c-adentro: #0e0d14;
+		--c-input-2: #2e2a3d;
+		--c-esperando-texto: #b3a3ff;
+		--c-esperando: #2e2a3d;
+		--sh-info: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+		--c-contador: url(/grain.png), radial-gradient(120% 100% at 0% 0%, #3f3860 0%, #2b2738 65%);
+		--c-cuando-texto: #24212d;
+		--c-cuando: #faf9f6;
+		--c-cat-texto: #faf9f6;
+		--c-cat: #201d2b;
+	}
 }
 
 *,
@@ -158,12 +329,13 @@ img {
 	transform: none;
 }
 .gel-lima {
-	color: var(--carbon);
+	/* El texto de los botones de color queda oscuro también en el modo oscuro. */
+	color: #24212d;
 	background: var(--grad-lima);
 	box-shadow: var(--sh-lima);
 }
 .gel-lima:hover {
-	color: var(--carbon);
+	color: #24212d;
 }
 .gel-violeta {
 	color: #ffffff;
@@ -176,10 +348,8 @@ img {
 /* El blanco "Atrás" del panel. */
 .gel-blanco {
 	color: var(--carbon);
-	background: linear-gradient(180deg, #ffffff, #f3f0fa);
-	box-shadow:
-		inset 0 2px 0 #ffffff,
-		0 4px 0 #dcd5ee;
+	background: var(--c-gel-blanco);
+	box-shadow: var(--sh-gel-blanco);
 }
 .gel-blanco:hover {
 	color: var(--carbon);
@@ -188,7 +358,7 @@ img {
 /* ——— Badges ——— */
 .badge-coral {
 	display: inline-block;
-	color: var(--carbon);
+	color: #24212d;
 	background: var(--grad-coral);
 	box-shadow: var(--sh-coral);
 	font-weight: 700;
@@ -197,7 +367,7 @@ img {
 }
 .badge-completo {
 	display: inline-block;
-	color: var(--carbon);
+	color: #24212d;
 	background: linear-gradient(180deg, #f0ffc2, #c8f36b);
 	box-shadow: 0 3px 0 #94c43a;
 	font-weight: 700;
@@ -250,19 +420,19 @@ img {
 }
 .seg > [aria-current='page'],
 .seg > [aria-pressed='true'] {
-	background: #ffffff;
+	background: var(--c-seg-on);
 	color: var(--carbon);
 	box-shadow: 0 3px 8px -2px rgba(80, 60, 160, 0.3);
 }
 
 /* ——— Tarjetas ——— */
 .tarjeta {
-	background: #ffffff;
+	background: var(--c-tarjeta);
 	border-radius: 24px;
 	box-shadow: var(--sh-tarjeta);
 }
 .tarjeta-plana {
-	background: #ffffff;
+	background: var(--c-tarjeta);
 	border-radius: 22px;
 	box-shadow: var(--sh-tarjeta-plana);
 }

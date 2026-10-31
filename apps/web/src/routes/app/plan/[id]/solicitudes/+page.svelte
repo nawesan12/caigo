@@ -201,8 +201,8 @@
 		border-radius: 16px;
 		display: grid;
 		place-items: center;
-		color: #24212d;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		color: var(--carbon);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 	}
 	.cab-txt {
@@ -217,7 +217,7 @@
 	}
 	.cab-txt .s {
 		font-size: 13px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.contador {
 		display: flex;
@@ -259,11 +259,8 @@
 		gap: 12px;
 		padding: 14px;
 		border-radius: 24px;
-		background: #ffffff;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 2px 0 #e8e3f4,
-			0 12px 24px -12px rgba(80, 60, 160, 0.22);
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-info);
 	}
 	.sol.completan {
 		box-shadow: none;
@@ -282,7 +279,7 @@
 		height: 44px;
 		margin-left: -14px;
 		border-radius: 50%;
-		border: 2px solid #ffffff;
+		border: 2px solid var(--c-tarjeta-lisa);
 		background: #c8f36b;
 		display: grid;
 		place-items: center;
@@ -306,7 +303,7 @@
 	}
 	.d {
 		font-size: 12px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.completan-chip {
 		flex: none;
@@ -320,7 +317,7 @@
 	.msj {
 		padding: 10px 12px;
 		border-radius: 14px;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 		font-size: 14px;
 		line-height: 1.4;
@@ -350,9 +347,9 @@
 		font-size: 15px;
 	}
 	.no {
-		border: 1.5px solid #e4defa;
+		border: 1.5px solid var(--c-borde-chip);
 		font-weight: 700;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.vacio {
 		display: flex;
@@ -395,7 +392,7 @@
 	.vacio p {
 		font-size: 15px;
 		line-height: 1.5;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.cta {
 		align-self: stretch;

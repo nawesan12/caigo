@@ -360,7 +360,7 @@
 						onclick={() => (dondeAbierto = !dondeAbierto)}
 						aria-expanded={dondeAbierto}
 					>
-						<Icono nombre="pin" tam={20} color="#7456F1" trazo={2} />
+						<Icono nombre="pin" tam={20} color="var(--c-acento)" trazo={2} />
 						<span class="dcol">
 							<b>{f.lugarNombre || (f.lat ? 'Punto en el mapa' : 'Elegí el lugar')}</b>
 							<span>{[f.direccion, f.zona].filter(Boolean).join(', ') || f.ciudad}</span>
@@ -680,14 +680,14 @@
 		border-radius: 16px;
 		display: grid;
 		place-items: center;
-		color: #24212d;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		color: var(--carbon);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 	}
 	.paso {
 		font-size: 14px;
 		font-weight: 700;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.progreso {
 		display: grid;
@@ -716,7 +716,7 @@
 	.titulo {
 		height: 58px;
 		border-radius: 18px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		border: 2px solid #7456f1;
 		padding: 0 18px;
 		font-size: 18px;
@@ -734,11 +734,11 @@
 	.chip-a {
 		padding: 9px 13px;
 		border-radius: 13px;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 		font-size: 14px;
 		font-weight: 600;
-		color: #24212d;
+		color: var(--carbon);
 	}
 	.chip-a.sel {
 		background: var(--grad-violeta);
@@ -759,7 +759,7 @@
 		display: flex;
 		padding: 4px;
 		border-radius: 16px;
-		background: #f0ecff;
+		background: var(--lavanda);
 	}
 	.seg3 button {
 		flex: 1;
@@ -768,15 +768,13 @@
 		border-radius: 12px;
 		font-size: 14px;
 		font-weight: 600;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.seg3 button.on {
-		background: #ffffff;
-		color: #24212d;
+		background: var(--c-seg-on);
+		color: var(--carbon);
 		font-weight: 700;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 3px 8px -2px rgba(80, 60, 160, 0.25);
+		box-shadow: var(--sh-seg-on);
 	}
 	.horas {
 		display: flex;
@@ -786,8 +784,8 @@
 	.hora {
 		padding: 9px 13px;
 		border-radius: 13px;
-		background: #ffffff;
-		border: 1.5px solid #ece8f2;
+		background: var(--c-tarjeta);
+		border: 1.5px solid var(--c-borde);
 		font-size: 14px;
 		font-weight: 600;
 	}
@@ -803,8 +801,8 @@
 	.campo-b {
 		height: 50px;
 		border-radius: 16px;
-		background: #ffffff;
-		border: 1.5px solid #ece8f2;
+		background: var(--c-tarjeta);
+		border: 1.5px solid var(--c-borde);
 		padding: 0 14px;
 		font-size: 15px;
 		font-weight: 600;
@@ -867,8 +865,8 @@
 		gap: 12px;
 		padding: 14px 16px;
 		border-radius: 18px;
-		background: #ffffff;
-		border: 1.5px solid #ece8f2;
+		background: var(--c-tarjeta);
+		border: 1.5px solid var(--c-borde);
 		text-align: left;
 	}
 	.dcol {
@@ -883,7 +881,7 @@
 	}
 	.dcol span {
 		font-size: 12px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.cambiar {
 		font-size: 13px;
@@ -898,7 +896,7 @@
 	.ayuda {
 		font-size: 13px;
 		font-weight: 600;
-		color: #5c586b;
+		color: var(--texto-2);
 		line-height: 1.45;
 	}
 	.ayuda.centro {
@@ -922,7 +920,7 @@
 	}
 	.tg-txt span {
 		font-size: 12px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.tog {
 		flex: none;
@@ -941,7 +939,7 @@
 		width: 22px;
 		height: 22px;
 		border-radius: 50%;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		transition: left 0.15s;
 	}
 	.tog.on {
@@ -958,8 +956,8 @@
 	.caja {
 		padding: 14px;
 		border-radius: 22px;
-		background: #ffffff;
-		border: 1.5px solid #ece8f2;
+		background: var(--c-tarjeta);
+		border: 1.5px solid var(--c-borde);
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
@@ -975,7 +973,7 @@
 	.cl {
 		font-size: 13px;
 		font-weight: 700;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.coral {
 		color: #ff7868 !important;
@@ -989,11 +987,11 @@
 		width: 36px;
 		height: 36px;
 		border-radius: 12px;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 		font-size: 20px;
 		font-weight: 700;
-		color: #24212d;
+		color: var(--carbon);
 	}
 	.oscura .stp button {
 		background: #3a3550;
@@ -1013,14 +1011,14 @@
 		gap: 10px;
 		padding: 12px 14px;
 		border-radius: 16px;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 		font-size: 14px;
 		flex-wrap: wrap;
 	}
 	.pl {
 		font-weight: 600;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.pb {
 		padding: 5px 10px;
@@ -1037,7 +1035,7 @@
 	}
 	.sec span {
 		font-size: 13px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.edad-cab {
 		display: flex;
@@ -1091,7 +1089,7 @@
 		width: 24px;
 		height: 24px;
 		border-radius: 50%;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		border: 3px solid #7456f1;
 		cursor: pointer;
 	}
@@ -1100,7 +1098,7 @@
 		width: 18px;
 		height: 18px;
 		border-radius: 50%;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		border: 3px solid #7456f1;
 		cursor: pointer;
 	}
@@ -1115,12 +1113,12 @@
 		gap: 12px;
 		padding: 12px 14px;
 		border-radius: 18px;
-		background: #ffffff;
-		border: 1.5px solid #ece8f2;
+		background: var(--c-tarjeta);
+		border: 1.5px solid var(--c-borde);
 		text-align: left;
 	}
 	.radio.on {
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 		border: 2px solid #7456f1;
 	}
@@ -1130,7 +1128,7 @@
 		height: 22px;
 		border-radius: 50%;
 		border: 2px solid #cfc8e6;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 	}
 	.on .anillo {
 		border: 7px solid #7456f1;
@@ -1145,14 +1143,14 @@
 	}
 	.rcol span {
 		font-size: 12px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.opciones {
 		display: flex;
 		flex-direction: column;
 		border-radius: 20px;
-		background: #ffffff;
-		border: 1.5px solid #ece8f2;
+		background: var(--c-tarjeta);
+		border: 1.5px solid var(--c-borde);
 	}
 	.op {
 		display: flex;
@@ -1160,7 +1158,7 @@
 		justify-content: space-between;
 		gap: 12px;
 		padding: 13px 14px;
-		border-bottom: 1px solid #f0ecff;
+		border-bottom: 1px solid var(--c-linea);
 		font-size: 14px;
 		font-weight: 600;
 		text-align: left;
@@ -1187,7 +1185,7 @@
 		background: transparent;
 		font-size: 15px;
 		font-weight: 700;
-		color: #24212d;
+		color: var(--carbon);
 		text-align: right;
 	}
 	.error {

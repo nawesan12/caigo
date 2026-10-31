@@ -151,7 +151,7 @@
 		display: grid;
 		place-items: center;
 		color: var(--carbon);
-		background: linear-gradient(180deg, #ffffff, #f3f0fa);
+		background: var(--c-gel-blanco);
 		box-shadow:
 			inset 0 2px 0 #ffffff,
 			0 3px 0 #dcd5ee;
@@ -188,7 +188,7 @@
 		padding: 14px;
 		border-radius: 24px;
 		text-align: left;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		box-shadow:
 			inset 0 1px 0 #ffffff,
 			0 3px 0 #e6e0f3,

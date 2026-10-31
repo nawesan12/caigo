@@ -171,8 +171,8 @@
 		border-radius: 16px;
 		display: grid;
 		place-items: center;
-		color: #24212d;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		color: var(--carbon);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 	}
 	.cab-txt {
@@ -195,7 +195,7 @@
 		gap: 6px;
 		font-size: 12px;
 		font-weight: 600;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.cab-txt i {
 		width: 8px;
@@ -218,7 +218,7 @@
 		gap: 12px;
 		padding: 12px;
 		border-radius: 20px;
-		background: #f0ecff;
+		background: var(--lavanda);
 		color: inherit;
 		text-decoration: none;
 	}
@@ -247,12 +247,12 @@
 	}
 	.fcol span {
 		font-size: 12px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.ver {
 		font-size: 13px;
 		font-weight: 700;
-		color: #5b43c9;
+		color: var(--violeta-texto);
 	}
 	.mensajes {
 		flex: 1;
@@ -300,16 +300,13 @@
 	.on {
 		font-size: 11px;
 		font-weight: 700;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.burbuja {
 		padding: 10px 14px;
 		border-radius: 18px 18px 18px 6px;
-		background: #ffffff;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 2px 0 #e8e3f4,
-			0 12px 24px -12px rgba(80, 60, 160, 0.22);
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-info);
 		font-size: 15px;
 		line-height: 1.4;
 		overflow-wrap: anywhere;
@@ -317,8 +314,8 @@
 	.input {
 		flex: none;
 		padding: 10px 16px calc(30px + env(safe-area-inset-bottom));
-		background: #ffffff;
-		border-top: 1px solid #ece8f2;
+		background: var(--c-tarjeta);
+		border-top: 1px solid var(--c-borde);
 		display: flex;
 		gap: 10px;
 		align-items: center;
@@ -329,7 +326,7 @@
 		height: 44px;
 		border-radius: 15px;
 		border: 0;
-		background: #f6f4f0;
+		background: var(--c-input-2);
 		padding: 0 14px;
 		font-size: 15px;
 	}

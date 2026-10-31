@@ -24,7 +24,7 @@
 <div class="scroll">
 	<div class="arriba">
 		<button class="donde" onclick={() => pedirUbicacion()} aria-label="Usar mi ubicación">
-			<Icono nombre="pin" tam={16} color="#7456F1" />{lugar}<Icono
+			<Icono nombre="pin" tam={16} color="var(--c-acento)" />{lugar}<Icono
 				nombre="abajo"
 				tam={14}
 				color="#5C586B"
@@ -90,7 +90,7 @@
 		gap: 4px;
 		font-size: 14px;
 		font-weight: 600;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.titulo-fila {
 		display: flex;
@@ -107,23 +107,21 @@
 		display: flex;
 		padding: 4px;
 		border-radius: 14px;
-		background: #f0ecff;
+		background: var(--lavanda);
 	}
 	.seg-app a {
 		padding: 8px 14px;
 		border-radius: 11px;
 		font-size: 14px;
 		font-weight: 600;
-		color: #5c586b;
+		color: var(--texto-2);
 		text-decoration: none;
 	}
 	.seg-app a[aria-current='page'] {
-		background: #ffffff;
-		color: #24212d;
+		background: var(--c-seg-on);
+		color: var(--carbon);
 		font-weight: 700;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 3px 8px -2px rgba(80, 60, 160, 0.25);
+		box-shadow: var(--sh-seg-on);
 	}
 	.filtros {
 		display: flex;
@@ -140,21 +138,17 @@
 		flex: none;
 		padding: 9px 14px;
 		border-radius: 14px;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
-		box-shadow:
-			inset 0 1.5px 0 #ffffff,
-			inset 0 -2px 0 rgba(116, 86, 241, 0.1);
+		background: var(--grad-off);
+		box-shadow: var(--sh-icono);
 		font-size: 14px;
 		font-weight: 600;
-		color: #24212d;
+		color: var(--carbon);
 		text-decoration: none;
 	}
 	.filtro.on {
-		background: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.08),
-			0 12px 26px -10px rgba(36, 33, 45, 0.55);
-		color: #faf9f6;
+		background: var(--c-chip-on);
+		box-shadow: var(--sh-chip-on);
+		color: var(--c-chip-on-texto);
 		font-weight: 700;
 	}
 	.lista {
@@ -174,7 +168,7 @@
 	}
 	.resumen .s {
 		font-size: 13px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.vacio {
 		padding: 56px 28px 120px;

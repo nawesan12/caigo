@@ -297,7 +297,7 @@
 		display: grid;
 		place-items: center;
 		color: var(--carbon);
-		background: var(--blanco-calido);
+		background: var(--c-fondo);
 	}
 	.hacer {
 		position: absolute;

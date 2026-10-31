@@ -143,8 +143,8 @@
 		gap: 12px;
 		padding: 14px;
 		border-radius: 18px;
-		background: #ffffff;
-		border: 1.5px solid #ece8f2;
+		background: var(--c-tarjeta);
+		border: 1.5px solid var(--c-borde);
 		text-align: left;
 		font-size: 16px;
 		font-weight: 700;
@@ -161,7 +161,7 @@
 		height: 22px;
 		border-radius: 50%;
 		border: 2px solid #cfc8e6;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 	}
 	.on .anillo {
 		border: 7px solid var(--violeta);
@@ -204,7 +204,7 @@
 		width: 22px;
 		height: 22px;
 		border-radius: 50%;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		transition: left 0.15s;
 	}
 	.tog.on {

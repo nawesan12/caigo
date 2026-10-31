@@ -201,7 +201,7 @@
 		display: flex;
 		padding: 4px;
 		border-radius: 16px;
-		background: #f0ecff;
+		background: var(--lavanda);
 	}
 	.seg3 a {
 		flex: 1;
@@ -210,32 +210,27 @@
 		border-radius: 12px;
 		font-size: 14px;
 		font-weight: 600;
-		color: #5c586b;
+		color: var(--texto-2);
 		text-decoration: none;
 		white-space: nowrap;
 	}
 	.seg3 a[aria-current='page'] {
-		background: #ffffff;
-		color: #24212d;
+		background: var(--c-seg-on);
+		color: var(--carbon);
 		font-weight: 700;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 3px 8px -2px rgba(80, 60, 160, 0.25);
+		box-shadow: var(--sh-seg-on);
 	}
 	.overline-app {
 		font-size: 13px;
 		font-weight: 800;
 		letter-spacing: 1px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.tarjeta {
 		border-radius: 24px;
 		overflow: hidden;
-		background: #ffffff;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 2px 0 #e8e3f4,
-			0 16px 30px -10px rgba(80, 60, 160, 0.22);
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-tarjeta-plan);
 	}
 	.cuerpo {
 		display: flex;
@@ -271,7 +266,7 @@
 	}
 	.s {
 		font-size: 12px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.pie {
 		display: flex;
@@ -282,24 +277,26 @@
 		white-space: nowrap;
 		padding: 5px 10px;
 		border-radius: 10px;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 		font:
 			700 15px/1 'Geist',
 			sans-serif;
 	}
 	.b.coral {
+		color: #24212d;
 		background: var(--grad-coral);
 		box-shadow: var(--sh-coral);
 	}
 	.b.completo {
+		color: #24212d;
 		background: var(--grad-lima);
 		box-shadow: var(--sh-lima);
 	}
 	.estado {
 		font-size: 12px;
 		font-weight: 700;
-		color: #5b43c9;
+		color: var(--violeta-texto);
 	}
 	.pedidos {
 		display: flex;
@@ -348,7 +345,7 @@
 		width: 76px;
 		height: 76px;
 		border-radius: 50%;
-		background: #f0ecff;
+		background: var(--lavanda);
 		border: 3px dashed #b9acf5;
 	}
 	.b1 + .b1 {
@@ -376,7 +373,7 @@
 	.vacio p {
 		font-size: 15px;
 		line-height: 1.5;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.cta {
 		align-self: stretch;

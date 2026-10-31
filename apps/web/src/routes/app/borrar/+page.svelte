@@ -70,8 +70,8 @@
 		border-radius: 16px;
 		display: grid;
 		place-items: center;
-		color: #24212d;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		color: var(--carbon);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 	}
 	.t {
@@ -85,10 +85,8 @@
 		gap: 10px;
 		padding: 18px;
 		border-radius: 22px;
-		background: #ffffff;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 3px 0 #e6e0f3;
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-tarjeta-plana);
 	}
 	.tt {
 		font-size: 18px;
@@ -99,7 +97,7 @@
 		font-size: 14px;
 		font-weight: 600;
 		line-height: 1.4;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	form {
 		display: flex;

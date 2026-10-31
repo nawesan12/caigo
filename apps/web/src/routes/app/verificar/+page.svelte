@@ -258,7 +258,7 @@
 					{#if camara === 'prendida'}
 						<video bind:this={video} playsinline muted autoplay></video>
 					{:else}
-						<Icono nombre="usuario" tam={96} color="#7456F1" trazo={1.4} />
+						<Icono nombre="usuario" tam={96} color="var(--c-acento)" trazo={1.4} />
 					{/if}
 				</div>
 			</div>
@@ -274,8 +274,8 @@
 			</div>
 			<div class="pie">
 				<span class="nota"
-					><Icono nombre="escudo" tam={16} color="#7456F1" trazo={2} />Prueba de vida · tus datos
-					viajan encriptados</span
+					><Icono nombre="escudo" tam={16} color="var(--c-acento)" trazo={2} />Prueba de vida · tus
+					datos viajan encriptados</span
 				>
 				{#if camara === 'sin'}
 					<label class="gel gel-lima cta">
@@ -313,14 +313,14 @@
 		border-radius: 16px;
 		display: grid;
 		place-items: center;
-		color: #24212d;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		color: var(--carbon);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 	}
 	.paso {
 		font-size: 14px;
 		font-weight: 700;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.txt {
 		display: flex;
@@ -336,7 +336,7 @@
 	.txt p {
 		font-size: 15px;
 		line-height: 1.5;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.form {
 		display: flex;
@@ -352,7 +352,7 @@
 		height: 60px;
 		padding: 0 16px;
 		border-radius: 18px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		border: 1.5px solid #e6e1f2;
 		display: flex;
 		align-items: center;
@@ -365,7 +365,7 @@
 		height: 60px;
 		padding: 0 18px;
 		border-radius: 18px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		border: 2px solid #7456f1;
 		font-size: 18px;
 		font-weight: 600;
@@ -411,7 +411,7 @@
 	.celda {
 		height: 58px;
 		border-radius: 16px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		border: 1.5px solid #e6e1f2;
 		display: grid;
 		place-items: center;
@@ -421,7 +421,7 @@
 	}
 	.celda.llena {
 		border: 0;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 	}
 	.celda.actual {
@@ -439,7 +439,7 @@
 		align-items: center;
 		gap: 6px;
 		font-size: 13px;
-		color: #5c586b;
+		color: var(--texto-2);
 		text-align: center;
 	}
 	.cta {
@@ -507,13 +507,13 @@
 		border-radius: 12px;
 		font-size: 13px;
 		font-weight: 700;
-		color: #5c586b;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		color: var(--texto-2);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 		white-space: nowrap;
 	}
 	.chip-v.ok {
-		color: #24212d;
+		color: var(--carbon);
 		background: var(--grad-lima);
 		box-shadow: var(--sh-lima);
 	}

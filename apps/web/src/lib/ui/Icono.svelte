@@ -56,7 +56,7 @@
 	height={tam}
 	viewBox="0 0 24 24"
 	fill="none"
-	stroke={color}
+	style:stroke={color}
 	stroke-width={trazo}
 	stroke-linecap="round"
 	stroke-linejoin="round"

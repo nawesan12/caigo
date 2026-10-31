@@ -236,7 +236,7 @@
 		gap: 8px;
 		padding: 18px;
 		border-radius: 24px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		box-shadow: var(--sh-tarjeta-plana);
 	}
 	.bio {
@@ -284,7 +284,7 @@
 		justify-content: space-between;
 		padding: 14px;
 		border-radius: 22px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		box-shadow: var(--sh-tarjeta-plan);
 	}
 	.g-txt {
@@ -304,7 +304,7 @@
 		width: 34px;
 		height: 34px;
 		border-radius: 50%;
-		border: 2px solid #ffffff;
+		border: 2px solid var(--c-tarjeta-lisa);
 		background: #e4defa;
 		color: var(--violeta-texto);
 		display: grid;
@@ -315,7 +315,7 @@
 	.comp {
 		padding: 10px 12px;
 		border-radius: 16px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		box-shadow: var(--sh-tarjeta-plan);
 		font-size: 13px;
 		font-weight: 600;

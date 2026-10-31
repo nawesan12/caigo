@@ -99,7 +99,7 @@
 					height="20"
 					viewBox="0 0 24 24"
 					fill="none"
-					stroke="#24212D"
+					stroke="currentColor"
 					stroke-width="2.2"
 					stroke-linecap="round"
 					stroke-linejoin="round"
@@ -166,11 +166,11 @@
 
 		<div class="info">
 			<div class="fila">
-				<Icono nombre="reloj" tam={20} color="#7456F1" trazo={2} />
+				<Icono nombre="reloj" tam={20} color="var(--c-acento)" trazo={2} />
 				<span class="ft">{horario(p.empiezaEn, p.duracionMin)}</span>
 			</div>
 			<div class="fila">
-				<Icono nombre="pin" tam={20} color="#7456F1" trazo={2} />
+				<Icono nombre="pin" tam={20} color="var(--c-acento)" trazo={2} />
 				<div class="fcol">
 					{#if p.direccion}
 						<span class="ft">{p.direccion.texto}</span>
@@ -206,7 +206,7 @@
 			{/if}
 			{#if p.beneficio}
 				<div class="fila">
-					<Icono nombre="regalo" tam={20} color="#7456F1" trazo={2} />
+					<Icono nombre="regalo" tam={20} color="var(--c-acento)" trazo={2} />
 					<span class="ft">Con check-in: {p.beneficio}</span>
 				</div>
 			{/if}
@@ -398,15 +398,16 @@
 		width: 44px;
 		height: 44px;
 		border-radius: 16px;
-		background: #faf9f6;
+		background: var(--c-btn-hero);
+		box-shadow: var(--sh-btn-hero);
 		display: grid;
 		place-items: center;
-		color: #24212d;
+		color: var(--carbon);
 	}
 	.hoja {
 		position: relative;
 		border-radius: 32px 32px 0 0;
-		background: #faf9f6;
+		background: var(--c-fondo);
 		padding: 22px 20px 0;
 		display: flex;
 		flex-direction: column;
@@ -424,14 +425,16 @@
 		font-weight: 700;
 	}
 	.chip-off {
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 	}
 	.chip-coral {
+		color: #24212d;
 		background: var(--grad-coral);
 		box-shadow: var(--sh-coral);
 	}
 	.chip-lima {
+		color: #24212d;
 		background: #c8f36b;
 	}
 	h1 {
@@ -443,7 +446,9 @@
 	.contador {
 		padding: 16px;
 		border-radius: 24px;
-		background: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
+		background: var(--c-contador);
+		outline: 1px solid var(--c-contador-borde);
+		outline-offset: -1px;
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.08),
 			0 12px 26px -10px rgba(36, 33, 45, 0.55);
@@ -532,24 +537,21 @@
 	}
 	.or {
 		font-size: 13px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.info {
 		display: flex;
 		flex-direction: column;
 		border-radius: 20px;
-		background: #ffffff;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 2px 0 #e8e3f4,
-			0 12px 24px -12px rgba(80, 60, 160, 0.22);
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-info);
 	}
 	.fila {
 		display: flex;
 		gap: 12px;
 		align-items: center;
 		padding: 12px 14px;
-		border-bottom: 1px solid #f0ecff;
+		border-bottom: 1px solid var(--c-linea);
 	}
 	.fila:last-child {
 		border-bottom: 0;
@@ -566,7 +568,7 @@
 	}
 	.fs {
 		font-size: 12px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.peso {
 		width: 20px;
@@ -579,7 +581,7 @@
 	.desc {
 		font-size: 14px;
 		line-height: 1.5;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.reqs {
 		display: flex;
@@ -589,13 +591,13 @@
 	.rl {
 		font-size: 13px;
 		font-weight: 700;
-		color: #5c586b;
+		color: var(--texto-2);
 		padding: 6px 0;
 	}
 	.req {
 		padding: 6px 10px;
 		border-radius: 11px;
-		border: 1.5px solid #e4defa;
+		border: 1.5px solid var(--c-borde-chip);
 		font-size: 12px;
 		font-weight: 700;
 	}
@@ -611,8 +613,8 @@
 		background: #c8f36b;
 	}
 	.aviso.pendiente {
-		background: #f0ecff;
-		color: #5b43c9;
+		background: var(--lavanda);
+		color: var(--violeta-texto);
 	}
 	.aviso.error {
 		background: #ffe1db;
@@ -626,8 +628,8 @@
 		bottom: 0;
 		z-index: 5;
 		padding: 12px 20px calc(30px + env(safe-area-inset-bottom));
-		background: #ffffff;
-		border-top: 1px solid #ece8f2;
+		background: var(--c-barra);
+		border-top: 1px solid var(--c-borde);
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
@@ -646,15 +648,13 @@
 		border-radius: 20px;
 		text-align: left;
 		font: inherit;
-		color: #24212d;
+		color: var(--carbon);
 		cursor: pointer;
-		background: #ffffff;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 3px 0 #e6e0f3;
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-tarjeta-plana);
 	}
 	.modos button.elegido {
-		background: #f0ecff;
+		background: var(--lavanda);
 		box-shadow:
 			inset 0 0 0 2.5px #7456f1,
 			0 3px 0 #c9bef5;
@@ -667,7 +667,7 @@
 		font-size: 12px;
 		font-weight: 600;
 		line-height: 1.35;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.barra form {
 		display: flex;
@@ -678,7 +678,7 @@
 		display: flex;
 		padding: 4px;
 		border-radius: 15px;
-		background: #f0ecff;
+		background: var(--lavanda);
 	}
 	.seg-solo button {
 		flex: 1;
@@ -687,15 +687,13 @@
 		border-radius: 12px;
 		font-size: 14px;
 		font-weight: 600;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.seg-solo button.on {
-		background: #ffffff;
-		color: #24212d;
+		background: var(--c-seg-on);
+		color: var(--carbon);
 		font-weight: 700;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 3px 8px -2px rgba(80, 60, 160, 0.25);
+		box-shadow: var(--sh-seg-on);
 	}
 	.cuantos {
 		display: flex;
@@ -704,17 +702,17 @@
 		gap: 14px;
 		font-size: 14px;
 		font-weight: 700;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.cuantos button {
 		width: 36px;
 		height: 36px;
 		border-radius: 12px;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 		font-size: 20px;
 		font-weight: 700;
-		color: #24212d;
+		color: var(--carbon);
 	}
 	.cuantos b {
 		min-width: 28px;
@@ -722,13 +720,13 @@
 		font:
 			800 28px/1 'Geist',
 			sans-serif;
-		color: #24212d;
+		color: var(--carbon);
 	}
 	.mensaje {
 		height: 44px;
 		border-radius: 15px;
 		border: 0;
-		background: #f6f4f0;
+		background: var(--c-input-2);
 		padding: 0 14px;
 		font-size: 15px;
 	}
@@ -755,13 +753,13 @@
 		font-weight: 800;
 	}
 	.esperando {
-		color: #5b43c9;
-		background: #ede8ff;
+		color: var(--c-esperando-texto);
+		background: var(--c-esperando);
 		box-shadow: inset 0 2px 4px rgba(116, 86, 241, 0.18);
 	}
 	.adentro {
 		color: #ffffff;
-		background: #24212d;
+		background: var(--c-adentro);
 	}
 	.cancelar {
 		align-items: center;
@@ -769,7 +767,7 @@
 	.cancelar button {
 		font-size: 14px;
 		font-weight: 700;
-		color: #5b43c9;
+		color: var(--violeta-texto);
 	}
 	.acciones {
 		display: flex;

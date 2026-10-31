@@ -179,7 +179,7 @@
 		min-width: 0;
 		height: 50px;
 		border-radius: 18px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		display: flex;
 		align-items: center;
 		gap: 10px;
@@ -194,13 +194,13 @@
 		font-size: 15px;
 	}
 	.buscar input::placeholder {
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.seg-mapa {
 		display: flex;
 		padding: 4px;
 		border-radius: 16px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		box-shadow: 0 8px 24px rgba(36, 33, 45, 0.1);
 	}
 	.seg-mapa a {
@@ -208,7 +208,7 @@
 		border-radius: 12px;
 		font-size: 14px;
 		font-weight: 600;
-		color: #5c586b;
+		color: var(--texto-2);
 		text-decoration: none;
 	}
 	.seg-mapa a[aria-current='page'] {
@@ -229,10 +229,10 @@
 		flex: none;
 		padding: 8px 13px;
 		border-radius: 13px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		font-size: 13px;
 		font-weight: 600;
-		color: #24212d;
+		color: var(--carbon);
 		text-decoration: none;
 	}
 	.filtro.on {
@@ -248,7 +248,7 @@
 		width: 46px;
 		height: 46px;
 		border-radius: 16px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		display: grid;
 		place-items: center;
 		box-shadow: 0 8px 20px rgba(36, 33, 45, 0.12);
@@ -261,7 +261,7 @@
 		bottom: calc(100px + env(safe-area-inset-bottom));
 		padding: 12px;
 		border-radius: 26px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		display: flex;
 		gap: 12px;
 		align-items: center;
@@ -311,7 +311,7 @@
 		font-weight: 700;
 	}
 	.lav {
-		background: #f0ecff;
+		background: var(--lavanda);
 	}
 	.osc {
 		background: #24212d;
@@ -324,7 +324,7 @@
 	}
 	.fs {
 		font-size: 12px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.fpie {
 		display: flex;

@@ -57,7 +57,7 @@
 
 		<div class="lista">
 			<a class="fila" href="/app/perfil/editar">
-				<Icono nombre="usuario" tam={20} color="#7456F1" trazo={2} />
+				<Icono nombre="usuario" tam={20} color="var(--c-acento)" trazo={2} />
 				<span class="ft"
 					><b>Editar perfil</b><span>Fotos, sobre mí, preguntas y lo que te copa</span></span
 				>
@@ -135,7 +135,7 @@
 					onclick={() => (editandoContacto = !editandoContacto)}
 					aria-expanded={editandoContacto}
 				>
-					<Icono nombre="usuario" tam={20} color="#7456F1" trazo={2} />
+					<Icono nombre="usuario" tam={20} color="var(--c-acento)" trazo={2} />
 					<span class="ft"
 						><b>Contacto de confianza</b><span
 							>{contacto || 'Recibe tu plan en vivo cuando lo compartís'}</span
@@ -166,7 +166,7 @@
 				{/if}
 			</div>
 			<a class="fila" href="/app/perfil/bloqueados">
-				<Icono nombre="escudo" tam={20} color="#7456F1" trazo={2} />
+				<Icono nombre="escudo" tam={20} color="var(--c-acento)" trazo={2} />
 				<span class="ft"
 					><b>Bloqueos y reportes</b><span>Los revisa una persona del equipo, no un&nbsp;bot</span
 					></span
@@ -188,14 +188,14 @@
 			<input type="hidden" name="pc" value={avisos.planesCerca ? '1' : '0'} />
 			<input type="hidden" name="tg" value={avisos.tuGente ? '1' : '0'} />
 			<button class="fila" name="cambia" value="pc" role="switch" aria-checked={avisos.planesCerca}>
-				<Icono nombre="pin" tam={20} color="#7456F1" trazo={2} />
+				<Icono nombre="pin" tam={20} color="var(--c-acento)" trazo={2} />
 				<span class="ft"
 					><b>Planes cerca</b><span>Cuando se arma algo a menos de 5&nbsp;km</span></span
 				>
 				<span class="toggle" class:on={avisos.planesCerca}></span>
 			</button>
 			<button class="fila" name="cambia" value="tg" role="switch" aria-checked={avisos.tuGente}>
-				<Icono nombre="personas" tam={20} color="#7456F1" trazo={2} />
+				<Icono nombre="personas" tam={20} color="var(--c-acento)" trazo={2} />
 				<span class="ft"
 					><b>Planes de tu gente</b><span>Cuando alguien de tu gente publica un&nbsp;plan</span
 					></span
@@ -245,7 +245,7 @@
 		display: flex;
 		flex-direction: column;
 		border-radius: 22px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		box-shadow: var(--sh-tarjeta-plana);
 	}
 	.fila {
@@ -264,7 +264,7 @@
 	}
 	.lista > .fila,
 	.lista > .fila-col {
-		border-bottom: 1px solid #f0ecff;
+		border-bottom: 1px solid var(--c-linea);
 	}
 	.lista > :last-child {
 		border-bottom: 0;
@@ -284,7 +284,7 @@
 		color: var(--texto-2);
 	}
 	.tarjeta-plana.fila {
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		border-radius: 22px;
 	}
 	.chips {
@@ -328,7 +328,7 @@
 		font-weight: 800;
 	}
 	.seg.tema button[aria-pressed='true'] {
-		background: #ffffff;
+		background: var(--c-tarjeta);
 	}
 	.pie {
 		margin-top: 10px;

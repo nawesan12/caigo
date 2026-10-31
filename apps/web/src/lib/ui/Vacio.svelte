@@ -41,7 +41,7 @@
 	p {
 		font-size: 15px;
 		line-height: 1.5;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.salidas {
 		align-self: stretch;

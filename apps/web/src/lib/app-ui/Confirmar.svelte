@@ -75,7 +75,7 @@
 		font-size: 16px;
 	}
 	.no {
-		border: 1.5px solid #e4defa;
+		border: 1.5px solid var(--c-borde-chip);
 		font-weight: 700;
 		color: var(--texto-2);
 	}
