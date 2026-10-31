@@ -470,7 +470,7 @@ fun QrEntrada(ir: Ir, entradaId: String) {
 
 /** Lo que dice la política de cancelación del plan (flex | mod | strict), con las reglas del contrato §2. */
 internal fun textoPolitica(cancelacion: String): String = when (cancelacion) {
-    "flex" -> "Hasta 24 h antes te devolvemos todo, menos el cargo por servicio."
+    "flex" -> "Hasta 24 h antes te devolvemos todo, menos el cargo por servicio. Después podés cancelar igual, pero sin devolución."
     "mod" -> "Hasta 72 h antes te devolvemos todo, menos el cargo por servicio. Después, lo que pagaste no se devuelve."
     "strict" -> "Este plan no devuelve las entradas si cancelás."
     else -> "Te devolvemos según la política del lugar, menos el cargo por servicio."

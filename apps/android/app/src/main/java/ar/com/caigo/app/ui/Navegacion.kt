@@ -166,6 +166,8 @@ fun CaigoNav(c: Contenedor) {
                 "detalle" -> d.plan?.let { ir.plan(it) }
                 "checkin" -> d.plan?.let { ir.checkin(it) }
                 "repetimos" -> d.plan?.let { ir.repetimos(it) }
+                // solicitud.rechazada / solicitud.sacada: de vuelta a Ahora a buscar otro plan.
+                "ahora" -> ir.principal(Pestana.Ahora)
                 "recibidos" -> ir.recibidos(d.modo ?: "gente", 0)
                 "invitaciones" -> ir.recibidos("gente", 1)
                 "pases" -> ir.pases()
