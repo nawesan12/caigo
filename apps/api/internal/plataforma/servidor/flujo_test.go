@@ -34,6 +34,10 @@ type entorno struct {
 func nuevoEntorno(t *testing.T) *entorno { return nuevoEntornoCon(t, nil) }
 
 func nuevoEntornoCon(t *testing.T, tiendas *plus.Tiendas) *entorno {
+	return nuevoEntornoAjustado(t, func(d *servidor.Dependencias) { d.Tiendas = tiendas })
+}
+
+func nuevoEntornoAjustado(t *testing.T, ajustar func(*servidor.Dependencias)) *entorno {
 	t.Helper()
 	t.Setenv("CAIGO_ENTORNO", "desarrollo")
 	cfg, err := config.Leer()
@@ -56,8 +60,10 @@ func nuevoEntornoCon(t *testing.T, tiendas *plus.Tiendas) *entorno {
 	t.Cleanup(mig.Close)
 	f := clerkfalso.Nuevo(t)
 	c := &clerk.Cliente{Secreto: clerkfalso.Secreto, Emisor: clerkfalso.Emisor, API: f.URL, HTTP: f.Client()}
-	h := servidor.Nuevo(servidor.Dependencias{App: app, Clerk: c, Secreto: "secreto-de-prueba", Tiendas: tiendas,
-		Sitio: "https://caigo.test", APIPublica: "https://api.caigo.test", Archivos: t.TempDir()})
+	d := servidor.Dependencias{App: app, Clerk: c, Secreto: "secreto-de-prueba",
+		Sitio: "https://caigo.test", APIPublica: "https://api.caigo.test", Panel: "https://lugares.caigo.test", Archivos: t.TempDir()}
+	ajustar(&d)
+	h := servidor.Nuevo(d)
 	return &entorno{t: t, h: h, clerk: f, app: app, migrador: mig}
 }
 

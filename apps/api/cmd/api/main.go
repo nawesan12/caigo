@@ -8,12 +8,15 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/chat"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
 	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/cifrado"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
@@ -70,6 +73,21 @@ func correr() error {
 			SecretoWebhook: cfg.MPSecretoWebhook}
 	}
 	deps.ClaveGoogle = cfg.GoogleClaveWebhook
+	ap, err := wallet.AppleDesde(cfg.WalletPassType, cfg.APNsTeamID, cfg.WalletCert, cfg.WalletClave,
+		strings.TrimRight(cfg.APIPublica, "/")+"/v1/wallet", []byte(cfg.Secreto))
+	if err != nil {
+		return err
+	}
+	deps.Wallet = &wallet.Servicio{Apple: ap}
+	if cuentaPlay != nil && cfg.GoogleWalletEmisor != "" {
+		deps.Wallet.Google = &wallet.Google{Cuenta: cuentaPlay, Emisor: cfg.GoogleWalletEmisor, Origenes: []string{cfg.Sitio}}
+	}
+	deps.Panel = cfg.Panel
+	if cfg.ClaveCifrado != "" {
+		if deps.Cifra, err = cifrado.Nuevo(cfg.ClaveCifrado); err != nil {
+			return err
+		}
+	}
 	if cfg.ClerkSecreto != "" {
 		c, err := clerk.Nuevo(cfg.ClerkSecreto, cfg.ClerkPublicable, cfg.ClerkOrigenes)
 		if err != nil {

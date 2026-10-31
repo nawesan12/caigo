@@ -29,12 +29,15 @@ type Config struct {
 	AppleBundle, GooglePlayCuenta, GooglePaquete, GoogleClaveWebhook string
 	// Mercado Pago (app de Caigo): id, secreto, token de la cuenta, secreto de webhooks.
 	MPAppID, MPSecreto, MPToken, MPSecretoWebhook string
+	// Wallet: Pass Type ID con su certificado y clave (PEM) para Apple, y emisor de Google Wallet
+	// (con la cuenta de servicio de Google Play, que también firma los links).
+	WalletPassType, WalletCert, WalletClave, GoogleWalletEmisor string
 	// Clave maestra (32 bytes en base64) para cifrar los tokens de Mercado Pago de los lugares.
 	ClaveCifrado string
 	// Clave para firmar QR de check-in, placas y links en vivo (32+ bytes al azar en producción).
 	Secreto string
-	// URL pública de la API (para armar las URLs de las fotos).
-	APIPublica string
+	// URL pública de la API (para armar las URLs de las fotos) y del panel de lugares.
+	APIPublica, Panel string
 	// Carpeta de archivos subidos (fotos de perfil y de planes, DNI). En el VPS: /opt/caigo/archivos.
 	Archivos string
 }
@@ -70,6 +73,10 @@ func Leer() (Config, error) {
 		MPToken:            os.Getenv("CAIGO_MP_TOKEN"),
 		MPSecretoWebhook:   os.Getenv("CAIGO_MP_SECRETO_WEBHOOK"),
 		ClaveCifrado:       os.Getenv("CAIGO_CLAVE_CIFRADO"),
+		WalletPassType:     valor("CAIGO_WALLET_PASS_TYPE", "pass.ar.com.caigo"),
+		WalletCert:         os.Getenv("CAIGO_WALLET_CERT"),
+		WalletClave:        os.Getenv("CAIGO_WALLET_CLAVE"),
+		GoogleWalletEmisor: os.Getenv("CAIGO_GOOGLE_WALLET_EMISOR"),
 		APIPublica:         valor("CAIGO_API_PUBLICA", "https://api.caigo.com.ar"),
 	}
 	switch c.Entorno {
@@ -88,6 +95,7 @@ func Leer() (Config, error) {
 		c.Archivos = conDefecto(os.Getenv("CAIGO_ARCHIVOS"), "archivos")
 		c.Secreto = conDefecto(c.Secreto, "secreto-de-desarrollo-no-usar-en-produccion")
 		c.APIPublica = conDefecto(os.Getenv("CAIGO_API_PUBLICA"), "http://localhost:4300")
+		c.Panel = conDefecto(os.Getenv("CAIGO_PANEL"), "http://lugares.localhost:5173")
 		if os.Getenv("CAIGO_CLERK_ORIGENES") == "" {
 			c.ClerkOrigenes = []string{"http://localhost:5173", "http://lugares.localhost:5173"}
 		}

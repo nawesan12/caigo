@@ -9,7 +9,11 @@ import (
 	"syscall"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/avisos"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/lugares"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
+	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/apns"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/cifrado"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/fcm"
@@ -49,6 +53,26 @@ func correr() error {
 	}
 	slog.Info("worker andando", "apns", ap.Activo(), "fcm", fc != nil)
 	env := &avisos.Enviador{App: app, APNs: ap, FCM: fc}
-	w := &outbox.Worker{Pool: app, Manejadores: env.Manejadores()}
+	manejadores := env.Manejadores()
+	// Pagos de entradas: se concilian con el token del lugar.
+	if cfg.MPAppID != "" && cfg.ClaveCifrado != "" {
+		cifra, err := cifrado.Nuevo(cfg.ClaveCifrado)
+		if err != nil {
+			return err
+		}
+		ls := &lugares.Servicio{App: app, Cifra: cifra, MP: &mercadopago.Config{AppID: cfg.MPAppID, Secreto: cfg.MPSecreto}}
+		for k, m := range ls.Manejadores() {
+			manejadores[k] = m
+		}
+	}
+	// Avisos de pases de Apple Wallet actualizados.
+	wa, err := wallet.AppleDesde(cfg.WalletPassType, cfg.APNsTeamID, cfg.WalletCert, cfg.WalletClave, "", nil)
+	if err != nil {
+		return err
+	}
+	for k, m := range (&wallet.Servicio{App: app, Apple: wa}).Manejadores() {
+		manejadores[k] = m
+	}
+	w := &outbox.Worker{Pool: app, Manejadores: manejadores}
 	return w.Correr(ctx)
 }

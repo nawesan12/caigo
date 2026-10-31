@@ -125,3 +125,20 @@ func (c *Cuenta) Token(ctx context.Context, scope string) (string, error) {
 	c.tokens[scope] = token{r.AccessToken, ahora.Add(50 * time.Minute)}
 	return r.AccessToken, nil
 }
+
+// Firmar arma un JWT RS256 firmado con la clave de la cuenta (Google Wallet: "guardar en Wallet").
+func (c *Cuenta) Firmar(reclamos map[string]any) (string, error) {
+	enc := base64.RawURLEncoding
+	cab, _ := json.Marshal(map[string]string{"alg": "RS256", "typ": "JWT"})
+	cue, err := json.Marshal(reclamos)
+	if err != nil {
+		return "", err
+	}
+	firmable := enc.EncodeToString(cab) + "." + enc.EncodeToString(cue)
+	h := sha256.Sum256([]byte(firmable))
+	firma, err := rsa.SignPKCS1v15(rand.Reader, c.Clave, crypto.SHA256, h[:])
+	if err != nil {
+		return "", err
+	}
+	return firmable + "." + enc.EncodeToString(firma), nil
+}

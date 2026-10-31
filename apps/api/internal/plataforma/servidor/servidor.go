@@ -12,11 +12,14 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/chat"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/gente"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/lugares"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/personas"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
 	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/cifrado"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
@@ -43,6 +46,12 @@ type Dependencias struct {
 	Tiendas *plus.Tiendas
 	// Clave del webhook de Google Play.
 	ClaveGoogle string
+	// Cifrado de secretos de terceros (tokens de Mercado Pago, claves de placas). nil: apagado.
+	Cifra *cifrado.Cifrador
+	// Panel de lugares (lugares.caigo.com.ar).
+	Panel string
+	// Pases de Wallet (Apple y Google). nil: apagados.
+	Wallet *wallet.Servicio
 }
 
 // Nuevo arma el handler con todas las rutas.
@@ -92,8 +101,17 @@ func Nuevo(d Dependencias) http.Handler {
 		}
 		ps := &plus.Servicio{App: d.App, Reloj: d.Reloj}
 		plus.Rutas(mux, ps, d.Tiendas, ses, d.ClaveGoogle, d.Log)
+		ls := &lugares.Servicio{App: d.App, MP: d.Tiendas.MP, Cifra: d.Cifra, Firma: firma.Firmador{Clave: []byte(d.Secreto)},
+			Sitio: d.Sitio, Panel: d.Panel, APIPublica: d.APIPublica, Reloj: d.Reloj}
+		lugares.Rutas(mux, ls, ses, d.Log)
+		if d.Wallet == nil {
+			d.Wallet = &wallet.Servicio{}
+		}
+		d.Wallet.App = d.App
+		wallet.Rutas(mux, d.Wallet, ses.Exigir, d.Log)
 		mercadopago.Webhook(mux, d.Tiendas.MP, map[string]mercadopago.Manejador{
 			"subscription_preapproval": ps.AvisoMP(d.Tiendas),
+			"payment":                  ls.AvisoPago,
 		}, d.Log)
 	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {

@@ -36,7 +36,7 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 	var estado string
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var (
-			org, ingreso                  string
+			org, ingreso, cobro           string
 			soloVerif, cancelado          bool
 			empieza                       time.Time
 			total                         int16
@@ -46,9 +46,9 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 		// FOR UPDATE: dos personas que se suman al último lugar a la vez no pueden entrar las dos.
 		err := tx.QueryRow(ctx, `
 			SELECT p.organizador_id, p.ingreso, p.solo_verificados, p.cancelado_en IS NOT NULL,
-				p.empieza_en, p.total, p.edad_min, p.edad_max
+				p.empieza_en, p.total, p.edad_min, p.edad_max, p.cobro
 			FROM planes p WHERE p.id = $1 FOR UPDATE`, planID).
-			Scan(&org, &ingreso, &soloVerif, &cancelado, &empieza, &total, &edadMin, &edadMax)
+			Scan(&org, &ingreso, &soloVerif, &cancelado, &empieza, &total, &edadMin, &edadMax, &cobro)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("Ese plan no existe.")
 		}
@@ -66,6 +66,8 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 		switch {
 		case org == usuarioID:
 			return problema.Conflicto("es_tuyo", "Ya estás: es tu plan.")
+		case cobro != "gratis":
+			return problema.Conflicto("con_entrada", "A este plan se entra con entrada.")
 		case cancelado:
 			return problema.Conflicto("cancelado", "Este plan se canceló.")
 		case bloqueo:

@@ -27,6 +27,8 @@ import (
 var Categorias = map[string]string{
 	"deporte": "Deporte", "juego": "Juego", "previa": "Previa", "salida": "Salida",
 	"cita_doble": "Cita doble", "cultura": "Cultura", "gastronomia": "Gastronomía", "otro": "Otro",
+	// Las de los lugares (panel).
+	"taller": "Taller", "musica": "Música en vivo", "fiesta": "Fiesta",
 }
 
 // Ventana de "Ahora": los planes de las próximas 3 horas, y los que arrancaron hace poco.
@@ -110,6 +112,31 @@ type Plan struct {
 	Direccion *Direccion `json:"direccion,omitempty"`
 	// Solicitudes pendientes (sólo para el organizador).
 	Pendientes int `json:"pendientes,omitempty"`
+	// Plan de un lugar aliado: se entra con entrada o seña en vez de "Sumarme".
+	Lugar *LugarCorto `json:"lugar,omitempty"`
+	Cobro string      `json:"cobro"` // gratis | entrada | sena
+	// Precio por persona, seña y cargo por servicio (por persona), en centavos.
+	PrecioCentavos *int32 `json:"precioCentavos,omitempty"`
+	SenaPct        *int16 `json:"senaPct,omitempty"`
+	CargoCentavos  int64  `json:"cargoCentavos,omitempty"`
+	Incluye        string `json:"incluye,omitempty"`
+	Cancelacion    string `json:"cancelacion,omitempty"`
+	Beneficio      string `json:"beneficio,omitempty"`
+	AceptaGrupos   bool   `json:"aceptaGrupos"`
+}
+
+// LugarCorto es el lugar aliado de un plan.
+type LugarCorto struct {
+	ID     string `json:"id"`
+	Slug   string `json:"slug"`
+	Nombre string `json:"nombre"`
+	Zona   string `json:"zona"`
+	Foto   string `json:"foto,omitempty"`
+}
+
+// Cargo por servicio por persona: 7,5 % del precio, redondeado a $100 (lo paga quien compra).
+func Cargo(precioCentavos int64) int64 {
+	return int64(math.Round(float64(precioCentavos)*0.075/10000)) * 10000
 }
 
 // Direccion exacta de un plan.
@@ -343,7 +370,9 @@ const columnas = `
 	o.id, o.nombre, coalesce(o.fotos[1], ''), o.edad, o.dni_en IS NOT NULL, rep.fue, rep.de,
 	coalesce(m.estado, 'ninguno'), coalesce(m.cantidad, 0),
 	CASE WHEN p.organizador_id = $1 THEN
-		(SELECT count(*) FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'pendiente') ELSE 0 END`
+		(SELECT count(*) FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'pendiente') ELSE 0 END,
+	l.id, coalesce(l.slug, ''), coalesce(l.nombre, ''), coalesce(l.zona, ''), coalesce(l.foto, ''),
+	p.cobro, p.precio_centavos, p.sena_pct, p.incluye, p.cancelacion, p.beneficio, p.acepta_grupos`
 
 const desde = `
 	FROM planes p
@@ -351,7 +380,8 @@ const desde = `
 	LEFT JOIN LATERAL (SELECT sum(cantidad)::integer AS sumados FROM solicitudes
 		WHERE plan_id = p.id AND estado = 'aceptada') c ON true
 	LEFT JOIN LATERAL app.asistencia(o.id) rep ON true
-	LEFT JOIN solicitudes m ON m.plan_id = p.id AND m.usuario_id = $1`
+	LEFT JOIN solicitudes m ON m.plan_id = p.id AND m.usuario_id = $1
+	LEFT JOIN lugares l ON l.id = p.lugar_id`
 
 // visible: lo que puede encontrar quien mira ($1) en las listas. Los planes "por link" no se listan.
 const visible = `
@@ -364,13 +394,27 @@ const visible = `
 func escanear(row pgx.Row) (Plan, error) {
 	var p Plan
 	var cancelado bool
+	var lugarID *string
+	var lugar LugarCorto
 	err := row.Scan(&p.ID, &p.Slug, &p.Titulo, &p.Categoria, &p.Descripcion, &p.EmpiezaEn,
 		&p.DuracionMin, &p.Recurrente, &p.Ciudad, &p.Zona, &p.LugarNombre, &p.Lat, &p.Lng, &p.Somos,
 		&p.Total, &p.Ingreso, &p.Visibilidad, &p.SoloVerificados, &p.OcultarDireccion, &p.EdadMin,
 		&p.EdadMax, &p.Genero, &p.Nivel, &p.CostoCentavos, &p.Foto, &cancelado,
 		&p.Organizador.ID, &p.Organizador.Nombre, &p.Organizador.Foto, &p.Organizador.Edad,
 		&p.Organizador.Verificada, &p.Organizador.Asistencia.Fue, &p.Organizador.Asistencia.De,
-		&p.MiEstado, &p.MiCantidad, &p.Pendientes)
+		&p.MiEstado, &p.MiCantidad, &p.Pendientes,
+		&lugarID, &lugar.Slug, &lugar.Nombre, &lugar.Zona, &lugar.Foto,
+		&p.Cobro, &p.PrecioCentavos, &p.SenaPct, &p.Incluye, &p.Cancelacion, &p.Beneficio, &p.AceptaGrupos)
+	if lugarID != nil {
+		lugar.ID = *lugarID
+		p.Lugar = &lugar
+	}
+	if p.PrecioCentavos != nil {
+		p.CargoCentavos = Cargo(int64(*p.PrecioCentavos))
+	}
+	if p.Cobro == "gratis" {
+		p.Cancelacion = ""
+	}
 	p.Cancelado = cancelado
 	p.Organizador.Organizador = true
 	p.Faltan = max(int(p.Total)-p.Somos, 0)

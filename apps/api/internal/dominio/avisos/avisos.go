@@ -146,6 +146,7 @@ func (e *Enviador) Manejadores() map[string]outbox.Manejador {
 		"privado.nuevo":      e.privadoNuevo,
 		"interes.nuevo":      e.interesNuevo,
 		"invitacion.nueva":   e.invitacionNueva,
+		"entrada.pagada":     e.entradaPagada,
 	}
 }
 
@@ -275,6 +276,20 @@ func (e *Enviador) invitacionNueva(ctx context.Context, ev outbox.Evento) error 
 	}
 	return e.Mandar(ctx, d.A, Aviso{Titulo: de + " te invita", Cuerpo: titulo + ". ¿Te prendés?",
 		Datos: map[string]string{"plan": d.PlanID, "pantalla": "invitaciones"}})
+}
+
+func (e *Enviador) entradaPagada(ctx context.Context, ev outbox.Evento) error {
+	var d struct{ EntradaID string }
+	if err := json.Unmarshal(ev.Datos, &d); err != nil {
+		return nil
+	}
+	var usuario, codigo, titulo string
+	if err := e.leer(ctx, `SELECT e.usuario_id, e.codigo, p.titulo FROM entradas e JOIN planes p ON p.id = e.plan_id WHERE e.id = $1`,
+		[]any{d.EntradaID}, &usuario, &codigo, &titulo); err != nil {
+		return ignorarSiNoEsta(err)
+	}
+	return e.Mandar(ctx, usuario, Aviso{Titulo: "Tenés tu entrada", Cuerpo: titulo + " · " + codigo + ". Sumala a tu Wallet.",
+		Datos: map[string]string{"pantalla": "pases"}})
 }
 
 func ignorarSiNoEsta(err error) error {
