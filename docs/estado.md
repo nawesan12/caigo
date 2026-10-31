@@ -23,12 +23,11 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
    de producción: Nahuel tiene que verificar su identidad (QR) en el panel de MP. Después cargar
    `CAIGO_MP_APP_ID`, `CAIGO_MP_SECRETO`, `CAIGO_MP_TOKEN`, `CAIGO_MP_SECRETO_WEBHOOK` en
    `/opt/caigo/api.conf` y reiniciar api y worker.
-2. Firebase: Caigo está registrada en el proyecto común `grupo-vimo` (appId
-   1:614276605139:android:4be4cc6498c72812efe026, ya en `local.properties`). Falta: la clave de API de
-   Android (en el google-services.json de Caigo, la baja Nahuel) → `caigo.firebase.apiKey`; y la clave
-   JSON de la cuenta de servicio `fcm-caigo@grupo-vimo.iam.gserviceaccount.com` (la crea la sesión de
-   Tu Local Web con el ok de Nahuel) → `/opt/caigo/claves/fcm.json`, `CAIGO_FCM_CUENTA=/datos/claves/fcm.json`.
-   El proyecto caigo-5d3b6 quedó sin usar.
+2. Firebase: hecho (31/10). Caigo en el proyecto común `grupo-vimo`; `local.properties` con appId,
+   remitente, proyecto y clave (sale de ~/Trabajo/vimo/firebase/google-services.json); servidor con
+   `/opt/caigo/claves/fcm.json` (cuenta fcm-caigo@grupo-vimo) y el worker en `fcm=true`. Ojo: los
+   builds de GitHub no tienen local.properties; para un APK desde CI hay que pasar esos valores y la
+   llave de subida como secretos del repo.
 3. Play Console (cuenta «Grupo Vimo»): Nahuel tiene que verificar un Android y su teléfono. Después:
    app `ar.com.caigo.app`, suscripciones plus_semana/mes/temporada, cuenta de servicio, Pub/Sub y
    huella de Play App Signing en assetlinks.json. Cuenta personal: prueba cerrada 12 testers × 14 días.
