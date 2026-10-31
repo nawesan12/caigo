@@ -37,9 +37,9 @@ object Plata {
     /** Cargo por servicio por persona: 7,5 % del precio, redondeado a $100 (planes.Cargo en la API). */
     fun cargo(precioCentavos: Long): Long = (precioCentavos * 0.075 / 10000).roundToLong() * 10000
 
-    /** Lo que se le paga al lugar por persona ahora: el precio entero o la seña redondeada a $1. */
+    /** Lo que se le paga al lugar por persona ahora: el precio entero o la seña redondeada a $100 (como la API y el panel). */
     fun alLugar(precioCentavos: Long, cobro: String, senaPct: Int?): Long =
-        if (cobro == "sena" && senaPct != null) (precioCentavos * senaPct / 100.0 / 100 + 0.5).toLong() * 100
+        if (cobro == "sena" && senaPct != null) (precioCentavos * senaPct / 100.0 / 10000).roundToLong() * 10000
         else precioCentavos
 
     data class Desglose(val alLugar: Long, val cargo: Long, val total: Long, val saldo: Long)

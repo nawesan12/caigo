@@ -59,8 +59,9 @@ class PlataTest {
         assertEquals(60000, d.cargo)
         assertEquals(300000, d.total)
         assertEquals(560000, d.saldo)
-        // La seña se redondea al peso.
-        assertEquals(333300, Plata.alLugar(1111000, "sena", 30))
+        // La seña se redondea a $100, como la API: 30 % de $11.110 = $3.333 → $3.300.
+        assertEquals(330000, Plata.alLugar(1111000, "sena", 30))
+        assertEquals(170000, Plata.alLugar(550000, "sena", 30))
     }
 }
 

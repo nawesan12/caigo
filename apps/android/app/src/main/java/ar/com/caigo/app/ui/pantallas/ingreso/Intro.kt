@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -214,13 +215,14 @@ private fun slideAmigos(saltar: () -> Unit, avanzar: () -> Unit) {
     var cuantos by remember { mutableIntStateOf(1) }
     BoxWithConstraints(Modifier.fillMaxSize().background(C.blancoCalido).ingresoGrano()) {
         val e = ingresoEscala()
+        val altoTotal = maxHeight
         Image(painterResource(R.drawable.ingreso_amigos), null, Modifier.fillMaxWidth().height(e.y(470f)), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxWidth().height(140.dp).background(Brush.verticalGradient(listOf(rgba(32, 29, 43, .5f), rgba(32, 29, 43, 0f)))))
         ingresoContenido { arriba, nav ->
             ingresoSaltar(.22f, saltar, Modifier.align(Alignment.TopEnd).padding(top = arriba + 12.dp, end = 24.dp))
             // Píldora "Cita doble" sobre la foto.
             Row(
-                Modifier.padding(start = 24.dp, top = e.y(300f))
+                Modifier.padding(start = 24.dp, top = (altoTotal - 420.dp - nav).coerceAtLeast(arriba + 70.dp))
                     .gel(22.dp, Gel(vertical(rgba(255, 255, 255, .95f), rgba(248, 246, 255, .9f)), listOf(interna(1.5f, 0f, C.blanco), externa(20f, 40f, rgba(20, 10, 60, .55f), spread = -14f))))
                     .padding(start = 18.dp, top = 10.dp, end = 16.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -239,12 +241,12 @@ private fun slideAmigos(saltar: () -> Unit, avanzar: () -> Unit) {
                 ) { Icono(I.mas, 16.dp, C.lima, 4f) }
                 T("Cita doble", 17f, 700, C.carbon, modifier = Modifier.offset(x = (-8).dp))
             }
-            // Hoja de abajo.
+            // Hoja de abajo: alto natural, pegada abajo; la foto y la píldora ocupan lo que sobra.
             Column(
-                Modifier.fillMaxSize().padding(top = e.y(420f))
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                     .background(C.blancoCalido, RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp))
                     .ingresoGrano()
-                    .padding(start = 26.dp, end = 26.dp, top = 30.dp),
+                    .padding(start = 26.dp, end = 26.dp, top = 30.dp, bottom = 40.dp + nav),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 Row(
@@ -264,14 +266,14 @@ private fun slideAmigos(saltar: () -> Unit, avanzar: () -> Unit) {
                 }
                 T("Sumate solo o con amigos.", 40f, 800, C.carbon, alto = 1f, espaciado = px(-1.4f, 40f))
                 T("Entrás con tu gente en un toque. Así salen las citas dobles y los partidos grupo contra grupo.", 16f, 400, C.texto2, alto = 1.5f)
-            }
-            Row(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(start = 26.dp, end = 26.dp, bottom = 40.dp + nav),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ingresoPuntos(1, 3, C.violeta, Color(0xFFD9D3EE))
-                siguiente(60.dp, avanzar)
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ingresoPuntos(1, 3, C.violeta, Color(0xFFD9D3EE))
+                    siguiente(60.dp, avanzar)
+                }
             }
         }
     }
@@ -280,25 +282,38 @@ private fun slideAmigos(saltar: () -> Unit, avanzar: () -> Unit) {
 /** 01c · Lo mejor pasa afuera. */
 @Composable
 private fun slideAfuera(terminar: () -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxSize().ingresoFondoVioleta()) {
-        val e = ingresoEscala()
+    Box(Modifier.fillMaxSize().ingresoFondoVioleta()) {
         ingresoContenido { _, nav ->
-            ingresoComposicionFogon(e)
-            Column(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 34.dp + nav),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Column(Modifier.padding(horizontal = 2.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    T("Lo mejor pasa afuera.", 46f, 800, C.blanco, alto = .98f, espaciado = px(-1.8f, 46f))
-                    T("Compartís un plan y conocés gente. Sin swipes, sin chats eternos.", 16f, 400, C.blanco, alto = 1.5f)
-                }
-                Spacer(Modifier.height(e.y(18f)))
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Cta("Empezar", terminar, Modifier.fillMaxWidth(), alto = 62.dp, radio = 22.dp, tam = 18f, color = C.carbon, icono = I.mas, iconoTam = 18.dp, iconoTrazo = 4f)
-                    Box(Modifier.tocable(terminar).padding(4.dp)) { T("Ya tengo cuenta", 15f, 700, C.blanco) }
+            Column(Modifier.fillMaxSize()) {
+                ingresoZonaFogon(Modifier.weight(1f))
+                Column(
+                    Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 34.dp + nav),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(Modifier.padding(horizontal = 2.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        T("Lo mejor pasa afuera.", 46f, 800, C.blanco, alto = .98f, espaciado = px(-1.8f, 46f))
+                        T("Compartís un plan y conocés gente. Sin swipes, sin chats eternos.", 16f, 400, C.blanco, alto = 1.5f)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Cta("Empezar", terminar, Modifier.fillMaxWidth(), alto = 62.dp, radio = 22.dp, tam = 18f, color = C.carbon, icono = I.mas, iconoTam = 18.dp, iconoTrazo = 4f)
+                        Box(Modifier.tocable(terminar).padding(4.dp)) { T("Ya tengo cuenta", 15f, 700, C.blanco) }
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * La composición del fogón (y 110…530 del mockup) en el espacio que queda arriba del texto: se escala
+ * a ese alto para que nunca se pise con el título en pantallas más bajas que el mockup.
+ */
+@Composable
+internal fun ingresoZonaFogon(modifier: Modifier) {
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val e = remember(maxWidth, maxHeight) { IngresoEscala(minOf(maxWidth, maxHeight * (390f / 520f)), maxHeight * (844f / 560f)) }
+        Box(Modifier.align(Alignment.TopCenter).width(e.w).fillMaxHeight()) { ingresoComposicionFogon(e) }
     }
 }
 

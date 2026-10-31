@@ -99,12 +99,14 @@ internal fun ingresoCampo(
     tam: Float = 18f,
     peso: Int = 600,
     espaciado: Float = .5f,
+    transformacion: androidx.compose.ui.text.input.VisualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
 ) {
     var foco by remember { mutableStateOf(false) }
     BasicTextField(
         valor, alCambiar,
         modifier.height(60.dp).onFocusChanged { foco = it.isFocused },
         singleLine = true,
+        visualTransformation = transformacion,
         textStyle = estilo(tam, peso, C.carbon, espaciado = px(espaciado, tam)),
         cursorBrush = SolidColor(C.violeta),
         keyboardOptions = KeyboardOptions(keyboardType = teclado),
@@ -188,7 +190,7 @@ internal fun ingresoChipRequisito(texto: String, ok: Boolean, modifier: Modifier
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (ok) Icono(I.check, 14.dp, C.carbon, 3f)
-        T(texto, 13f, 700, if (ok) C.carbon else C.texto2, alto = 1.25f)
+        T(texto, 13f, 700, if (ok) C.carbon else C.texto2, alto = 1.25f, unRenglon = true)
     }
 }
 

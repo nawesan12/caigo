@@ -257,10 +257,16 @@ fun Selfie(ir: Ir, volver: Boolean) {
             Spacer(Modifier.height(24.dp))
             ingresoPillOscura(instruccion)
             Spacer(Modifier.height(18.dp))
-            Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ingresoChipRequisito("Buena luz", vida.luz && permiso, Modifier.weight(1f, fill = false))
-                ingresoChipRequisito("Cara centrada", vida.centrada || foto != null, Modifier.weight(1f, fill = false))
-                ingresoChipRequisito("Sin lentes de sol", vida.ojos || foto != null, Modifier.weight(1f, fill = false))
+            // En pantallas más angostas que el mockup los chips bajan enteros al renglón de abajo (nunca se parte el texto).
+            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+            androidx.compose.foundation.layout.FlowRow(
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                ingresoChipRequisito("Buena luz", vida.luz && permiso)
+                ingresoChipRequisito("Cara centrada", vida.centrada || foto != null)
+                ingresoChipRequisito("Sin lentes de sol", vida.ojos || foto != null)
             }
             Spacer(Modifier.weight(1f).height(20.dp))
             Column(

@@ -88,19 +88,24 @@ class Contenedor(val ctx: Context) {
         ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    /** Ubicación actual (FusedLocation). Sin permiso o sin señal: null. */
+    /** Última ubicación conocida: sirve para no esperar al GPS cada vez que se abre una pantalla. */
+    @Volatile
+    private var ultima: Pair<Double, Double>? = null
+
+    /** Ubicación actual (FusedLocation). Sin permiso o sin señal: null. Usa la última si es reciente. */
     @SuppressLint("MissingPermission")
     suspend fun ubicacion(): Pair<Double, Double>? {
         if (!tienePermisoUbicacion()) return null
+        ultima?.let { return it }
         val f = LocationServices.getFusedLocationProviderClient(ctx)
         return runCatching {
-            withTimeoutOrNull(6000) {
+            withTimeoutOrNull(3500) {
                 val ultima = f.lastLocation.await()
                 val loc = if (ultima != null && System.currentTimeMillis() - ultima.time < 5 * 60_000) ultima
                 else f.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, CancellationTokenSource().token).await() ?: ultima
                 loc?.let { it.latitude to it.longitude }
             }
-        }.getOrNull()
+        }.getOrNull()?.also { ultima = it }
     }
 
     /** Interpreta un link entrante: ar.com.caigo.app://…, https://caigo.com.ar/p/… o /t/…. */

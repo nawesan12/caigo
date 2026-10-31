@@ -73,15 +73,23 @@ private fun fechaDe(t: String): LocalDate? {
     return runCatching { LocalDate.of(d.substring(4).toInt(), d.substring(2, 4).toInt(), d.substring(0, 2).toInt()) }.getOrNull()
 }
 
-/** Pone las barras mientras se escribe la fecha. */
-private fun conBarras(t: String): String {
-    val d = t.filter(Char::isDigit).take(8)
-    return buildString {
+/**
+ * Muestra las barras de DD/MM/AAAA sin meterlas en el texto: el estado guarda sólo los dígitos y así
+ * el cursor nunca queda antes de una barra (escribir rápido desordenaba la fecha).
+ */
+private val conBarras = androidx.compose.ui.text.input.VisualTransformation { t ->
+    val d = t.text
+    val salida = buildString {
         d.forEachIndexed { i, ch ->
             if (i == 2 || i == 4) append('/')
             append(ch)
         }
     }
+    val mapa = object : androidx.compose.ui.text.input.OffsetMapping {
+        override fun originalToTransformed(offset: Int) = offset + (if (offset > 2) 1 else 0) + (if (offset > 4) 1 else 0)
+        override fun transformedToOriginal(offset: Int) = (offset - (if (offset > 2) 1 else 0) - (if (offset > 5) 1 else 0)).coerceIn(0, d.length)
+    }
+    androidx.compose.ui.text.input.TransformedText(androidx.compose.ui.text.AnnotatedString(salida), mapa)
 }
 
 /**
@@ -115,7 +123,7 @@ fun Datos(ir: Ir) {
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     T("Fecha de nacimiento", 14f, 700, C.carbon)
-                    ingresoCampo(nacimiento, { nacimiento = conBarras(it) }, Modifier.fillMaxWidth(), pista = "DD/MM/AAAA", teclado = KeyboardType.Number)
+                    ingresoCampo(nacimiento, { nacimiento = it.filter(Char::isDigit).take(8) }, Modifier.fillMaxWidth(), pista = "DD/MM/AAAA", teclado = KeyboardType.Number, transformacion = conBarras)
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     T("¿Dónde estás?", 14f, 700, C.carbon)

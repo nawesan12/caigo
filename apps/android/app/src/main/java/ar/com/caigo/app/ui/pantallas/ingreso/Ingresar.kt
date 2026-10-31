@@ -99,18 +99,18 @@ fun Ingresar(ir: Ir) {
         }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize().ingresoFondoVioleta()) {
-        val e = ingresoEscala()
+    Box(Modifier.fillMaxSize().ingresoFondoVioleta()) {
         ingresoContenido { _, nav ->
-            ingresoComposicionFogon(e)
+          Column(Modifier.fillMaxSize()) {
+            ingresoZonaFogon(Modifier.weight(1f))
             Column(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 34.dp + nav),
+                Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 34.dp + nav),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Column(Modifier.padding(horizontal = 2.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    T("Hacé planes. Conocé gente.", 46f, 800, C.blanco, alto = .98f, espaciado = px(-1.8f, 46f))
+                    T("Hacé planes. Conocé gente.", 40f, 800, C.blanco, alto = 1f, espaciado = px(-1.4f, 40f))
                 }
-                Spacer(Modifier.height(e.y(18f)))
+                Spacer(Modifier.height(14.dp))
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Cta(
                         "Seguir con Google", { entrarCon("google") }, Modifier.fillMaxWidth(),
@@ -127,6 +127,7 @@ fun Ingresar(ir: Ir) {
                     }
                 }
             }
+          }
         }
     }
 }

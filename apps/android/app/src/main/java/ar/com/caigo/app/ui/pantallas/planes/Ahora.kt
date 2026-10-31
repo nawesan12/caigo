@@ -132,11 +132,12 @@ fun Ahora(ir: Ir, modoInicial: String?) {
                 }
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                T(when (modo) { "gente" -> "Gente"; "citas" -> "Citas"; else -> "Ahora" }, 40f, 800, p.texto, alto = 1f, espaciado = px(-1.4f, 40f), modifier = Modifier.weight(1f), unRenglon = true)
+                T(when (modo) { "gente" -> "Gente"; "citas" -> "Citas"; else -> "Ahora" }, 40f, 800, p.texto, alto = 1f, espaciado = px(-1.4f, 40f), unRenglon = true)
+                Box(Modifier.weight(1f))
                 val modos = listOfNotNull("planes" to "Planes", "gente" to "Gente", if (conCitas) "citas" to "Citas" else null)
                 Segmentado(
                     modos.map { it.second }, modos.indexOfFirst { it.first == modo }.coerceAtLeast(0), { modo = modos[it].first },
-                    radio = 14.dp, radioOpcion = 11.dp, alto = 42.dp, llenar = false,
+                    radio = 14.dp, radioOpcion = 11.dp, alto = 42.dp, llenar = false, padOpcion = if (modos.size > 2) 10.dp else 13.dp,
                     gelOn = { if (modos[it].first == "citas") Gels.coralBadge else null },
                     colorOn = { if (modos[it].first == "citas") C.carbon else null },
                 )
@@ -182,11 +183,11 @@ private fun ListaAhora(
         if (invs.isNotEmpty()) item { BannerInvitaciones(ir, invs.size, inv!!.bloqueada, invs.mapNotNull { it.titulo.takeIf { t -> t.isNotBlank() } }, invs.map { it.de?.foto ?: it.foto }) }
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                T("Próximas 3 horas", 15f, 700, p.texto, modifier = Modifier.weight(1f))
-                if (planes != null) T("${planes.size} ${if (planes.size == 1) "plan cerca" else "planes cerca"}", 13f, 400, p.texto2)
-                Box(Modifier.padding(start = 10.dp)) {
-                    Segmentado(listOf("Lista", "Mapa"), 0, { if (it == 1) onMapa() }, radio = 12.dp, radioOpcion = 9.dp, alto = 34.dp, tam = 12f, llenar = false)
+                Column(Modifier.weight(1f)) {
+                    T("Próximas 3 horas", 15f, 700, p.texto, unRenglon = true)
+                    if (planes != null) T("${planes.size} ${if (planes.size == 1) "plan cerca" else "planes cerca"}", 13f, 400, p.texto2, unRenglon = true)
                 }
+                Segmentado(listOf("Lista", "Mapa"), 0, { if (it == 1) onMapa() }, radio = 14.dp, radioOpcion = 11.dp, alto = 40.dp, tam = 14f, llenar = false)
             }
         }
         if (planes == null) {

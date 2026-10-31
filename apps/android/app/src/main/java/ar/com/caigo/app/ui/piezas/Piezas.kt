@@ -215,6 +215,7 @@ fun Segmentado(
     alto: Dp = 44.dp,
     tam: Float = 14f,
     llenar: Boolean = true,
+    padOpcion: Dp = 14.dp,
     gelOn: (Int) -> Gel? = { null },
     colorOn: (Int) -> Color? = { null },
 ) {
@@ -232,7 +233,7 @@ fun Segmentado(
                     .height(alto - 8.dp)
                     .tocable { onSeleccion(i) }
                     .then(if (on) Modifier.gel(radioOpcion, gelOn(i) ?: if (p.oscuro) Gels.segOnOscuro else Gels.segOn) else Modifier)
-                    .padding(horizontal = 14.dp),
+                    .padding(horizontal = padOpcion),
                 contentAlignment = Alignment.Center,
             ) {
                 T(o, tam, if (on) 700 else 600, if (on) (colorOn(i) ?: p.segOnTexto) else p.segOffTexto, unRenglon = true)
