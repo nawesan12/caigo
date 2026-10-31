@@ -183,3 +183,40 @@ func TestModeracion(t *testing.T) {
 	// Fede queda afuera.
 	e.pedir(fede, "GET", "/v1/yo", nil, http.StatusForbidden, nil)
 }
+
+func TestBajaDeCuenta(t *testing.T) {
+	e := nuevoEntorno(t)
+	nico, lu, _, planID := planConLu(t, e)
+	var foto struct{ ID, URL string }
+	e.pedir(lu, "POST", "/v1/archivos?tipo=selfie", jpeg, http.StatusCreated, &foto)
+	var s struct{ Token string }
+	e.pedir(lu, "POST", "/v1/sesion?cliente=android", nil, http.StatusOK, &s)
+	propia := persona{token: s.Token, id: lu.id}
+	// Lu organiza otro plan y se da de baja.
+	var suyo plan
+	e.pedir(lu, "POST", "/v1/planes", map[string]any{"categoria": "juego", "empiezaEn": time.Now().Add(2 * time.Hour),
+		"ciudad": "Mar del Plata", "zona": "Centro", "lat": -38.0, "lng": -57.55, "somos": 2, "faltan": 2, "ingreso": "libre"},
+		http.StatusCreated, &suyo)
+	e.pedir(propia, "DELETE", "/v1/yo", nil, http.StatusNoContent, nil)
+	// Las sesiones mueren, la selfie se borra, su plan se cancela y deja el lugar en el de Nico.
+	e.pedir(propia, "GET", "/v1/yo", nil, http.StatusUnauthorized, nil)
+	e.pedir(nico, "GET", "/v1/archivos/"+foto.ID, nil, http.StatusNotFound, nil)
+	var p struct {
+		Somos     int
+		Cancelado bool
+	}
+	e.pedir(nico, "GET", "/v1/planes/"+suyo.ID, nil, http.StatusOK, &p)
+	if !p.Cancelado {
+		t.Fatal("el plan de Lu sigue activo")
+	}
+	e.pedir(nico, "GET", "/v1/planes/"+planID, nil, http.StatusOK, &p)
+	if p.Somos != 3 {
+		t.Fatalf("somos después de la baja: %d", p.Somos)
+	}
+	// Si vuelve a entrar con la misma cuenta de Clerk, arranca de cero.
+	var yo struct{ ID, Nombre string }
+	e.pedir(lu, "GET", "/v1/yo", nil, http.StatusOK, &yo)
+	if yo.ID == lu.id || yo.Nombre != "Lu" {
+		t.Fatalf("vuelta después de la baja: %+v", yo)
+	}
+}
