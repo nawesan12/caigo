@@ -94,6 +94,8 @@ func limpiar(ctx context.Context, app *db.Pool) {
 				`DELETE FROM mp_estados WHERE vence_en < now() - interval '1 day'`,
 				`DELETE FROM telefono_codigos WHERE vence_en < now() - interval '1 day'`,
 				`DELETE FROM outbox WHERE publicado_en < now() - interval '30 days'`,
+				// Política de privacidad: reportes cerrados, 2 años.
+				`DELETE FROM reportes WHERE estado <> 'abierto' AND creado_en < now() - interval '2 years'`,
 			} {
 				if _, err := tx.Exec(ctx, q); err != nil {
 					return err

@@ -14,7 +14,13 @@
 	const TABS: { k: string; l: string; icono: NombreIcono; n: number }[] = $derived([
 		{ k: 'lugares', l: 'Lugares pendientes', icono: 'pin', n: data.lugares.length },
 		{ k: 'dni', l: 'DNI', icono: 'usuario', n: data.dni.length },
-		{ k: 'reportes', l: 'Reportes', icono: 'escudo', n: data.reportes.length }
+		{ k: 'reportes', l: 'Reportes', icono: 'escudo', n: data.reportes.length },
+		{
+			k: 'arrepentimientos',
+			l: 'Arrepentimientos',
+			icono: 'cobros',
+			n: data.arrepentimientos.filter((a) => !a.atendidoEn).length
+		}
 	]);
 	const MOTIVOS: Record<string, string> = {
 		acoso: 'Acoso',
@@ -143,6 +149,47 @@
 					</form>
 				{:else}
 					<p class="vacia tarjeta-plana">No hay DNI para revisar.</p>
+				{/each}
+			</div>
+		{:else if data.tab === 'arrepentimientos'}
+			<h1>Arrepentimientos</h1>
+			<div class="lista">
+				{#each data.arrepentimientos as a (a.id)}
+					<form
+						method="POST"
+						action="?/arrepentimiento"
+						class="tarjeta-plana item"
+						use:enhance={resultado}
+					>
+						<input type="hidden" name="id" value={a.id} />
+						<div class="cab">
+							<div>
+								<span class="t">{a.nombre}</span>
+								<span class="s"
+									><a href="mailto:{a.email}?subject=Tu pedido {a.codigo}">{a.email}</a> · {fecha(
+										a.creadoEn
+									)}</span
+								>
+							</div>
+							<span class="chip-dato" class:alerta={!a.atendidoEn}>{a.codigo}</span>
+						</div>
+						<p class="detalle">{a.compra}</p>
+						{#if a.atendidoEn}
+							<p class="s">Atendido el {fecha(a.atendidoEn)}{a.nota ? ` · ${a.nota}` : ''}</p>
+						{:else}
+							<input
+								class="input"
+								name="nota"
+								maxlength="300"
+								placeholder="Qué se hizo: reembolso en Mercado Pago, por qué no"
+							/>
+							<div class="acc">
+								<button class="gel gel-violeta b">Marcar atendido</button>
+							</div>
+						{/if}
+					</form>
+				{:else}
+					<p class="vacia tarjeta-plana">No hay pedidos de arrepentimiento.</p>
 				{/each}
 			</div>
 		{:else}

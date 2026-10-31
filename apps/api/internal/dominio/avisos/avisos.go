@@ -147,7 +147,35 @@ func (e *Enviador) Manejadores() map[string]outbox.Manejador {
 		"interes.nuevo":      e.interesNuevo,
 		"invitacion.nueva":   e.invitacionNueva,
 		"entrada.pagada":     e.entradaPagada,
+		// Al equipo: un pedido de arrepentimiento (hay que responder en el día).
+		"arrepentimiento.nuevo": e.arrepentimientoNuevo,
 	}
+}
+
+func (e *Enviador) arrepentimientoNuevo(ctx context.Context, ev outbox.Evento) error {
+	var d struct{ Codigo string }
+	if err := json.Unmarshal(ev.Datos, &d); err != nil {
+		return nil
+	}
+	var equipo []string
+	err := e.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT id FROM usuarios WHERE equipo AND baja_en IS NULL`)
+		if err != nil {
+			return err
+		}
+		equipo, err = pgx.CollectRows(rows, pgx.RowTo[string])
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	for _, id := range equipo {
+		if err := e.Mandar(ctx, id, Aviso{Titulo: "Pedido de arrepentimiento " + d.Codigo,
+			Cuerpo: "Revisalo en caigo.com.ar/equipo.", Colapso: "arr-" + d.Codigo}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (e *Enviador) leer(ctx context.Context, q string, args []any, dst ...any) error {

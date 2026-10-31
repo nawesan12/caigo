@@ -251,3 +251,15 @@ export type Reporte = {
 	detalle: string;
 	creadoEn: string;
 };
+
+/** Pedido del botón de arrepentimiento (Resolución 424/2020). */
+export type Arrepentimiento = {
+	id: string;
+	codigo: string;
+	nombre: string;
+	email: string;
+	compra: string;
+	creadoEn: string;
+	atendidoEn?: string;
+	nota?: string;
+};

@@ -4,15 +4,20 @@
 	import Pie from './Pie.svelte';
 
 	/** Páginas legales: la columna del link público y las tarjetas neutras del panel. */
-	let { titulo, ruta, children }: { titulo: string; ruta: string; children: Snippet } = $props();
+	let {
+		titulo,
+		ruta,
+		vigencia,
+		children
+	}: { titulo: string; ruta: string; vigencia?: string; children: Snippet } = $props();
 </script>
 
-<Seo titulo="{titulo} · Caigo" {ruta} noindex />
+<Seo titulo="{titulo} · Caigo" {ruta} />
 
 <div class="fondo">
 	<div class="col">
 		<a class="marca" href="/">Caigo</a>
-		<span class="borrador">Borrador</span>
+		{#if vigencia}<span class="vigencia">Vigente desde el {vigencia}</span>{/if}
 		<h1>{titulo}</h1>
 		<div class="tarjeta-plana texto">{@render children()}</div>
 	</div>
@@ -43,17 +48,17 @@
 		text-decoration: none;
 		margin-bottom: 20px;
 	}
-	.borrador {
+	.vigencia {
 		padding: 6px 11px;
 		border-radius: 12px;
-		background: #ffe1db;
-		color: #9a2e1f;
+		background: #f0ecff;
+		color: #5b43c9;
 		font-size: 12px;
 		font-weight: 800;
 	}
 	h1 {
 		font:
-			800 40px/1 'Geist',
+			800 clamp(32px, 9.6vw, 40px) / 1 'Geist',
 			sans-serif;
 		letter-spacing: -1.4px;
 	}
@@ -77,6 +82,9 @@
 	.texto :global(p),
 	.texto :global(li) {
 		color: #5c586b;
+	}
+	.texto :global(p + p) {
+		margin-top: 10px;
 	}
 	.texto :global(ul) {
 		padding-left: 20px;

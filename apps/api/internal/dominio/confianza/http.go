@@ -147,6 +147,41 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		}
 		return listo(w)
 	}))
+	mux.HandleFunc("POST /v1/publico/arrepentimiento", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Nombre string `json:"nombre"`
+			Email  string `json:"email"`
+			Compra string `json:"compra"`
+		}
+		if !respuesta.Leer(w, r, &in) {
+			return
+		}
+		codigo, err := s.Arrepentirse(r.Context(), in.Nombre, in.Email, in.Compra)
+		if err != nil {
+			respuesta.Error(w, log, err)
+			return
+		}
+		respuesta.JSON(w, http.StatusCreated, map[string]string{"codigo": codigo})
+	})
+	mux.Handle("GET /v1/equipo/arrepentimientos", h(equipo, func(w http.ResponseWriter, r *http.Request, _ sesion.Persona) error {
+		as, err := s.Arrepentimientos(r.Context())
+		if err == nil {
+			respuesta.JSON(w, http.StatusOK, map[string]any{"arrepentimientos": as})
+		}
+		return err
+	}))
+	mux.Handle("POST /v1/equipo/arrepentimientos/{id}", h(equipo, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		var in struct {
+			Nota string `json:"nota"`
+		}
+		if !respuesta.Leer(w, r, &in) {
+			return nil
+		}
+		if err := s.AtenderArrepentimiento(r.Context(), p.ID, r.PathValue("id"), in.Nota); err != nil {
+			return err
+		}
+		return listo(w)
+	}))
 	mux.Handle("GET /v1/equipo/reportes", h(equipo, func(w http.ResponseWriter, r *http.Request, _ sesion.Persona) error {
 		rs, err := s.Reportes(r.Context())
 		if err == nil {

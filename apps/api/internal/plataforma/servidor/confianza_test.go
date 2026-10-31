@@ -220,3 +220,34 @@ func TestBajaDeCuenta(t *testing.T) {
 		t.Fatalf("vuelta después de la baja: %+v", yo)
 	}
 }
+
+func TestBotonDeArrepentimiento(t *testing.T) {
+	e := nuevoEntorno(t)
+	nadie := persona{}
+	e.pedir(nadie, "POST", "/v1/publico/arrepentimiento", map[string]string{"nombre": "Ana", "email": "no-es-mail", "compra": "Plus"}, http.StatusBadRequest, nil)
+	var r struct{ Codigo string }
+	e.pedir(nadie, "POST", "/v1/publico/arrepentimiento", map[string]string{"nombre": "Ana", "email": "ana@caigo.test",
+		"compra": "Caigo Plus mes, el 30/10, operación 123"}, http.StatusCreated, &r)
+	if !strings.HasPrefix(r.Codigo, "ARR-") || len(r.Codigo) != 10 {
+		t.Fatalf("código: %q", r.Codigo)
+	}
+	// Sólo el equipo lo ve y lo atiende.
+	cualquiera, equipo := e.persona("Cualquiera"), e.persona("Moderación")
+	e.alEquipo(equipo)
+	e.pedir(cualquiera, "GET", "/v1/equipo/arrepentimientos", nil, http.StatusForbidden, nil)
+	var l struct {
+		Arrepentimientos []struct{ ID, Codigo, Email string }
+	}
+	e.pedir(equipo, "GET", "/v1/equipo/arrepentimientos", nil, http.StatusOK, &l)
+	var id string
+	for _, a := range l.Arrepentimientos {
+		if a.Codigo == r.Codigo {
+			id = a.ID
+		}
+	}
+	if id == "" {
+		t.Fatalf("no aparece el pedido: %+v", l)
+	}
+	e.pedir(equipo, "POST", "/v1/equipo/arrepentimientos/"+id, map[string]string{"nota": "Reembolsado en MP"}, http.StatusNoContent, nil)
+	e.pedir(equipo, "POST", "/v1/equipo/arrepentimientos/"+id, map[string]string{"nota": "otra vez"}, http.StatusNotFound, nil)
+}

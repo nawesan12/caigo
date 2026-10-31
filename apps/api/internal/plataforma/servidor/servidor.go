@@ -141,6 +141,7 @@ var Reglas = map[string]limite.Regla{
 	"POST /v1/plus/mercadopago":                {Max: 10, Ventana: time.Hour},
 	"GET /v1/publico/planes/{slug}":            {Max: 120, Ventana: time.Minute, PorIP: true},
 	"GET /v1/publico/vivo/{token}":             {Max: 60, Ventana: time.Minute, PorIP: true},
+	"POST /v1/publico/arrepentimiento":         {Max: 5, Ventana: time.Hour, PorIP: true},
 }
 
 // recuperar convierte un panic en un 500 con problem+json y lo registra, sin tirar el proceso.
