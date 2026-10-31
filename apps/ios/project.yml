@@ -28,12 +28,19 @@ targets:
       - path: Caigo
     dependencies:
       - package: Nucleo
+      - target: CaigoClip
+        embed: true
     entitlements:
       path: Caigo/Caigo.entitlements
       properties:
         aps-environment: development
         com.apple.developer.associated-domains:
           - applinks:caigo.com.ar
+          - appclips:caigo.com.ar
+        com.apple.security.application-groups:
+          - group.ar.com.caigo.app
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)ar.com.caigo.app
         com.apple.developer.nfc.readersession.formats:
           - TAG
         com.apple.developer.applesignin:
@@ -60,6 +67,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CaigoAPI: $(CAIGO_API)
         CaigoClerkPublicable: $(CAIGO_CLERK_PUBLICABLE)
+        CaigoGrupoLlavero: $(AppIdentifierPrefix)ar.com.caigo.app
         CFBundleURLTypes:
           - CFBundleURLName: ar.com.caigo.app
             CFBundleURLSchemes: [ar.com.caigo.app]
@@ -75,6 +83,72 @@ targets:
         NSPhotoLibraryUsageDescription: "Para elegir las fotos de tu perfil y del plan."
         NFCReaderUsageDescription: "Para hacer check-in apoyando el celu en la placa de Caigo Tap."
         LSApplicationQueriesSchemes: [whatsapp]
+  # App Clip de Caigo Tap: se abre desde https://caigo.com.ar/t/<placa> (NFC o QR) y hace el check-in.
+  # Comparte con la app el tema, las piezas, el contenedor, el ingreso con Clerk y la pantalla "Adentro".
+  CaigoClip:
+    type: application.on-demand-install-capable
+    platform: iOS
+    configFiles:
+      Debug: Config/Caigo.xcconfig
+      Release: Config/Caigo.xcconfig
+    sources:
+      - path: CaigoClip
+      - path: Caigo/Tema
+      - path: Caigo/Piezas
+      - path: Caigo/Recursos
+      - path: Caigo/App/Contenedor.swift
+      - path: Caigo/App/Ir.swift
+      - path: Caigo/App/Push.swift
+      - path: Caigo/Pantallas/Pagos/PagosComun.swift
+      - path: Caigo/Pantallas/Pagos/Adentro.swift
+      - path: Caigo/Pantallas/Ingreso/IngresoClerk.swift
+    dependencies:
+      - package: Nucleo
+    entitlements:
+      path: CaigoClip/CaigoClip.entitlements
+      properties:
+        com.apple.developer.parent-application-identifiers:
+          - $(AppIdentifierPrefix)ar.com.caigo.app
+        com.apple.developer.associated-domains:
+          - appclips:caigo.com.ar
+        com.apple.security.application-groups:
+          - group.ar.com.caigo.app
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)ar.com.caigo.app
+        com.apple.developer.applesignin:
+          - Default
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ar.com.caigo.app.Clip
+        PRODUCT_NAME: CaigoClip
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+    info:
+      path: CaigoClip/Info.plist
+      properties:
+        CFBundleDisplayName: Caigo
+        CFBundleDevelopmentRegion: es-AR
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CaigoAPI: $(CAIGO_API)
+        CaigoClerkPublicable: $(CAIGO_CLERK_PUBLICABLE)
+        CaigoGrupoLlavero: $(AppIdentifierPrefix)ar.com.caigo.app
+        NSAppClip:
+          NSAppClipRequestEphemeralUserNotification: false
+          NSAppClipRequestLocationConfirmation: false
+        UIAppFonts: [Geist-400.ttf, Geist-500.ttf, Geist-600.ttf, Geist-700.ttf, Geist-800.ttf]
+        UILaunchScreen:
+          UIColorName: ""
+          UIImageName: ""
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: "Para escanear el QR de la placa."
   CaigoTests:
     type: bundle.unit-test
     platform: iOS
