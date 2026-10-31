@@ -299,6 +299,7 @@ struct MiPerfil: View {
                 MiosFila(icono: I.corazonChico, titulo: "Lo que buscás") { opciones = false; ir.intenciones(editar: true) }
                 MiosFila(icono: I.billetera, titulo: "Mis pases") { opciones = false; ir.pases() }
                 MiosFila(icono: I.enviar, titulo: "Mensajes privados") { opciones = false; ir.privados() }
+                MiosFila(icono: I.campana, titulo: "Avisos") { opciones = false; ir.ajustesAvisos() }
                 MiosFila(icono: I.escudo, titulo: "Verificación y seguridad", ultima: true) { opciones = false; ir.verificacion() }
             }
             MiosGrupo {
@@ -429,6 +430,8 @@ struct EditarPerfil: View {
     @State private var zona = ""
     @State private var prompts: [Prompt] = []
     @State private var gustos: [String] = []
+    @State private var genero = ""
+    @State private var diversidad = false
     @State private var subiendo = false
     @State private var guardando = false
     @State private var eleccion: PhotosPickerItem?
@@ -447,6 +450,7 @@ struct EditarPerfil: View {
                             etiquetado("Sobre mí") { MiosCampo(valor: $bio, renglones: 3, maximo: 300) }
                             etiquetado("Trabajo") { MiosCampo(valor: $trabajo, maximo: 60) }
                             etiquetado("Zona") { MiosCampo(valor: $zona, placeholder: "Güemes", maximo: 60) }
+                            etiquetado("Género") { ElegirGenero(genero: $genero, diversidad: $diversidad) }
                             seccionPreguntas
                             seccionGustos
                         }
@@ -462,7 +466,7 @@ struct EditarPerfil: View {
             if c.yo == nil { await c.recargarYo() }
             if let y = c.yo, !listo {
                 fotos = y.fotos; nombre = y.nombre; bio = y.bio; trabajo = y.trabajo; zona = y.zona
-                prompts = y.prompts; gustos = y.intereses; listo = true
+                prompts = y.prompts; gustos = y.intereses; genero = y.genero; diversidad = y.diversidad; listo = true
             }
         }
         .onChange(of: eleccion) { _, item in
@@ -580,6 +584,8 @@ struct EditarPerfil: View {
                 cambios.zona = zona.trimmingCharacters(in: .whitespaces)
                 cambios.fotos = fotos
                 cambios.intereses = gustos
+                cambios.genero = genero
+                cambios.diversidad = diversidad
                 cambios.prompts = prompts.filter { !$0.r.trimmingCharacters(in: .whitespaces).isEmpty }
                     .map { Prompt(p: $0.p, r: $0.r.trimmingCharacters(in: .whitespacesAndNewlines)) }
                 c.yo = try await c.api.actualizarYo(cambios)

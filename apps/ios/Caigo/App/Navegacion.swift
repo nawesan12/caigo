@@ -5,6 +5,14 @@ import Nucleo
 struct CaigoRaiz: View {
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
+    @State private var actualizar = false
+
+    /// GET /v1/version: si este build es más viejo que `minIos`, no se deja seguir.
+    func chequearVersion() async {
+        guard let v = try? await c.api.version() else { return }
+        let build = Int((Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "") ?? 0
+        if v.pideActualizar(build: build) { withAnimation { actualizar = true } }
+    }
 
     var body: some View {
         @Bindable var ir = ir
@@ -14,7 +22,9 @@ struct CaigoRaiz: View {
                     .navigationDestination(for: Ruta.self) { r in vista(r) }
             }
             CapaAvisos(avisos: c.avisos)
+            if actualizar { ActualizarApp().transition(.opacity).zIndex(50) }
         }
+        .task { await chequearVersion() }
         .modifier(ConPaleta())
         .onChange(of: c.destino) { resolverDestino() }
         .onChange(of: ir.base) { resolverDestino() }
@@ -71,9 +81,9 @@ struct CaigoRaiz: View {
         case .adentro: VistaAdentro()
         case .editarPerfil: EditarPerfil()
         case .gente: MiGente()
-        case let .editarPlan(id): Pendiente(titulo: "Editar plan \(id)")
-        case .bloqueos: Pendiente(titulo: "Bloqueos")
-        case .ajustesAvisos: Pendiente(titulo: "Avisos")
+        case let .editarPlan(id): Crear(editar: id)
+        case .bloqueos: VistaBloqueos()
+        case .ajustesAvisos: AjustesDeAvisos()
         }
     }
 
@@ -91,6 +101,9 @@ struct CaigoRaiz: View {
             switch pantalla {
             case "solicitudes": if let plan { ir.solicitudes(plan) }
             case "chat": if let plan { ir.chat(plan) }
+            case "detalle": if let plan { ir.plan(plan) }
+            case "checkin": if let plan { ir.checkin(plan) }
+            case "repetimos": if let plan { ir.repetimos(plan) }
             case "recibidos": ir.recibidos(modo: modo ?? "gente", pestana: 0)
             case "invitaciones": ir.recibidos(modo: "gente", pestana: 1)
             case "pases": ir.pases()

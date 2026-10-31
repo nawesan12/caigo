@@ -28,12 +28,18 @@ struct CaigoApp: App {
                 }
                 .onAppear {
                     Push.contenedor = c
-                    if c.conSesion { c.tiempoReal.encender() }
+                    if c.conSesion {
+                        c.tiempoReal.encender()
+                        c.mandarUbicacion()
+                    }
                 }
         }
         .onChange(of: fase) { _, f in
             // El WebSocket vive mientras la app está en primer plano.
-            if f == .active, c.conSesion { c.tiempoReal.encender() }
+            if f == .active, c.conSesion {
+                c.tiempoReal.encender()
+                c.mandarUbicacion()
+            }
             if f == .background { c.tiempoReal.apagar() }
         }
     }

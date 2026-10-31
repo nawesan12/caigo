@@ -36,8 +36,13 @@ struct Verificacion: View {
     @Environment(Ir.self) private var ir
     @State private var estado: EstadoVerificacion?
     @State private var error: String?
+    @State private var compartiendo = false
+    @State private var editandoContacto = false
+    @State private var contacto = ""
+    @State private var guardandoContacto = false
 
     var body: some View {
+        ZStack {
         Pantalla {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -58,11 +63,59 @@ struct Verificacion: View {
                 .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 40)
             }
         }
+        hojaContacto
+        }
         .environment(\.colorScheme, .light)
         .task { await cargar() }
     }
 
+    /// Contacto de confianza (PATCH /v1/yo `contactoConfianza`): teléfono o mail.
+    private var hojaContacto: some View {
+        MiosHoja(abierta: editandoContacto, titulo: "Contacto de confianza", cerrar: { if !guardandoContacto { editandoContacto = false } }) {
+            T("A quién le mandás tu plan en vivo. Un teléfono o un mail, con un nombre si querés.", 15, 400, C.texto2, alto: 1.45)
+            MiosCampo(valor: $contacto, placeholder: "Mamá · +54 223 444 1290", maximo: 80)
+            Cta(texto: "Guardar", cargando: guardandoContacto) {
+                guardandoContacto = true
+                Task {
+                    var cambios = CambiosPerfil()
+                    cambios.contactoConfianza = contacto.trimmingCharacters(in: .whitespacesAndNewlines)
+                    do {
+                        c.yo = try await c.api.actualizarYo(cambios)
+                        editandoContacto = false
+                    } catch {
+                        c.avisos.error(error)
+                    }
+                    guardandoContacto = false
+                }
+            }
+        }
+    }
+
+    /// «Compartir mi plan en vivo»: el link de /vivo del próximo plan en el que estoy adentro.
+    private func compartirEnVivo() {
+        guard !compartiendo else { return }
+        compartiendo = true
+        Task {
+            defer { compartiendo = false }
+            do {
+                let ahora = Date()
+                let planes = try await c.api.mios("me_sume").planes.filter { pl in
+                    guard pl.miEstado == "aceptada", let d = Fecha.parse(pl.empiezaEn) else { return false }
+                    return d.addingTimeInterval(Double(pl.duracionMin) * 60) > ahora
+                }
+                guard let pl = planes.min(by: { $0.empiezaEn < $1.empiezaEn }) else {
+                    c.avisos.error("Cuando te acepten en un plan, lo compartís desde acá.")
+                    return
+                }
+                Sistema.compartir(try await c.api.enVivo(pl.id).link)
+            } catch {
+                c.avisos.error(error)
+            }
+        }
+    }
+
     private func cargar() async {
+        if c.yo == nil { await c.recargarYo() }
         do {
             estado = try await c.api.verificacion()
             error = nil
@@ -86,7 +139,9 @@ struct Verificacion: View {
                 case "rechazada": return v.dniMotivo.isEmpty ? "Habilita planes «solo verificados»" : v.dniMotivo
                 default: return "Habilita planes «solo verificados»"
                 }
-            }()) {}
+            }()) {
+                if v.dni == "ninguna" || v.dni == "rechazada" { ir.dni() }
+            }
         }
         .padding(6)
         .gel(26, gelTarjetaOscura)
@@ -95,9 +150,14 @@ struct Verificacion: View {
         }
         T("Herramientas para salir tranqui", 20, 700, C.carbon).padding(.top, 4)
         VStack(spacing: 0) {
-            herramienta(I.pin, C.violeta, "Compartir mi plan en vivo", "Tu contacto ve dónde estás hasta que termina", borde: true)
-            herramienta(I.usuario, C.violeta, "Contacto de confianza", nil, borde: true)
-            herramienta(I.bloqueo, C.coral2, "Bloqueos y reportes", "Los revisa una persona del equipo, no un bot", borde: false)
+            herramienta(I.pin, C.violeta, "Compartir mi plan en vivo", "Tu contacto ve dónde estás hasta que termina", borde: true,
+                        cargando: compartiendo) { compartirEnVivo() }
+            herramienta(I.usuario, C.violeta, "Contacto de confianza",
+                        (c.yo?.contactoConfianza).flatMap { $0.isEmpty ? nil : $0 } ?? "Sumá a alguien que sepa dónde estás", borde: true) {
+                contacto = c.yo?.contactoConfianza ?? ""
+                editandoContacto = true
+            }
+            herramienta(I.bloqueo, C.coral2, "Bloqueos y reportes", "Los revisa una persona del equipo, no un bot", borde: false) { ir.bloqueos() }
         }
         .gel(22, Gels.neutra)
         T("Nunca mostramos tu DNI ni tu dirección. Solo el badge.", 12, 400, C.texto2, alto: 1.5, alinear: .center)
@@ -123,17 +183,23 @@ struct Verificacion: View {
         }
     }
 
-    private func herramienta(_ icono: String, _ color: Color, _ titulo: String, _ sub: String?, borde: Bool) -> some View {
+    private func herramienta(_ icono: String, _ color: Color, _ titulo: String, _ sub: String?, borde: Bool,
+                             cargando: Bool = false, accion: @escaping () -> Void) -> some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Icono(icono, 20, color, trazo: 2.2)
-                VStack(alignment: .leading, spacing: 0) {
-                    T(titulo, 14, 800, C.carbon)
-                    if let sub { T(sub, 12, 400, C.texto2) }
+            Button(action: accion) {
+                HStack(spacing: 12) {
+                    Icono(icono, 20, color, trazo: 2.2)
+                    VStack(alignment: .leading, spacing: 0) {
+                        T(titulo, 14, 800, C.carbon)
+                        if let sub { T(sub, 12, 400, C.texto2) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if cargando { Puntitos(color: C.violeta) }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16).padding(.vertical, 14)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 16).padding(.vertical, 14)
+            .buttonStyle(EstiloPlano())
             if borde { Rectangle().fill(C.lavanda).frame(height: 1) }
         }
     }

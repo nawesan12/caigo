@@ -108,6 +108,7 @@ final class Contenedor {
         self.usuarioId = usuarioId
         tiempoReal.encender()
         registrarPush()
+        mandarUbicacion()
     }
 
     func marcarIntro() {
@@ -156,6 +157,20 @@ final class Contenedor {
     func registrarPush() {
         guard conSesion, let t = tokenPush else { return }
         Task { try? await api.registrarDispositivo(t) }
+    }
+
+    @ObservationIgnored private var ubicacionMandada: Date?
+
+    /// PUT /v1/yo/ubicacion (avisos de planes cerca): al abrir y al volver a primer plano, como mucho
+    /// una vez cada 30 minutos. Sólo si ya hay permiso: no se pide permiso para esto.
+    func mandarUbicacion() {
+        guard conSesion, !Config.esClip, ubicador.permitido else { return }
+        if let u = ubicacionMandada, Date().timeIntervalSince(u) < 30 * 60 { return }
+        ubicacionMandada = Date()
+        Task {
+            guard let u = await ubicacion() else { ubicacionMandada = nil; return }
+            do { try await api.ubicacion(lat: u.0, lng: u.1) } catch { ubicacionMandada = nil }
+        }
     }
 
     /// Ubicación actual (o la última conocida). Sin permiso o sin señal: nil.

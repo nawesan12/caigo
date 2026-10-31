@@ -9,6 +9,7 @@ let altoTabBar: CGFloat = 24 + 70 + 14
 struct Principal: View {
     var inicial: Pestana
     var modo: String?
+    @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var p
 
@@ -31,7 +32,10 @@ struct Principal: View {
         }
         .animation(.easeOut(duration: 0.2), value: ir.tabBarOculta)
         // El permiso de avisos se pide al llegar a la app, no en medio del alta.
-        .task { Push.pedirPermiso() }
+        .task {
+            Push.pedirPermiso()
+            c.mandarUbicacion()
+        }
         .ocultarBarraNavegacion()
     }
 }

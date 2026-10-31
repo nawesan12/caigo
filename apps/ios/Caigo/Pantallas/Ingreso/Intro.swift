@@ -139,7 +139,10 @@ struct IngresoSlidePlanes: View {
 struct IngresoSlideAmigos: View {
     var saltar: () -> Void
     var avanzar: () -> Void
+    @Environment(Contenedor.self) private var c
     @State private var cuantos = 1
+    /// Lo que se guarda en `c.somos` (con cuántos se suma por defecto) para cada opción.
+    private static let personas = [1, 2, 4]
 
     private var gelVioleta: Gel {
         Gel(fondo: Gels.fondoVioleta, sombras: [
@@ -192,7 +195,10 @@ struct IngresoSlideAmigos: View {
                                     .frame(height: 46)
                                     .background { if on { Color.clear.gel(16, gelVioleta) } }
                                     .contentShape(Rectangle())
-                                    .onTapGesture { withAnimation(.easeOut(duration: 0.18)) { cuantos = i } }
+                                    .onTapGesture {
+                                        withAnimation(.easeOut(duration: 0.18)) { cuantos = i }
+                                        c.somos = Self.personas[i]
+                                    }
                             }
                         }
                         .padding(5)
@@ -217,6 +223,10 @@ struct IngresoSlideAmigos: View {
             .ignoresSafeArea()
         }
         .environment(\.colorScheme, .light)
+        .onAppear {
+            // Lo que ya eligió. Si nunca tocó nada se ve «Somos 2» (el del handoff), pero no se guarda.
+            if UserDefaults.standard.object(forKey: "somos") != nil, let k = Self.personas.firstIndex(of: c.somos) { cuantos = k }
+        }
     }
 }
 

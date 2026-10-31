@@ -33,7 +33,8 @@ targets:
     entitlements:
       path: Caigo/Caigo.entitlements
       properties:
-        aps-environment: development
+        # development en Debug, production en Release (APS_ENTORNO sale de la configuración).
+        aps-environment: $(APS_ENTORNO)
         com.apple.developer.associated-domains:
           - applinks:caigo.com.ar
           - appclips:caigo.com.ar
@@ -58,6 +59,9 @@ targets:
       configs:
         Debug:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+          APS_ENTORNO: development
+        Release:
+          APS_ENTORNO: production
     info:
       path: Caigo/Info.plist
       properties:
