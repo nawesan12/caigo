@@ -13,6 +13,11 @@ android, ios).
 - UI fiel al handoff, sin renglones viudos, copy rioplatense. No crear cuentas externas sin su ok
   (ya autorizó «configurá vos todo» para Apple, MP y Firebase).
 
+**SEO y OG (31/10, en producción):** imágenes OG dinámicas por plan (`/p/<slug>/og.png`) y fijas
+(`/og/<nombre>.png`) con satori + resvg en WASM (sin binarios nativos), JSON-LD (Event por plan,
+Organization/WebSite en la portada), sitemap.xml y robots.txt por host, manifest e íconos
+(`scripts/iconos.ts`). La primera vez una OG tarda ~3 s en el VPS; después sale de caché.
+
 **Documentos clave:** `docs/auditoria.md` (lo que faltaba contra el handoff),
 `docs/contrato-faltantes.md` (API de esos faltantes, ya implementada), `docs/api.md` (todas las
 rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.md` (fichas),
