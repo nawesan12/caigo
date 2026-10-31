@@ -291,7 +291,7 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                     val permiteGrupo = p.aceptaGrupos && p.faltan > 1
                     if (permiteGrupo) {
                         Segmentado(
-                            listOf(if (deLugar) "Voy solo · armame mesa" else "Voy solo", if (grupo == 1) "Somos $cantidad" else "Somos 2+"),
+                            listOf("Voy solo", if (grupo == 1) "Somos $cantidad" else "Somos 2+"),
                             grupo, { grupo = it }, radio = 15.dp, radioOpcion = 12.dp, alto = 44.dp,
                         )
                         if (grupo == 1) Row(
