@@ -26,7 +26,9 @@ export const actions: Actions = {
 		const id = uuid(event.params.id);
 		const f = await event.request.formData();
 		const cantidad = Math.min(10, Math.max(1, Number(f.get('cantidad')) || 1));
-		const mensaje = String(f.get('mensaje') ?? '').trim().slice(0, 200);
+		const mensaje = String(f.get('mensaje') ?? '')
+			.trim()
+			.slice(0, 200);
 		let link = '';
 		try {
 			const plan = await conSesion<Plan>(event, 'GET', `/v1/planes/${id}`);

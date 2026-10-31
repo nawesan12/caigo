@@ -3,7 +3,13 @@
 	let { tam = 16 }: { tam?: number } = $props();
 </script>
 
-<svg width={tam} height={tam} viewBox="0 0 24 24" role="img" aria-label="Verificado" style="flex:none"
+<svg
+	width={tam}
+	height={tam}
+	viewBox="0 0 24 24"
+	role="img"
+	aria-label="Verificado"
+	style="flex:none"
 	><path
 		d="M12 2l2.4 1.8 3-.2.9 2.9 2.5 1.7-1 2.8 1 2.8-2.5 1.7-.9 2.9-3-.2L12 22l-2.4-1.8-3 .2-.9-2.9-2.5-1.7 1-2.8-1-2.8 2.5-1.7.9-2.9 3 .2z"
 		fill="#7456F1"

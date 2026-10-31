@@ -5,10 +5,7 @@
 	 * Lo que todavía es sólo de la app (Gente y Citas, pases de Wallet, Plus, check-in, DNI): la
 	 * tarjeta de plan del handoff con el isotipo y las insignias de las tiendas.
 	 */
-	let {
-		titulo = 'Bajate la app',
-		texto
-	}: { titulo?: string; texto: string } = $props();
+	let { titulo = 'Bajate la app', texto }: { titulo?: string; texto: string } = $props();
 </script>
 
 <div class="bajate">

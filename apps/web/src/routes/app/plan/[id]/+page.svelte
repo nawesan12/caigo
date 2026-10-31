@@ -72,7 +72,16 @@
 		<div class="botones">
 			<a class="btn" href="/app" aria-label="Volver"><Icono nombre="atras" tam={22} /></a>
 			<button class="btn" onclick={compartir} aria-label="Compartir el plan"
-				><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#24212D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6" /></svg
+				><svg
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="#24212D"
+					stroke-width="2.2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6" /></svg
 				></button
 			>
 		</div>
@@ -124,7 +133,9 @@
 				<span class="on"
 					>Organiza {organiza}{#if p.organizador.verificada}<Verificado />{/if}</span
 				>
-				<span class="or">{p.lugar ? 'Lugar aliado de Caigo' : reputacion(p.organizador.asistencia)}</span>
+				<span class="or"
+					>{p.lugar ? 'Lugar aliado de Caigo' : reputacion(p.organizador.asistencia)}</span
+				>
 			</div>
 		</div>
 
@@ -163,7 +174,9 @@
 				</div>
 			{:else if p.costoCentavos}
 				<div class="fila">
-					<span class="peso">$</span><span class="ft">{pesosDeCentavos(p.costoCentavos)} por persona</span>
+					<span class="peso">$</span><span class="ft"
+						>{pesosDeCentavos(p.costoCentavos)} por persona</span
+					>
 				</div>
 			{/if}
 			{#if p.beneficio}
@@ -193,7 +206,9 @@
 </div>
 
 <div class="barra">
-	{#if form?.error && form?.codigo !== 'falta_dni'}<p class="error" role="alert">{form.error}</p>{/if}
+	{#if form?.error && form?.codigo !== 'falta_dni'}<p class="error" role="alert">
+			{form.error}
+		</p>{/if}
 	{#if p.cancelado}
 		<span class="estado esperando">Este plan se canceló</span>
 	{:else if estado === 'organizador'}
@@ -205,7 +220,9 @@
 		</div>
 	{:else if estado === 'aceptada'}
 		<div class="dos">
-			<span class="estado adentro"><Icono nombre="check" tam={18} color="#C8F36B" trazo={3.4} />Adentro</span>
+			<span class="estado adentro"
+				><Icono nombre="check" tam={18} color="#C8F36B" trazo={3.4} />Adentro</span
+			>
 			<a class="gel gel-lima grande" href="/app/plan/{p.id}/chat">Ir al chat</a>
 		</div>
 	{:else if estado === 'pendiente'}
@@ -234,17 +251,37 @@
 			{#if grupo}
 				<div class="cuantos">
 					<span>Somos</span>
-					<button type="button" aria-label="Menos" onclick={() => (cantidad = Math.max(2, cantidad - 1))}>−</button>
+					<button
+						type="button"
+						aria-label="Menos"
+						onclick={() => (cantidad = Math.max(2, cantidad - 1))}>−</button
+					>
 					<b aria-live="polite">{cantidad}</b>
-					<button type="button" aria-label="Más" onclick={() => (cantidad = Math.min(Math.max(2, p.faltan), 10, cantidad + 1))}>+</button>
+					<button
+						type="button"
+						aria-label="Más"
+						onclick={() => (cantidad = Math.min(Math.max(2, p.faltan), 10, cantidad + 1))}>+</button
+					>
 				</div>
 			{/if}
 			{#if p.ingreso === 'aprobacion' && !conCobro}
-				<input class="mensaje" name="mensaje" maxlength="200" placeholder="Mandale un mensaje (opcional)" />
+				<input
+					class="mensaje"
+					name="mensaje"
+					maxlength="200"
+					placeholder="Mandale un mensaje (opcional)"
+				/>
 			{/if}
 			<input type="hidden" name="cantidad" value={grupo ? cantidad : 1} />
 			<button class="gel gel-lima cta" disabled={enviando}>
-				<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M4 12h16" stroke="#24212D" stroke-width="4" stroke-linecap="round" /></svg>{cta}
+				<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"
+					><path
+						d="M12 4v16M4 12h16"
+						stroke="#24212D"
+						stroke-width="4"
+						stroke-linecap="round"
+					/></svg
+				>{cta}
 			</button>
 		</form>
 	{/if}
@@ -323,9 +360,7 @@
 	.contador {
 		padding: 16px;
 		border-radius: 24px;
-		background:
-			url(/grain.png),
-			radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
+		background: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.08),
 			0 12px 26px -10px rgba(36, 33, 45, 0.55);

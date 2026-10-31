@@ -46,8 +46,7 @@
 		height: 100dvh;
 		overflow: hidden;
 		background:
-			url(/grain.png),
-			radial-gradient(90% 38% at 100% 0%, #ece5ff 0%, rgba(236, 229, 255, 0) 70%),
+			url(/grain.png), radial-gradient(90% 38% at 100% 0%, #ece5ff 0%, rgba(236, 229, 255, 0) 70%),
 			#faf9f6;
 		/* Las pantallas son position:absolute dentro del teléfono, como en el handoff. */
 		isolation: isolate;

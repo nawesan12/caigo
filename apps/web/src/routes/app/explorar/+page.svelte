@@ -30,7 +30,12 @@
 	const dias = $derived(
 		diasParaElegir(new Date(), 6).map((d, i) => {
 			const p = partes(d.valor + 'T12:00:00-03:00');
-			return { ...d, corto: i === 0 ? 'Hoy' : CORTO[p.semana], num: p.dia, largo: i === 0 ? 'Hoy' : `${LARGO[p.semana]} ${p.dia}` };
+			return {
+				...d,
+				corto: i === 0 ? 'Hoy' : CORTO[p.semana],
+				num: p.dia,
+				largo: i === 0 ? 'Hoy' : `${LARGO[p.semana]} ${p.dia}`
+			};
 		})
 	);
 	const filtrados = $derived.by(() => {
@@ -68,15 +73,52 @@
 		<div class="cab">
 			<h1>Explorar</h1>
 			<div class="buscar">
-				<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7456F1" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
-				<input bind:value={busqueda} placeholder="¿Qué tenés ganas de hacer?" aria-label="Buscar planes" />
-				<button class="filtrar" onclick={() => (filtros = !filtros)} aria-label="Filtros" aria-expanded={filtros}>
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
+				<svg
+					width="22"
+					height="22"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="#7456F1"
+					stroke-width="2.4"
+					stroke-linecap="round"
+					aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg
+				>
+				<input
+					bind:value={busqueda}
+					placeholder="¿Qué tenés ganas de hacer?"
+					aria-label="Buscar planes"
+				/>
+				<button
+					class="filtrar"
+					onclick={() => (filtros = !filtros)}
+					aria-label="Filtros"
+					aria-expanded={filtros}
+				>
+					<svg
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="#FFFFFF"
+						stroke-width="2.4"
+						stroke-linecap="round"
+						aria-hidden="true"
+						><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle
+							cx="10"
+							cy="17"
+							r="2"
+						/></svg
+					>
 				</button>
 			</div>
 			{#if filtros}
 				<div class="chips">
-					<a class="chip" class:sel={data.verificados} href={url({ verificados: data.verificados ? '' : '1' })} data-sveltekit-noscroll>Solo verificados</a>
+					<a
+						class="chip"
+						class:sel={data.verificados}
+						href={url({ verificados: data.verificados ? '' : '1' })}
+						data-sveltekit-noscroll>Solo verificados</a
+					>
 				</div>
 			{/if}
 		</div>
@@ -113,7 +155,11 @@
 		</div>
 
 		{#if recurrente}
-			<a class="recurrente" href="/app/plan/{recurrente.id}" style:background-color={TINTES[recurrente.categoria]}>
+			<a
+				class="recurrente"
+				href="/app/plan/{recurrente.id}"
+				style:background-color={TINTES[recurrente.categoria]}
+			>
 				{#if recurrente.foto}<img src={recurrente.foto} alt="" />{/if}
 				<div class="velo"></div>
 				<div class="rec-in">
@@ -121,9 +167,18 @@
 					<div class="rec-pie">
 						<div class="rec-txt">
 							<span class="rt">{recurrente.titulo}</span>
-							<span class="rs">{[recurrente.lugarNombre || recurrente.zona, recurrente.soloVerificados && 'verificados'].filter(Boolean).join(' · ')}</span>
+							<span class="rs"
+								>{[
+									recurrente.lugarNombre || recurrente.zona,
+									recurrente.soloVerificados && 'verificados'
+								]
+									.filter(Boolean)
+									.join(' · ')}</span
+							>
 						</div>
-						<span class={recurrente.faltan > 0 ? 'badge-coral rb' : 'badge-completo rb'}>{faltanTexto(recurrente.faltan)}</span>
+						<span class={recurrente.faltan > 0 ? 'badge-coral rb' : 'badge-completo rb'}
+							>{faltanTexto(recurrente.faltan)}</span
+						>
 					</div>
 				</div>
 			</a>
@@ -143,7 +198,11 @@
 				<div class="ftxt">
 					<span class="fh">{x.hora} · {(CATEGORIAS[g.categoria] ?? '').toUpperCase()}</span>
 					<span class="ft">{g.titulo}</span>
-					<span class="fs">{[g.lugarNombre || (g.zona && `Zona ${g.zona}`), g.soloVerificados && 'Verificados'].filter(Boolean).join(' · ')}</span>
+					<span class="fs"
+						>{[g.lugarNombre || (g.zona && `Zona ${g.zona}`), g.soloVerificados && 'Verificados']
+							.filter(Boolean)
+							.join(' · ')}</span
+					>
 				</div>
 				<span class="fb" class:coral={g.faltan === 1}>{faltanTexto(g.faltan)}</span>
 			</a>

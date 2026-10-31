@@ -9,7 +9,10 @@
 	let { plan }: { plan: Plan } = $props();
 
 	const donde = $derived(
-		[plan.lugarNombre || (plan.zona ? `Zona ${plan.zona}` : plan.ciudad), distancia(plan.distanciaM)]
+		[
+			plan.lugarNombre || (plan.zona ? `Zona ${plan.zona}` : plan.ciudad),
+			distancia(plan.distanciaM)
+		]
 			.filter(Boolean)
 			.join(' · ')
 	);

@@ -84,9 +84,7 @@
 		costoCentavos: f.costo && leerPrecio(f.precio) ? leerPrecio(f.precio) * 100 : null
 	});
 	const publicado = $derived(form && 'publicado' in form ? form.publicado : null);
-	const link = $derived(
-		publicado ? `${PUBLIC_SITIO.replace(/\/+$/, '')}/p/${publicado.slug}` : ''
-	);
+	const link = $derived(publicado ? `${PUBLIC_SITIO.replace(/\/+$/, '')}/p/${publicado.slug}` : '');
 
 	function siguiente() {
 		if (paso === 1 && !f.lat && !f.lugarNombre.trim()) {
@@ -108,7 +106,11 @@
 		{ nombre: 'Villa Gesell', centro: [-37.2636, -56.9733] }
 	];
 	const centroMapa = $derived<[number, number]>(
-		f.lat ? [f.lat, f.lng] : f.ciudad === 'Villa Gesell' ? CIUDADES[1].centro : [ini.centro.lat, ini.centro.lng]
+		f.lat
+			? [f.lat, f.lng]
+			: f.ciudad === 'Villa Gesell'
+				? CIUDADES[1].centro
+				: [ini.centro.lat, ini.centro.lng]
 	);
 </script>
 
@@ -136,9 +138,13 @@
 			<div class="arriba">
 				<div class="arriba-fila">
 					{#if paso === 1}
-						<a class="icono-btn" href="/app" aria-label="Cerrar"><Icono nombre="cerrar" tam={20} trazo={2.4} /></a>
+						<a class="icono-btn" href="/app" aria-label="Cerrar"
+							><Icono nombre="cerrar" tam={20} trazo={2.4} /></a
+						>
 					{:else}
-						<button class="icono-btn" onclick={() => paso--} aria-label="Atrás"><Icono nombre="atras" tam={22} /></button>
+						<button class="icono-btn" onclick={() => paso--} aria-label="Atrás"
+							><Icono nombre="atras" tam={22} /></button
+						>
 					{/if}
 					<span class="paso">{paso} de 3</span>
 				</div>
@@ -158,8 +164,10 @@
 				/>
 				<div class="chips">
 					{#each CATEGORIAS_CREAR as c (c.valor)}
-						<button class="chip-a" class:sel={f.categoria === c.valor} onclick={() => (f.categoria = c.valor)}
-							>{c.etiqueta}</button
+						<button
+							class="chip-a"
+							class:sel={f.categoria === c.valor}
+							onclick={() => (f.categoria = c.valor)}>{c.etiqueta}</button
 						>
 					{/each}
 				</div>
@@ -167,29 +175,51 @@
 					<span class="rot">¿Cuándo?</span>
 					<div class="seg3">
 						{#each [['ahora', 'Ahora'], ['hoy', 'Hoy'], ['otro', 'Otro día']] as [k, l] (k)}
-							<button class:on={f.cuando === k} onclick={() => (f.cuando = k as typeof f.cuando)}>{l}</button>
+							<button class:on={f.cuando === k} onclick={() => (f.cuando = k as typeof f.cuando)}
+								>{l}</button
+							>
 						{/each}
 					</div>
 					{#if f.cuando === 'otro'}
-						<input class="campo-b" type="date" bind:value={f.dia} min={HOY[0].valor} aria-label="Día" />
+						<input
+							class="campo-b"
+							type="date"
+							bind:value={f.dia}
+							min={HOY[0].valor}
+							aria-label="Día"
+						/>
 					{/if}
 					{#if f.cuando !== 'ahora'}
 						<div class="horas">
 							{#each ['20:30', '21:30', '22:30'] as h (h)}
-								<button class="hora" class:on={!f.otraHora && f.hora === h} onclick={() => ((f.hora = h), (f.otraHora = false))}
-									>{h}</button
+								<button
+									class="hora"
+									class:on={!f.otraHora && f.hora === h}
+									onclick={() => ((f.hora = h), (f.otraHora = false))}>{h}</button
 								>
 							{/each}
-							<button class="hora" class:on={f.otraHora} onclick={() => (f.otraHora = true)}>Otra</button>
+							<button class="hora" class:on={f.otraHora} onclick={() => (f.otraHora = true)}
+								>Otra</button
+							>
 						</div>
 						{#if f.otraHora}
-							<input class="campo-b corto" type="time" bind:value={f.hora} step="900" aria-label="Hora" />
+							<input
+								class="campo-b corto"
+								type="time"
+								bind:value={f.hora}
+								step="900"
+								aria-label="Hora"
+							/>
 						{/if}
 					{/if}
 				</div>
 				<div class="bloque">
 					<span class="rot">¿Dónde?</span>
-					<button class="donde" onclick={() => (dondeAbierto = !dondeAbierto)} aria-expanded={dondeAbierto}>
+					<button
+						class="donde"
+						onclick={() => (dondeAbierto = !dondeAbierto)}
+						aria-expanded={dondeAbierto}
+					>
 						<Icono nombre="pin" tam={20} color="#7456F1" trazo={2} />
 						<span class="dcol">
 							<b>{f.lugarNombre || (f.lat ? 'Punto en el mapa' : 'Elegí el lugar')}</b>
@@ -199,21 +229,53 @@
 					</button>
 					{#if dondeAbierto}
 						<div class="donde-form">
-							<input class="campo-b" bind:value={f.lugarNombre} maxlength="80" placeholder="Nombre del lugar (ej: Bar La Cumbre)" aria-label="Nombre del lugar" />
-							<input class="campo-b" bind:value={f.direccion} maxlength="160" placeholder="Dirección (ej: Alsina 2450)" aria-label="Dirección" />
-							<input class="campo-b" bind:value={f.zona} maxlength="60" placeholder="Zona (ej: Güemes)" aria-label="Zona" />
+							<input
+								class="campo-b"
+								bind:value={f.lugarNombre}
+								maxlength="80"
+								placeholder="Nombre del lugar (ej: Bar La Cumbre)"
+								aria-label="Nombre del lugar"
+							/>
+							<input
+								class="campo-b"
+								bind:value={f.direccion}
+								maxlength="160"
+								placeholder="Dirección (ej: Alsina 2450)"
+								aria-label="Dirección"
+							/>
+							<input
+								class="campo-b"
+								bind:value={f.zona}
+								maxlength="60"
+								placeholder="Zona (ej: Güemes)"
+								aria-label="Zona"
+							/>
 							<div class="chips">
 								{#each CIUDADES as c (c.nombre)}
-									<button class="chip-a" class:sel={f.ciudad === c.nombre} onclick={() => (f.ciudad = c.nombre)}>{c.nombre}</button>
+									<button
+										class="chip-a"
+										class:sel={f.ciudad === c.nombre}
+										onclick={() => (f.ciudad = c.nombre)}>{c.nombre}</button
+									>
 								{/each}
 							</div>
-							<span class="ayuda">Tocá el mapa donde es. La dirección exacta se puede ocultar hasta que aceptes a&nbsp;alguien.</span>
+							<span class="ayuda"
+								>Tocá el mapa donde es. La dirección exacta se puede ocultar hasta que aceptes
+								a&nbsp;alguien.</span
+							>
 							<Mapa bind:lat={f.lat} bind:lng={f.lng} centro={centroMapa} />
 						</div>
 					{/if}
 				</div>
-				<button class="tg" onclick={() => (f.recurrente = !f.recurrente)} role="switch" aria-checked={f.recurrente}>
-					<span class="tg-txt"><b>Se repite cada semana</b><span>Mismo día y hora, todas las semanas</span></span>
+				<button
+					class="tg"
+					onclick={() => (f.recurrente = !f.recurrente)}
+					role="switch"
+					aria-checked={f.recurrente}
+				>
+					<span class="tg-txt"
+						><b>Se repite cada semana</b><span>Mismo día y hora, todas las semanas</span></span
+					>
 					<span class="tog" class:on={f.recurrente}></span>
 				</button>
 			{:else if paso === 2}
@@ -222,17 +284,26 @@
 					<div class="caja">
 						<span class="cl">Somos</span>
 						<div class="stp">
-							<button aria-label="Menos" onclick={() => (f.somos = Math.max(1, f.somos - 1))}>−</button>
+							<button aria-label="Menos" onclick={() => (f.somos = Math.max(1, f.somos - 1))}
+								>−</button
+							>
 							<b>{f.somos}</b>
-							<button aria-label="Más" onclick={() => (f.somos = Math.min(59, f.somos + 1))}>+</button>
+							<button aria-label="Más" onclick={() => (f.somos = Math.min(59, f.somos + 1))}
+								>+</button
+							>
 						</div>
 					</div>
 					<div class="caja oscura">
 						<span class="cl coral">Faltan</span>
 						<div class="stp">
-							<button aria-label="Menos" onclick={() => (f.faltan = Math.max(1, f.faltan - 1))}>−</button>
+							<button aria-label="Menos" onclick={() => (f.faltan = Math.max(1, f.faltan - 1))}
+								>−</button
+							>
 							<b class="coral">{f.faltan}</b>
-							<button aria-label="Más" onclick={() => (f.faltan = Math.min(60 - f.somos, f.faltan + 1))}>+</button>
+							<button
+								aria-label="Más"
+								onclick={() => (f.faltan = Math.min(60 - f.somos, f.faltan + 1))}>+</button
+							>
 						</div>
 					</div>
 				</div>
@@ -247,10 +318,17 @@
 				</div>
 				<div class="bloque">
 					<div class="edad-cab">
-						<button class="rot rot-btn" onclick={() => (f.edad = !f.edad)} aria-pressed={f.edad}>Edad</button>
+						<button class="rot rot-btn" onclick={() => (f.edad = !f.edad)} aria-pressed={f.edad}
+							>Edad</button
+						>
 						<span class="edad-v">{f.edad ? `${f.edadMin} a ${f.edadMax}` : 'Cualquiera'}</span>
 					</div>
-					<div class="rango" class:apagado={!f.edad} style:--a="{((f.edadMin - 18) / 52) * 100}%" style:--b="{((f.edadMax - 18) / 52) * 100}%">
+					<div
+						class="rango"
+						class:apagado={!f.edad}
+						style:--a="{((f.edadMin - 18) / 52) * 100}%"
+						style:--b="{((f.edadMax - 18) / 52) * 100}%"
+					>
 						<span class="pista"></span><span class="tramo"></span>
 						<input
 							type="range"
@@ -274,7 +352,9 @@
 					<span class="rot">Quiénes</span>
 					<div class="chips">
 						{#each [['cualquiera', 'Cualquiera'], ['mujeres', 'Solo mujeres'], ['diversidades', 'Solo diversidades']] as [k, l] (k)}
-							<button class="chip-a" class:sel={f.genero === k} onclick={() => (f.genero = k)}>{l}</button>
+							<button class="chip-a" class:sel={f.genero === k} onclick={() => (f.genero = k)}
+								>{l}</button
+							>
 						{/each}
 					</div>
 				</div>
@@ -282,7 +362,11 @@
 					<span class="rot">Nivel</span>
 					<div class="chips">
 						{#each niveles as n (n)}
-							<button class="chip-a" class:sel={f.nivel === n} onclick={() => (f.nivel = f.nivel === n ? '' : n)}>{n}</button>
+							<button
+								class="chip-a"
+								class:sel={f.nivel === n}
+								onclick={() => (f.nivel = f.nivel === n ? '' : n)}>{n}</button
+							>
 						{/each}
 					</div>
 				</div>
@@ -300,16 +384,30 @@
 					<span class="rot">Quién lo ve</span>
 					<div class="seg3">
 						{#each [['publico', 'Público'], ['mi_gente', 'Mi gente'], ['link', 'Por link']] as [k, l] (k)}
-							<button class:on={f.visibilidad === k} onclick={() => (f.visibilidad = k)}>{l}</button>
+							<button class:on={f.visibilidad === k} onclick={() => (f.visibilidad = k)}>{l}</button
+							>
 						{/each}
 					</div>
 				</div>
 				<div class="opciones">
-					<button class="op" role="switch" aria-checked={f.soloVerificados} onclick={() => (f.soloVerificados = !f.soloVerificados)}>
+					<button
+						class="op"
+						role="switch"
+						aria-checked={f.soloVerificados}
+						onclick={() => (f.soloVerificados = !f.soloVerificados)}
+					>
 						<span>Solo verificados</span><span class="tog" class:on={f.soloVerificados}></span>
 					</button>
-					<button class="op" role="switch" aria-checked={f.ocultarDireccion} onclick={() => (f.ocultarDireccion = !f.ocultarDireccion)}>
-						<span>Ocultar dirección hasta aceptar</span><span class="tog" class:on={f.ocultarDireccion}></span>
+					<button
+						class="op"
+						role="switch"
+						aria-checked={f.ocultarDireccion}
+						onclick={() => (f.ocultarDireccion = !f.ocultarDireccion)}
+					>
+						<span>Ocultar dirección hasta aceptar</span><span
+							class="tog"
+							class:on={f.ocultarDireccion}
+						></span>
 					</button>
 					<div class="op">
 						<span>Costo por persona</span>
@@ -318,7 +416,10 @@
 								$<input
 									inputmode="numeric"
 									value={leerPrecio(f.precio) ? leerPrecio(f.precio).toLocaleString('es-AR') : ''}
-									oninput={(e) => (f.precio = (e.currentTarget as HTMLInputElement).value.replace(/\D/g, '').slice(0, 7))}
+									oninput={(e) =>
+										(f.precio = (e.currentTarget as HTMLInputElement).value
+											.replace(/\D/g, '')
+											.slice(0, 7))}
 									aria-label="Costo por persona"
 								/>
 							</span>
@@ -328,7 +429,9 @@
 					</div>
 				</div>
 				{#if f.costo && leerPrecio(f.precio)}
-					<span class="ayuda centro">{pesos(leerPrecio(f.precio))} por persona, se arregla entre ustedes.</span>
+					<span class="ayuda centro"
+						>{pesos(leerPrecio(f.precio))} por persona, se arregla entre ustedes.</span
+					>
 				{/if}
 			{/if}
 			{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
@@ -353,7 +456,14 @@
 	>
 		<input type="hidden" name="datos" value={JSON.stringify(datos)} />
 		<button class="gel gel-lima cta" disabled={enviando}>
-			{#if paso === 3}<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M4 12h16" stroke="#24212D" stroke-width="4" stroke-linecap="round" /></svg>{/if}
+			{#if paso === 3}<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"
+					><path
+						d="M12 4v16M4 12h16"
+						stroke="#24212D"
+						stroke-width="4"
+						stroke-linecap="round"
+					/></svg
+				>{/if}
 			{paso < 3 ? 'Siguiente' : enviando ? 'Publicando…' : 'Publicar plan'}
 		</button>
 	</form>
@@ -499,9 +609,7 @@
 	}
 	.hora.on {
 		border-color: transparent;
-		background:
-			url(/grain.png),
-			radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
+		background: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.08),
 			0 12px 26px -10px rgba(36, 33, 45, 0.55);
@@ -627,9 +735,7 @@
 	}
 	.caja.oscura {
 		border: 0;
-		background:
-			url(/grain.png),
-			radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
+		background: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.08),
 			0 12px 26px -10px rgba(36, 33, 45, 0.55);
@@ -879,8 +985,7 @@
 		position: absolute;
 		inset: 0;
 		background:
-			url(/grain.png),
-			radial-gradient(120% 70% at 85% 0%, #a38fff 0%, #7456f1 45%, #5a3dd8 100%);
+			url(/grain.png), radial-gradient(120% 70% at 85% 0%, #a38fff 0%, #7456f1 45%, #5a3dd8 100%);
 		display: flex;
 		flex-direction: column;
 		align-items: center;

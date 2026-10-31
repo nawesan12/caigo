@@ -16,26 +16,13 @@ async function publico(slug: string, ip: string | null): Promise<Plan> {
 export const load: PageServerLoad = async (event) => {
 	const { params, locals, url, setHeaders } = event;
 	const plan = await publico(params.slug, ipDe(event));
-	// Con sesión, la vista completa dice si ya estás adentro o esperando.
-	let miEstado = '';
-	if (locals.token) {
-		try {
-			const mio = await api<Plan>('GET', `/v1/planes/${plan.id}`, { token: locals.token });
-			miEstado = mio.miEstado ?? '';
-		} catch {
-			miEstado = '';
-		}
-	} else {
-		// Sin sesión es igual para todos: WhatsApp y compañía pueden cachearlo un rato.
-		setHeaders({ 'cache-control': 'public, max-age=60' });
-	}
 	const pago = url.searchParams.get('pago');
-	return {
-		plan,
-		miEstado,
-		conSesion: !!locals.token,
-		pago: pago === 'ok' || pago === 'pendiente' || pago === 'error' ? pago : null
-	};
+	const pagoOk = pago === 'ok' || pago === 'pendiente' || pago === 'error' ? pago : null;
+	// Con sesión, el plan se ve en Caigo desde la web (con Sumarme, chat y todo lo demás).
+	if (locals.token) redirect(303, `/app/plan/${plan.id}${pagoOk ? `?pago=${pagoOk}` : ''}`);
+	// Sin sesión es igual para todos: WhatsApp y compañía pueden cachearlo un rato.
+	setHeaders({ 'cache-control': 'public, max-age=60' });
+	return { plan, miEstado: '', conSesion: false, pago: pagoOk };
 };
 
 export const actions: Actions = {

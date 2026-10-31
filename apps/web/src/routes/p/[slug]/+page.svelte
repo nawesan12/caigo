@@ -152,7 +152,7 @@
 					{#if data.conSesion}
 						Te sumás desde la web, sin bajar la&nbsp;app.
 					{:else}
-						No hace falta bajar la app: entrás con Google o&nbsp;Apple.
+						No hace falta bajar la app: entrás con tu teléfono y una&nbsp;selfie.
 					{/if}
 				</span>
 			{/if}

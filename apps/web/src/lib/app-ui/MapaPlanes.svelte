@@ -60,7 +60,9 @@
 				e.stopPropagation();
 				onelegir(p.id);
 			});
-			marcas.push(new lib.Marker({ element: el, anchor: 'bottom' }).setLngLat([p.lng, p.lat]).addTo(mapa));
+			marcas.push(
+				new lib.Marker({ element: el, anchor: 'bottom' }).setLngLat([p.lng, p.lat]).addTo(mapa)
+			);
 		}
 		if (yo) {
 			const el = document.createElement('div');

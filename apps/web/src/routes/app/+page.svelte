@@ -55,7 +55,9 @@
 		<div class="lista">
 			<div class="resumen">
 				<span class="t">Próximas 3 horas</span>
-				<span class="s">{data.planes.length} {data.planes.length === 1 ? 'plan cerca' : 'planes cerca'}</span>
+				<span class="s"
+					>{data.planes.length} {data.planes.length === 1 ? 'plan cerca' : 'planes cerca'}</span
+				>
 			</div>
 			{#each data.planes as p (p.id)}
 				<PlanTarjeta plan={p} />
@@ -148,9 +150,7 @@
 		text-decoration: none;
 	}
 	.filtro.on {
-		background:
-			url(/grain.png),
-			radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
+		background: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.08),
 			0 12px 26px -10px rgba(36, 33, 45, 0.55);

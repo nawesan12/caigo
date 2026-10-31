@@ -1,0 +1,320 @@
+<script lang="ts">
+	import { PUBLIC_SITIO } from '$app/env/public';
+	import { avisar } from '#lib/toast.svelte.ts';
+	import { agrupar, badgeMio, TINTES } from '#lib/app.ts';
+	import { partes, cuandoCorto } from '#lib/fechas.ts';
+	import type { Plan } from '#lib/tipos.ts';
+
+	/* Mis planes (Mockups v5, 10); vacío, 13b "Todavía no te sumaste a nada". */
+	let { data } = $props();
+
+	const grupos = $derived(agrupar(data.planes, data.cual === 'historial'));
+	const TABS = $derived([
+		{ k: 'organizo', l: `Organizo${data.cuentas.organizo ? ` · ${data.cuentas.organizo}` : ''}` },
+		{ k: 'me_sume', l: `Me sumé${data.cuentas.me_sume ? ` · ${data.cuentas.me_sume}` : ''}` },
+		{ k: 'historial', l: 'Historial' }
+	]);
+	const linea = (p: Plan, grupo: string) => {
+		const hora = grupo === 'HOY' ? partes(p.empiezaEn).hora : cuandoCorto(p.empiezaEn);
+		const extra = p.recurrente ? 'se repite cada semana' : p.lugarNombre || p.zona;
+		return [hora, extra].filter(Boolean).join(' · ');
+	};
+	async function compartir(p: Plan) {
+		const link = `${PUBLIC_SITIO.replace(/\/+$/, '')}/p/${p.slug}`;
+		try {
+			if (navigator.share) return await navigator.share({ title: p.titulo, url: link });
+			await navigator.clipboard.writeText(link);
+			avisar('Link copiado.');
+		} catch {
+			/* cancelado */
+		}
+	}
+</script>
+
+<svelte:head><title>Mis planes · Caigo</title></svelte:head>
+
+<div class="scroll">
+	<div class="contenido">
+		<h1>Mis planes</h1>
+		<nav class="seg3" aria-label="Qué planes ver">
+			{#each TABS as t (t.k)}
+				<a href="/app/mis?cual={t.k}" aria-current={data.cual === t.k ? 'page' : undefined}>{t.l}</a
+				>
+			{/each}
+		</nav>
+
+		{#each grupos as g (g.titulo)}
+			<span class="overline-app">{g.titulo}</span>
+			{#each g.planes as p (p.id)}
+				{@const b = badgeMio(p)}
+				<div class="tarjeta">
+					<a class="cuerpo" href="/app/plan/{p.id}">
+						<span class="img" style:background-color={TINTES[p.categoria]}>
+							{#if p.foto}<img src={p.foto} alt="" loading="lazy" />{/if}
+						</span>
+						<div class="txt">
+							<span class="t">{p.titulo}</span>
+							<span class="s">{linea(p, g.titulo)}</span>
+							<div class="pie">
+								<span
+									class="b"
+									class:completo={b.completo}
+									class:coral={!b.completo && g.titulo === 'HOY'}>{b.texto}</span
+								>
+								{#if p.miEstado === 'pendiente'}<span class="estado">Esperando…</span>{/if}
+							</div>
+						</div>
+					</a>
+					{#if p.miEstado === 'organizador' && data.cual !== 'historial'}
+						{#if p.pendientes}
+							<a class="pedidos" href="/app/plan/{p.id}/solicitudes">
+								<span
+									>{p.pendientes === 1
+										? '1 persona quiere sumarse'
+										: `${p.pendientes} personas quieren sumarse`}</span
+								>
+								<svg
+									width="18"
+									height="18"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="#C8F36B"
+									stroke-width="2.6"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg
+								>
+							</a>
+						{:else}
+							<button class="compartir" onclick={() => compartir(p)}>Compartir link</button>
+						{/if}
+					{/if}
+				</div>
+			{/each}
+		{:else}
+			<div class="vacio">
+				<div class="burbujas" aria-hidden="true">
+					<span class="b1"></span><span class="b1"></span>
+					<span class="b2"
+						><svg width="34" height="34" viewBox="0 0 24 24"
+							><path
+								d="M12 4v16M4 12h16"
+								stroke="#24212D"
+								stroke-width="4"
+								stroke-linecap="round"
+							/></svg
+						></span
+					>
+				</div>
+				{#if data.cual === 'organizo'}
+					<h2>Todavía no armaste ningún plan</h2>
+					<p>Armá uno en menos de 30 segundos y que se sume la&nbsp;gente.</p>
+					<a class="gel gel-lima cta" href="/app/crear">Armá un plan</a>
+				{:else if data.cual === 'me_sume'}
+					<h2>Todavía no te sumaste a nada</h2>
+					<p>Hay una mesa de truco a la que le falta uno. Y sabemos que te la&nbsp;sabés.</p>
+					<a class="gel gel-lima cta" href="/app">Ver planes cerca</a>
+				{:else}
+					<h2>Todavía no hay historial</h2>
+					<p>Acá quedan los planes a los que fuiste.</p>
+					<a class="gel gel-lima cta" href="/app">Ver planes cerca</a>
+				{/if}
+			</div>
+		{/each}
+	</div>
+</div>
+
+<style>
+	.contenido {
+		padding: calc(20px + env(safe-area-inset-top)) 20px 120px;
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+	h1 {
+		font:
+			800 40px/1 'Geist',
+			sans-serif;
+		letter-spacing: -1.4px;
+	}
+	.seg3 {
+		display: flex;
+		padding: 4px;
+		border-radius: 16px;
+		background: #f0ecff;
+	}
+	.seg3 a {
+		flex: 1;
+		text-align: center;
+		padding: 10px 0;
+		border-radius: 12px;
+		font-size: 14px;
+		font-weight: 600;
+		color: #5c586b;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+	.seg3 a[aria-current='page'] {
+		background: #ffffff;
+		color: #24212d;
+		font-weight: 700;
+		box-shadow:
+			inset 0 1px 0 #ffffff,
+			0 3px 8px -2px rgba(80, 60, 160, 0.25);
+	}
+	.overline-app {
+		font-size: 13px;
+		font-weight: 800;
+		letter-spacing: 1px;
+		color: #5c586b;
+	}
+	.tarjeta {
+		border-radius: 24px;
+		overflow: hidden;
+		background: #ffffff;
+		box-shadow:
+			inset 0 1px 0 #ffffff,
+			0 2px 0 #e8e3f4,
+			0 16px 30px -10px rgba(80, 60, 160, 0.22);
+	}
+	.cuerpo {
+		display: flex;
+		gap: 12px;
+		padding: 14px;
+		color: inherit;
+		text-decoration: none;
+	}
+	.img {
+		flex: none;
+		width: 72px;
+		height: 72px;
+		border-radius: 18px;
+		overflow: hidden;
+	}
+	.img img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.txt {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		min-width: 0;
+	}
+	.t {
+		font:
+			700 18px/1.15 'Geist',
+			sans-serif;
+	}
+	.s {
+		font-size: 12px;
+		color: #5c586b;
+	}
+	.pie {
+		display: flex;
+		gap: 8px;
+		align-items: center;
+	}
+	.b {
+		white-space: nowrap;
+		padding: 5px 10px;
+		border-radius: 10px;
+		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		box-shadow: var(--sh-icono);
+		font:
+			700 15px/1 'Geist',
+			sans-serif;
+	}
+	.b.coral {
+		background: var(--grad-coral);
+		box-shadow: var(--sh-coral);
+	}
+	.b.completo {
+		background: var(--grad-lima);
+		box-shadow: var(--sh-lima);
+	}
+	.estado {
+		font-size: 12px;
+		font-weight: 700;
+		color: #5b43c9;
+	}
+	.pedidos {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 12px 14px;
+		background: #7456f1;
+		color: #ffffff;
+		font-size: 14px;
+		font-weight: 700;
+		text-decoration: none;
+	}
+	.pedidos:hover {
+		color: #ffffff;
+	}
+	.compartir {
+		display: block;
+		width: 100%;
+		padding: 0 14px 14px 98px;
+		text-align: left;
+		font-size: 12px;
+		font-weight: 700;
+		color: #5b43c9;
+		margin-top: -8px;
+	}
+	.vacio {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 18px;
+		text-align: center;
+		padding: 56px 8px 0;
+	}
+	.burbujas {
+		display: flex;
+		align-items: center;
+	}
+	.b1 {
+		width: 76px;
+		height: 76px;
+		border-radius: 50%;
+		background: #f0ecff;
+		border: 3px dashed #b9acf5;
+	}
+	.b1 + .b1 {
+		margin-left: -18px;
+	}
+	.b2 {
+		width: 84px;
+		height: 84px;
+		margin-left: -18px;
+		border-radius: 50%;
+		background: radial-gradient(circle at 32% 26%, #f2ffc8 0%, #c8f36b 40%, #a6d640 100%);
+		box-shadow:
+			inset 0 -4px 8px rgba(110, 150, 20, 0.3),
+			0 12px 22px -8px rgba(140, 190, 40, 0.6);
+		display: grid;
+		place-items: center;
+		border: 4px solid #faf9f6;
+	}
+	.vacio h2 {
+		font:
+			700 30px/1.08 'Geist',
+			sans-serif;
+		letter-spacing: -0.6px;
+	}
+	.vacio p {
+		font-size: 15px;
+		line-height: 1.5;
+		color: #5c586b;
+	}
+	.cta {
+		align-self: stretch;
+		margin-top: 8px;
+		height: 58px;
+		border-radius: 20px;
+		font-size: 16px;
+	}
+</style>

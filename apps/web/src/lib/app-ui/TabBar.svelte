@@ -20,8 +20,23 @@
 				<img src="/caigo-icon.png" alt="" width="68" height="68" />
 			</a>
 		{:else}
-			<a class="tab" class:on={activa === t.k} href={t.href} aria-current={activa === t.k ? 'page' : undefined}>
-				<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={t.d} /></svg>
+			<a
+				class="tab"
+				class:on={activa === t.k}
+				href={t.href}
+				aria-current={activa === t.k ? 'page' : undefined}
+			>
+				<svg
+					width="24"
+					height="24"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"><path d={t.d} /></svg
+				>
 				<span>{t.l}</span>
 			</a>
 		{/if}

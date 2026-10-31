@@ -22,7 +22,9 @@
 	const visibles = $derived.by(() => {
 		const q = busqueda.trim().toLowerCase();
 		if (!q) return data.planes;
-		return data.planes.filter((p) => [p.titulo, p.lugarNombre, p.zona].join(' ').toLowerCase().includes(q));
+		return data.planes.filter((p) =>
+			[p.titulo, p.lugarNombre, p.zona].join(' ').toLowerCase().includes(q)
+		);
 	});
 	const plan = $derived(visibles.find((p) => p.id === elegido) ?? visibles[0]);
 	const q = (c: string) => (c ? `?categoria=${c}` : '');
@@ -46,8 +48,21 @@
 <div class="arriba">
 	<div class="fila">
 		<label class="buscar">
-			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#24212D" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
-			<input bind:value={busqueda} placeholder="Buscá un plan o un lugar" aria-label="Buscar un plan o un lugar" />
+			<svg
+				width="18"
+				height="18"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="#24212D"
+				stroke-width="2.2"
+				stroke-linecap="round"
+				aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg
+			>
+			<input
+				bind:value={busqueda}
+				placeholder="Buscá un plan o un lugar"
+				aria-label="Buscar un plan o un lugar"
+			/>
 		</label>
 		<nav class="seg-mapa" aria-label="Vista">
 			<a href="/app{q(data.categoria)}">Lista</a>
@@ -56,7 +71,9 @@
 	</div>
 	<div class="filtros">
 		{#each FILTROS as f (f.valor)}
-			<a class="filtro" class:on={data.categoria === f.valor} href="/app/mapa{q(f.valor)}">{f.etiqueta}</a>
+			<a class="filtro" class:on={data.categoria === f.valor} href="/app/mapa{q(f.valor)}"
+				>{f.etiqueta}</a
+			>
 		{/each}
 	</div>
 </div>
@@ -68,8 +85,18 @@
 		await pedirUbicacion();
 		centrar++;
 	}}
-	><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7456F1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z" /></svg
-></button>
+	><svg
+		width="20"
+		height="20"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="#7456F1"
+		stroke-width="2.2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z" /></svg
+	></button
+>
 
 {#if plan}
 	<a class="flotante" href="/app/plan/{plan.id}">
@@ -82,11 +109,23 @@
 				<span class="osc">{cuandoCorto(plan.empiezaEn)}</span>
 			</div>
 			<span class="ft">{plan.titulo}</span>
-			<span class="fs">{[plan.lugarNombre || plan.zona, distancia(plan.distanciaM)].filter(Boolean).join(' · ')}</span>
+			<span class="fs"
+				>{[plan.lugarNombre || plan.zona, distancia(plan.distanciaM)]
+					.filter(Boolean)
+					.join(' · ')}</span
+			>
 			<div class="fpie">
-				<span class={plan.faltan > 0 ? 'badge-coral fb' : 'badge-completo fb'}>{faltanTexto(plan.faltan)}</span>
+				<span class={plan.faltan > 0 ? 'badge-coral fb' : 'badge-completo fb'}
+					>{faltanTexto(plan.faltan)}</span
+				>
 				<span class="mas" aria-hidden="true"
-					><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" stroke="#24212D" stroke-width="4" stroke-linecap="round" /></svg
+					><svg width="18" height="18" viewBox="0 0 24 24"
+						><path
+							d="M12 4v16M4 12h16"
+							stroke="#24212D"
+							stroke-width="4"
+							stroke-linecap="round"
+						/></svg
 					></span
 				>
 			</div>
@@ -152,9 +191,7 @@
 		text-decoration: none;
 	}
 	.seg-mapa a[aria-current='page'] {
-		background:
-			url(/grain.png),
-			radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
+		background: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.08),
 			0 12px 26px -10px rgba(36, 33, 45, 0.55);

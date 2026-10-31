@@ -60,13 +60,17 @@
 			</div>
 			{#if href}
 				<a class="gel gel-lima sumarme" {href}>
-					{#if accion !== 'Ver plan'}<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"
-						><path
-							d="M12 4v16M4 12h16"
-							stroke="#24212D"
-							stroke-width="4"
-							stroke-linecap="round"
-						/></svg
+					{#if accion !== 'Ver plan'}<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							aria-hidden="true"
+							><path
+								d="M12 4v16M4 12h16"
+								stroke="#24212D"
+								stroke-width="4"
+								stroke-linecap="round"
+							/></svg
 						>{/if}{accion}</a
 				>
 			{/if}

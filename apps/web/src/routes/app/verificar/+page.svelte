@@ -166,7 +166,9 @@
 	<div class="pantalla">
 		<div class="arriba">
 			{#if data.paso === 1}
-				<a class="icono-btn" href="/" aria-label="Volver a Caigo"><Icono nombre="atras" tam={22} /></a>
+				<a class="icono-btn" href="/" aria-label="Volver a Caigo"
+					><Icono nombre="atras" tam={22} /></a
+				>
 			{:else}
 				<span></span>
 			{/if}
@@ -264,7 +266,8 @@
 			<div class="instruccion"><span>{instruccion}</span></div>
 			<div class="chips">
 				{#each ['Buena luz', 'Cara centrada', 'Sin lentes de sol'] as c, i (c)}
-					{@const ok = progreso > (i + 1) / 3 - 0.01 || (i < 2 && camara === 'prendida' && !grabando)}
+					{@const ok =
+						progreso > (i + 1) / 3 - 0.01 || (i < 2 && camara === 'prendida' && !grabando)}
 					<span class="chip-v" class:ok>
 						{#if ok}<Icono nombre="check" tam={14} color="#24212D" trazo={3} />{/if}{c}
 					</span>
@@ -272,8 +275,8 @@
 			</div>
 			<div class="pie">
 				<span class="nota"
-					><Icono nombre="escudo" tam={16} color="#7456F1" trazo={2} />Prueba de vida · tus datos viajan
-					encriptados</span
+					><Icono nombre="escudo" tam={16} color="#7456F1" trazo={2} />Prueba de vida · tus datos
+					viajan encriptados</span
 				>
 				{#if camara === 'sin'}
 					<label class="gel gel-lima cta">
@@ -481,9 +484,7 @@
 	.instruccion span {
 		padding: 10px 16px;
 		border-radius: 14px;
-		background:
-			url(/grain.png),
-			radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
+		background: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.08),
 			0 12px 26px -10px rgba(36, 33, 45, 0.55);
