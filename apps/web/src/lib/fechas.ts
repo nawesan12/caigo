@@ -30,7 +30,8 @@ export function partes(f: Date | string) {
 		mes: d.getUTCMonth(),
 		dia: d.getUTCDate(),
 		semana: d.getUTCDay(),
-		hora: String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0')
+		hora:
+			String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0')
 	};
 }
 

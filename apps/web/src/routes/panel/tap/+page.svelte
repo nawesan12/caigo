@@ -64,7 +64,9 @@
 				pase de socio y el beneficio pasan&nbsp;solos.
 			</p>
 		</div>
-		<button class="gel gel-violeta activar" onclick={() => (abierto = !abierto)}>+ Activar placa</button>
+		<button class="gel gel-violeta activar" onclick={() => (abierto = !abierto)}
+			>+ Activar placa</button
+		>
 	</div>
 
 	<div class="cuerpo">
@@ -80,21 +82,39 @@
 				>
 					<label class="campo">
 						<span>Nombre de la placa</span>
-						<input class="input" name="nombre" maxlength="40" placeholder="Ej: Puerta principal" required />
+						<input
+							class="input"
+							name="nombre"
+							maxlength="40"
+							placeholder="Ej: Puerta principal"
+							required
+						/>
 					</label>
 					<div class="campo">
 						<span>Dónde va</span>
 						<div class="chips">
-							<button type="button" class="chip" aria-pressed={uso === 'puerta'} onclick={() => (uso = 'puerta')}
-								>Puerta</button
+							<button
+								type="button"
+								class="chip"
+								aria-pressed={uso === 'puerta'}
+								onclick={() => (uso = 'puerta')}>Puerta</button
 							>
-							<button type="button" class="chip" aria-pressed={uso === 'barra'} onclick={() => (uso = 'barra')}
-								>Barra</button
+							<button
+								type="button"
+								class="chip"
+								aria-pressed={uso === 'barra'}
+								onclick={() => (uso = 'barra')}>Barra</button
 							>
 						</div>
 						<input type="hidden" name="uso" value={uso} />
 					</div>
-					<button type="button" class="tg" role="switch" aria-checked={sun} onclick={() => (sun = !sun)}>
+					<button
+						type="button"
+						class="tg"
+						role="switch"
+						aria-checked={sun}
+						onclick={() => (sun = !sun)}
+					>
 						<span class="tg-txt"
 							><span class="t">Chip NTAG 424 DNA</span><span class="s"
 								>Con firma criptográfica. La clave para programarlo se muestra una sola vez.</span
@@ -113,11 +133,15 @@
 					{#if activada.claveSun}
 						<span class="s">Clave del chip (no se vuelve a mostrar):</span>
 						<code>{activada.claveSun}</code>
-						<button type="button" class="copiar" onclick={() => copiar(activada.claveSun!)}>Copiar clave</button>
+						<button type="button" class="copiar" onclick={() => copiar(activada.claveSun!)}
+							>Copiar clave</button
+						>
 					{/if}
 					<span class="s">Link que va grabado en la placa o en su QR:</span>
 					<code>{activada.url}</code>
-					<button type="button" class="copiar" onclick={() => copiar(activada.url)}>Copiar link</button>
+					<button type="button" class="copiar" onclick={() => copiar(activada.url)}
+						>Copiar link</button
+					>
 				</div>
 			{/if}
 
@@ -159,7 +183,12 @@
 			</div>
 		</div>
 
-		<form method="POST" action="?/socio" class="socio tarjeta-plana" use:enhance={conAviso('Pase de socio guardado.')}>
+		<form
+			method="POST"
+			action="?/socio"
+			class="socio tarjeta-plana"
+			use:enhance={conAviso('Pase de socio guardado.')}
+		>
 			<button
 				type="button"
 				class="tg sin-borde"
@@ -191,7 +220,13 @@
 			</div>
 			<label class="campo">
 				<span>Beneficio</span>
-				<input class="input" name="beneficio" maxlength="80" bind:value={socio.beneficio} placeholder="Ej: Taller gratis" />
+				<input
+					class="input"
+					name="beneficio"
+					maxlength="80"
+					bind:value={socio.beneficio}
+					placeholder="Ej: Taller gratis"
+				/>
 			</label>
 			<div class="wallet">
 				<div class="w-fila">
@@ -451,8 +486,7 @@
 		padding: 16px;
 		border-radius: 18px;
 		background:
-			url(/grain.png),
-			radial-gradient(120% 80% at 100% 0%, #8a70ff 0%, #5a3dd8 60%, #3b2a9e 100%);
+			url(/grain.png), radial-gradient(120% 80% at 100% 0%, #8a70ff 0%, #5a3dd8 60%, #3b2a9e 100%);
 		color: #ffffff;
 	}
 	.w-fila {

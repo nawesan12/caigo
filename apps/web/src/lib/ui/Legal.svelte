@@ -22,8 +22,7 @@
 <style>
 	.fondo {
 		background:
-			url(/grain.png),
-			radial-gradient(90% 38% at 100% 0%, #ece5ff 0%, rgba(236, 229, 255, 0) 70%),
+			url(/grain.png), radial-gradient(90% 38% at 100% 0%, #ece5ff 0%, rgba(236, 229, 255, 0) 70%),
 			#faf9f6;
 		padding: 20px 16px 64px;
 	}

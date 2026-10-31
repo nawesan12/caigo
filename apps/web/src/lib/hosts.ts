@@ -15,7 +15,14 @@ export function sitioDe(host: string | null | undefined): Sitio {
 }
 
 /** Rutas que existen igual en los dos hosts (el ingreso deja la cookie en el host donde se entró). */
-const COMPARTIDAS = ['/ingresar', '/sso-callback', '/salir', '/archivo', '/terminos', '/privacidad'];
+const COMPARTIDAS = [
+	'/ingresar',
+	'/sso-callback',
+	'/salir',
+	'/archivo',
+	'/terminos',
+	'/privacidad'
+];
 
 function esCompartida(ruta: string): boolean {
 	return COMPARTIDAS.some((c) => ruta === c || ruta.startsWith(c + '/'));

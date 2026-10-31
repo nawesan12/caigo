@@ -45,15 +45,25 @@ export const actions: Actions = {
 		try {
 			if (plan.lugar && plan.cobro !== 'gratis') {
 				// Entrada o seña de un lugar: Checkout Pro de Mercado Pago.
-				const c = await conSesion<{ link?: string }>(event, 'POST', `/v1/planes/${plan.id}/entradas`, {
-					cuerpo: { cantidad: 1 }
-				});
+				const c = await conSesion<{ link?: string }>(
+					event,
+					'POST',
+					`/v1/planes/${plan.id}/entradas`,
+					{
+						cuerpo: { cantidad: 1 }
+					}
+				);
 				if (c?.link) redirect(303, c.link);
 				return { estado: 'aceptada' };
 			}
-			const r = await conSesion<{ estado: string }>(event, 'POST', `/v1/planes/${plan.id}/sumarme`, {
-				cuerpo: { cantidad: 1 }
-			});
+			const r = await conSesion<{ estado: string }>(
+				event,
+				'POST',
+				`/v1/planes/${plan.id}/sumarme`,
+				{
+					cuerpo: { cantidad: 1 }
+				}
+			);
 			return { estado: r.estado };
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;

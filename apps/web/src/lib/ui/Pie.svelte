@@ -24,8 +24,7 @@
 <style>
 	footer {
 		background:
-			url(/grain.png),
-			radial-gradient(70% 120% at 50% 0%, #3a3450 0%, #262233 50%, #17151f 100%);
+			url(/grain.png), radial-gradient(70% 120% at 50% 0%, #3a3450 0%, #262233 50%, #17151f 100%);
 		color: #faf9f6;
 		padding: 48px 20px 40px;
 	}

@@ -26,7 +26,9 @@
 		gratis: ['Gratis', '#F0ECFF', '#24212D']
 	} as const;
 	const pagoDe = (pago: 'gratis' | 'pago' | 'sena') =>
-		p.cobro === 'entrada' && pago === 'pago' ? (['Pagó', '#C8F36B', '#24212D'] as const) : PAGO[pago];
+		p.cobro === 'entrada' && pago === 'pago'
+			? (['Pagó', '#C8F36B', '#24212D'] as const)
+			: PAGO[pago];
 
 	let codigo = $state('');
 	let formValidar: HTMLFormElement | undefined = $state();
@@ -35,7 +37,10 @@
 	function mensaje(v: Validacion): string {
 		if (v.repetida) return `${v.nombre} ya hizo check-in.`;
 		let t = `Check-in de ${v.nombre}${v.cantidad > 1 ? ` (${v.cantidad})` : ''}`;
-		t += v.saldoCentavos > 0 ? `. Cobrá el resto en el lugar: ${pesosDeCentavos(v.saldoCentavos)}.` : '.';
+		t +=
+			v.saldoCentavos > 0
+				? `. Cobrá el resto en el lugar: ${pesosDeCentavos(v.saldoCentavos)}.`
+				: '.';
 		if (v.beneficio) t += ` Beneficio desbloqueado: ${v.beneficio}.`;
 		return t;
 	}
@@ -58,7 +63,13 @@
 		escaneando = false;
 	}
 	async function escanear() {
-		const BD = (globalThis as { BarcodeDetector?: new (o: { formats: string[] }) => { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector;
+		const BD = (
+			globalThis as {
+				BarcodeDetector?: new (o: { formats: string[] }) => {
+					detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]>;
+				};
+			}
+		).BarcodeDetector;
 		if (!BD || !navigator.mediaDevices?.getUserMedia)
 			return avisar('Este navegador no puede leer QR. Escribí el código de la entrada.');
 		try {
@@ -90,7 +101,9 @@
 <div class="vista">
 	<div class="hero" style:background-image={p.foto ? `url(${p.foto})` : undefined}>
 		<div class="velo"></div>
-		<a class="atras" href="/" aria-label="Volver a tus planes"><Icono nombre="atras" color="#24212D" trazo={2.6} /></a>
+		<a class="atras" href="/" aria-label="Volver a tus planes"
+			><Icono nombre="atras" color="#24212D" trazo={2.6} /></a
+		>
 		<div class="hero-pie">
 			<div class="hero-txt">
 				<span class="cuando">{cuandoCorto(p.empiezaEn)}{p.cancelado ? ' · Cancelado' : ''}</span>
@@ -101,12 +114,20 @@
 	</div>
 
 	<div class="stats">
-		<div class="tarjeta-plana stat"><span class="sl">Confirmados</span><span class="sv">{p.confirmados} de {p.cupo}</span></div>
 		<div class="tarjeta-plana stat">
-			<span class="sl">Cobrado</span><span class="sv">{p.cobro === 'gratis' ? 'Gratis' : pesosDeCentavos(p.cobradoCentavos)}</span>
+			<span class="sl">Confirmados</span><span class="sv">{p.confirmados} de {p.cupo}</span>
 		</div>
-		<div class="tarjeta-plana stat"><span class="sl">A cobrar en el lugar</span><span class="sv">{pesosDeCentavos(aCobrar)}</span></div>
-		<div class="tarjeta-plana stat"><span class="sl">Check-ins</span><span class="sv">{checkins}</span></div>
+		<div class="tarjeta-plana stat">
+			<span class="sl">Cobrado</span><span class="sv"
+				>{p.cobro === 'gratis' ? 'Gratis' : pesosDeCentavos(p.cobradoCentavos)}</span
+			>
+		</div>
+		<div class="tarjeta-plana stat">
+			<span class="sl">A cobrar en el lugar</span><span class="sv">{pesosDeCentavos(aCobrar)}</span>
+		</div>
+		<div class="tarjeta-plana stat">
+			<span class="sl">Check-ins</span><span class="sv">{checkins}</span>
+		</div>
 	</div>
 
 	<div class="cuerpo">
@@ -122,14 +143,18 @@
 					<div class="a-txt">
 						<span class="a-n">{a.nombre}</span>
 						<span class="a-s"
-							>{a.cantidad > 1 ? `${a.cantidad} personas` : 'Va solo'}{a.codigo ? ` · ${a.codigo}` : ''}</span
+							>{a.cantidad > 1 ? `${a.cantidad} personas` : 'Va solo'}{a.codigo
+								? ` · ${a.codigo}`
+								: ''}</span
 						>
 					</div>
 					<span class="pago" style:background={pbg} style:color={pfg}>{pl}</span>
 					{#if a.checkin}
 						<span class="ck llego">Llegó</span>
 					{:else if a.codigo}
-						<button class="ck" type="button" onclick={() => validarCodigo(a.codigo!)}>Hacer check-in</button>
+						<button class="ck" type="button" onclick={() => validarCodigo(a.codigo!)}
+							>Hacer check-in</button
+						>
 					{:else}
 						<span class="ck vacio-ck"></span>
 					{/if}
@@ -182,7 +207,6 @@
 
 {#if escaneando}
 	<div class="camara" role="dialog" aria-modal="true" aria-label="Escanear QR">
-		<!-- svelte-ignore a11y_media_has_caption -->
 		<video bind:this={video} playsinline muted></video>
 		<div class="mira" aria-hidden="true"></div>
 		<button class="gel gel-blanco cerrar-cam" type="button" onclick={cerrarCamara}>Cerrar</button>

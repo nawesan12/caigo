@@ -145,7 +145,9 @@
 <div class="crear">
 	<div class="izq">
 		<div class="titulo-fila">
-			<a class="cerrar" href="/" aria-label="Cerrar"><Icono nombre="cerrar" color="#24212D" trazo={2.6} /></a>
+			<a class="cerrar" href="/" aria-label="Cerrar"
+				><Icono nombre="cerrar" color="#24212D" trazo={2.6} /></a
+			>
 			<h1>Nuevo plan</h1>
 		</div>
 
@@ -190,8 +192,7 @@
 						class="input"
 						bind:value={f.descripcion}
 						maxlength="600"
-						placeholder="Contá en dos líneas cómo es el plan y para quién es."
-					></textarea>
+						placeholder="Contá en dos líneas cómo es el plan y para quién es."></textarea>
 				</label>
 				<div class="campo">
 					<span>Foto de portada</span>
@@ -206,7 +207,12 @@
 							></button>
 						{/if}
 						<label class="foto-tile subir" class:cargando={subiendo}>
-							<input type="file" accept="image/jpeg,image/png,image/webp" class="sr" onchange={subir} />
+							<input
+								type="file"
+								accept="image/jpeg,image/png,image/webp"
+								class="sr"
+								onchange={subir}
+							/>
 							<Icono nombre="mas" tam={22} color="#5B43C9" trazo={2.6} />
 							<span>{subiendo ? 'Subiendo…' : f.foto ? 'Cambiar foto' : 'Subir foto'}</span>
 						</label>
@@ -294,7 +300,13 @@
 					</div>
 				</div>
 				<div class="toggles">
-					<button type="button" class="tg" onclick={() => (f.grupos = !f.grupos)} role="switch" aria-checked={f.grupos}>
+					<button
+						type="button"
+						class="tg"
+						onclick={() => (f.grupos = !f.grupos)}
+						role="switch"
+						aria-checked={f.grupos}
+					>
 						<span class="tg-txt"
 							><span class="t">Aceptar grupos</span><span class="s"
 								>Hasta 6 personas se suman juntas con una sola compra</span
@@ -302,7 +314,13 @@
 						>
 						<span class="toggle" class:on={f.grupos}></span>
 					</button>
-					<button type="button" class="tg" onclick={() => (f.rec = !f.rec)} role="switch" aria-checked={f.rec}>
+					<button
+						type="button"
+						class="tg"
+						onclick={() => (f.rec = !f.rec)}
+						role="switch"
+						aria-checked={f.rec}
+					>
 						<span class="tg-txt"
 							><span class="t">Se repite cada semana</span><span class="s"
 								>Mismo día y hora, con cupo nuevo</span
@@ -470,20 +488,36 @@
 					</div>
 				</div>
 				<dl class="resumen">
-					<div><dt>Plan</dt><dd>{f.titulo.trim() || 'Sin nombre todavía'}</dd></div>
-					<div><dt>Cuándo</dt><dd>{cuando} · {durL}</dd></div>
-					<div><dt>Cupo</dt><dd>{f.cupo} personas{f.grupos ? ' · acepta grupos' : ''}</dd></div>
+					<div>
+						<dt>Plan</dt>
+						<dd>{f.titulo.trim() || 'Sin nombre todavía'}</dd>
+					</div>
+					<div>
+						<dt>Cuándo</dt>
+						<dd>{cuando} · {durL}</dd>
+					</div>
+					<div>
+						<dt>Cupo</dt>
+						<dd>{f.cupo} personas{f.grupos ? ' · acepta grupos' : ''}</dd>
+					</div>
 					<div>
 						<dt>Cobro</dt>
 						<dd>
-							{pago ? (esSena ? `Seña ${f.sena}% de ${pesos(precio)}` : `Entrada ${pesos(precio)}`) : 'Gratis'}
+							{pago
+								? esSena
+									? `Seña ${f.sena}% de ${pesos(precio)}`
+									: `Entrada ${pesos(precio)}`
+								: 'Gratis'}
 						</dd>
 					</div>
 					<div>
 						<dt>Cancelación</dt>
 						<dd>{pago ? CANCELACIONES.find((c) => c.k === f.cancel)?.l : '—'}</dd>
 					</div>
-					<div><dt>Quién</dt><dd>{QUIEN.find((q) => q.k === f.quien)?.l}</dd></div>
+					<div>
+						<dt>Quién</dt>
+						<dd>{QUIEN.find((q) => q.k === f.quien)?.l}</dd>
+					</div>
 					<div>
 						<dt>Beneficio</dt>
 						<dd>{f.perkOn ? f.perk || '—' : 'Sin beneficio'}</dd>
@@ -512,8 +546,10 @@
 		>
 			<input type="hidden" name="datos" value={JSON.stringify(datos)} />
 			{#if paso > 1}
-				<button type="button" class="gel gel-blanco atras" onclick={() => (paso = Math.max(1, paso - 1))}
-					>Atrás</button
+				<button
+					type="button"
+					class="gel gel-blanco atras"
+					onclick={() => (paso = Math.max(1, paso - 1))}>Atrás</button
 				>
 			{/if}
 			<span></span>
@@ -538,7 +574,9 @@
 			<div class="pv-cuerpo">
 				<div class="pv-tit">
 					<span class="t">{f.titulo.trim() || 'El nombre de tu plan'}</span>
-					<span class="s">{data.lugar?.nombre}{data.lugar?.zona ? ` · Zona ${data.lugar.zona}` : ''}</span>
+					<span class="s"
+						>{data.lugar?.nombre}{data.lugar?.zona ? ` · Zona ${data.lugar.zona}` : ''}</span
+					>
 				</div>
 				<div class="pv-precio">
 					<div>
@@ -555,12 +593,15 @@
 				</div>
 				{#if f.perkOn}
 					<div class="pv-perk">
-						<Icono nombre="regalo" tam={18} color="#5B43C9" />Con check-in: {f.perk || 'tu beneficio'}
+						<Icono nombre="regalo" tam={18} color="#5B43C9" />Con check-in: {f.perk ||
+							'tu beneficio'}
 					</div>
 				{/if}
 			</div>
 		</div>
-		<span class="nota">Publicar es gratis. Caigo cobra un cargo por servicio a quien compra, nunca al&nbsp;lugar.</span>
+		<span class="nota"
+			>Publicar es gratis. Caigo cobra un cargo por servicio a quien compra, nunca al&nbsp;lugar.</span
+		>
 	</div>
 </div>
 
@@ -1152,8 +1193,7 @@
 		border-radius: 34px;
 		text-align: center;
 		background:
-			url(/grain.png),
-			radial-gradient(120% 70% at 85% 0%, #a38fff 0%, #7456f1 45%, #5a3dd8 100%);
+			url(/grain.png), radial-gradient(120% 70% at 85% 0%, #a38fff 0%, #7456f1 45%, #5a3dd8 100%);
 		color: #ffffff;
 		animation: tk-pop 0.45s cubic-bezier(0.3, 1.4, 0.5, 1) both;
 	}

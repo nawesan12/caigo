@@ -30,7 +30,9 @@
 	{#if data.mp === 'ok'}
 		<p class="aviso ok" role="status">Listo, Mercado Pago quedó conectado.</p>
 	{:else if data.mp === 'error'}
-		<p class="aviso error" role="alert">{data.mpError || 'No se pudo conectar Mercado Pago. Probá de nuevo.'}</p>
+		<p class="aviso error" role="alert">
+			{data.mpError || 'No se pudo conectar Mercado Pago. Probá de nuevo.'}
+		</p>
 	{/if}
 	{#if form?.error}<p class="aviso error" role="alert">{form.error}</p>{/if}
 
@@ -50,7 +52,11 @@
 				method="POST"
 				action="?/desconectar"
 				use:enhance={({ cancel }) => {
-					if (!confirm('¿Desconectar Mercado Pago? No vas a poder cobrar entradas hasta conectarlo de nuevo.'))
+					if (
+						!confirm(
+							'¿Desconectar Mercado Pago? No vas a poder cobrar entradas hasta conectarlo de nuevo.'
+						)
+					)
 						return cancel();
 				}}
 			>
@@ -74,7 +80,9 @@
 	</div>
 
 	<div class="tabla tarjeta-plana">
-		<div class="fila cab"><span>PLAN</span><span>ENTRADAS</span><span>COBRADO</span><span>ESTADO</span></div>
+		<div class="fila cab">
+			<span>PLAN</span><span>ENTRADAS</span><span>COBRADO</span><span>ESTADO</span>
+		</div>
 		{#each data.cobros as c (c.planId)}
 			{@const [el, eb] = ESTADO[c.estado] ?? ESTADO.en_venta}
 			<div class="fila">

@@ -25,7 +25,11 @@
 	});
 </script>
 
-<Seo titulo="{v.quien} en vivo · Caigo" descripcion="{v.quien} compartió su plan con vos." noindex />
+<Seo
+	titulo="{v.quien} en vivo · Caigo"
+	descripcion="{v.quien} compartió su plan con vos."
+	noindex
+/>
 
 <div class="fondo">
 	<div class="pantalla">
@@ -85,8 +89,7 @@
 		min-height: 100vh;
 		min-height: 100dvh;
 		background:
-			url(/grain.png),
-			radial-gradient(90% 38% at 100% 0%, #ece5ff 0%, rgba(236, 229, 255, 0) 70%),
+			url(/grain.png), radial-gradient(90% 38% at 100% 0%, #ece5ff 0%, rgba(236, 229, 255, 0) 70%),
 			#faf9f6;
 	}
 	.pantalla {

@@ -1,3 +1,6 @@
 .svelte-kit
 build
 node_modules
+static/fotos
+bun.lock
+capturas

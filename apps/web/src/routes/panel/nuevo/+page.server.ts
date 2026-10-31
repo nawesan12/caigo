@@ -23,9 +23,14 @@ export const actions: Actions = {
 		}
 		if (!/^[0-9a-f-]{36}$/i.test(lugarId)) return fail(400, { error: 'Elegí un lugar.' });
 		try {
-			const { id } = await conSesion<{ id: string }>(event, 'POST', `/v1/lugares/${lugarId}/planes`, {
-				cuerpo: datos
-			});
+			const { id } = await conSesion<{ id: string }>(
+				event,
+				'POST',
+				`/v1/lugares/${lugarId}/planes`,
+				{
+					cuerpo: datos
+				}
+			);
 			const { planes } = await conSesion<{ planes: PlanDelLugar[] }>(
 				event,
 				'GET',

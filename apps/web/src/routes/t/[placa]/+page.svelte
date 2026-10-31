@@ -23,11 +23,12 @@
 			<span class="check"><Icono nombre="check" tam={60} color="#C8F36B" trazo={3} /></span>
 			<h1>Adentro</h1>
 			<p class="hecho">
-				Check-in hecho en {r.lugar}.{#if form?.nombre}&nbsp;Que lo disfrutes, {primerNombre(form.nombre)}.{/if}
+				{r.plan?.repetido
+					? `Ya habías hecho check-in en ${r.lugar}.`
+					: `Check-in hecho en ${r.lugar}.`}{#if form?.nombre}&nbsp;Que lo disfrutes, {primerNombre(
+						form.nombre
+					)}.{/if}
 			</p>
-			{#if r.plan?.repetido}
-				<div class="fila gris"><b>Ya habías hecho check-in en {r.plan.titulo}.</b></div>
-			{/if}
 			{#if r.plan?.beneficio}
 				<div class="beneficio">
 					<span class="ico"><Icono nombre="regalo" tam={24} color="#C8F36B" /></span>
@@ -52,7 +53,9 @@
 				</div>
 			{/if}
 			{#if r.socio?.sumo}
-				<span class="visita">+1 visita en tu pase de {r.lugar} ({r.socio.visitas} de {r.socio.meta})</span>
+				<span class="visita"
+					>+1 visita en tu pase de {r.lugar} ({r.socio.visitas} de {r.socio.meta})</span
+				>
 			{/if}
 		</div>
 	</div>
@@ -112,9 +115,7 @@
 	}
 	/* 1d */
 	.placa {
-		background:
-			url(/grain.png),
-			radial-gradient(90% 55% at 50% 62%, #3b2f78 0%, #15131c 75%);
+		background: url(/grain.png), radial-gradient(90% 55% at 50% 62%, #3b2f78 0%, #15131c 75%);
 		color: #faf9f6;
 	}
 	.ficha {
@@ -227,8 +228,7 @@
 	/* 1e */
 	.adentro {
 		background:
-			url(/grain.png),
-			radial-gradient(100% 60% at 50% 30%, #f0ffc2 0%, #c8f36b 55%, #9fd13b 100%);
+			url(/grain.png), radial-gradient(100% 60% at 50% 30%, #f0ffc2 0%, #c8f36b 55%, #9fd13b 100%);
 		color: #24212d;
 	}
 	.adentro .col {

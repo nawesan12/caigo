@@ -22,8 +22,7 @@
 		display: flex;
 		justify-content: center;
 		background:
-			url(/grain.png),
-			radial-gradient(70% 45% at 50% 42%, #3a3450 0%, #262233 50%, #17151f 100%);
+			url(/grain.png), radial-gradient(70% 45% at 50% 42%, #3a3450 0%, #262233 50%, #17151f 100%);
 		color: #faf9f6;
 	}
 	.mancha {

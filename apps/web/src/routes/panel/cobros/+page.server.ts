@@ -6,9 +6,17 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
 	const lugar = await lugarAprobado(event);
-	const { cobros } = await conSesion<{ cobros: CobroPlan[] }>(event, 'GET', `/v1/lugares/${lugar.id}/cobros`);
+	const { cobros } = await conSesion<{ cobros: CobroPlan[] }>(
+		event,
+		'GET',
+		`/v1/lugares/${lugar.id}/cobros`
+	);
 	const mp = event.url.searchParams.get('mp');
-	return { cobros, mp: mp === 'ok' || mp === 'error' ? mp : null, mpError: event.url.searchParams.get('detalle') ?? '' };
+	return {
+		cobros,
+		mp: mp === 'ok' || mp === 'error' ? mp : null,
+		mpError: event.url.searchParams.get('detalle') ?? ''
+	};
 };
 
 export const actions: Actions = {
@@ -17,7 +25,9 @@ export const actions: Actions = {
 		if (!lugar) return fail(400, { error: 'Elegí un lugar.' });
 		let link: string;
 		try {
-			link = (await conSesion<{ link: string }>(event, 'POST', `/v1/lugares/${lugar.id}/mercadopago`)).link;
+			link = (
+				await conSesion<{ link: string }>(event, 'POST', `/v1/lugares/${lugar.id}/mercadopago`)
+			).link;
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
 			return fail(400, { error: mensajeDe(e) });

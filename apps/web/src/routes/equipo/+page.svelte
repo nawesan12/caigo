@@ -28,11 +28,13 @@
 		const p = partes(f);
 		return `${p.dia}/${p.mes + 1} ${p.hora}`;
 	};
-	const resultado: SubmitFunction = () => async ({ result, update }) => {
-		if (result.type === 'success') avisar(String(result.data?.ok ?? 'Listo.'));
-		else if (result.type === 'failure') avisar(String(result.data?.error ?? 'No se pudo.'));
-		await update();
-	};
+	const resultado: SubmitFunction =
+		() =>
+		async ({ result, update }) => {
+			if (result.type === 'success') avisar(String(result.data?.ok ?? 'Listo.'));
+			else if (result.type === 'failure') avisar(String(result.data?.error ?? 'No se pudo.'));
+			await update();
+		};
 </script>
 
 <svelte:head>
@@ -85,7 +87,12 @@
 								rel="noopener noreferrer">Ver en el mapa</a
 							>
 						</div>
-						<input class="input" name="motivo" maxlength="200" placeholder="Motivo (si lo rechazás)" />
+						<input
+							class="input"
+							name="motivo"
+							maxlength="200"
+							placeholder="Motivo (si lo rechazás)"
+						/>
 						<div class="acc">
 							<button class="gel gel-lima b" name="decision" value="aprobar">Aprobar</button>
 							<button class="b rechazar" name="decision" value="rechazar">Rechazar</button>
@@ -123,7 +130,12 @@
 								{/if}
 							{/each}
 						</div>
-						<input class="input" name="motivo" maxlength="200" placeholder="Motivo (si lo rechazás)" />
+						<input
+							class="input"
+							name="motivo"
+							maxlength="200"
+							placeholder="Motivo (si lo rechazás)"
+						/>
 						<div class="acc">
 							<button class="gel gel-lima b" name="decision" value="aprobar">Aprobar</button>
 							<button class="b rechazar" name="decision" value="rechazar">Rechazar</button>
@@ -153,7 +165,12 @@
 							>
 						</div>
 						{#if r.detalle}<p class="detalle">{r.detalle}</p>{/if}
-						<input class="input" name="resolucion" maxlength="300" placeholder="Qué se hizo (queda registrado)" />
+						<input
+							class="input"
+							name="resolucion"
+							maxlength="300"
+							placeholder="Qué se hizo (queda registrado)"
+						/>
 						<div class="acc">
 							<button class="gel gel-violeta b" name="decision" value="resolver">Resolver</button>
 							{#if r.sobreId}
@@ -178,8 +195,7 @@
 		display: grid;
 		grid-template-columns: 248px minmax(0, 1fr);
 		background:
-			url(/grain.png),
-			radial-gradient(50% 50% at 100% 0%, #e3d9ff 0%, rgba(227, 217, 255, 0) 70%),
+			url(/grain.png), radial-gradient(50% 50% at 100% 0%, #e3d9ff 0%, rgba(227, 217, 255, 0) 70%),
 			#f3f0e9;
 	}
 	aside {
@@ -190,9 +206,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 26px;
-		background:
-			url(/grain.png),
-			radial-gradient(120% 60% at 0% 0%, #3b2f78 0%, #201d2b 70%);
+		background: url(/grain.png), radial-gradient(120% 60% at 0% 0%, #3b2f78 0%, #201d2b 70%);
 		color: #faf9f6;
 	}
 	.marca {

@@ -234,8 +234,7 @@
 		display: flex;
 		flex-direction: column;
 		background:
-			url(/grain.png),
-			radial-gradient(70% 45% at 50% 42%, #3a3450 0%, #262233 50%, #17151f 100%);
+			url(/grain.png), radial-gradient(70% 45% at 50% 42%, #3a3450 0%, #262233 50%, #17151f 100%);
 		color: #faf9f6;
 		padding: 0 20px 120px;
 	}
@@ -441,8 +440,7 @@
 	/* ——— Secciones ——— */
 	main {
 		background:
-			url(/grain.png),
-			radial-gradient(90% 38% at 100% 0%, #ece5ff 0%, rgba(236, 229, 255, 0) 70%),
+			url(/grain.png), radial-gradient(90% 38% at 100% 0%, #ece5ff 0%, rgba(236, 229, 255, 0) 70%),
 			#faf9f6;
 	}
 	.seccion {
@@ -569,9 +567,7 @@
 	}
 	/* 01b */
 	.paso-b {
-		background:
-			url(/grain.png),
-			#faf9f6;
+		background: url(/grain.png), #faf9f6;
 	}
 	.paso-b .paso-foto {
 		position: relative;
@@ -626,9 +622,7 @@
 		margin-top: -40px;
 		flex: 1;
 		border-radius: 36px 36px 0 0;
-		background:
-			url(/grain.png),
-			#faf9f6;
+		background: url(/grain.png), #faf9f6;
 		padding: 30px 26px 32px;
 		display: flex;
 		flex-direction: column;
@@ -667,8 +661,7 @@
 	/* 01c */
 	.paso-c {
 		background:
-			url(/grain.png),
-			radial-gradient(120% 70% at 85% 0%, #a38fff 0%, #7456f1 45%, #5a3dd8 100%);
+			url(/grain.png), radial-gradient(120% 70% at 85% 0%, #a38fff 0%, #7456f1 45%, #5a3dd8 100%);
 		color: #ffffff;
 	}
 	.polaroid {
@@ -741,8 +734,7 @@
 		padding: 40px;
 		border-radius: 36px;
 		background:
-			url(/grain.png),
-			radial-gradient(120% 70% at 85% 0%, #a38fff 0%, #7456f1 45%, #5a3dd8 100%);
+			url(/grain.png), radial-gradient(120% 70% at 85% 0%, #a38fff 0%, #7456f1 45%, #5a3dd8 100%);
 		color: #ffffff;
 		box-shadow: 0 40px 80px -40px rgba(60, 40, 140, 0.6);
 	}

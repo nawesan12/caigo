@@ -64,12 +64,21 @@
 			</div>
 			<a class="gel gel-lima publicar" href="/nuevo">
 				<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"
-					><path d="M12 4v16M4 12h16" stroke="#24212D" stroke-width="3.6" stroke-linecap="round" /></svg
+					><path
+						d="M12 4v16M4 12h16"
+						stroke="#24212D"
+						stroke-width="3.6"
+						stroke-linecap="round"
+					/></svg
 				>Publicar plan
 			</a>
 			<nav aria-label="Secciones del panel">
 				{#each NAV as n (n.href)}
-					<a href={n.href} class:on={activo(n.href)} aria-current={activo(n.href) ? 'page' : undefined}>
+					<a
+						href={n.href}
+						class:on={activo(n.href)}
+						aria-current={activo(n.href) ? 'page' : undefined}
+					>
 						<Icono nombre={n.icono} tam={20} />{n.l}
 					</a>
 				{/each}
@@ -93,8 +102,7 @@
 		display: grid;
 		grid-template-columns: 248px minmax(0, 1fr);
 		background:
-			url(/grain.png),
-			radial-gradient(50% 50% at 100% 0%, #e3d9ff 0%, rgba(227, 217, 255, 0) 70%),
+			url(/grain.png), radial-gradient(50% 50% at 100% 0%, #e3d9ff 0%, rgba(227, 217, 255, 0) 70%),
 			#f3f0e9;
 		color: #24212d;
 	}
@@ -110,9 +118,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 26px;
-		background:
-			url(/grain.png),
-			radial-gradient(120% 60% at 0% 0%, #3b2f78 0%, #201d2b 70%);
+		background: url(/grain.png), radial-gradient(120% 60% at 0% 0%, #3b2f78 0%, #201d2b 70%);
 		color: #faf9f6;
 	}
 	.marca {

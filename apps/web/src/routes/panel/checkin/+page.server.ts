@@ -12,7 +12,9 @@ export const load: PageServerLoad = async (event) => {
 		'GET',
 		`/v1/lugares/${lugar.id}/planes?cual=proximos`
 	);
-	const p = planes.filter((x) => !x.cancelado).sort((a, b) => a.empiezaEn.localeCompare(b.empiezaEn))[0];
+	const p = planes
+		.filter((x) => !x.cancelado)
+		.sort((a, b) => a.empiezaEn.localeCompare(b.empiezaEn))[0];
 	if (p) redirect(303, `/plan/${p.id}`);
 	return {};
 };

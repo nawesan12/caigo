@@ -23,12 +23,16 @@ export const load: PageServerLoad = async (event) => {
 export const actions: Actions = {
 	default: async (event) => {
 		const plan = String((await event.request.formData()).get('plan') ?? '');
-		if (!['semana', 'mes', 'temporada'].includes(plan)) return fail(400, { error: 'Elegí un plan.', plan: 'mes' });
+		if (!['semana', 'mes', 'temporada'].includes(plan))
+			return fail(400, { error: 'Elegí un plan.', plan: 'mes' });
 		if (!event.locals.token) aIngresar(event, '/plus');
 		let link: string;
 		try {
-			link = (await conSesion<{ link: string }>(event, 'POST', '/v1/plus/mercadopago', { cuerpo: { plan } }))
-				.link;
+			link = (
+				await conSesion<{ link: string }>(event, 'POST', '/v1/plus/mercadopago', {
+					cuerpo: { plan }
+				})
+			).link;
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
 			return fail(400, { error: mensajeDe(e), plan });

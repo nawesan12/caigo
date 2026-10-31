@@ -73,7 +73,11 @@ export const actions: Actions = {
 						resolucion: String(f.get('resolucion') ?? '').trim()
 					}
 				}),
-			d === 'descartar' ? 'Reporte descartado.' : d === 'suspender' ? 'Cuenta suspendida.' : 'Reporte resuelto.'
+			d === 'descartar'
+				? 'Reporte descartado.'
+				: d === 'suspender'
+					? 'Cuenta suspendida.'
+					: 'Reporte resuelto.'
 		);
 	}
 };

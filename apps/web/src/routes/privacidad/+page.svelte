@@ -24,7 +24,7 @@
 	<p>Los pagos los procesa Mercado Pago. Caigo no guarda datos de tarjetas.</p>
 	<h2>Tus derechos</h2>
 	<p>
-		Podés pedir acceso, corrección o baja de tus datos escribiendo a hola@caigo.com.ar. [a completar:
-		datos de inscripción ante la Agencia de Acceso a la Información Pública].
+		Podés pedir acceso, corrección o baja de tus datos escribiendo a hola@caigo.com.ar. [a
+		completar: datos de inscripción ante la Agencia de Acceso a la Información Pública].
 	</p>
 </Legal>

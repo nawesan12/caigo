@@ -44,7 +44,9 @@
 			</div>
 			<nav class="seg" aria-label="Qué planes ver">
 				<a href="/" aria-current={data.cual === 'proximos' ? 'page' : undefined}>Próximos</a>
-				<a href="/?cual=pasados" aria-current={data.cual === 'pasados' ? 'page' : undefined}>Pasados</a>
+				<a href="/?cual=pasados" aria-current={data.cual === 'pasados' ? 'page' : undefined}
+					>Pasados</a
+				>
 			</nav>
 		</div>
 
@@ -90,9 +92,13 @@
 						</div>
 					</div>
 					<div class="der">
-						<span class={f === 0 ? 'badge-completo badge' : 'badge-coral badge'}>{faltanTexto(f)}</span>
+						<span class={f === 0 ? 'badge-completo badge' : 'badge-coral badge'}
+							>{faltanTexto(f)}</span
+						>
 						<span class="plata"
-							>{p.cobro === 'gratis' ? 'Sin cobro' : `${pesosDeCentavos(p.cobradoCentavos)} cobrado`}</span
+							>{p.cobro === 'gratis'
+								? 'Sin cobro'
+								: `${pesosDeCentavos(p.cobradoCentavos)} cobrado`}</span
 						>
 					</div>
 				</a>

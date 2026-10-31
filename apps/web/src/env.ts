@@ -1,8 +1,7 @@
 import { defineEnvVars } from '@sveltejs/kit/env';
 
 /** Una variable opcional: vacía o sin definir vale `porDefecto`. */
-const opcional = (porDefecto: string) => (v: string | undefined) =>
-	(v ?? '').trim() || porDefecto;
+const opcional = (porDefecto: string) => (v: string | undefined) => (v ?? '').trim() || porDefecto;
 
 export const variables = defineEnvVars({
 	CAIGO_API: {
@@ -12,7 +11,8 @@ export const variables = defineEnvVars({
 	},
 	PUBLIC_CLERK_PUBLICABLE: {
 		public: true,
-		description: 'Clave publicable de Clerk (pk_live_… de la instancia de Grupo Vimo). Vacía: sin ingreso.',
+		description:
+			'Clave publicable de Clerk (pk_live_… de la instancia de Grupo Vimo). Vacía: sin ingreso.',
 		schema: opcional('')
 	},
 	PUBLIC_SITIO: {

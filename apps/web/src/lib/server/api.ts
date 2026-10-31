@@ -58,7 +58,7 @@ export async function api<T = unknown>(
 	}
 	if (res.status === 204) return null as T;
 	const texto = await res.text();
-	let json: unknown = null;
+	let json: unknown;
 	try {
 		json = texto ? JSON.parse(texto) : null;
 	} catch {

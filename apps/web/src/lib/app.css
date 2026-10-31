@@ -30,17 +30,22 @@
 	--grad-off: linear-gradient(180deg, #f8f6ff, #ede8ff);
 	--grad-oscuro: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
 
-	--sh-lima: inset 0 3px 2px rgba(255, 255, 255, 0.85), inset 0 -5px 0 rgba(96, 140, 10, 0.32),
+	--sh-lima:
+		inset 0 3px 2px rgba(255, 255, 255, 0.85), inset 0 -5px 0 rgba(96, 140, 10, 0.32),
 		0 4px 0 #94c43a, 0 16px 26px -10px rgba(120, 170, 30, 0.7);
-	--sh-violeta: inset 0 3px 2px rgba(255, 255, 255, 0.45), inset 0 -5px 0 rgba(40, 20, 140, 0.35),
+	--sh-violeta:
+		inset 0 3px 2px rgba(255, 255, 255, 0.45), inset 0 -5px 0 rgba(40, 20, 140, 0.35),
 		0 5px 0 #4a2fc2, 0 18px 28px -10px rgba(116, 86, 241, 0.75);
-	--sh-coral: inset 0 2px 1px rgba(255, 255, 255, 0.6), inset 0 -3px 0 rgba(160, 40, 30, 0.25),
+	--sh-coral:
+		inset 0 2px 1px rgba(255, 255, 255, 0.6), inset 0 -3px 0 rgba(160, 40, 30, 0.25),
 		0 3px 0 #d04a3a;
-	--sh-sel: inset 0 2px 1px rgba(255, 255, 255, 0.45), inset 0 -3px 0 rgba(40, 20, 140, 0.35),
+	--sh-sel:
+		inset 0 2px 1px rgba(255, 255, 255, 0.45), inset 0 -3px 0 rgba(40, 20, 140, 0.35),
 		0 3px 0 #4a2fc2;
 	--sh-off: inset 0 1.5px 0 #ffffff, 0 2px 0 #dcd5ee;
 	--sh-icono: inset 0 1.5px 0 #ffffff, inset 0 -2px 0 rgba(116, 86, 241, 0.1);
-	--sh-tarjeta-plan: inset 0 1px 0 #ffffff, 0 2px 0 #e8e3f4, 0 16px 30px -10px rgba(80, 60, 160, 0.22);
+	--sh-tarjeta-plan:
+		inset 0 1px 0 #ffffff, 0 2px 0 #e8e3f4, 0 16px 30px -10px rgba(80, 60, 160, 0.22);
 	--sh-tarjeta: inset 0 1px 0 #ffffff, 0 3px 0 #e6e0f3, 0 18px 30px -22px rgba(80, 60, 160, 0.35);
 	--sh-tarjeta-plana: inset 0 1px 0 #ffffff, 0 3px 0 #e6e0f3;
 	--sh-input: inset 0 2px 4px rgba(116, 86, 241, 0.14);
@@ -172,7 +177,9 @@ img {
 .gel-blanco {
 	color: var(--carbon);
 	background: linear-gradient(180deg, #ffffff, #f3f0fa);
-	box-shadow: inset 0 2px 0 #ffffff, 0 4px 0 #dcd5ee;
+	box-shadow:
+		inset 0 2px 0 #ffffff,
+		0 4px 0 #dcd5ee;
 }
 .gel-blanco:hover {
 	color: var(--carbon);

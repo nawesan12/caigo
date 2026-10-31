@@ -79,7 +79,12 @@
 	});
 </script>
 
-<div class="mapa" bind:this={caja} role="application" aria-label="Mapa: tocá dónde está el lugar"></div>
+<div
+	class="mapa"
+	bind:this={caja}
+	role="application"
+	aria-label="Mapa: tocá dónde está el lugar"
+></div>
 
 <style>
 	.mapa {

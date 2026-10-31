@@ -39,7 +39,9 @@
 			<span class="cat">{categoria}</span>
 			<span class="cuando">{cuando}</span>
 		</div>
-		<span class={faltan > 0 ? 'badge-coral badge' : 'badge-completo badge'}>{faltanTexto(faltan)}</span>
+		<span class={faltan > 0 ? 'badge-coral badge' : 'badge-completo badge'}
+			>{faltanTexto(faltan)}</span
+		>
 	</div>
 	<div class="cuerpo">
 		<div class="txt">
@@ -54,7 +56,12 @@
 			{#if href}
 				<a class="gel gel-lima sumarme" {href}>
 					<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"
-						><path d="M12 4v16M4 12h16" stroke="#24212D" stroke-width="4" stroke-linecap="round" /></svg
+						><path
+							d="M12 4v16M4 12h16"
+							stroke="#24212D"
+							stroke-width="4"
+							stroke-linecap="round"
+						/></svg
 					>{accion}</a
 				>
 			{/if}

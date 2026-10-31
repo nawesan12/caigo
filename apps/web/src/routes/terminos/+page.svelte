@@ -4,8 +4,8 @@
 
 <Legal titulo="Términos y condiciones" ruta="/terminos">
 	<p>
-		Este texto es un borrador y todavía no tiene validez legal. La versión definitiva la publica
-		[a completar: razón social y CUIT del titular de Caigo].
+		Este texto es un borrador y todavía no tiene validez legal. La versión definitiva la publica [a
+		completar: razón social y CUIT del titular de Caigo].
 	</p>
 	<h2>Qué es Caigo</h2>
 	<p>
@@ -14,12 +14,14 @@
 		organiza los planes.
 	</p>
 	<h2>Quién puede usarla</h2>
-	<p>Caigo es sólo para mayores de 18. Para sumarte a planes verificás tu identidad con una selfie.</p>
+	<p>
+		Caigo es sólo para mayores de 18. Para sumarte a planes verificás tu identidad con una selfie.
+	</p>
 	<h2>Planes con entrada o seña</h2>
 	<p>
 		Los planes de lugares pueden cobrar una entrada o una seña por Mercado Pago. Caigo cobra un
-		cargo por servicio a quien compra. La política de cancelación de cada plan la define el lugar
-		y se muestra antes de pagar.
+		cargo por servicio a quien compra. La política de cancelación de cada plan la define el lugar y
+		se muestra antes de pagar.
 	</p>
 	<h2>Caigo Plus</h2>
 	<p>

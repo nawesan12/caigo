@@ -12,9 +12,33 @@
 	let { data, form } = $props();
 
 	const PLANES = [
-		{ plan: 'semana', l: 'Semana', d: 'Para probar un finde largo', per: 'por semana', tag: '', save: '', c: 249900 },
-		{ plan: 'mes', l: 'Mes', d: '7 días gratis para arrancar', per: '$1.500 por semana', tag: 'Más elegido', save: '', c: 599900 },
-		{ plan: 'temporada', l: 'Temporada', d: 'Todo el verano, 3 meses', per: '$1.077 por semana', tag: '', save: '−22%', c: 1399900 }
+		{
+			plan: 'semana',
+			l: 'Semana',
+			d: 'Para probar un finde largo',
+			per: 'por semana',
+			tag: '',
+			save: '',
+			c: 249900
+		},
+		{
+			plan: 'mes',
+			l: 'Mes',
+			d: '7 días gratis para arrancar',
+			per: '$1.500 por semana',
+			tag: 'Más elegido',
+			save: '',
+			c: 599900
+		},
+		{
+			plan: 'temporada',
+			l: 'Temporada',
+			d: 'Todo el verano, 3 meses',
+			per: '$1.077 por semana',
+			tag: '',
+			save: '−22%',
+			c: 1399900
+		}
 	];
 	const FILAS = [
 		['Sumadas en Gente', '3 por día', 'Sin límite'],
@@ -30,7 +54,9 @@
 	let elegido = $state('mes');
 	let enviando = $state(false);
 	const sel = $derived(PLANES.find((p) => p.plan === elegido) ?? PLANES[1]);
-	const cta = $derived(elegido === 'mes' ? 'Probar 7 días gratis' : `Pagar ${precio(sel.plan, sel.c)}`);
+	const cta = $derived(
+		elegido === 'mes' ? 'Probar 7 días gratis' : `Pagar ${precio(sel.plan, sel.c)}`
+	);
 	const letra = $derived(
 		(elegido === 'mes'
 			? `Gratis 7 días, después ${precio('mes', 599900)} por mes.`
@@ -65,7 +91,9 @@
 	{:else}
 		<div class="scroll">
 			<div class="arriba">
-				<a class="cerrar" href="/" aria-label="Cerrar"><Icono nombre="cerrar" color="#FFFFFF" trazo={2.6} /></a>
+				<a class="cerrar" href="/" aria-label="Cerrar"
+					><Icono nombre="cerrar" color="#FFFFFF" trazo={2.6} /></a
+				>
 			</div>
 			<div class="logo">
 				<span class="caigo">Caigo</span>
@@ -75,7 +103,9 @@
 				<h1>Más planes. Más gente. Sin&nbsp;límites.</h1>
 				<p>Sumá a quien quieras, mirá quién te sumó y destacá tus&nbsp;planes.</p>
 				{#if data.vuelta}
-					<p class="aviso">Estamos confirmando tu pago con Mercado Pago. Puede tardar unos&nbsp;minutos.</p>
+					<p class="aviso">
+						Estamos confirmando tu pago con Mercado Pago. Puede tardar unos&nbsp;minutos.
+					</p>
 				{/if}
 				{#if data.error}<p class="aviso">{data.error}</p>{/if}
 			</div>
@@ -88,7 +118,13 @@
 						<span class="l">{l}</span>
 						<span class="g">{g}</span>
 						<span class="p">
-							{#if p === '✓'}<Icono nombre="check" tam={16} color="#C8F36B" trazo={3.4} etiqueta="Sí" />{:else}{p}{/if}
+							{#if p === '✓'}<Icono
+									nombre="check"
+									tam={16}
+									color="#C8F36B"
+									trazo={3.4}
+									etiqueta="Sí"
+								/>{:else}{p}{/if}
 						</span>
 					</div>
 				{/each}
@@ -113,7 +149,9 @@
 							<input type="radio" name="plan" value={p.plan} bind:group={elegido} class="sr" />
 							<span class="radio"></span>
 							<span class="medio">
-								<span class="nombre">{p.l}{#if p.save}<span class="ahorro">{p.save}</span>{/if}</span>
+								<span class="nombre"
+									>{p.l}{#if p.save}<span class="ahorro">{p.save}</span>{/if}</span
+								>
 								<span class="desc">{p.d}</span>
 							</span>
 							<span class="der">
@@ -130,7 +168,9 @@
 		<div class="abajo">
 			{#if form?.error}<p class="aviso" role="alert">{form.error}</p>{/if}
 			<button class="gel gel-lima cta" form="comprar" disabled={enviando}>
-				<img src="/caigo-icon.png" alt="" width="34" height="34" />{data.conSesion ? cta : 'Entrar y ' + cta.toLowerCase()}
+				<img src="/caigo-icon.png" alt="" width="34" height="34" />{data.conSesion
+					? cta
+					: 'Entrar y ' + cta.toLowerCase()}
 			</button>
 			<span class="letra">{letra}</span>
 		</div>
@@ -142,9 +182,7 @@
 		position: relative;
 		min-height: 100vh;
 		min-height: 100dvh;
-		background:
-			url(/grain.png),
-			radial-gradient(90% 45% at 50% 12%, #3b2f78 0%, #201d2b 70%);
+		background: url(/grain.png), radial-gradient(90% 45% at 50% 12%, #3b2f78 0%, #201d2b 70%);
 		color: #ffffff;
 	}
 	.scroll {

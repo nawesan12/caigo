@@ -6,7 +6,11 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
 	const lugar = await lugarAprobado(event);
-	const { placas } = await conSesion<{ placas: Placa[] }>(event, 'GET', `/v1/lugares/${lugar.id}/placas`);
+	const { placas } = await conSesion<{ placas: Placa[] }>(
+		event,
+		'GET',
+		`/v1/lugares/${lugar.id}/placas`
+	);
 	return { placas: placas.filter((p) => p.activa) };
 };
 

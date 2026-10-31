@@ -40,8 +40,7 @@
 				Mercado&nbsp;Pago.
 			</p>
 			<p class="chico">
-				Publicar es gratis. Caigo cobra un cargo por servicio a quien compra, nunca
-				al&nbsp;lugar.
+				Publicar es gratis. Caigo cobra un cargo por servicio a quien compra, nunca al&nbsp;lugar.
 			</p>
 		</div>
 		{#if !primero}<a class="volver" href="/">← Volver al panel</a>{/if}
@@ -170,9 +169,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 40px;
-		background:
-			url(/grain.png),
-			radial-gradient(120% 60% at 0% 0%, #3b2f78 0%, #201d2b 70%);
+		background: url(/grain.png), radial-gradient(120% 60% at 0% 0%, #3b2f78 0%, #201d2b 70%);
 		color: #faf9f6;
 	}
 	.marca {

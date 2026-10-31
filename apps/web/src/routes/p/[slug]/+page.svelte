@@ -84,7 +84,9 @@
 		</div>
 
 		<ul class="datos">
-			<li><Icono nombre="reloj" tam={18} color="#7456F1" trazo={2} />{cuandoLargo(plan.empiezaEn)}</li>
+			<li>
+				<Icono nombre="reloj" tam={18} color="#7456F1" trazo={2} />{cuandoLargo(plan.empiezaEn)}
+			</li>
 			<li><Icono nombre="pin" tam={18} color="#7456F1" trazo={2} />{donde}</li>
 			<li>
 				<Icono nombre="personas" tam={18} color="#7456F1" trazo={2} />
@@ -97,7 +99,9 @@
 				</li>
 			{/if}
 			{#if plan.beneficio}
-				<li><Icono nombre="regalo" tam={18} color="#7456F1" trazo={2} />Con check-in: {plan.beneficio}</li>
+				<li>
+					<Icono nombre="regalo" tam={18} color="#7456F1" trazo={2} />Con check-in: {plan.beneficio}
+				</li>
 			{/if}
 		</ul>
 
@@ -112,7 +116,9 @@
 			{#if plan.cancelado}
 				<span class="estado esperando">Este plan se canceló</span>
 			{:else if estado === 'aceptada'}
-				<span class="estado adentro"><Icono nombre="check" tam={18} color="#C8F36B" trazo={3.4} />Adentro</span>
+				<span class="estado adentro"
+					><Icono nombre="check" tam={18} color="#C8F36B" trazo={3.4} />Adentro</span
+				>
 				<span class="nota">Abrí la app para ver la dirección y el chat del&nbsp;plan.</span>
 			{:else if estado === 'pendiente'}
 				<span class="estado esperando">Esperando…</span>
@@ -133,7 +139,12 @@
 				>
 					<button class="gel gel-lima sumarme" disabled={enviando}>
 						<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"
-							><path d="M12 4v16M4 12h16" stroke="#24212D" stroke-width="4" stroke-linecap="round" /></svg
+							><path
+								d="M12 4v16M4 12h16"
+								stroke="#24212D"
+								stroke-width="4"
+								stroke-linecap="round"
+							/></svg
 						>{cta}
 					</button>
 				</form>
@@ -154,8 +165,7 @@
 		min-height: 100vh;
 		min-height: 100dvh;
 		background:
-			url(/grain.png),
-			radial-gradient(90% 38% at 100% 0%, #ece5ff 0%, rgba(236, 229, 255, 0) 70%),
+			url(/grain.png), radial-gradient(90% 38% at 100% 0%, #ece5ff 0%, rgba(236, 229, 255, 0) 70%),
 			#faf9f6;
 	}
 	.pantalla {
