@@ -13,6 +13,7 @@ import (
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/lugares"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
 	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/apns"
@@ -78,7 +79,33 @@ func correr() error {
 	}
 	w := &outbox.Worker{Pool: app, Manejadores: manejadores}
 	go limpiar(ctx, app)
+	go programados(ctx, app)
 	return w.Correr(ctx)
+}
+
+// programados corre cada minuto lo que depende de la hora: recordatorios, check-in abierto,
+// "¿Repetimos?", borrar ubicaciones de más de 24 h y la próxima fecha de los planes recurrentes.
+// Todo es idempotente (avisos_enviados y el último plan de cada serie): otra vuelta no repite nada.
+func programados(ctx context.Context, app *db.Pool) {
+	t := time.NewTicker(time.Minute)
+	defer t.Stop()
+	av := &avisos.Programados{App: app}
+	ps := &planes.Servicio{App: app}
+	for {
+		if _, err := av.Pasada(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("avisos programados", "error", err)
+		}
+		if n, err := ps.Recurrencia(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("recurrencia", "error", err)
+		} else if n > 0 {
+			slog.Info("recurrencia: planes creados", "cantidad", n)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }
 
 // limpiar borra cada hora lo que ya no sirve: topes viejos, sesiones vencidas, estados de OAuth

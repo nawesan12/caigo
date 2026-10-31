@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
@@ -394,10 +395,10 @@ var ErrResponder = problema.NoEncontrado("Esa invitación ya no está.")
 func (s *Servicio) ResponderInvitacion(ctx context.Context, usuarioID, planID string, aceptar bool) (bool, error) {
 	adentro := false
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
-		var de, org string
+		var de, org, genero string
 		var total int16
-		err := tx.QueryRow(ctx, `SELECT i.de_id, p.organizador_id, p.total FROM invitaciones i JOIN planes p ON p.id = i.plan_id
-			WHERE i.plan_id::text = $1 AND i.a_id = $2 AND i.estado = 'pendiente' FOR UPDATE OF p`, planID, usuarioID).Scan(&de, &org, &total)
+		err := tx.QueryRow(ctx, `SELECT i.de_id, p.organizador_id, p.total, p.genero FROM invitaciones i JOIN planes p ON p.id = i.plan_id
+			WHERE i.plan_id::text = $1 AND i.a_id = $2 AND i.estado = 'pendiente' FOR UPDATE OF p`, planID, usuarioID).Scan(&de, &org, &total, &genero)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrResponder
 		}
@@ -407,6 +408,10 @@ func (s *Servicio) ResponderInvitacion(ctx context.Context, usuarioID, planID st
 		estado := "descartada"
 		if aceptar {
 			estado = "aceptada"
+			// Un plan "Solo mujeres" o "Solo diversidades" pide lo mismo que al sumarse.
+			if err := planes.ChequearGenero(ctx, tx, usuarioID, genero); err != nil {
+				return err
+			}
 		}
 		if _, err := tx.Exec(ctx, `UPDATE invitaciones SET estado = $3 WHERE plan_id::text = $1 AND a_id = $2`, planID, usuarioID, estado); err != nil {
 			return err

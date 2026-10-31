@@ -11,6 +11,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/chat"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/equipo"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/gente"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/lugares"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/personas"
@@ -53,6 +54,8 @@ type Dependencias struct {
 	Panel string
 	// Pases de Wallet (Apple y Google). nil: apagados.
 	Wallet *wallet.Servicio
+	// Versión mínima de las apps (versionCode de Android, build de iOS). 0: cualquiera.
+	MinAndroid, MinIos int
 }
 
 // Nuevo arma el handler con todas las rutas.
@@ -83,12 +86,14 @@ func Nuevo(d Dependencias) http.Handler {
 		escribirJSON(w, http.StatusOK, map[string]string{"estado": "listo"})
 	})
 	mux.HandleFunc("GET /v1/version", func(w http.ResponseWriter, _ *http.Request) {
-		escribirJSON(w, http.StatusOK, map[string]string{"version": d.Version})
+		escribirJSON(w, http.StatusOK, map[string]any{"version": d.Version, "minAndroid": d.MinAndroid, "minIos": d.MinIos})
 	})
 	if d.App != nil {
 		ses := &sesion.Resolvedor{Clerk: d.Clerk, App: d.App, Log: d.Log}
 		ses.Rutas(mux)
-		planes.Rutas(mux, &planes.Servicio{App: d.App, Reloj: d.Reloj, Firma: firma.Firmador{Clave: []byte(d.Secreto)}, Sitio: d.Sitio}, ses.Exigir, d.Log)
+		pls := &planes.Servicio{App: d.App, Reloj: d.Reloj, Firma: firma.Firmador{Clave: []byte(d.Secreto)}, Sitio: d.Sitio}
+		planes.Rutas(mux, pls, ses.Exigir, d.Log)
+		equipo.Rutas(mux, &equipo.Servicio{App: d.App, Publicador: pls, Reloj: d.Reloj}, ses, d.Log)
 		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos}, SMS: sms.Simulado{Log: d.Log},
 			APIPublica: d.APIPublica, Reloj: d.Reloj}, ses, d.Log)
 		personas.Rutas(mux, &personas.Servicio{App: d.App}, ses.Exigir, d.Log)
@@ -142,6 +147,17 @@ var Reglas = map[string]limite.Regla{
 	"GET /v1/publico/planes/{slug}":            {Max: 120, Ventana: time.Minute, PorIP: true},
 	"GET /v1/publico/vivo/{token}":             {Max: 60, Ventana: time.Minute, PorIP: true},
 	"POST /v1/publico/arrepentimiento":         {Max: 5, Ventana: time.Hour, PorIP: true},
+	// Contrato del 31/10.
+	"PATCH /v1/planes/{id}":                                   {Max: 60, Ventana: time.Hour},
+	"DELETE /v1/planes/{id}/personas/{usuarioId}":             {Max: 60, Ventana: time.Hour},
+	"DELETE /v1/entradas/{id}":                                {Max: 20, Ventana: time.Hour},
+	"PUT /v1/yo/ubicacion":                                    {Max: 60, Ventana: time.Hour},
+	"PATCH /v1/lugares/{id}/planes/{plan}":                    {Max: 120, Ventana: time.Hour},
+	"POST /v1/lugares/{id}/planes/{plan}/checkin/{usuarioId}": {Max: 120, Ventana: time.Minute},
+	"GET /v1/publico/zonas":                                   {Max: 120, Ventana: time.Minute, PorIP: true},
+	"GET /v1/publico/planes/ahora":                            {Max: 120, Ventana: time.Minute, PorIP: true},
+	"GET /v1/publico/planes/explorar":                         {Max: 120, Ventana: time.Minute, PorIP: true},
+	"POST /v1/publico/espera":                                 {Max: 5, Ventana: time.Hour, PorIP: true},
 }
 
 // recuperar convierte un panic en un 500 con problem+json y lo registra, sin tirar el proceso.

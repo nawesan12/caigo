@@ -59,7 +59,8 @@ func correr() error {
 	hub := &chat.Hub{Servicio: &chat.Servicio{App: app}}
 	go hub.Escuchar(ctx)
 	deps := servidor.Dependencias{App: app, Version: version, Hub: hub, Origenes: cfg.Hosts(),
-		Secreto: cfg.Secreto, Sitio: cfg.Sitio, APIPublica: cfg.APIPublica, Archivos: cfg.Archivos}
+		Secreto: cfg.Secreto, Sitio: cfg.Sitio, APIPublica: cfg.APIPublica, Archivos: cfg.Archivos,
+		MinAndroid: cfg.MinAndroid, MinIos: cfg.MinIos}
 	cuentaPlay, err := google.Leer(cfg.GooglePlayCuenta)
 	if err != nil {
 		return err

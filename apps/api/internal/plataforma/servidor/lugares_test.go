@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -37,6 +38,8 @@ type mpFalso struct {
 	fee     float64
 	estado  string
 	usuario int64
+	// Reembolsos pedidos: el cuerpo tal cual ("" = el pago entero).
+	reembolsos []string
 }
 
 func nuevoMP(t *testing.T) *mpFalso {
@@ -60,6 +63,15 @@ func nuevoMP(t *testing.T) *mpFalso {
 			_ = json.NewDecoder(r.Body).Decode(&in)
 			m.ref, m.fee, m.total = in.ExternalReference, in.MarketplaceFee, in.Items[0].UnitPrice
 			_, _ = w.Write([]byte(`{"id":"pref-1","init_point":"https://mp.test/checkout"}`))
+		case r.URL.Path == "/v1/payments/99/refunds" && r.Method == http.MethodPost:
+			if strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ") != tokenDelLugar || r.Header.Get("X-Idempotency-Key") == "" {
+				w.WriteHeader(401)
+				return
+			}
+			b, _ := io.ReadAll(r.Body)
+			m.reembolsos = append(m.reembolsos, string(b))
+			w.WriteHeader(201)
+			_, _ = w.Write([]byte(`{"id":1,"status":"approved"}`))
 		case r.URL.Path == "/v1/payments/99":
 			fmt.Fprintf(w, `{"id":99,"status":%q,"external_reference":%q,"transaction_amount":%v}`, m.estado, m.ref, m.total)
 		default:
