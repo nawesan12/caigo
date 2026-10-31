@@ -63,6 +63,16 @@ Web publicada (31/10) en https://caigo.com.ar y https://lugares.caigo.com.ar: co
 - iOS en main (`apps/ios`, XcodeGen; CI en macos-15 con Xcode 26.3). Compila, pero nunca corrió:
   falta la pasada visual con Xcode o un iPhone, la App Clip y los productos de App Store Connect.
 
+## Faltantes del handoff (31/10, noche)
+Auditoría en docs/auditoria.md y contrato en docs/contrato-faltantes.md. En producción: API (92c1383)
+y web (60985da). iOS en main (compila en CI, sin probar en un iPhone). Android en la rama `android`
+sin mergear: Nahuel pidió no compilar Android todavía (al mergear corre el CI de Android).
+Pendiente: SMS real (proveedor), Firebase común `grupo-vimo` para Caigo (lo registra la sesión de Tu
+Local Web; el proyecto caigo-5d3b6 queda sin usar), credenciales de producción de la app de MP «Caigo»
+(1737058147653670, falta la verificación de Nahuel), Play Console (verificaciones de la cuenta).
+Web sin hacer: «Pedir placas» (mailto), menú reportar/bloquear en el chat web, mapa oscuro con
+teselas oscuras.
+
 ## Apple (31/10, configurado desde el portal)
 - App IDs: `ar.com.caigo.app` (App Groups, NFC Tag Reading, Associated Domains, Push, Sign in with
   Apple, IAP) y App Clip `ar.com.caigo.app.Clip` (App Groups, Associated Domains, Push, Sign in with
