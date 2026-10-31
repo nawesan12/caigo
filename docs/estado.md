@@ -63,6 +63,16 @@ Web publicada (31/10) en https://caigo.com.ar y https://lugares.caigo.com.ar: co
 - iOS en main (`apps/ios`, XcodeGen; CI en macos-15 con Xcode 26.3). Compila, pero nunca corrió:
   falta la pasada visual con Xcode o un iPhone, la App Clip y los productos de App Store Connect.
 
+## Apple (31/10, configurado desde el portal)
+- App IDs: `ar.com.caigo.app` (App Groups, NFC Tag Reading, Associated Domains, Push, Sign in with
+  Apple, IAP) y App Clip `ar.com.caigo.app.Clip` (App Groups, Associated Domains, Push, Sign in with
+  Apple). App Group `group.ar.com.caigo.app` en los dos.
+- Wallet: Pass Type ID `pass.ar.com.caigo`, certificado «Caigo pases» (vence 30/11/2027). Clave
+  generada en el VPS; cert y clave en /opt/caigo/claves/wallet-*.pem (600, deploy) y rutas en api.conf.
+- Clerk producción: Native applications › iOS con `ar.com.caigo.app` y `ar.com.caigo.app.Clip`.
+- Falta App Store Connect: la app, las suscripciones de Plus, experiencias del App Clip y la URL de
+  avisos del servidor (https://api.caigo.com.ar/v1/webhooks/apple).
+
 ## Clerk de producción (aviso de la sesión de Tu Local Web, 31/10)
 - Instancia compartida `clerk.grupovimo.com.ar` (app «Grupo Vimo»), Google y Apple activos, Access
   mode Open. Claves pk_live/sk_live: dashboard o CREDENCIALES.md de mostrador-v2, nunca al repo.
