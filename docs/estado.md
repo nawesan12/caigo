@@ -67,3 +67,18 @@ Web publicada (31/10) en https://caigo.com.ar y https://lugares.caigo.com.ar: co
   sesión de Tu Local Web.
 - Sesión: `POST /v1/sesion` canjea el JWT de Clerk (Authorization) por un token de Caigo `cs_…` (60 días,
   se renueva con el uso); `DELETE /v1/sesion` lo cierra. La API también acepta el JWT de Clerk directo.
+
+## iOS (rama `ios`, 31/10)
+SwiftUI, iOS 17, Observation, en `apps/ios`. El proyecto sale de `project.yml` (`xcodegen generate`; el
+.xcodeproj no se versiona). `Nucleo/` es un paquete Swift con lo que no es pantalla (modelos, API,
+Clerk en modo nativo, WebSocket, Keychain, lógica de cupo/plata/DNI/mazo, íconos SVG) y se prueba en
+la Mac sin Xcode con `apps/ios/probar-nucleo.sh`; `apps/ios/revisar-local.sh` chequea tipos de la app
+contra el SDK de macOS (lo propio de iOS va con `#if os(iOS)`). La compilación para el simulador la
+hace el job `ios` de CI (macos-15, Xcode 26.3). Clave de Clerk en `Config/Secretos.xcconfig` (no se
+versiona; ver `Secretos.ejemplo.xcconfig`). Pantallas: ingreso (Clerk Google/Apple, Apple nativo,
+token en DEBUG), alta (datos, teléfono, selfie con Vision, intenciones), verificación y DNI con
+PDF417, Ahora (lista, mapa MapKit, Gente/Citas), Explorar con filtros de Plus, detalle, crear,
+Mis planes, solicitudes, chat y privados en tiempo real, perfil (con «Borrar mi cuenta»), check-in,
+¿Repetimos?, QR, Plus con StoreKit 2, entradas/pases con Apple Wallet, Caigo Tap con Core NFC y push
+APNs. Falta: App Clip, productos de StoreKit en App Store Connect, Pass Type ID, y todo lo visual
+sin verificar en un iPhone (nunca se corrió en simulador).
