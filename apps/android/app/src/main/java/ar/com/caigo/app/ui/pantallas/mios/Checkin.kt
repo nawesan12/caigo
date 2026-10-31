@@ -323,8 +323,7 @@ fun Repetimos(ir: Ir, planId: String) {
                         }
                     }
                 }
-                Spacer(Modifier.weight(1f))
-                Row(Modifier.align(Alignment.CenterHorizontally).padding(top = 14.dp).tocable { reportar = true }) {
+                Row(Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp).tocable { reportar = true }) {
                     T("¿Pasó algo? ", 13f, 600, p.texto2)
                     T("Reportar", 13f, 700, if (p.oscuro) C.lima else C.violetaTexto)
                 }

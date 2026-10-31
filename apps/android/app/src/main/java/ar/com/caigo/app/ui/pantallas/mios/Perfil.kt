@@ -119,7 +119,9 @@ fun Perfil(ir: Ir) {
     val alcance = rememberCoroutineScope()
     val yo by c.yo.collectAsState()
     var opciones by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { c.recargarYo() }
+    var intento by remember { mutableStateOf(0) }
+    var fallo by remember { mutableStateOf(false) }
+    LaunchedEffect(intento) { fallo = c.recargarYo() == null }
     val gente = rememberCarga("gente") { c.api.miGente().gente }
     val verif = rememberCarga("verif") { c.api.verificacion() }
     val plus = rememberCarga("plus") { c.api.plus().estado }
@@ -127,7 +129,10 @@ fun Perfil(ir: Ir) {
     Pantalla { arriba, _ ->
         val y = yo
         if (y == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Puntitos() }
+            Box(Modifier.fillMaxSize().padding(28.dp), contentAlignment = Alignment.Center) {
+                if (fallo) MiosVacio("No pudimos cargar tu perfil", "No hay conexión. Revisá internet y probá de nuevo.", "Probar de nuevo", { intento++ })
+                else Puntitos()
+            }
         } else {
             Column(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState())

@@ -226,7 +226,9 @@ private fun Burbuja(l: Linea) {
             Column(Modifier.widthIn(max = 250.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 if (l.autor.isNotBlank()) T(miosPrimer(l.autor), 11f, 700, p.texto2)
                 Box(
-                    Modifier.gel(18.dp, miosGelTarjeta()).clip(RoundedCornerShape(18.dp, 18.dp, 18.dp, 6.dp))
+                    // Sombra de tarjeta y fondo con la punta de abajo a la izquierda (radio 6).
+                    Modifier.gel(18.dp, null, miosGelTarjeta().sombras.filter { !it.inset })
+                        .background(p.tarjetaPlano, RoundedCornerShape(18.dp, 18.dp, 18.dp, 6.dp))
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                 ) { T(l.texto, 15f, 400, alto = 1.4f) }
             }
