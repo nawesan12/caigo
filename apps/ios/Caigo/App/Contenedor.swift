@@ -87,7 +87,6 @@ final class Contenedor {
         self.token = token
         self.usuarioId = usuarioId
         tiempoReal.encender()
-        Push.pedirPermiso()
         registrarPush()
     }
 

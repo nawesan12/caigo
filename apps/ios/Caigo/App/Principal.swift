@@ -30,6 +30,8 @@ struct Principal: View {
             }
         }
         .animation(.easeOut(duration: 0.2), value: ir.tabBarOculta)
+        // El permiso de avisos se pide al llegar a la app, no en medio del alta.
+        .task { Push.pedirPermiso() }
         .ocultarBarraNavegacion()
     }
 }

@@ -64,7 +64,8 @@ final class Ir {
     var tabBarOculta = false
 
     func atras() {
-        if !camino.isEmpty { camino.removeLast() } else if case .principal = base {} else { principal() }
+        // Sin nada apilado no se hace nada: desde el alta no se saltean pasos.
+        if !camino.isEmpty { camino.removeLast() }
     }
 
     func ir(_ r: Ruta) {
