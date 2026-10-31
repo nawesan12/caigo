@@ -1,0 +1,5 @@
+// Configuración común. Los secretos (la clave publicable de Clerk) van en Secretos.xcconfig, que no
+// se versiona: copiá Secretos.ejemplo.xcconfig y completalo.
+CAIGO_API = https:/$()/api.caigo.com.ar
+CAIGO_CLERK_PUBLICABLE =
+#include? "Secretos.xcconfig"
