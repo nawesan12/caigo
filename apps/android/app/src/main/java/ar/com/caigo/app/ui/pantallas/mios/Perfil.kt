@@ -157,7 +157,7 @@ fun Perfil(ir: Ir) {
                 }
 
                 // Verificación y seguridad.
-                val dni = verif.dato?.dni ?: if (y.verificada) "aprobada" else "ninguna"
+                val dni = if (y.verificada) "aprobada" else verif.dato?.dni ?: "ninguna"
                 Row(
                     Modifier.fillMaxWidth().toque(alBajar = 2.dp) { ir.verificacion() }
                         .gel(24.dp, if (p.oscuro) Gels.tarjetaOscura else Gel(vertical(C.blanco, C.blanco), listOf(interna(1f, 0f, C.blanco), externa(3f, 0f, C.borde1), externa(12f, 24f, rgba(80, 60, 160, .25f), spread = -12f))))
@@ -170,7 +170,7 @@ fun Perfil(ir: Ir) {
                         T("Verificación y seguridad", 15f, 800)
                         T(
                             when (dni) {
-                                "aprobada" -> "Estás verificada"
+                                "aprobada" -> "Tu DNI ya está verificado"
                                 "pendiente" -> "Ya estamos revisando tu DNI."
                                 else -> "Sumá tu DNI y ganás el badge"
                             },

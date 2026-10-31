@@ -77,7 +77,7 @@ fun MisPlanes(ir: Ir) {
                 T("Mis planes", 40f, 800, alto = 1f, espaciado = px(-1.4f, 40f))
                 Segmentado(
                     listOf(etiqueta("Organizo", organizo.dato?.size), etiqueta("Me sumé", meSume.dato?.size), "Historial"),
-                    tab, { tab = it }, Modifier.fillMaxWidth(), alto = 46.dp,
+                    tab, { tab = it }, Modifier.fillMaxWidth(), alto = 46.dp, padOpcion = 4.dp,
                 )
             }
             val planes = actual.dato

@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -431,10 +433,11 @@ internal fun HojaInvitar(ir: Ir, t: Tarjeta, cerrar: () -> Unit, alInvitar: (Pla
     val avisos = LocalAvisos.current
     val alcance = rememberCoroutineScope()
     val mios = rememberCarga { c.api.mios("organizo").planes }
+    ar.com.caigo.app.ui.OcultarTabBar(true)
     Box(Modifier.fillMaxSize().zIndex(30f).background(rgba(32, 29, 43, .45f)).tocable(cerrar)) {
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().tocable { }
-                .gel(28.dp, vertical(C.blancoCalido, C.blancoCalido)).padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = altoTabBar()),
+                .gel(28.dp, vertical(C.blancoCalido, C.blancoCalido)).padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 34.dp + androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             T("¿A qué plan invitás a ${t.nombre}?", 22f, 700, C.carbon, alto = 1.1f, espaciado = px(-.4f, 22f))

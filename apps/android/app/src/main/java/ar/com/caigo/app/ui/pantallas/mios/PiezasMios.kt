@@ -256,6 +256,7 @@ internal fun MiosGrupo(contenido: @Composable ColumnScope.() -> Unit) {
 internal fun BoxScope.MiosHoja(abierta: Boolean, onCerrar: () -> Unit, titulo: String, contenido: @Composable ColumnScope.() -> Unit) {
     val p = LocalPaleta.current
     val abajo = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    ar.com.caigo.app.ui.OcultarTabBar(abierta)
     AnimatedVisibility(abierta, Modifier.fillMaxSize().zIndex(30f), enter = fadeIn(tween(200)), exit = fadeOut(tween(200))) {
         Box(Modifier.fillMaxSize().background(rgba(21, 19, 28, .45f)).tocable(onCerrar))
     }

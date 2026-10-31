@@ -183,8 +183,14 @@ data class CambiosPerfil(
     val fotos: List<String>? = null,
 )
 
+/** Mi gente: la API devuelve el perfil (con `fotos`); se pasa a la vista corta que usan las listas. */
 @Serializable
-data class Gente(val gente: List<PersonaCorta> = emptyList())
+data class Gente(@kotlinx.serialization.SerialName("gente") val perfiles: List<Perfil> = emptyList()) {
+    val gente: List<PersonaCorta>
+        get() = perfiles.map {
+            PersonaCorta(it.id, it.nombre, it.fotos.firstOrNull().orEmpty(), it.edad, it.verificada, it.asistencia, enMiGente = true)
+        }
+}
 
 @Serializable
 data class Reporte(val usuarioId: String = "", val planId: String = "", val motivo: String, val detalle: String = "")

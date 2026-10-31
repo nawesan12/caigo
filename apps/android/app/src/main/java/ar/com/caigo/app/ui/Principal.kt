@@ -48,19 +48,38 @@ import ar.com.caigo.app.ui.tema.rgba
 @Composable
 fun altoTabBar(): Dp = 24.dp + 70.dp + 14.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
+/** Mientras una hoja está abierta adentro de una pestaña, la tab bar se esconde (si no, la tapa). */
+val LocalTabBarOculta = androidx.compose.runtime.compositionLocalOf<androidx.compose.runtime.MutableState<Boolean>?> { null }
+
+/** Esconde la tab bar mientras [oculta] sea true. */
+@Composable
+fun OcultarTabBar(oculta: Boolean) {
+    val o = LocalTabBarOculta.current
+    androidx.compose.runtime.DisposableEffect(oculta) {
+        o?.value = oculta
+        onDispose { o?.value = false }
+    }
+}
+
 /** Las cuatro pestañas con la tab bar flotante encima. */
 @Composable
 fun Principal(ir: Ir, inicial: Pestana, modo: String?) {
     var tab by rememberSaveable { mutableStateOf(inicial) }
     val p = LocalPaleta.current
-    Box(Modifier.fillMaxSize().fondoCaigo(p.oscuro)) {
-        when (tab) {
-            Pestana.Ahora -> Ahora(ir, modo)
-            Pestana.Explorar -> Explorar(ir)
-            Pestana.Mis -> MisPlanes(ir)
-            Pestana.Perfil -> Perfil(ir)
+    val oculta = androidx.compose.runtime.remember { mutableStateOf(false) }
+    androidx.compose.runtime.CompositionLocalProvider(LocalTabBarOculta provides oculta) {
+        Box(Modifier.fillMaxSize().fondoCaigo(p.oscuro)) {
+            when (tab) {
+                Pestana.Ahora -> Ahora(ir, modo)
+                Pestana.Explorar -> Explorar(ir)
+                Pestana.Mis -> MisPlanes(ir)
+                Pestana.Perfil -> Perfil(ir)
+            }
+            androidx.compose.animation.AnimatedVisibility(
+                !oculta.value, Modifier.align(Alignment.BottomCenter),
+                enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut(),
+            ) { TabBar(tab, { tab = it; oculta.value = false }, { ir.crear() }) }
         }
-        TabBar(tab, { tab = it }, { ir.crear() }, Modifier.align(Alignment.BottomCenter))
     }
 }
 
