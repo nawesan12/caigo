@@ -36,6 +36,11 @@ class Sesion(private val ctx: Context) {
     private val kToken = stringPreferencesKey("token")
     private val kUsuario = stringPreferencesKey("usuario")
     private val kIntro = stringPreferencesKey("intro")
+    private val kGrupo = stringPreferencesKey("grupo")
+    private val kTema = stringPreferencesKey("tema")
+    private val kAvisos = stringPreferencesKey("avisos_pedidos")
+    private val kContacto = stringPreferencesKey("contacto")
+    private val kTokenPush = stringPreferencesKey("token_push")
 
     private val _token = MutableStateFlow<String?>(null)
     val token: StateFlow<String?> = _token
@@ -45,12 +50,62 @@ class Sesion(private val ctx: Context) {
     var vioIntro: Boolean = false
         private set
 
+    /** 01b · «Voy solo / Somos 2 / Somos 4»: con cuántos sale (1, 2 o 4). Es el valor por defecto al sumarse. */
+    var grupo: Int = 1
+        private set
+
+    /** Tema elegido en Perfil: auto (el del sistema) | claro | oscuro. */
+    private val _tema = MutableStateFlow("auto")
+    val tema: StateFlow<String> = _tema
+
+    /** Ya se pidió el permiso de avisos (Android 13+) una vez después del alta. */
+    var avisosPedidos: Boolean = false
+        private set
+
+    /** El contacto de confianza que se cargó en este teléfono (GET /v1/yo no lo devuelve). */
+    var contacto: String = ""
+        private set
+
+    /** El token de FCM registrado: se borra de la API al salir o borrar la cuenta. */
+    var tokenPush: String = ""
+        private set
+
     /** Lee la sesión guardada. Se llama una vez al arrancar, antes de pintar. */
     fun cargar() = runBlocking {
         val p = ctx.almacen.data.first()
         _token.value = p[kToken]?.let { descifrar(it) }
         usuarioId = p[kUsuario].orEmpty()
         vioIntro = p[kIntro] == "1"
+        grupo = p[kGrupo]?.toIntOrNull()?.takeIf { it in listOf(1, 2, 4) } ?: 1
+        _tema.value = p[kTema] ?: "auto"
+        avisosPedidos = p[kAvisos] == "1"
+        contacto = p[kContacto].orEmpty()
+        tokenPush = p[kTokenPush].orEmpty()
+    }
+
+    suspend fun guardarGrupo(n: Int) {
+        grupo = n
+        ctx.almacen.edit { it[kGrupo] = n.toString() }
+    }
+
+    suspend fun guardarTema(t: String) {
+        _tema.value = t
+        ctx.almacen.edit { it[kTema] = t }
+    }
+
+    suspend fun marcarAvisosPedidos() {
+        avisosPedidos = true
+        ctx.almacen.edit { it[kAvisos] = "1" }
+    }
+
+    suspend fun guardarContacto(t: String) {
+        contacto = t
+        ctx.almacen.edit { it[kContacto] = t }
+    }
+
+    suspend fun guardarTokenPush(t: String) {
+        tokenPush = t
+        ctx.almacen.edit { it[kTokenPush] = t }
     }
 
     suspend fun guardar(token: String, usuarioId: String) {
@@ -71,7 +126,13 @@ class Sesion(private val ctx: Context) {
         ctx.almacen.edit {
             it.remove(kToken)
             it.remove(kUsuario)
+            it.remove(kContacto)
+            it.remove(kTokenPush)
+            it.remove(kAvisos)
         }
+        contacto = ""
+        tokenPush = ""
+        avisosPedidos = false
         usuarioId = ""
         _token.value = null
     }

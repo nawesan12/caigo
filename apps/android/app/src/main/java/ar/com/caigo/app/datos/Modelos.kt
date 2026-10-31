@@ -22,6 +22,8 @@ data class PersonaCorta(
     val asistencia: Asist = Asist(),
     val enMiGente: Boolean = false,
     val organizador: Boolean = false,
+    /** Ya hizo check-in (sólo en la lista de los que van). */
+    val llego: Boolean = false,
 )
 
 @Serializable
@@ -113,6 +115,31 @@ data class PlanNuevo(
     val foto: String = "",
 )
 
+/** PATCH /v1/planes/{id}: sólo lo que cambia (null no se manda). */
+@Serializable
+data class CambiosPlan(
+    val titulo: String? = null,
+    val descripcion: String? = null,
+    val empiezaEn: String? = null,
+    val duracionMin: Int? = null,
+    val total: Int? = null,
+    val ingreso: String? = null,
+    val visibilidad: String? = null,
+    val soloVerificados: Boolean? = null,
+    val ocultarDireccion: Boolean? = null,
+    val edadMin: Int? = null,
+    val edadMax: Int? = null,
+    val genero: String? = null,
+    val nivel: String? = null,
+    val costoCentavos: Int? = null,
+    val foto: String? = null,
+    val zona: String? = null,
+    val lugarNombre: String? = null,
+    val direccion: String? = null,
+    val lat: Double? = null,
+    val lng: Double? = null,
+)
+
 @Serializable
 data class Estado(val estado: String = "")
 
@@ -169,7 +196,19 @@ data class Perfil(
     val compartidos: Int = 0,
     val equipo: Boolean = false,
     val telefono: String = "",
+    /** Autodeclarado, no se muestra a nadie: "" | mujer | varon | no_binario. */
+    val genero: String = "",
+    /** «Me identifico como parte de la diversidad». */
+    val diversidad: Boolean = false,
+    val avisos: AjustesAvisos = AjustesAvisos(),
+    /** Si la API lo devuelve (hoy sólo se manda en PATCH): teléfono o mail. */
+    val contactoConfianza: String? = null,
+    /** Próximos planes de otra persona que quien mira puede ver. */
+    val proximos: List<ProximoPlan> = emptyList(),
 )
+
+@Serializable
+data class AjustesAvisos(val planesCerca: Boolean = true, val tuGente: Boolean = true)
 
 @Serializable
 data class CambiosPerfil(
@@ -183,6 +222,10 @@ data class CambiosPerfil(
     val intenciones: List<String>? = null,
     val prompts: List<Prompt>? = null,
     val fotos: List<String>? = null,
+    val genero: String? = null,
+    val diversidad: Boolean? = null,
+    val avisos: AjustesAvisos? = null,
+    val contactoConfianza: String? = null,
 )
 
 /** Mi gente: la API devuelve el perfil (con `fotos`); se pasa a la vista corta que usan las listas. */
@@ -200,7 +243,14 @@ data class Reporte(val usuarioId: String = "", val planId: String = "", val moti
 // ——— Gente / Citas ———
 
 @Serializable
-data class ProximoPlan(val id: String = "", val titulo: String = "", val categoria: String = "", val empiezaEn: String = "", val foto: String = "")
+data class ProximoPlan(
+    val id: String = "",
+    val titulo: String = "",
+    val categoria: String = "",
+    val empiezaEn: String = "",
+    val foto: String = "",
+    val faltan: Int? = null,
+)
 
 @Serializable
 data class Tarjeta(
@@ -311,7 +361,10 @@ data class Conversacion(val con: Autor = Autor(), val ultimo: Privado = Privado(
 @Serializable
 data class Conversaciones(val conversaciones: List<Conversacion> = emptyList())
 
-/** Evento del WebSocket de tiempo real. */
+/**
+ * Evento del WebSocket de tiempo real. En «escribiendo» de un privado, `privado` llega como el id de
+ * quien escribe (texto): lo separa [TiempoReal] y queda en [escribePrivado].
+ */
 @Serializable
 data class Evento(
     val tipo: String = "",
@@ -319,7 +372,24 @@ data class Evento(
     val privado: Privado? = null,
     val planId: String = "",
     val quien: Autor? = null,
+    @kotlinx.serialization.Transient val escribePrivado: String = "",
 )
+
+@Serializable
+data class Bloqueo(val id: String = "", val nombre: String = "", val foto: String = "")
+
+@Serializable
+data class Bloqueos(val bloqueos: List<Bloqueo> = emptyList())
+
+@Serializable
+data class Zonas(val zonas: List<String> = emptyList())
+
+@Serializable
+data class Reembolso(val reembolsoCentavos: Long = 0)
+
+/** GET /v1/version: versión de la API y la mínima de cada app (versionCode / build). */
+@Serializable
+data class Version(val version: String = "", val minAndroid: Int = 0, val minIos: Int = 0)
 
 // ——— Confianza ———
 

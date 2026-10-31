@@ -1,6 +1,20 @@
 package ar.com.caigo.app.ui.pantallas.planes
 
 import android.os.Bundle
+import org.maplibre.android.camera.CameraUpdateFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import ar.com.caigo.app.datos.CambiosPlan
+import ar.com.caigo.app.datos.Plan
+import ar.com.caigo.app.ui.pantallas.mios.MiosCampo
+import ar.com.caigo.app.ui.piezas.jpegDe
+import ar.com.caigo.app.ui.piezas.Foto
+import ar.com.caigo.app.ui.piezas.nombreCategoria
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.keyframes
@@ -166,6 +180,29 @@ private class Borrador {
     var verificados by mutableStateOf(true)
     var ocultar by mutableStateOf(true)
     var costo by mutableStateOf<Int?>(null)
+    var descripcion by mutableStateOf("")
+    var duracion by mutableIntStateOf(120)
+    var foto by mutableStateOf("")
+    /** La ciudad del lugar elegido (Geocoder); vacía, sale de la del perfil. */
+    var ciudad by mutableStateOf("")
+
+    /** Carga un plan para editarlo (contrato §2). */
+    fun desde(p: Plan) {
+        titulo = p.titulo; categoria = p.categoria; descripcion = p.descripcion; duracion = p.duracionMin; foto = p.foto
+        repite = p.recurrente; lugar = p.lugarNombre; direccion = p.direccion?.texto.orEmpty(); zona = p.zona; ciudad = p.ciudad
+        lat = p.direccion?.lat?.takeIf { it != 0.0 } ?: p.lat; lng = p.direccion?.lng?.takeIf { it != 0.0 } ?: p.lng
+        somos = p.somos.coerceAtLeast(1); faltan = p.faltan.coerceAtLeast(1)
+        edadMin = (p.edadMin ?: 18).toFloat().coerceIn(EDAD_MIN, EDAD_MAX); edadMax = (p.edadMax ?: 99).toFloat().coerceIn(EDAD_MIN, EDAD_MAX)
+        genero = p.genero; nivel = p.nivel; ingreso = p.ingreso
+        visibilidad = listOf("publico", "mi_gente", "link").indexOf(p.visibilidad).coerceAtLeast(0)
+        verificados = p.soloVerificados; ocultar = p.ocultarDireccion; costo = p.costoCentavos
+        Fecha.parse(p.empiezaEn)?.let { t ->
+            val dias = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(ZonaAR), t.toLocalDate()).toInt()
+            cuando = if (dias <= 0) 1 else 2
+            dia = dias.coerceIn(1, 6)
+            horaOtra = true; h = t.hour; m = t.minute - t.minute % 5
+        }
+    }
 
     fun empieza(): ZonedDateTime {
         val ahora = ZonedDateTime.now(ZonaAR)
@@ -177,12 +214,15 @@ private class Borrador {
         return t
     }
 
-    fun ciudad() = if (lat > -37.6) "Villa Gesell" else "Mar del Plata"
+    fun ciudad(porDefecto: String) = ciudad.ifBlank { porDefecto.ifBlank { "Mar del Plata" } }
 }
 
-/** 06a–06c · Crear plan en tres pasos. */
+/** Duraciones del plan (minutos). */
+private val duracionesCrear = listOf(60 to "1 h", 120 to "2 h", 180 to "3 h", 240 to "4 h")
+
+/** 06a–06c · Crear plan en tres pasos. Con [editar], los mismos pasos cambian un plan propio (PATCH). */
 @Composable
-fun Crear(ir: Ir) {
+fun Crear(ir: Ir, editar: String? = null) {
     val c = LocalApp.current
     val avisos = LocalAvisos.current
     val pal = LocalPaleta.current
@@ -193,7 +233,18 @@ fun Crear(ir: Ir) {
     var eligiendoLugar by remember { mutableStateOf(false) }
     var editandoCosto by remember { mutableStateOf(false) }
     var publicando by remember { mutableStateOf(false) }
+    var cargado by remember { mutableStateOf(editar == null) }
     LaunchedEffect(Unit) {
+        if (editar != null) {
+            try {
+                b.desde(c.api.plan(editar))
+                cargado = true
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                avisos.error(mensajeDe(e)); ir.atras()
+            }
+            return@LaunchedEffect
+        }
         if (b.zona.isBlank()) b.zona = yo?.zona.orEmpty()
         c.ubicacion()?.let { (la, ln) -> b.lat = la; b.lng = ln }
     }
@@ -202,15 +253,33 @@ fun Crear(ir: Ir) {
         if (b.lugar.isBlank() && b.direccion.isBlank()) { avisos.error("Marcá dónde es el plan."); eligiendoLugar = true; return@launch }
         publicando = true
         try {
+            if (editar != null) {
+                c.api.editarPlan(
+                    editar,
+                    CambiosPlan(
+                        titulo = b.titulo.trim(), descripcion = b.descripcion.trim(), empiezaEn = Fecha.iso(b.empieza()), duracionMin = b.duracion,
+                        total = b.somos + b.faltan, ingreso = b.ingreso, visibilidad = listOf("publico", "mi_gente", "link")[b.visibilidad],
+                        soloVerificados = b.verificados, ocultarDireccion = b.ocultar,
+                        // «Cualquier edad» se manda como el rango entero (null sería «no cambia»).
+                        edadMin = b.edadMin.roundToInt(), edadMax = b.edadMax.roundToInt().let { if (it >= EDAD_MAX) 120 else it },
+                        genero = b.genero, nivel = b.nivel, costoCentavos = b.costo ?: 0, foto = b.foto,
+                        zona = b.zona.trim(), lugarNombre = b.lugar.trim(), direccion = b.direccion.trim(), lat = b.lat, lng = b.lng,
+                    ),
+                )
+                avisos.ok("Listo, guardamos los cambios. Si cambió el día o el lugar, le avisamos a la gente.")
+                ir.atras()
+                return@launch
+            }
             val p = c.api.crearPlan(
                 PlanNuevo(
-                    titulo = b.titulo.trim(), categoria = b.categoria, empiezaEn = Fecha.iso(b.empieza()), recurrente = b.repite,
-                    ciudad = b.ciudad(), zona = b.zona.trim(), lugarNombre = b.lugar.trim(), direccion = b.direccion.trim(),
+                    titulo = b.titulo.trim(), categoria = b.categoria, descripcion = b.descripcion.trim(),
+                    empiezaEn = Fecha.iso(b.empieza()), duracionMin = b.duracion, recurrente = b.repite,
+                    ciudad = b.ciudad(yo?.ciudad.orEmpty()), zona = b.zona.trim(), lugarNombre = b.lugar.trim(), direccion = b.direccion.trim(),
                     lat = b.lat, lng = b.lng, somos = b.somos, faltan = b.faltan, ingreso = b.ingreso,
                     visibilidad = listOf("publico", "mi_gente", "link")[b.visibilidad],
                     soloVerificados = b.verificados, ocultarDireccion = b.ocultar,
                     edadMin = b.edadMin.roundToInt().takeIf { it > EDAD_MIN }, edadMax = b.edadMax.roundToInt().takeIf { it < EDAD_MAX },
-                    genero = b.genero, nivel = b.nivel, costoCentavos = b.costo,
+                    genero = b.genero, nivel = b.nivel, costoCentavos = b.costo, foto = b.foto,
                 ),
             )
             ir.publicado(p.id)
@@ -238,8 +307,9 @@ fun Crear(ir: Ir) {
                 .padding(start = 20.dp, end = 20.dp, bottom = 130.dp + abajo),
             verticalArrangement = Arrangement.spacedBy(if (paso == 2) 16.dp else 20.dp),
         ) {
-            when (paso) {
-                0 -> Paso1(b, { eligiendoLugar = true })
+            if (!cargado) Box(Modifier.fillMaxWidth().padding(top = 80.dp), contentAlignment = Alignment.Center) { Puntitos() }
+            else when (paso) {
+                0 -> Paso1(b, editar != null, { eligiendoLugar = true })
                 1 -> Paso2(b)
                 else -> Paso3(b) { editandoCosto = true }
             }
@@ -250,10 +320,10 @@ fun Crear(ir: Ir) {
                 .background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to pal.fondo.copy(alpha = 0f), .35f to pal.fondo)),
         )
         Cta(
-            if (paso < 2) "Siguiente" else "Publicar plan",
+            if (paso < 2) "Siguiente" else if (editar != null) "Guardar cambios" else "Publicar plan",
             { if (paso < 2) paso++ else publicar() },
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 34.dp + abajo),
-            alto = 58.dp, icono = if (paso == 2) I.mas else null, iconoTrazo = 4f, iconoTam = 18.dp, cargando = publicando,
+            alto = 58.dp, icono = if (paso == 2 && editar == null) I.mas else null, iconoTrazo = 4f, iconoTam = 18.dp, cargando = publicando,
         )
         if (eligiendoLugar) ElegirLugar(b) { eligiendoLugar = false }
         if (editandoCosto) EditarCosto(b) { editandoCosto = false }
@@ -262,11 +332,11 @@ fun Crear(ir: Ir) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Paso1(b: Borrador, onLugar: () -> Unit) {
+private fun Paso1(b: Borrador, editando: Boolean, onLugar: () -> Unit) {
     val pal = LocalPaleta.current
-    T("¿Qué hacemos?", 32f, 700, pal.texto, alto = 1.05f, espaciado = px(-.8f, 32f))
-    CampoCrear(b.titulo, { b.titulo = it.take(80) }, "${categoriasCrear.first { it.first == b.categoria }.second} en ${b.zona.ifBlank { "Güemes" }}")
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    T(if (editando) "Editar el plan" else "¿Qué hacemos?", 32f, 700, pal.texto, alto = 1.05f, espaciado = px(-.8f, 32f))
+    CampoCrear(b.titulo, { b.titulo = it.take(80) }, "${categoriasCrear.firstOrNull { it.first == b.categoria }?.second ?: nombreCategoria(b.categoria)} en ${b.zona.ifBlank { "Güemes" }}")
+    if (!editando) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         categoriasCrear.forEach { (k, l) ->
             Chip(l, b.categoria == k, { b.categoria = k }, gelOn = Gels.violeta.copy(sombras = Gels.violeta.sombras.map { if (!it.inset && it.blur == 0f) it.copy(y = 4f) else if (!it.inset) it.copy(y = 16f, blur = 26f) else it }),
                 gelOff = Gels.chipClaro, padH = 13.dp, radio = 13.dp)
@@ -295,6 +365,11 @@ private fun Paso1(b: Borrador, onLugar: () -> Unit) {
                 }
             }
         }
+        // Duración: los chips de hora de 06a.
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            T("Dura", 14f, 600, pal.texto2, modifier = Modifier.padding(end = 2.dp))
+            duracionesCrear.forEach { (min, l) -> ChipHora(l, b.duracion == min) { b.duracion = min } }
+        }
     }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         T("¿Dónde?", 15f, 700, pal.texto)
@@ -312,7 +387,7 @@ private fun Paso1(b: Borrador, onLugar: () -> Unit) {
             T("Cambiar", 13f, 700, C.violeta)
         }
     }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    if (!editando) Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             T("Se repite cada semana", 15f, 700, pal.texto)
             T("Ideal para el truco de los jueves", 12f, 400, pal.texto2)
@@ -480,7 +555,65 @@ private fun Paso3(b: Borrador, onCosto: () -> Unit) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(pal.separador))
         Row(Modifier.fillMaxWidth().tocable(onCosto).padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
             T("Costo por persona", 14f, 600, pal.texto, modifier = Modifier.weight(1f))
-            T(b.costo?.let { Plata.pesos(it.toLong()) } ?: "Cada uno lo suyo", 14f, 700, C.violeta)
+            T(b.costo?.takeIf { it > 0 }?.let { Plata.pesos(it.toLong()) } ?: "Cada uno lo suyo", 14f, 700, C.violeta)
+        }
+    }
+    FotoYDescripcion(b)
+}
+
+/**
+ * Foto y descripción del plan (opcionales). No están en 06a–06c: van con el campo de 06a y la
+ * tarjeta de filas de 06c, como «Foto de portada» y «Descripción» del panel de lugares.
+ */
+@Composable
+private fun FotoYDescripcion(b: Borrador) {
+    val c = LocalApp.current
+    val ctx = LocalContext.current
+    val pal = LocalPaleta.current
+    val avisos = LocalAvisos.current
+    val alcance = rememberCoroutineScope()
+    var subiendo by remember { mutableStateOf(false) }
+    val elegir = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        subiendo = true
+        alcance.launch {
+            try {
+                val jpeg = withContext(Dispatchers.IO) {
+                    val bm = ctx.contentResolver.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it) }
+                    jpegDe(bm, 0, 86, 1600)
+                }
+                b.foto = c.api.subir("foto", jpeg).url
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                avisos.error(mensajeDe(e))
+            } finally {
+                subiendo = false
+            }
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+            T("Contalo un poco", 14f, 700, pal.texto, modifier = Modifier.weight(1f))
+            T("Opcional", 13f, 400, pal.texto2)
+        }
+        MiosCampo(b.descripcion, { b.descripcion = it }, placeholder = "Qué llevar, cómo nos encontramos, el nivel…", renglones = 3, maximo = 600)
+        Row(
+            Modifier.fillMaxWidth().tocable { if (!subiendo) elegir.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                .background(if (pal.oscuro) C.oscuro3 else C.blanco, RoundedCornerShape(20.dp))
+                .border(1.5.dp, if (pal.oscuro) Color(0xFF3A3550) else Color(0xFFECE8F2), RoundedCornerShape(20.dp))
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)).background(colorDeCategoria(b.categoria)), contentAlignment = Alignment.Center) {
+                if (b.foto.isNotBlank()) Foto(b.foto, Modifier.fillMaxSize(), colorDeCategoria(b.categoria))
+                else if (!subiendo) Icono(I.mas, 22.dp, C.blanco, 3f)
+                if (subiendo) Puntitos(C.blanco, 6.dp)
+            }
+            Column(Modifier.weight(1f)) {
+                T("Foto del plan", 14f, 600, pal.texto)
+                T(if (b.foto.isBlank()) "Sale arriba de todo en la tarjeta" else "Tocá para cambiarla", 12f, 400, pal.texto2)
+            }
+            T(if (b.foto.isBlank()) "Sumar" else "Cambiar", 13f, 700, C.violeta, modifier = Modifier.padding(end = 6.dp))
         }
     }
 }
@@ -520,14 +653,60 @@ private fun EditarCosto(b: Borrador, cerrar: () -> Unit) {
     }
 }
 
-/** Elegir el lugar: mapa con el pin al centro, nombre y dirección. */
+/** Un resultado del Geocoder: lo que se muestra y lo que completa el borrador. */
+private data class Sitio(val titulo: String, val sub: String, val direccion: String, val zona: String, val ciudad: String, val lat: Double, val lng: Double)
+
+private fun sitioDe(a: android.location.Address): Sitio {
+    val calle = listOfNotNull(a.thoroughfare, a.subThoroughfare).joinToString(" ")
+    val nombre = a.featureName?.takeIf { it != a.subThoroughfare && it != a.thoroughfare && it != calle }
+    val zona = a.subLocality.orEmpty()
+    val ciudad = a.locality ?: a.subAdminArea.orEmpty()
+    return Sitio(
+        nombre ?: calle.ifBlank { a.getAddressLine(0).orEmpty() },
+        listOf(if (nombre != null) calle else "", zona, ciudad).filter { it.isNotBlank() }.joinToString(", "),
+        calle, zona, ciudad, a.latitude, a.longitude,
+    )
+}
+
+/** Las dos ciudades de Caigo, para buscar cerca y no en cualquier lado (sur de la costa atlántica). */
+private const val SUR = -38.3
+private const val OESTE = -57.8
+private const val NORTE = -37.1
+private const val ESTE = -56.8
+
+@Suppress("DEPRECATION")
+private suspend fun buscarSitios(ctx: android.content.Context, q: String): List<Sitio> = withContext(Dispatchers.IO) {
+    if (!android.location.Geocoder.isPresent()) return@withContext emptyList()
+    val g = android.location.Geocoder(ctx, java.util.Locale.forLanguageTag("es-AR"))
+    runCatching { g.getFromLocationName(q, 6, SUR, OESTE, NORTE, ESTE).orEmpty() }.getOrDefault(emptyList())
+        .ifEmpty { runCatching { g.getFromLocationName("$q, Buenos Aires, Argentina", 6).orEmpty() }.getOrDefault(emptyList()) }
+        .map(::sitioDe)
+}
+
+@Suppress("DEPRECATION")
+internal suspend fun sitioEn(ctx: android.content.Context, lat: Double, lng: Double): android.location.Address? = withContext(Dispatchers.IO) {
+    if (!android.location.Geocoder.isPresent()) return@withContext null
+    runCatching { android.location.Geocoder(ctx, java.util.Locale.forLanguageTag("es-AR")).getFromLocation(lat, lng, 1)?.firstOrNull() }.getOrNull()
+}
+
+/**
+ * Elegir el lugar (06a «Cambiar»): buscador con el Geocoder de Android, mapa con el pin al centro,
+ * nombre y dirección. Mover el mapa completa dirección, zona y ciudad con geocodificación inversa.
+ */
 @Composable
 private fun ElegirLugar(b: Borrador, cerrar: () -> Unit) {
     val ctx = LocalContext.current
+    val alcance = rememberCoroutineScope()
     var lugar by remember { mutableStateOf(b.lugar) }
     var direccion by remember { mutableStateOf(b.direccion) }
     var zona by remember { mutableStateOf(b.zona) }
+    var ciudad by remember { mutableStateOf(b.ciudad) }
+    var busqueda by remember { mutableStateOf("") }
+    var resultados by remember { mutableStateOf<List<Sitio>?>(null) }
     var mapa by remember { mutableStateOf<MapLibreMap?>(null) }
+    // Al elegir un resultado el mapa se mueve solo: esa vuelta no pisa lo elegido.
+    var moviendoYo by remember { mutableStateOf(false) }
+    val oscuro = LocalPaleta.current.oscuro
     val vista = remember {
         MapLibre.getInstance(ctx)
         MapView(ctx).apply {
@@ -535,9 +714,20 @@ private fun ElegirLugar(b: Borrador, cerrar: () -> Unit) {
             getMapAsync { m ->
                 m.uiSettings.isLogoEnabled = false
                 m.uiSettings.isRotateGesturesEnabled = false
-                m.setStyle(BuildConfig.MAPA_ESTILO) {
+                m.setStyle(if (oscuro) BuildConfig.MAPA_ESTILO_OSCURO else BuildConfig.MAPA_ESTILO) {
                     m.cameraPosition = CameraPosition.Builder().target(LatLng(b.lat, b.lng)).zoom(15.0).build()
                     mapa = m
+                }
+                m.addOnCameraIdleListener {
+                    if (moviendoYo) { moviendoYo = false; return@addOnCameraIdleListener }
+                    val t = m.cameraPosition.target ?: return@addOnCameraIdleListener
+                    alcance.launch {
+                        val a = sitioEn(ctx, t.latitude, t.longitude) ?: return@launch
+                        val st = sitioDe(a)
+                        if (st.direccion.isNotBlank()) direccion = st.direccion
+                        if (st.zona.isNotBlank()) zona = st.zona
+                        if (st.ciudad.isNotBlank()) ciudad = st.ciudad
+                    }
                 }
             }
         }
@@ -546,9 +736,47 @@ private fun ElegirLugar(b: Borrador, cerrar: () -> Unit) {
         vista.onStart(); vista.onResume()
         onDispose { vista.onPause(); vista.onStop(); vista.onDestroy() }
     }
+    // Busca al dejar de tipear (400 ms).
+    LaunchedEffect(busqueda) {
+        val q = busqueda.trim()
+        if (q.length < 3) { resultados = null; return@LaunchedEffect }
+        delay(400)
+        resultados = buscarSitios(ctx, q)
+    }
     Hoja(cerrar) {
         T("¿Dónde?", 22f, 700, LocalPaleta.current.texto)
-        Box(Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xFFF2EFE9))) {
+        CampoCrear(busqueda, { busqueda = it.take(80) }, "Buscá una dirección o un lugar", tam = 16f, alto = 52.dp)
+        val r = resultados
+        if (r != null) {
+            // Los resultados, en la tarjeta de filas de las hojas de opciones.
+            Column(Modifier.fillMaxWidth().height(220.dp).gel(22.dp, if (LocalPaleta.current.oscuro) Gels.tarjetaOscura else Gels.neutra)) {
+                if (r.isEmpty()) Box(Modifier.fillMaxSize().padding(20.dp), contentAlignment = Alignment.Center) {
+                    T("No encontramos ese lugar. Probá con la calle y la altura.", 14f, 500, LocalPaleta.current.texto2, alinear = TextAlign.Center)
+                } else Column(Modifier.verticalScroll(rememberScrollState())) {
+                    r.forEachIndexed { i, st ->
+                        if (i > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(LocalPaleta.current.separador))
+                        Row(
+                            Modifier.fillMaxWidth().tocable {
+                                if (st.titulo != st.direccion) lugar = st.titulo
+                                direccion = st.direccion; zona = st.zona; ciudad = st.ciudad
+                                moviendoYo = true
+                                mapa?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(st.lat, st.lng), 16.0))
+                                busqueda = ""; resultados = null
+                            }.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icono(I.pin, 20.dp, C.violeta, 2f)
+                            Column(Modifier.weight(1f)) {
+                                T(st.titulo, 14f, 800, LocalPaleta.current.texto, unRenglon = true)
+                                if (st.sub.isNotBlank()) T(st.sub, 12f, 400, LocalPaleta.current.texto2, unRenglon = true)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // El mapa sigue vivo debajo de los resultados (si se saca de la composición, MapLibre se rompe).
+        Box(Modifier.fillMaxWidth().height(if (r != null) 1.dp else 220.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xFFF2EFE9))) {
             AndroidView({ vista }, Modifier.fillMaxSize().padding(0.dp))
             Box(Modifier.align(Alignment.Center).offset(y = (-14).dp)) { Icono(I.pin, 34.dp, C.violeta, 2.4f, relleno = C.blanco) }
         }
@@ -557,7 +785,7 @@ private fun ElegirLugar(b: Borrador, cerrar: () -> Unit) {
         CampoCrear(zona, { zona = it.take(60) }, "Barrio o zona", tam = 16f, alto = 52.dp)
         Cta("Listo", {
             mapa?.cameraPosition?.target?.let { b.lat = it.latitude; b.lng = it.longitude }
-            b.lugar = lugar.trim(); b.direccion = direccion.trim(); b.zona = zona.trim()
+            b.lugar = lugar.trim(); b.direccion = direccion.trim(); b.zona = zona.trim(); b.ciudad = ciudad.trim()
             cerrar()
         }, Modifier.fillMaxWidth(), alto = 56.dp)
     }

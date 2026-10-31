@@ -189,7 +189,7 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
                         {
                             accion {
                                 if (planInvita != null) {
-                                    c.api.responderInvitacion(planInvita, true)
+                                    ar.com.caigo.app.ui.pantallas.ingreso.conGenero(c) { c.api.responderInvitacion(planInvita, true) }
                                     avisos.ok("Te sumaste al plan. ${p.nombre} ya sabe que vas.")
                                     ir.plan(planInvita)
                                 } else {

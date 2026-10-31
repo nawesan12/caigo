@@ -75,7 +75,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun ingresoBarraClara(clara: Boolean) {
     val vista = LocalView.current
-    val oscuroSistema = isSystemInDarkTheme()
+    val oscuroSistema = ar.com.caigo.app.ui.tema.LocalPaleta.current.oscuro
     DisposableEffect(clara) {
         val w = (vista.context as? Activity)?.window
         if (w != null) WindowCompat.getInsetsController(w, vista).isAppearanceLightStatusBars = !clara

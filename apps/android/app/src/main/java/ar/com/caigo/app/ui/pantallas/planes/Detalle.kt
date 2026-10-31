@@ -1,5 +1,11 @@
 package ar.com.caigo.app.ui.pantallas.planes
 
+import ar.com.caigo.app.datos.PersonaCorta
+import ar.com.caigo.app.ui.pantallas.mios.HojaCancelarEntrada
+import ar.com.caigo.app.ui.pantallas.mios.MiosGrupo
+import ar.com.caigo.app.ui.pantallas.mios.MiosHoja
+import ar.com.caigo.app.ui.piezas.rememberCarga
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -172,8 +178,22 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
     val alcance = rememberCoroutineScope()
     val arriba = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val abajo = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    var grupo by remember { mutableIntStateOf(0) }
-    var cantidad by remember { mutableIntStateOf(2) }
+    // 01b: lo que eligió en la intro (Voy solo / Somos 2 / Somos 4) es el valor por defecto.
+    val porDefecto = cantidadPorDefecto(c, p)
+    var grupo by remember { mutableIntStateOf(if (porDefecto > 1) 1 else 0) }
+    var cantidad by remember { mutableIntStateOf(porDefecto.coerceAtLeast(2)) }
+    var confirmarCancelar by remember { mutableStateOf(false) }
+    var cancelando by remember { mutableStateOf(false) }
+    var eligiendoSacar by remember { mutableStateOf(false) }
+    var sacar by remember { mutableStateOf<PersonaCorta?>(null) }
+    var cancelarEntrada by remember { mutableStateOf(false) }
+    val yo by c.yo.collectAsState()
+    val fuera = fueraPorGenero(p, yo)
+    // Mi entrada (planes de lugar): para cancelarla y saber si ya se validó en la puerta.
+    val miEntrada = rememberCarga(p.id, p.miEstado) {
+        if (esDeLugar(p) && adentro(p) && p.miEstado != "organizador") runCatching { c.api.pases().entradas.firstOrNull { it.planId == p.id } }.getOrNull() else null
+    }
+    val llegue = p.van.any { it.id == c.sesion.usuarioId && it.llego } || miEntrada.dato?.validada == true
     var mensaje by remember { mutableStateOf("") }
     var enviando by remember { mutableStateOf(false) }
     var opciones by remember { mutableStateOf(false) }
@@ -205,7 +225,7 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                 Info(p)
                 if (p.descripcion.isNotBlank()) T(p.descripcion, 15f, 400, pal.texto2, alto = 1.5f)
                 if (p.lugar != null) TarjetaEntrada(p)
-                if (p.beneficio.isNotBlank()) Beneficio(p.beneficio, desbloqueado = false)
+                if (p.beneficio.isNotBlank()) Beneficio(p.beneficio, desbloqueado = llegue)
                 if (p.soloVerificados) Row(
                     Modifier.fillMaxWidth().background(pal.superficie, RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -288,6 +308,7 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                     T("Completo", 17f, 800, C.carbon)
                 }
                 yaPaso(p) -> T("Este plan ya pasó.", 15f, 700, pal.texto2, alinear = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                fuera != null -> T(fuera, 15f, 700, pal.texto2, alinear = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 else -> {
                     val permiteGrupo = p.aceptaGrupos && p.faltan > 1
                     if (permiteGrupo) {
@@ -345,11 +366,10 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                         }
                     }
                 })
-                if (organizo && !p.cancelado && !yaPaso(p)) add("Cancelar el plan" to {
-                    alcance.launch {
-                        runCatching { c.api.cancelarPlan(p.id) }.onSuccess { avisos.ok("Cancelaste el plan. Le avisamos a la gente."); recargar() }.onFailure { avisos.error(mensajeDe(it)) }
-                    }
-                })
+                if (organizo && !p.cancelado && !yaPaso(p)) add("Editar el plan" to { ir.editarPlan(p.id) })
+                if (organizo && !p.cancelado && !yaPaso(p) && p.van.any { it.id != c.sesion.usuarioId && !it.organizador }) add("Sacar a alguien del plan" to { eligiendoSacar = true })
+                if (organizo && !p.cancelado && !yaPaso(p)) add("Cancelar el plan" to { confirmarCancelar = true })
+                if (!organizo && deLugar && adentro && !yaPaso(p) && miEntrada.dato != null) add("Cancelar mi entrada" to { cancelarEntrada = true })
                 if (!organizo && (adentro || p.miEstado == "pendiente") && !deLugar) add("Bajarme del plan" to {
                     alcance.launch {
                         runCatching { c.api.salir(p.id) }.onSuccess { avisos.ok("Listo, te bajaste del plan."); recargar() }.onFailure { avisos.error(mensajeDe(it)) }
@@ -358,6 +378,69 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                 if (!organizo) add("Reportar" to { reportando = true })
             },
         )
+        // Cancelar el plan: con confirmación (avisa a todos y devuelve lo pagado).
+        MiosHoja(confirmarCancelar, { if (!cancelando) confirmarCancelar = false }, "¿Cancelar el plan?") {
+            T(
+                "Le avisamos a los que van y a los que pidieron sumarse." + if (deLugar) " Si alguien pagó la entrada, le devolvemos todo." else "",
+                15f, 400, pal.texto2, alto = 1.5f,
+            )
+            MiosGrupo {
+                Box(
+                    Modifier.fillMaxWidth().tocable {
+                        if (cancelando) return@tocable
+                        cancelando = true
+                        alcance.launch {
+                            runCatching { c.api.cancelarPlan(p.id) }
+                                .onSuccess { confirmarCancelar = false; avisos.ok("Cancelaste el plan. Le avisamos a la gente."); recargar() }
+                                .onFailure { avisos.error(mensajeDe(it)) }
+                            cancelando = false
+                        }
+                    }.padding(horizontal = 18.dp, vertical = 16.dp),
+                ) { if (cancelando) Puntitos(C.coral2) else T("Cancelar el plan", 15f, 700, C.coral2) }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(if (pal.oscuro) pal.separador else C.lavanda))
+                Box(Modifier.fillMaxWidth().tocable { if (!cancelando) confirmarCancelar = false }.padding(horizontal = 18.dp, vertical = 16.dp)) {
+                    T("Volver", 15f, 700)
+                }
+            }
+        }
+        // Sacar a alguien: elegir a quién y confirmar.
+        MiosHoja(eligiendoSacar, { eligiendoSacar = false }, "¿A quién sacás?") {
+            MiosGrupo {
+                val gente = p.van.filter { it.id != c.sesion.usuarioId && !it.organizador }
+                gente.forEachIndexed { i, g ->
+                    Row(
+                        Modifier.fillMaxWidth().tocable { eligiendoSacar = false; sacar = g }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Avatar(g.nombre, g.foto, 36.dp, borde = 0.dp, tamTexto = 14f)
+                        T(g.nombre, 15f, 700, pal.texto, Modifier.weight(1f), unRenglon = true)
+                        T("Sacar", 14f, 700, C.coral2)
+                    }
+                    if (i < gente.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(if (pal.oscuro) pal.separador else C.lavanda))
+                }
+            }
+        }
+        MiosHoja(sacar != null, { sacar = null }, "¿Sacar a ${sacar?.nombre.orEmpty()}?") {
+            T("Le avisamos que ya no está en el plan y deja de ver el chat.", 15f, 400, pal.texto2, alto = 1.5f)
+            MiosGrupo {
+                Box(
+                    Modifier.fillMaxWidth().tocable {
+                        val g = sacar ?: return@tocable
+                        sacar = null
+                        alcance.launch {
+                            runCatching { c.api.sacarPersona(p.id, g.id) }
+                                .onSuccess { avisos.ok("Sacaste a ${g.nombre} del plan."); recargar() }
+                                .onFailure { avisos.error(mensajeDe(it)) }
+                        }
+                    }.padding(horizontal = 18.dp, vertical = 16.dp),
+                ) { T("Sacar del plan", 15f, 700, C.coral2) }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(if (pal.oscuro) pal.separador else C.lavanda))
+                Box(Modifier.fillMaxWidth().tocable { sacar = null }.padding(horizontal = 18.dp, vertical = 16.dp)) { T("Volver", 15f, 700) }
+            }
+        }
+        miEntrada.dato?.let { e ->
+            HojaCancelarEntrada(cancelarEntrada, { cancelarEntrada = false }, e.id, p.cancelacion) { recargar() }
+        }
         if (reportando) HojaReporte(cerrar = { reportando = false }) { motivo ->
             alcance.launch {
                 runCatching { c.api.reportar(Reporte(planId = p.id, motivo = motivo)) }

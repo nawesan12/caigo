@@ -73,6 +73,7 @@ class Ir(private val nav: NavController) {
     fun plan(id: String) = ir("plan/${e(id)}")
     fun planSlug(slug: String) = ir("plan/slug/${e(slug)}")
     fun crear() = ir("crear")
+    fun editarPlan(id: String) = ir("editarplan/${e(id)}")
     fun publicado(id: String) = nav.navigate("publicado/${e(id)}") { popUpTo("crear") { inclusive = true } }
     fun solicitudes(planId: String) = ir("solicitudes/${e(planId)}")
     fun chat(planId: String) = ir("chat/${e(planId)}")
@@ -99,9 +100,20 @@ class Ir(private val nav: NavController) {
 
 private fun NavBackStackEntry.arg(k: String): String = arguments?.getString(k).orEmpty()
 
+/** Claro u oscuro según lo elegido en Perfil (auto: el del sistema). */
 @Composable
-fun CaigoTema(contenido: @Composable () -> Unit) {
-    val p = if (isSystemInDarkTheme()) PaletaOscura else PaletaClara
+fun CaigoTema(tema: String = "auto", contenido: @Composable () -> Unit) {
+    val oscuro = when (tema) { "claro" -> false; "oscuro" -> true; else -> isSystemInDarkTheme() }
+    val p = if (oscuro) PaletaOscura else PaletaClara
+    // Íconos de la barra de estado según el tema elegido (no el del sistema).
+    val vista = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.SideEffect {
+        val w = (vista.context as? android.app.Activity)?.window ?: return@SideEffect
+        androidx.core.view.WindowCompat.getInsetsController(w, vista).apply {
+            isAppearanceLightStatusBars = !oscuro
+            isAppearanceLightNavigationBars = !oscuro
+        }
+    }
     CompositionLocalProvider(LocalPaleta provides p, contenido)
 }
 
@@ -150,6 +162,10 @@ fun CaigoNav(c: Contenedor) {
             is Destino.Pantalla -> when (d.pantalla) {
                 "solicitudes" -> d.plan?.let { ir.solicitudes(it) }
                 "chat" -> d.plan?.let { ir.chat(it) }
+                // Avisos del worker (contrato §3): recordatorio, cancelado, cambiado, sacada, repetimos…
+                "detalle" -> d.plan?.let { ir.plan(it) }
+                "checkin" -> d.plan?.let { ir.checkin(it) }
+                "repetimos" -> d.plan?.let { ir.repetimos(it) }
                 "recibidos" -> ir.recibidos(d.modo ?: "gente", 0)
                 "invitaciones" -> ir.recibidos("gente", 1)
                 "pases" -> ir.pases()
@@ -162,8 +178,10 @@ fun CaigoNav(c: Contenedor) {
         }
     }
 
+    val tema by c.sesion.tema.collectAsState()
+    val actualizar by c.actualizar.collectAsState()
     CompositionLocalProvider(LocalApp provides c, LocalAvisos provides avisos) {
-        CaigoTema {
+        CaigoTema(tema) {
             Box(Modifier.fillMaxSize()) {
                 NavHost(
                     nav, startDestination = "arranque",
@@ -188,6 +206,7 @@ fun CaigoNav(c: Contenedor) {
                     composable("plan/{id}") { DetallePlan(ir, id = it.arg("id")) }
                     composable("plan/slug/{slug}") { DetallePlan(ir, slug = it.arg("slug")) }
                     hoja("crear") { Crear(ir) }
+                    hoja("editarplan/{id}") { Crear(ir, editar = it.arg("id")) }
                     composable("publicado/{id}") { Publicado(ir, it.arg("id")) }
                     composable("persona/{id}?desde={desde}") { PerfilPersona(ir, it.arg("id"), it.arg("desde")) }
                     composable("recibidos?modo={modo}&tab={tab}") { Recibidos(ir, it.arg("modo").ifBlank { "gente" }, it.arg("tab").toIntOrNull() ?: 0) }
@@ -210,6 +229,8 @@ fun CaigoNav(c: Contenedor) {
                     composable("editar") { EditarPerfil(ir) }
                     composable("gente") { MiGente(ir) }
                 }
+                HojaGenero(c)
+                if (actualizar) Actualizar()
                 CapaAvisos(avisos, WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
             }
         }
