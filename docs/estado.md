@@ -108,6 +108,21 @@ Mis planes, solicitudes, chat y privados en tiempo real, perfil (con «Borrar mi
 APNs. Falta: App Clip, productos de StoreKit en App Store Connect, Pass Type ID, y todo lo visual
 sin verificar en un iPhone (nunca se corrió en simulador).
 
+## iOS contra el contrato de lo que falta (rama `ios-faltantes`, 31/10)
+Avisos nuevos abren su pantalla (`detalle`, `checkin`, `repetimos`, `chat`, `ahora`); PUT /v1/yo/ubicacion al abrir
+si ya hay permiso (cada 30 min como mucho); Ajustes de avisos (Perfil › Tu cuenta › Avisos);
+`aps-environment` = `$(APS_ENTORNO)` (development en Debug, production en Release). Género en el alta y
+en Editar perfil; `falta_genero` abre `HojaGenero` y reintenta (sumarse, entradas, invitaciones).
+Organizador: editar (Crear en modo edición), cancelar con confirmación y sacar gente (Solicitudes ›
+Ya van). Cancelar mi entrada según la política. Crear con foto, descripción y duración; zona por
+geocodificación o del perfil. Verificación: en vivo, contacto de confianza, bloqueos y fila de DNI;
+01b se guarda (`Contenedor.somos`) y se usa al sumarse. Ahora sin coordenadas fijas (pide permiso o
+usa la ciudad del perfil), header con CLGeocoder, 13a según la hora, `q` en el mapa y en Explorar,
+mapa oscuro. Explorar con lat/lng, zona y 8 categorías con fotos CC0 (`apps/ios/FUENTES.md`; faltan
+Cita doble y Cultura: hoy muestran el color). Chat con menú reportar/salir/bloquear y «escribiendo»
+en privados. Persona con próximos planes. `/v1/version` con `minIos` → pantalla de actualizar.
+Nada de esto se vio en un iPhone.
+
 ## App Clip de Caigo Tap (rama `ios-clip`, 31/10)
 Target `CaigoClip` (`apps/ios/CaigoClip`, bundle `ar.com.caigo.app.Clip`, embebido en la app). Se abre
 con `https://caigo.com.ar/t/<placa>` (NFC o QR; `picc_data`/`cmac` de NTAG 424 se mandan tal cual):

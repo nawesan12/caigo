@@ -2,7 +2,7 @@ import SwiftUI
 import Nucleo
 
 /// Las categorías de Explorar: «Todos» y las 8 de un plan (06a), cada una con su foto local CC0
-/// (Recursos/Assets.xcassets/Explorar*, fuentes en Recursos/FUENTES.md). Sin foto: el color de la categoría.
+/// (Recursos/Assets.xcassets/Explorar*, fuentes en apps/ios/FUENTES.md). Sin foto: el color de la categoría.
 private let tilesExplorar: [(String?, String, String?)] =
     [(nil, "Todos", "ExplorarTodos")] + Categorias.paraCrear.map { ($0.0, $0.1, fotoTile($0.0)) }
 
@@ -58,15 +58,14 @@ struct Explorar: View {
 
     private struct Clave: Equatable {
         var categoria: String?; var ciudad: String?; var zona: String?; var lat: Double?; var finos: FiltrosFinos; var vuelta: Int
+        var q: String?
     }
 
     private func fechaDia(_ i: Int) -> Date { Fecha.calendario.date(byAdding: .day, value: i, to: Fecha.calendario.startOfDay(for: Date()))! }
 
     var body: some View {
-        let q = busqueda.trimmingCharacters(in: .whitespaces)
-        let planes = (semana ?? []).filter {
-            q.isEmpty || $0.titulo.localizedCaseInsensitiveContains(q) || $0.lugarNombre.localizedCaseInsensitiveContains(q)
-        }
+        // La búsqueda la hace la API con `q` (título, zona y lugar).
+        let planes = semana ?? []
         let delDia = planes.filter { pl in Fecha.parse(pl.empiezaEn).map { Fecha.diasEntre(Date(), $0) == dia } ?? false }
         let recurrente = planes.first { $0.recurrente }
 
@@ -127,12 +126,15 @@ struct Explorar: View {
             zonas = (try? await c.api.zonas(ciudad: cdad.isEmpty ? "Mar del Plata" : cdad).zonas) ?? []
             if let z = zona, !zonas.contains(z) { zona = nil }
         }
-        .task(id: Clave(categoria: categoria, ciudad: ciudad, zona: zona, lat: punto?.0, finos: finos, vuelta: vuelta)) {
+        .task(id: Clave(categoria: categoria, ciudad: ciudad, zona: zona, lat: punto?.0, finos: finos, vuelta: vuelta, q: Api.busqueda(busqueda))) {
+            let q = Api.busqueda(busqueda)
+            // Mientras se escribe, se espera un toque antes de buscar (si cambia, esta tarea se cancela).
+            if q != nil { try? await Task.sleep(nanoseconds: 350_000_000); if Task.isCancelled { return } }
             let cal = Fecha.calendario
             let hasta = cal.date(byAdding: .day, value: 7, to: cal.startOfDay(for: Date()))!
             do {
                 semana = try await c.api.explorar(desde: Fecha.iso(Date()), hasta: Fecha.iso(hasta), categoria: categoria, ciudad: ciudad,
-                                                  filtros: finos, lat: punto?.0, lng: punto?.1, zona: zona).planes
+                                                  filtros: finos, lat: punto?.0, lng: punto?.1, q: q, zona: zona).planes
                 error = nil
             } catch is CancellationError {
             } catch let e as ErrorApi where e.codigo == "plus" {

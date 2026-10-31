@@ -16,6 +16,8 @@ struct PerfilPersona: View {
     @State private var opciones = false
     @State private var reportando = false
     @State private var invitando = false
+    /// 422 `falta_genero` al aceptar una invitación: se pregunta y se reintenta.
+    @State private var faltaGenero = false
 
     private var esCitas: Bool { desde.hasSuffix("citas") }
     private var modo: String { esCitas ? "citas" : "gente" }
@@ -35,6 +37,13 @@ struct PerfilPersona: View {
                 }
             }
         }
+        .overlay {
+            if let p = persona, let pi = planInvita {
+                HojaGenero(abierta: faltaGenero, cerrar: { faltaGenero = false }) {
+                    Task { do { try await aceptarInvitacion(pi, p) } catch { c.avisos.error(error) } }
+                }
+            }
+        }
         .environment(\.paleta, .clara)
         .animation(.easeOut(duration: 0.25), value: opciones)
         .animation(.easeOut(duration: 0.25), value: reportando)
@@ -47,6 +56,16 @@ struct PerfilPersona: View {
     private func accion(_ f: @escaping () async throws -> Void) {
         Task {
             do { try await f() } catch { c.avisos.error(error) }
+        }
+    }
+
+    private func aceptarInvitacion(_ pi: String, _ p: Perfil) async throws {
+        do {
+            _ = try await c.api.responderInvitacion(pi, aceptar: true)
+            c.avisos.ok("Te sumaste al plan. \(p.nombre) ya sabe que vas.")
+            ir.plan(pi)
+        } catch let e as ErrorApi where e.codigo == "falta_genero" {
+            faltaGenero = true
         }
     }
 
@@ -244,9 +263,7 @@ struct PerfilPersona: View {
                     alto: 62, radio: 22, icono: I.mas, iconoTrazo: 4, iconoTam: 18) {
                     accion {
                         if let pi = planInvita {
-                            _ = try await c.api.responderInvitacion(pi, aceptar: true)
-                            c.avisos.ok("Te sumaste al plan. \(p.nombre) ya sabe que vas.")
-                            ir.plan(pi)
+                            try await aceptarInvitacion(pi, p)
                         } else {
                             try await reaccionarYAvisar(p, esCitas ? "interesa" : "prendo")
                             ir.atras()
