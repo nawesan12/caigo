@@ -19,7 +19,7 @@
 		<CabeceraVolver
 			volver="/app/perfil/ajustes"
 			titulo="Bloqueos y reportes"
-			sub="Los revisa una persona del equipo, no un bot"
+			sub="Los revisa una persona del equipo, no un&nbsp;bot"
 			etiqueta="Volver a ajustes"
 		/>
 
