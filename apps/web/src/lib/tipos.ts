@@ -4,7 +4,10 @@ export type PersonaCorta = {
 	id: string;
 	nombre: string;
 	foto?: string;
+	edad?: number;
 	verificada: boolean;
+	asistencia?: { fue: number; de: number };
+	enMiGente?: boolean;
 	organizador?: boolean;
 };
 
@@ -16,9 +19,19 @@ export type Plan = {
 	descripcion: string;
 	empiezaEn: string;
 	duracionMin: number;
+	recurrente?: boolean;
 	ciudad: string;
 	zona: string;
 	lugarNombre: string;
+	lat?: number;
+	lng?: number;
+	distanciaM?: number;
+	visibilidad?: string;
+	ocultarDireccion?: boolean;
+	edadMin?: number;
+	edadMax?: number;
+	direccion?: { texto: string; lat: number; lng: number };
+	pendientes?: number;
 	somos: number;
 	total: number;
 	faltan: number;
@@ -171,7 +184,41 @@ export type EstadoPlus = {
 	reiniciaEn: string;
 };
 
-export type Yo = { id: string; nombre: string; equipo?: boolean; fotos: string[] };
+export type Yo = {
+	id: string;
+	nombre: string;
+	edad?: number;
+	zona: string;
+	ciudad: string;
+	intereses: string[];
+	fotos: string[];
+	selfie: boolean;
+	verificada: boolean;
+	asistencia: { fue: number; de: number };
+	planes: number;
+	organizados: number;
+	miGente: number;
+	equipo?: boolean;
+};
+
+export type Verificacion = { telefono?: string; selfie: boolean; dni: string; dniMotivo?: string };
+
+export type Solicitud = {
+	id: string;
+	persona: PersonaCorta;
+	cantidad: number;
+	mensaje: string;
+	estado: string;
+	creadaEn: string;
+};
+
+export type Mensaje = {
+	id: number;
+	planId: string;
+	autor?: { id: string; nombre: string; foto?: string };
+	texto: string;
+	creadoEn: string;
+};
 
 export type DNIPendiente = {
 	id: string;
