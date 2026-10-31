@@ -1,4 +1,5 @@
-import { quizasConSesion } from '#lib/server/api.ts';
+import { redirect } from '@sveltejs/kit';
+import { ErrorApi, quizasConSesion } from '#lib/server/api.ts';
 import { conUbicacion } from '#lib/server/app.ts';
 import { CATEGORIAS } from '#lib/plan.ts';
 import type { Plan } from '#lib/tipos.ts';
@@ -11,10 +12,17 @@ export const load: PageServerLoad = async (event) => {
 	const categoria = c in CATEGORIAS ? c : '';
 	const verificados = sp.get('verificados') === '1';
 	const q = conUbicacion(event, { categoria, verificados: verificados ? '1' : '' });
-	const { planes } = await quizasConSesion<{ planes: Plan[] }>(
-		event,
-		`/v1/planes/explorar?${q}`,
-		`/v1/publico/planes/explorar?${q}`
-	);
+	let planes: Plan[];
+	try {
+		({ planes } = await quizasConSesion<{ planes: Plan[] }>(
+			event,
+			`/v1/planes/explorar?${q}`,
+			`/v1/publico/planes/explorar?${q}`
+		));
+	} catch (e) {
+		// "Solo verificados" es un filtro fino: de Caigo Plus.
+		if (e instanceof ErrorApi && e.codigo === 'plus') redirect(303, '/plus');
+		throw e;
+	}
 	return { planes, categoria, verificados, dia: sp.get('dia') ?? '' };
 };

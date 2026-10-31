@@ -39,7 +39,7 @@ export const actions: Actions = {
 			if (plan.lugar && plan.cobro !== 'gratis') {
 				// Entrada o seña de un lugar: Checkout Pro de Mercado Pago (vuelve a /p/<slug>?pago=…).
 				const c = await conSesion<{ link?: string }>(event, 'POST', `/v1/planes/${id}/entradas`, {
-					cuerpo: { cantidad }
+					cuerpo: { cantidad, modo: f.get('modo') === 'sena' ? 'sena' : 'entrada' }
 				});
 				link = c?.link ?? '';
 				if (!link) return { estado: 'aceptada' };

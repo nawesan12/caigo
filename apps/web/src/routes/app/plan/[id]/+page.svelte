@@ -46,9 +46,20 @@
 	let grupo = $state(false);
 	let cantidad = $state(2);
 	let enviando = $state(false);
+	/** Con seña se elige: pagar todo (como en el Prototipo, lo primero) o señar. */
+	let modo = $state<'entrada' | 'sena'>('entrada');
+	const pago = $derived(
+		conCobro
+			? desglose(
+					p.cobro === 'sena' && modo === 'sena' ? 'sena' : 'entrada',
+					(p.precioCentavos ?? 0) / 100,
+					p.senaPct ?? 0
+				)
+			: null
+	);
 	const cta = $derived(
-		conCobro && d
-			? `${p.cobro === 'sena' ? 'Señar' : 'Comprar entrada'} · ${pesos(d.paga * (grupo ? cantidad : 1))}`
+		conCobro && pago
+			? `${p.cobro === 'sena' && modo === 'sena' ? 'Señar' : 'Comprar entrada'} · ${pesos(pago.paga * (grupo ? cantidad : 1))}`
 			: 'Sumarme'
 	);
 	const link = $derived(`${PUBLIC_SITIO.replace(/\/+$/, '')}/p/${p.slug}`);
@@ -130,7 +141,7 @@
 		<div class="org">
 			<Avatar nombre={organiza} foto={p.lugar?.foto || p.organizador.foto} tam={44} />
 			<div class="org-txt">
-				<span class="on"
+				<span class="org-nombre"
 					>Organiza {organiza}{#if p.organizador.verificada}<Verificado />{/if}</span
 				>
 				<span class="or"
@@ -263,6 +274,23 @@
 						onclick={() => (cantidad = Math.min(Math.max(2, p.faltan), 10, cantidad + 1))}>+</button
 					>
 				</div>
+			{/if}
+			{#if conCobro && d && p.cobro === 'sena'}
+				<div class="modos">
+					<button
+						type="button"
+						class:elegido={modo === 'entrada'}
+						onclick={() => (modo = 'entrada')}
+					>
+						<b>Pagar todo</b><span>Entrada completa&nbsp;ahora</span>
+					</button>
+					<button type="button" class:elegido={modo === 'sena'} onclick={() => (modo = 'sena')}>
+						<b>Señar {p.senaPct}%</b><span
+							>Reservás con {pesos(d.sena)}; el resto en el&nbsp;lugar</span
+						>
+					</button>
+				</div>
+				<input type="hidden" name="modo" value={modo} />
 			{/if}
 			{#if p.ingreso === 'aprobacion' && !conCobro}
 				<input
@@ -440,7 +468,7 @@
 		gap: 2px;
 		min-width: 0;
 	}
-	.on {
+	.org-nombre {
 		display: flex;
 		align-items: center;
 		gap: 6px;
@@ -548,6 +576,43 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
+	}
+	.modos {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
+	}
+	.modos button {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+		padding: 14px;
+		border: 0;
+		border-radius: 20px;
+		text-align: left;
+		font: inherit;
+		color: #24212d;
+		cursor: pointer;
+		background: #ffffff;
+		box-shadow:
+			inset 0 1px 0 #ffffff,
+			0 3px 0 #e6e0f3;
+	}
+	.modos button.elegido {
+		background: #f0ecff;
+		box-shadow:
+			inset 0 0 0 2.5px #7456f1,
+			0 3px 0 #c9bef5;
+	}
+	.modos b {
+		font-size: 15px;
+		font-weight: 800;
+	}
+	.modos span {
+		font-size: 12px;
+		font-weight: 600;
+		line-height: 1.35;
+		color: #5c586b;
 	}
 	.barra form {
 		display: flex;
