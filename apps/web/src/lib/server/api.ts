@@ -32,7 +32,20 @@ type Opciones = {
 	crudo?: BodyInit;
 	tipo?: string;
 	f?: typeof fetch;
+	/** IP de quien pidió (la API pone topes por IP y, si no, vería siempre la del servidor web). */
+	ip?: string | null;
 };
+
+/** La IP real de quien pide: Cloudflare la manda en Cf-Connecting-Ip y Caddy la deja pasar. */
+export function ipDe(event: RequestEvent): string | null {
+	const cf = event.request.headers.get('cf-connecting-ip');
+	if (cf) return cf;
+	try {
+		return event.getClientAddress();
+	} catch {
+		return null;
+	}
+}
 
 /** Llama a la API y devuelve el JSON (o null en 204). Tira ErrorApi si no salió bien. */
 export async function api<T = unknown>(
@@ -42,6 +55,7 @@ export async function api<T = unknown>(
 ): Promise<T> {
 	const headers: Record<string, string> = { accept: 'application/json' };
 	if (o.token) headers.authorization = `Bearer ${o.token}`;
+	if (o.ip) headers['cf-connecting-ip'] = o.ip;
 	let body: BodyInit | undefined;
 	if (o.crudo !== undefined) {
 		body = o.crudo;
@@ -113,7 +127,7 @@ export async function conSesion<T = unknown>(
 ): Promise<T> {
 	const token = exigirToken(event);
 	try {
-		return await api<T>(metodo, ruta, { ...o, token });
+		return await api<T>(metodo, ruta, { ...o, token, ip: ipDe(event) });
 	} catch (e) {
 		if (e instanceof ErrorApi && e.estado === 401) {
 			event.cookies.delete('caigo_sesion', { path: '/' });

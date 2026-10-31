@@ -1,13 +1,12 @@
 <script lang="ts">
 	import Vacio from '#lib/ui/Vacio.svelte';
 	import { cuandoCorto, fechaDeHoy } from '#lib/fechas.ts';
-	import { faltanTexto } from '#lib/plan.ts';
+	import { cobroTexto, faltanTexto } from '#lib/plan.ts';
 	import { pesosDeCentavos } from '#lib/precios.ts';
 
 	/* "Tus planes" del Panel Lugares; sin aprobar, el estado del lugar (estado vacío de Mockups v5). */
 	let { data } = $props();
 
-	const COBRO: Record<string, string> = { gratis: 'Gratis', entrada: 'Entrada', sena: 'Seña' };
 	const hoy = fechaDeHoy();
 </script>
 
@@ -76,7 +75,7 @@
 					<div class="medio">
 						<div class="chips">
 							<span class="oscuro">{cuandoCorto(p.empiezaEn)}</span>
-							<span class="lav">{COBRO[p.cobro]}</span>
+							<span class="lav">{cobroTexto(p)}</span>
 							{#if p.cancelado}<span class="coral-claro">Cancelado</span>{/if}
 							{#if data.nuevo === p.id}<span class="lima">Recién publicado</span>{/if}
 						</div>

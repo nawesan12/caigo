@@ -52,3 +52,16 @@ export function iniciales(n: string): string {
 		.map((p) => p[0]?.toUpperCase() ?? '')
 		.join('');
 }
+
+/** El chip de cobro del panel: "Gratis", "Entrada $4.500", "Seña 30% · $8.000". */
+export function cobroTexto(p: {
+	cobro: string;
+	precioCentavos?: number | null;
+	senaPct?: number | null;
+}): string {
+	const precio =
+		'$' + new Intl.NumberFormat('es-AR').format(Math.round((p.precioCentavos ?? 0) / 100));
+	if (p.cobro === 'sena') return `Seña ${p.senaPct ?? 0}% · ${precio}`;
+	if (p.cobro === 'entrada') return `Entrada ${precio}`;
+	return 'Gratis';
+}

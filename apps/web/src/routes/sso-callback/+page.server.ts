@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { volverSeguro } from '#lib/hosts.ts';
-import { api, ErrorApi } from '#lib/server/api.ts';
+import { api, ErrorApi, ipDe } from '#lib/server/api.ts';
 import { COOKIE_VOLVER, guardarSesion } from '#lib/server/sesion.ts';
 import type { Actions } from './$types';
 
@@ -10,7 +10,8 @@ import type { Actions } from './$types';
  * queda en la cookie httpOnly. El token de Caigo nunca pasa por el JS del navegador.
  */
 export const actions: Actions = {
-	default: async ({ request, cookies }) => {
+	default: async (event) => {
+		const { request, cookies } = event;
 		const f = await request.formData();
 		const error = String(f.get('error') ?? '');
 		const jwt = String(f.get('token') ?? '');
@@ -21,7 +22,10 @@ export const actions: Actions = {
 			);
 		let token: string;
 		try {
-			const r = await api<{ token: string }>('POST', '/v1/sesion?cliente=web', { token: jwt });
+			const r = await api<{ token: string }>('POST', '/v1/sesion?cliente=web', {
+				token: jwt,
+				ip: ipDe(event)
+			});
 			token = r.token;
 		} catch (e) {
 			const codigo = e instanceof ErrorApi && e.estado === 403 ? 'suspendida' : 'cancelado';

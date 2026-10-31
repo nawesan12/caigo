@@ -28,7 +28,9 @@
 	const pagoDe = (pago: 'gratis' | 'pago' | 'sena') =>
 		p.cobro === 'entrada' && pago === 'pago'
 			? (['Pagó', '#C8F36B', '#24212D'] as const)
-			: PAGO[pago];
+			: pago === 'sena' && p.senaPct
+				? ([`Señó ${p.senaPct}%`, '#FFE1DB', '#9A2E1F'] as const)
+				: PAGO[pago];
 
 	let codigo = $state('');
 	let formValidar: HTMLFormElement | undefined = $state();
@@ -201,6 +203,11 @@
 				<Icono nombre="escanear" color="#FFFFFF" />Escanear QR con la cámara
 			</button>
 			<p class="ayuda">El código está en la entrada de la persona, en la app o en su Wallet.</p>
+			{#if p.beneficio}
+				<div class="beneficio">
+					<Icono nombre="regalo" tam={18} color="#C8F36B" />Beneficio: {p.beneficio}
+				</div>
+			{/if}
 		</section>
 	</div>
 </div>
@@ -471,6 +478,16 @@
 		color: #ffffff;
 		background: rgba(255, 255, 255, 0.12);
 		box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.18);
+	}
+	.beneficio {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 12px 14px;
+		border-radius: 16px;
+		background: rgba(255, 255, 255, 0.08);
+		font-size: 13px;
+		font-weight: 700;
 	}
 	.puerta .ayuda {
 		font-size: 12px;

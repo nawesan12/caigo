@@ -8,17 +8,14 @@ export const load: PageServerLoad = async (event) => {
 	const lugar = await lugarAprobado(event);
 	const id = uuid(event.params.id);
 	const base = `/v1/lugares/${lugar.id}/planes`;
-	// No hay "ver un plan" en el panel: se busca en las dos listas.
-	const [prox, pas, asist] = await Promise.all([
-		conSesion<{ planes: PlanDelLugar[] }>(event, 'GET', `${base}?cual=proximos`),
-		conSesion<{ planes: PlanDelLugar[] }>(event, 'GET', `${base}?cual=pasados`),
-		conSesion<{ asistentes: Asistente[] }>(event, 'GET', `${base}/${id}/asistentes`).catch((e) => {
-			if (e instanceof ErrorApi && e.estado === 404) error(404, 'Ese plan no es de este lugar.');
-			throw e;
-		})
+	const noEs = (e: unknown): never => {
+		if (e instanceof ErrorApi && e.estado === 404) error(404, 'Ese plan no es de este lugar.');
+		throw e;
+	};
+	const [plan, asist] = await Promise.all([
+		conSesion<PlanDelLugar>(event, 'GET', `${base}/${id}`).catch(noEs),
+		conSesion<{ asistentes: Asistente[] }>(event, 'GET', `${base}/${id}/asistentes`).catch(noEs)
 	]);
-	const plan = [...prox.planes, ...pas.planes].find((p) => p.id === id);
-	if (!plan) error(404, 'Ese plan no es de este lugar.');
 	return { plan, asistentes: asist.asistentes };
 };
 

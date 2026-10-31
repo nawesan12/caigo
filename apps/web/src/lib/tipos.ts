@@ -78,6 +78,11 @@ export type PlanDelLugar = {
 	cupo: number;
 	confirmados: number;
 	cobro: 'gratis' | 'entrada' | 'sena';
+	/** Precio por persona y % de seña (sólo con cobro). */
+	precioCentavos?: number;
+	senaPct?: number;
+	beneficio?: string;
+	duracionMin: number;
 	entradas: number;
 	cobradoCentavos: number;
 	cancelado: boolean;
