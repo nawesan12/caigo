@@ -15,7 +15,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		!event.locals.token &&
 		event.request.method === 'GET' &&
 		guardarOrigen(event.cookies, event.url);
-	const res = await resolve(event);
+	const res = await resolve(event, {
+		// Además de JS y CSS, se precargan las Geist que pinta lo primero (cuerpo 600, títulos 700).
+		preload: ({ type, path }) =>
+			type === 'js' ||
+			type === 'css' ||
+			(type === 'font' && /geist-latin-(600|700)-normal[^/]*\.woff2$/.test(path))
+	});
 	// Una respuesta que deja una cookie no se guarda en cachés compartidas (/p/<slug> es pública).
 	if (conOrigen) res.headers.set('cache-control', 'private, no-store');
 	res.headers.set('X-Content-Type-Options', 'nosniff');

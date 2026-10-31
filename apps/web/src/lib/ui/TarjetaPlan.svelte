@@ -39,7 +39,14 @@
 <article class="tarjeta-plan">
 	{#if enlace}<a class="cubre" href={enlace} aria-label={titulo}></a>{/if}
 	<div class="foto" style:background-color={tinte}>
-		{#if foto}<img src={foto} alt="" loading="lazy" />{/if}
+		{#if foto}<img
+				src={foto}
+				alt=""
+				width="960"
+				height="640"
+				loading="lazy"
+				decoding="async"
+			/>{/if}
 		<div class="chips">
 			<span class="cat">{categoria}</span>
 			<span class="cuando">{cuando}</span>

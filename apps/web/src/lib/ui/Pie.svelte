@@ -7,7 +7,7 @@
 <footer>
 	<div class="in">
 		<div class="marca">
-			<img src="/caigo-icon.png" alt="" width="44" height="44" />
+			<img src="/caigo-icon.png" alt="" width="44" height="44" loading="lazy" decoding="async" />
 			<span>Caigo</span>
 		</div>
 		<p class="lema">Hacé planes. Conocé gente.</p>
