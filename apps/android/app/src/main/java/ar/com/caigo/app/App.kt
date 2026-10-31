@@ -96,6 +96,12 @@ class Contenedor(val ctx: Context) {
         runCatching { api.ubicacion(la, ln) }
     }
 
+    /**
+     * El pedido de avisos (Android 13+) ya se contestó o no hacía falta. Ahora espera esto para pedir la
+     * ubicación: dos pedidos de permiso juntos hacen que Android descarte uno.
+     */
+    val avisosResueltos = MutableStateFlow(false)
+
     /** La app es más vieja que la mínima que pide la API (`/v1/version`): hay que actualizar. */
     val actualizar = MutableStateFlow(false)
 

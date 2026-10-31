@@ -1,5 +1,6 @@
 package ar.com.caigo.app.ui.pantallas.planes
 
+import kotlinx.coroutines.flow.first
 import ar.com.caigo.app.ui.pantallas.mios.MiosHoja
 import androidx.compose.runtime.mutableIntStateOf
 import ar.com.caigo.app.datos.FiltrosFinos
@@ -98,6 +99,8 @@ fun Ahora(ir: Ir, modoInicial: String?) {
     var dondeEstoy by remember { mutableStateOf<String?>(null) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(permiso) {
+        // Primero se contesta el pedido de avisos (Principal); recién después, la ubicación.
+        c.avisosResueltos.first { it }
         if (!permiso && !pidio) { pidio = true; pedir() }
         val real = c.ubicacion()
         punto = real ?: (LAT_MDP to LNG_MDP)

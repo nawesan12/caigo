@@ -71,11 +71,17 @@ fun Principal(ir: Ir, inicial: Pestana, modo: String?) {
     // Avisos (Android 13+): se piden una vez, al llegar a la app después del alta (como iOS).
     val permisoAvisos = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
-    ) { ok -> if (ok) c.alcance.launch { ar.com.caigo.app.push.Push.registrar(c) } }
+    ) { ok ->
+        c.avisosResueltos.value = true
+        if (ok) c.alcance.launch { ar.com.caigo.app.push.Push.registrar(c) }
+    }
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        if (!c.sesion.avisosPedidos) {
+        if (!c.sesion.avisosPedidos && ar.com.caigo.app.push.Push.necesitaPermiso(c.ctx)) {
             c.sesion.marcarAvisosPedidos()
-            if (ar.com.caigo.app.push.Push.necesitaPermiso(c.ctx)) permisoAvisos.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            permisoAvisos.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            c.sesion.marcarAvisosPedidos()
+            c.avisosResueltos.value = true
         }
     }
     val oculta = androidx.compose.runtime.remember { mutableStateOf(false) }
