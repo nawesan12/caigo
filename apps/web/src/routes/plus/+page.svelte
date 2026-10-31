@@ -1,71 +1,126 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 	import Seo from '#lib/ui/Seo.svelte';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { pesosDeCentavos } from '#lib/precios.ts';
 
 	/*
-	 * Caigo Plus por Mercado Pago: el paywall del Prototipo (overlay "paywall", motivo "perfil") y su
-	 * pantalla "Ya sos Plus". Los precios salen de GET /v1/plus; sin sesión, los del handoff (son los
-	 * mismos que tiene la API).
+	 * Caigo Plus por Mercado Pago: el paywall del Prototipo (overlay "paywall") y su pantalla "Ya sos
+	 * Plus". Precios, límites y sumadas del día salen de GET /v1/plus; sin sesión, los del handoff
+	 * (son los mismos que tiene la API). Sin sumadas, el título y el reloj "Se renuevan en" del
+	 * motivo "limit"; con sumadas, el mismo reloj con cuántas usó.
 	 */
 	let { data, form } = $props();
 
-	const PLANES = [
-		{
-			plan: 'semana',
-			l: 'Semana',
-			d: 'Para probar un finde largo',
-			per: 'por semana',
-			tag: '',
-			save: '',
-			c: 249900
-		},
-		{
-			plan: 'mes',
-			l: 'Mes',
-			d: '7 días gratis para arrancar',
-			per: '$1.500 por semana',
-			tag: 'Más elegido',
-			save: '',
-			c: 599900
-		},
-		{
-			plan: 'temporada',
-			l: 'Temporada',
-			d: 'Todo el verano, 3 meses',
-			per: '$1.077 por semana',
-			tag: '',
-			save: '−22%',
-			c: 1399900
-		}
-	];
-	const FILAS = [
-		['Sumadas en Gente', '3 por día', 'Sin límite'],
+	/** Precios del handoff (respaldo sin sesión). */
+	const RESPALDO: Record<string, number> = { semana: 249900, mes: 599900, temporada: 1399900 };
+	/** Semanas que cubre cada plan, para el "por semana". */
+	const SEMANAS: Record<string, number> = { semana: 1, mes: 4, temporada: 13 };
+	const TEXTOS: Record<string, { l: string; d: string; tag: string }> = {
+		semana: { l: 'Semana', d: 'Para probar un finde\u00a0largo', tag: '' },
+		mes: { l: 'Mes', d: '7 días gratis para\u00a0arrancar', tag: 'Más elegido' },
+		temporada: { l: 'Temporada', d: 'Todo el verano, 3\u00a0meses', tag: '' }
+	};
+	const centavos = (p: string) =>
+		data.plus?.planes.find((x) => x.plan === p)?.centavos ?? RESPALDO[p];
+	const porSemana = (p: string) => centavos(p) / SEMANAS[p];
+	const precio = (p: string) => pesosDeCentavos(centavos(p));
+
+	const PLANES = $derived(
+		(['semana', 'mes', 'temporada'] as const).map((plan) => {
+			// El ahorro de la temporada se calcula contra el mes (por semana), no es un número fijo.
+			const ahorro =
+				plan === 'temporada'
+					? Math.round((1 - porSemana('temporada') / porSemana('mes')) * 100)
+					: 0;
+			return {
+				plan,
+				...TEXTOS[plan],
+				l: data.plus?.planes.find((x) => x.plan === plan)?.nombre || TEXTOS[plan].l,
+				per:
+					plan === 'semana'
+						? 'por semana'
+						: `${pesosDeCentavos(Math.round(porSemana(plan) / 100) * 100)} por semana`,
+				save: ahorro > 0 ? `−${ahorro}%` : ''
+			};
+		})
+	);
+
+	const estado = $derived(data.plus?.estado);
+	const limite = $derived(estado?.limite ?? 3);
+	// Con Plus la API da 5 "Me encanta"; sin Plus da el límite gratis (1).
+	const encantasGratis = $derived(estado && !estado.activo ? (estado.limiteEncantas ?? 1) : 1);
+	const FILAS = $derived([
+		['Sumadas en Gente', `${limite} por día`, 'Sin límite'],
 		['Ver quién te sumó', '—', '✓'],
-		['Me encanta en Citas', '1 por día', '5 por día'],
+		['Me encanta en Citas', `${encantasGratis} por día`, '5 por día'],
 		['Tu plan destacado', '—', '1 por semana'],
 		['Filtros finos', 'Básicos', 'Todos']
-	];
+	]);
+	const sinSumadas = $derived(!!estado && estado.sumadasHoy >= estado.limite);
 
-	const precio = (p: string, c: number) =>
-		pesosDeCentavos(data.plus?.planes.find((x) => x.plan === p)?.centavos ?? c);
+	/* Reloj hasta la medianoche de Argentina (reiniciaEn de la API), en vivo. */
+	let ahora = $state(Date.now());
+	onMount(() => {
+		const t = setInterval(() => (ahora = Date.now()), 1000);
+		return () => clearInterval(t);
+	});
+	const reloj = $derived.by(() => {
+		const fin = estado ? new Date(estado.reiniciaEn).getTime() : 0;
+		const s = Math.max(0, Math.floor((fin - ahora) / 1000));
+		return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60]
+			.map((n) => String(n).padStart(2, '0'))
+			.join(':');
+	});
 
 	let elegido = $state('mes');
 	let enviando = $state(false);
-	const sel = $derived(PLANES.find((p) => p.plan === elegido) ?? PLANES[1]);
-	const cta = $derived(
-		elegido === 'mes' ? 'Probar 7 días gratis' : `Pagar ${precio(sel.plan, sel.c)}`
-	);
+	const cta = $derived(elegido === 'mes' ? 'Probar 7 días gratis' : `Pagar ${precio(elegido)}`);
 	const letra = $derived(
 		(elegido === 'mes'
-			? `Gratis 7 días, después ${precio('mes', 599900)} por mes.`
+			? `Gratis 7 días, después ${precio('mes')} por mes.`
 			: elegido === 'semana'
-				? `Pagás ${precio('semana', 249900)} hoy.`
-				: `Pagás ${precio('temporada', 1399900)} hoy por 3 meses.`) +
+				? `Pagás ${precio('semana')} hoy.`
+				: `Pagás ${precio('temporada')} hoy por 3 meses.`) +
 			' Cancelás cuando quieras · Mercado Pago'
 	);
-	const activo = $derived(!!data.plus?.estado.activo);
+	const activo = $derived(!!estado?.activo);
+
+	const vence = $derived(
+		estado?.vence
+			? new Date(estado.vence).toLocaleDateString('es-AR', {
+					day: 'numeric',
+					month: 'long',
+					timeZone: 'America/Argentina/Buenos_Aires'
+				})
+			: ''
+	);
+	const NOMBRE_PLUS: Record<string, string> = {
+		semana: 'semanal',
+		mes: 'mensual',
+		temporada: 'de temporada'
+	};
+	const nombrePlan = $derived(NOMBRE_PLUS[estado?.plan ?? ''] ?? '');
+	/** Cómo se da de baja según dónde se compró (no hay baja desde la web: la lleva cada tienda). */
+	const comoCancelar = $derived(
+		estado?.origen === 'apple'
+			? 'Lo cancelás desde tu iPhone: Ajustes › tu nombre › Suscripciones › Caigo.'
+			: estado?.origen === 'google'
+				? 'Lo cancelás desde Google Play: Pagos y suscripciones › Suscripciones › Caigo.'
+				: estado?.origen === 'mercadopago'
+					? 'Lo cancelás desde Mercado Pago: Tu perfil › Suscripciones › Caigo Plus.'
+					: ''
+	);
+	const enlaceCancelar = $derived(
+		estado?.origen === 'apple'
+			? 'https://apps.apple.com/account/subscriptions'
+			: estado?.origen === 'google'
+				? 'https://play.google.com/store/account/subscriptions'
+				: estado?.origen === 'mercadopago'
+					? 'https://www.mercadopago.com.ar/subscriptions'
+					: ''
+	);
 </script>
 
 <Seo
@@ -86,12 +141,27 @@
 				Sumá a toda la gente que quieras. Ya podés ver quién te sumó y tu próximo plan sale
 				destacado.
 			</p>
-			<a class="gel gel-lima cta" href="/">Listo</a>
+			{#if vence}
+				<p class="aviso">
+					{#if estado?.renueva}
+						Tu Plus {nombrePlan} se renueva el&nbsp;{vence}.
+					{:else}
+						Tu Plus {nombrePlan} vence el {vence} y no se&nbsp;renueva.
+					{/if}
+				</p>
+			{/if}
+			<a class="gel gel-lima cta" href="/app">Listo</a>
+			{#if estado?.renueva && comoCancelar}
+				<p class="cancelar">
+					{comoCancelar}
+					<a href={enlaceCancelar} target="_blank" rel="noopener noreferrer">Cancelar Plus</a>
+				</p>
+			{/if}
 		</div>
 	{:else}
 		<div class="scroll">
 			<div class="arriba">
-				<a class="cerrar" href="/" aria-label="Cerrar"
+				<a class="cerrar" href="/app" aria-label="Cerrar"
 					><Icono nombre="cerrar" color="#FFFFFF" trazo={2.6} /></a
 				>
 			</div>
@@ -100,8 +170,18 @@
 				<span class="plus-tag">PLUS</span>
 			</div>
 			<div class="encabezado">
-				<h1>Más planes. Más gente. Sin&nbsp;límites.</h1>
-				<p>Sumá a quien quieras, mirá quién te sumó y destacá tus&nbsp;planes.</p>
+				{#if sinSumadas}
+					<h1>Te quedaste sin sumadas por&nbsp;hoy</h1>
+					<span class="renuevan">Se renuevan en <b>{reloj}</b></span>
+				{:else}
+					<h1>Más planes. Más gente. Sin&nbsp;límites.</h1>
+					<p>Sumá a quien quieras, mirá quién te sumó y destacá tus&nbsp;planes.</p>
+					{#if estado}
+						<span class="renuevan"
+							>{estado.sumadasHoy} de {estado.limite} hoy · se renuevan en <b>{reloj}</b></span
+						>
+					{/if}
+				{/if}
 				{#if data.vuelta}
 					<p class="aviso">
 						Estamos confirmando tu pago con Mercado Pago. Puede tardar unos&nbsp;minutos.
@@ -109,6 +189,31 @@
 				{/if}
 				{#if data.error}<p class="aviso">{data.error}</p>{/if}
 			</div>
+
+			{#if data.teSumaron.length}
+				<a class="teaser" href="/app">
+					<span class="caras">
+						{#each data.teSumaron.slice(0, 4) as foto, i (i)}
+							<span class="cara"
+								>{#if foto}<img src={foto} alt="" />{/if}</span
+							>
+						{/each}
+					</span>
+					<span class="tt">
+						<b
+							>{data.teSumaron.length === 1
+								? '1 persona te\u00a0sumó'
+								: `${data.teSumaron.length} personas te\u00a0sumaron`}</b
+						>
+						<span>Con Plus ves quiénes son</span>
+					</span>
+					<span class="candado" aria-hidden="true"
+						><svg width="16" height="16" viewBox="0 0 24 24" fill="#FFFFFF"
+							><path d="M7 10V7a5 5 0 0 1 10 0v3h1v11H6V10zM9 10h6V7a3 3 0 0 0-6 0z" /></svg
+						></span
+					>
+				</a>
+			{/if}
 
 			<div class="tabla">
 				<div class="col-plus" aria-hidden="true"></div>
@@ -155,7 +260,7 @@
 								<span class="desc">{p.d}</span>
 							</span>
 							<span class="der">
-								<span class="precio">{precio(p.plan, p.c)}</span>
+								<span class="precio">{precio(p.plan)}</span>
 								<span class="desc">{p.per}</span>
 							</span>
 							{#if p.tag}<span class="tag">{p.tag}</span>{/if}
@@ -163,7 +268,7 @@
 					{/each}
 				</fieldset>
 			</form>
-			<a class="esperar" href="/">Ahora no</a>
+			<a class="esperar" href="/app">Ahora no</a>
 		</div>
 		<div class="abajo">
 			{#if form?.error}<p class="aviso" role="alert">{form.error}</p>{/if}
@@ -519,5 +624,97 @@
 	.listo .cta {
 		max-width: 390px;
 		margin-top: 8px;
+	}
+	.renuevan {
+		display: inline-flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		padding: 8px 8px 8px 14px;
+		border-radius: 14px;
+		background: rgba(255, 255, 255, 0.08);
+		font-size: 13px;
+		font-weight: 700;
+		color: #e4e0ee;
+	}
+	.renuevan b {
+		padding: 5px 9px;
+		border-radius: 9px;
+		background: #ff7868;
+		color: #24212d;
+		font:
+			800 15px/1 'Geist',
+			sans-serif;
+		letter-spacing: 0.5px;
+		font-variant-numeric: tabular-nums;
+	}
+	.teaser {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		padding: 14px;
+		border-radius: 24px;
+		background: linear-gradient(180deg, rgba(116, 86, 241, 0.35), rgba(116, 86, 241, 0.15));
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.15),
+			inset 0 0 0 1px rgba(163, 143, 255, 0.35);
+		color: #ffffff;
+		text-decoration: none;
+	}
+	.caras {
+		flex: none;
+		display: flex;
+		padding-left: 10px;
+	}
+	.cara {
+		width: 44px;
+		height: 44px;
+		margin-left: -12px;
+		border-radius: 50%;
+		overflow: hidden;
+		border: 2.5px solid #2e2850;
+		background: #3a3452;
+	}
+	.cara img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		filter: blur(6px);
+		transform: scale(1.2);
+	}
+	.tt {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.tt b {
+		font-size: 15px;
+		font-weight: 800;
+	}
+	.tt span {
+		font-size: 12px;
+		font-weight: 600;
+		color: #d3cee2;
+	}
+	.candado {
+		flex: none;
+		width: 34px;
+		height: 34px;
+		border-radius: 12px;
+		background: rgba(255, 255, 255, 0.12);
+		display: grid;
+		place-items: center;
+	}
+	.cancelar {
+		font-size: 13px !important;
+		color: #c9c4da !important;
+	}
+	.cancelar a {
+		display: block;
+		margin-top: 6px;
+		font-weight: 800;
+		color: #c8f36b;
 	}
 </style>

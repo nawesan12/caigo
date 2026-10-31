@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
+	import { abrirEnLaApp, APP_STORE_ID, sistemaDe } from '#lib/abrir-app.ts';
 	import Seo from '#lib/ui/Seo.svelte';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { pesosDeCentavos } from '#lib/precios.ts';
@@ -13,7 +15,14 @@
 	let { data, form } = $props();
 	const r = $derived(form && 'resultado' in form ? form.resultado : null);
 	let enviando = $state(false);
+	let sistema = $state<'ios' | 'android' | 'otro'>('otro');
+	onMount(() => (sistema = sistemaDe(navigator.userAgent)));
+	const app = $derived(abrirEnLaApp(data.universal, sistema));
 </script>
+
+<svelte:head>
+	<meta name="apple-itunes-app" content="app-id={APP_STORE_ID}, app-argument={data.universal}" />
+</svelte:head>
 
 <Seo titulo="Caigo Tap · Caigo" descripcion="Hacé check-in con Caigo Tap." noindex />
 
@@ -79,7 +88,7 @@
 				Si no la tenés, hacelo desde&nbsp;acá.
 			</p>
 			<div class="acciones">
-				<a class="gel gel-lima boton" href={data.app}>Abrir en la app</a>
+				<a class="gel gel-lima boton" href={app}>Abrir en la app</a>
 				<form
 					method="POST"
 					use:enhance={() => {

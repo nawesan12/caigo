@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
+	import { PUBLIC_SITIO } from '$app/env/public';
+	import { abrirEnLaApp, APP_STORE_ID, sistemaDe } from '#lib/abrir-app.ts';
 	import Seo from '#lib/ui/Seo.svelte';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { cuandoLargo } from '#lib/fechas.ts';
@@ -40,7 +43,12 @@
 				? 'Comprar entrada'
 				: 'Sumarme'
 	);
-	const app = $derived(`ar.com.caigo.app://p/${plan.slug}`);
+	/** El enlace universal de este plan (es esta misma página: si la app está, la abre el sistema). */
+	const universal = $derived(`${PUBLIC_SITIO.replace(/\/+$/, '')}/p/${plan.slug}`);
+	// Del lado del cliente: la página se cachea igual para todos, el botón depende del celu.
+	let sistema = $state<'ios' | 'android' | 'otro'>('otro');
+	onMount(() => (sistema = sistemaDe(navigator.userAgent)));
+	const app = $derived(abrirEnLaApp(universal, sistema));
 	const descripcionOg = $derived(
 		`${anfitrion} te invita a ${plan.titulo}. ${cuandoLargo(plan.empiezaEn)} · ${donde}. ${faltanTexto(plan.faltan)}.`
 	);
@@ -53,6 +61,11 @@
 	imagen={plan.foto || '/fotos/grupo.jpg'}
 	ruta="/p/{plan.slug}"
 />
+
+<svelte:head>
+	<!-- iPhone: el banner de Safari abre la app en este plan o lleva a la App Store. -->
+	<meta name="apple-itunes-app" content="app-id={APP_STORE_ID}, app-argument={universal}" />
+</svelte:head>
 
 <div class="fondo">
 	<div class="pantalla">

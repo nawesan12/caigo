@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import { volverSeguro } from '#lib/hosts.ts';
 import { api, ErrorApi, ipDe } from '#lib/server/api.ts';
 import { COOKIE_VOLVER, guardarSesion } from '#lib/server/sesion.ts';
+import { mandarOrigen } from '#lib/server/origen.ts';
 import type { Actions } from './$types';
 
 /**
@@ -32,6 +33,7 @@ export const actions: Actions = {
 			redirect(303, `/ingresar?error=${codigo}`);
 		}
 		guardarSesion(cookies, token);
+		await mandarOrigen(cookies, token, ipDe(event));
 		const volver = volverSeguro(cookies.get(COOKIE_VOLVER));
 		cookies.delete(COOKIE_VOLVER, { path: '/' });
 		redirect(303, volver);
