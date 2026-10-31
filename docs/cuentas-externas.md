@@ -1,4 +1,4 @@
-# Cuentas externas que faltan (las crea Nahuel)
+# Cuentas externas que faltan
 
 Todo el código ya está listo: cada pieza se prende sola cuando su dato aparece en
 `/opt/caigo/api.conf` (y en `local.properties` en Android). Sin esos datos, esa parte queda apagada
@@ -13,18 +13,10 @@ sin romper nada.
 4. Pasar a `api.conf`: `CAIGO_MP_APP_ID`, `CAIGO_MP_SECRETO` (client secret), `CAIGO_MP_TOKEN`
    (access token de producción de la cuenta que cobra Plus), `CAIGO_MP_SECRETO_WEBHOOK`.
 
-## Apple (cuenta M6935MSNQB) — cuando esté Xcode
-- **Pass Type ID** `pass.ar.com.caigo` (Certificates, IDs & Profiles → Identifiers → Pass Type IDs) y
-  su certificado. El .cer y la clave privada en PEM van a `/opt/caigo/claves/wallet.pem` y
-  `/opt/caigo/claves/wallet.key` (600); en `api.conf`: `CAIGO_WALLET_CERT=/datos/claves/wallet.pem`,
-  `CAIGO_WALLET_CLAVE=/datos/claves/wallet.key`.
-- **Suscripciones de Caigo Plus** en App Store Connect (app ar.com.caigo.app), un grupo «Caigo Plus»
-  con tres productos: `plus_semana` ($2.499, 1 semana), `plus_mes` ($5.999, 1 mes, oferta de
-  introducción 7 días gratis), `plus_temporada` ($13.999, 3 meses).
-- **App Store Server Notifications V2**: URL `https://api.caigo.com.ar/v1/webhooks/apple` (producción
-  y sandbox).
-- **App Clip** (para Caigo Tap sin la app instalada): se crea desde Xcode con el proyecto.
-- Associated Domains del App ID ya están activos; la web publica `apple-app-site-association`.
+## Apple (cuenta M6935MSNQB) — hecho el 31/10
+App IDs, App Clip, App Group, Pass Type ID con su certificado (ya en el VPS), app en App Store
+Connect con las suscripciones y los avisos del servidor. Detalle en `docs/estado.md` › «Apple».
+Falta (pide un build subido): experiencias del App Clip y capturas de revisión de las suscripciones.
 
 ## Google
 - **Play Console**: app `ar.com.caigo.app`. Suscripciones con los mismos ids: `plus_semana`,
