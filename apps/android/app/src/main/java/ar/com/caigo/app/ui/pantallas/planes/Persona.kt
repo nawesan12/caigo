@@ -1,5 +1,7 @@
 package ar.com.caigo.app.ui.pantallas.planes
 
+import ar.com.caigo.app.logica.Cupo
+import ar.com.caigo.app.ui.piezas.Foto
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -157,7 +159,28 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
                         p.intereses.forEach { g -> Box(Modifier.gel(14.dp, Gels.off).padding(horizontal = 13.dp, vertical = 8.dp)) { T(g, 13f, 700, C.carbon) } }
                     }
                 }
-                T("Reportar o bloquear a ${p.nombre}", 13f, 700, C.texto2, modifier = Modifier.align(Alignment.CenterHorizontally).tocable { opciones = true }.padding(8.dp))
+                // Sus próximos planes (contrato §5), con la fila del prototipo (pp · ppPlans).
+                if (p.proximos.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    T("Sus próximos planes", 15f, 800, C.carbon)
+                    p.proximos.forEach { pr ->
+                        Row(
+                            Modifier.fillMaxWidth().toque(alBajar = 0.dp) { ir.plan(pr.id) }.gel(22.dp, Gels.neutra)
+                                .padding(start = 10.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Foto(pr.foto, Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)), colorDeCategoria(pr.categoria))
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                T(pr.titulo, 15f, 800, C.carbon, unRenglon = true)
+                                T(listOfNotNull(Fecha.cuando(pr.empiezaEn), pr.faltan?.let { Cupo.badge(it) }).joinToString(" · "), 12f, 600, C.texto2, unRenglon = true)
+                            }
+                            Icono(I.adelante, 18.dp, C.inactivo, 2.6f)
+                        }
+                    }
+                }
+                T(
+                    if (p.enMiGente) "Sacar de mi gente, reportar o bloquear" else "Reportar o bloquear a ${p.nombre}", 13f, 700, C.texto2,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).tocable { opciones = true }.padding(8.dp),
+                )
             }
         }
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(150.dp + abajo).background(Brush.verticalGradient(0f to C.blancoCalido.copy(alpha = 0f), .6f to C.blancoCalido)))
@@ -207,7 +230,10 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
         if (invitando) HojaInvitar(ir, Tarjeta(p.id, p.nombre), { invitando = false }) { plan ->
             avisos.ok("Invitaste a ${p.nombre} a ${plan.titulo}. Le llega como solicitud.")
         }
-        if (opciones) HojaOpciones({ opciones = false }, listOf(
+        if (opciones) HojaOpciones({ opciones = false }, listOfNotNull(
+            if (p.enMiGente) "Sacar de mi gente" to {
+                accion { c.api.sacarDeMiGente(p.id); avisos.ok("Sacaste a ${p.nombre} de tu gente. No le llegan más tus planes."); persona.recargar() }
+            } else null,
             "Reportar a ${p.nombre}" to { reportando = true },
             "Bloquear a ${p.nombre}" to {
                 accion { c.api.bloquear(p.id); avisos.ok("Bloqueaste a ${p.nombre}. No se van a ver más."); ir.atras() }

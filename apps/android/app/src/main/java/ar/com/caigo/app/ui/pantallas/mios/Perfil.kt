@@ -1,5 +1,8 @@
 package ar.com.caigo.app.ui.pantallas.mios
 
+import ar.com.caigo.app.ui.piezas.nombreCategoria
+import ar.com.caigo.app.ui.piezas.Segmentado
+import ar.com.caigo.app.ui.piezas.Interruptor
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -129,6 +132,9 @@ fun Perfil(ir: Ir) {
     val gente = rememberCarga("gente") { c.api.miGente().gente }
     val verif = rememberCarga("verif") { c.api.verificacion() }
     val plus = rememberCarga("plus") { c.api.plus().estado }
+    // «Planes compartidos con vos» (mockup 11): los planes a los que fuiste, del historial.
+    val compartidos = rememberCarga("historial") { c.api.mios("historial").planes.filter { !it.cancelado } }
+    var ajustes by remember { mutableStateOf(false) }
 
     Pantalla { arriba, _ ->
         val y = yo
@@ -279,6 +285,20 @@ fun Perfil(ir: Ir) {
                     Icono(I.adelante, 20.dp, p.texto, 2.2f)
                 }
 
+                // Planes compartidos con vos (mockup 11): «Truco · Güemes», «Pádel · Gesell».
+                val hechos = compartidos.dato.orEmpty()
+                if (hechos.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MiosSeccion("Planes compartidos con vos")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        hechos.take(6).forEach { pl ->
+                            val zona = pl.zona.ifBlank { pl.ciudad }
+                            Box(Modifier.tocable { ir.plan(pl.id) }.gel(16.dp, miosGelTarjeta()).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                                T(listOf(nombreCategoria(pl.categoria), zona).filter { it.isNotBlank() }.joinToString(" · "), 13f, 600, unRenglon = true)
+                            }
+                        }
+                    }
+                }
+
                 // Al final, la acción destructiva (con el texto de peligro de «Cancelar el plan»).
                 T(
                     "Borrar mi cuenta", 15f, 700, C.coral2,
@@ -298,7 +318,8 @@ fun Perfil(ir: Ir) {
                 MiosFila(I.corazonChico, "Lo que buscás") { opciones = false; ir.intenciones(true) }
                 MiosFila(I.billetera, "Mis pases") { opciones = false; ir.pases() }
                 MiosFila(I.enviar, "Mensajes privados") { opciones = false; ir.privados() }
-                MiosFila(I.escudo, "Verificación y seguridad", ultima = true) { opciones = false; ir.verificacion() }
+                MiosFila(I.escudo, "Verificación y seguridad") { opciones = false; ir.verificacion() }
+                MiosFila(I.campana, "Avisos y tema", ultima = true) { opciones = false; ajustes = true }
             }
             MiosGrupo {
                 MiosFila(I.flecha, "Salir", colorIcono = C.coral2, ultima = true) {
@@ -306,6 +327,29 @@ fun Perfil(ir: Ir) {
                     alcance.launch { c.salir(); ir.intro() }
                 }
             }
+        }
+        // Ajustes (contrato §3 y tema): no están diseñados; van con las piezas de la hoja «Tu cuenta».
+        MiosHoja(ajustes, { ajustes = false }, "Avisos y tema") {
+            val av = yo?.avisos ?: ar.com.caigo.app.datos.AjustesAvisos()
+            fun guardarAvisos(n: ar.com.caigo.app.datos.AjustesAvisos) {
+                c.yo.value = c.yo.value?.copy(avisos = n)
+                alcance.launch {
+                    runCatching { c.api.actualizarYo(ar.com.caigo.app.datos.CambiosPerfil(avisos = n)) }
+                        .onSuccess { c.yo.value = it }
+                        .onFailure { c.yo.value = c.yo.value?.copy(avisos = av); avisos.error(mensajeDe(it)) }
+                }
+            }
+            MiosGrupo {
+                FilaAjuste("Planes cerca tuyo", "Cuando se arma algo a menos de 5 km y arranca pronto", av.planesCerca) { guardarAvisos(av.copy(planesCerca = it)) }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(if (p.oscuro) p.separador else C.lavanda))
+                FilaAjuste("Planes de tu gente", "Cuando alguien de tu gente publica un plan", av.tuGente) { guardarAvisos(av.copy(tuGente = it)) }
+            }
+            val tema by c.sesion.tema.collectAsState()
+            T("Tema", 15f, 700)
+            Segmentado(
+                listOf("Automático", "Claro", "Oscuro"), listOf("auto", "claro", "oscuro").indexOf(tema).coerceAtLeast(0),
+                { i -> alcance.launch { c.sesion.guardarTema(listOf("auto", "claro", "oscuro")[i]) } },
+            )
         }
         MiosHoja(borrando, { if (!borrandoAhora) borrando = false }, "¿Borrar tu cuenta?") {
             T(
@@ -556,5 +600,18 @@ private fun Etiquetado(etiqueta: String, campo: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         T(etiqueta, 14f, 700)
         campo()
+    }
+}
+
+
+/** Fila con interruptor de los ajustes (como «Solo verificados» de 06c). */
+@Composable
+private fun FilaAjuste(titulo: String, sub: String, on: Boolean, onCambio: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            T(titulo, 14f, 800)
+            T(sub, 12f, 400, LocalPaleta.current.texto2)
+        }
+        Interruptor(on, onCambio)
     }
 }

@@ -1,5 +1,7 @@
 package ar.com.caigo.app.ui.pantallas.mios
 
+import androidx.compose.runtime.derivedStateOf
+import ar.com.caigo.app.datos.Reporte
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -87,10 +89,15 @@ fun Chat(ir: Ir, planId: String) {
     var cargado by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var escribe by remember { mutableStateOf<Pair<String, Long>?>(null) }
+    var hayMas by remember { mutableStateOf(false) }
+    var opciones by remember { mutableStateOf(false) }
+    var reportando by remember { mutableStateOf(false) }
+    var saliendo by remember { mutableStateOf(false) }
 
     LaunchedEffect(planId) {
         try {
             val ms = c.api.mensajes(planId).mensajes
+            hayMas = ms.size >= PAGINA
             lineas.clear(); lineas.addAll(ms.map { it.linea(yo) })
         } catch (e: Throwable) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -154,6 +161,8 @@ fun Chat(ir: Ir, planId: String) {
                         }
                     }
                 }
+                // Más: reportar, salir del plan (el botón de puntos del detalle).
+                BotonIcono(I.puntos, { opciones = true }, gel = if (p.oscuro) Gels.chipOscuro else Gels.icono, color = Color.Transparent, relleno = p.texto, iconoTam = 20.dp, trazo = 0f)
             }
             // Tarjeta fijada del plan.
             if (pl != null) {
@@ -174,20 +183,72 @@ fun Chat(ir: Ir, planId: String) {
                     T("Ver plan", 13f, 700, if (p.oscuro) C.lima else C.violetaTexto, Modifier.tocable { ir.plan(planId) })
                 }
             }
-            Hilo(lineas, cargado, error, escribe?.first, Modifier.weight(1f))
+            Hilo(lineas, cargado, error, escribe?.first, Modifier.weight(1f), hayMas) {
+                // Paginar hacia atrás: los 100 anteriores al más viejo que hay.
+                val primero = lineas.firstOrNull()?.id ?: return@Hilo
+                runCatching { c.api.mensajes(planId, antes = primero).mensajes }.onSuccess { ms ->
+                    hayMas = ms.size >= PAGINA
+                    lineas.addAll(0, ms.filter { m -> lineas.none { it.id == m.id } }.map { it.linea(yo) })
+                }.onFailure { avisos.error(mensajeDe(it)) }
+            }
             Entrada(abajo, { c.tiempoReal.escribiendo(planId) }) { t -> mandar(t) }
+        }
+        val pl2 = plan.dato
+        if (opciones && pl2 != null) ar.com.caigo.app.ui.pantallas.planes.HojaOpciones({ opciones = false }, buildList {
+            add("Ver el plan" to { ir.plan(planId) })
+            if (pl2.miEstado != "organizador") add("Reportar el plan" to { reportando = true })
+            if (pl2.miEstado == "aceptada") add("Salir del plan" to { saliendo = true })
+        })
+        if (reportando) ar.com.caigo.app.ui.pantallas.planes.HojaReporte({ reportando = false }) { motivo ->
+            alcance.launch {
+                runCatching { c.api.reportar(Reporte(planId = planId, motivo = motivo)) }
+                    .onSuccess { avisos.ok("Gracias. Lo revisa una persona del equipo en menos de 24 h.") }
+                    .onFailure { avisos.error(mensajeDe(it)) }
+            }
+        }
+        MiosHoja(saliendo, { saliendo = false }, "¿Salir del plan?") {
+            T("Le avisamos a ${pl2?.organizador?.nombre?.ifBlank { null } ?: "quien organiza"} y dejás de ver el chat.", 15f, 400, p.texto2, alto = 1.5f)
+            MiosGrupo {
+                Box(Modifier.fillMaxWidth().tocable {
+                    saliendo = false
+                    alcance.launch {
+                        runCatching { c.api.salir(planId) }
+                            .onSuccess { avisos.ok("Listo, te bajaste del plan."); ir.atras() }
+                            .onFailure { avisos.error(mensajeDe(it)) }
+                    }
+                }.padding(horizontal = 18.dp, vertical = 16.dp)) { T("Salir del plan", 15f, 700, C.coral2) }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(if (p.oscuro) p.separador else C.lavanda))
+                Box(Modifier.fillMaxWidth().tocable { saliendo = false }.padding(horizontal = 18.dp, vertical = 16.dp)) { T("Volver", 15f, 700) }
+            }
         }
     }
 }
 
+/** Mensajes por página que devuelve la API (chat.Mensajes / chat.Hilo). */
+private const val PAGINA = 100
+
 /** Los mensajes (abajo de todo el último) y "X está escribiendo…". */
 @Composable
-private fun Hilo(lineas: List<Linea>, cargado: Boolean, error: String?, escribe: String?, modifier: Modifier) {
+private fun Hilo(
+    lineas: List<Linea>, cargado: Boolean, error: String?, escribe: String?, modifier: Modifier,
+    hayMas: Boolean = false, cargarAnteriores: suspend () -> Unit = {},
+) {
     val p = LocalPaleta.current
     val lista = rememberLazyListState()
-    LaunchedEffect(lineas.size, escribe) {
+    // Baja al final sólo cuando llega un mensaje nuevo (no al traer los anteriores).
+    LaunchedEffect(lineas.lastOrNull()?.id, escribe) {
         val n = lineas.size + (if (escribe != null) 1 else 0)
         if (n > 0) lista.animateScrollToItem(n - 1)
+    }
+    // Al llegar arriba de todo, trae los anteriores.
+    var trayendo by remember { mutableStateOf(false) }
+    val arriba by remember { derivedStateOf { lista.firstVisibleItemIndex == 0 && lista.layoutInfo.totalItemsCount > 0 } }
+    LaunchedEffect(arriba, hayMas) {
+        if (arriba && hayMas && !trayendo && cargado) {
+            trayendo = true
+            cargarAnteriores()
+            trayendo = false
+        }
     }
     Box(modifier.fillMaxWidth()) {
         when {
@@ -200,6 +261,7 @@ private fun Hilo(lineas: List<Linea>, cargado: Boolean, error: String?, escribe:
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
             ) {
+                if (hayMas) item(key = "mas") { Box(Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) { Puntitos(tam = 6.dp) } }
                 items(lineas, key = { it.id }) { l -> Burbuja(l) }
                 if (escribe != null) item(key = "escribe") {
                     T("$escribe está escribiendo…", 12f, 400, p.texto2, Modifier.padding(start = 36.dp))
@@ -350,10 +412,17 @@ fun Privado(ir: Ir, conId: String, nombre: String) {
     val lineas = remember { mutableStateListOf<Linea>() }
     var cargado by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var hayMas by remember { mutableStateOf(false) }
+    var escribe by remember { mutableStateOf(0L) }
+    var opciones by remember { mutableStateOf(false) }
+    var reportando by remember { mutableStateOf(false) }
+    val alcance = rememberCoroutineScope()
 
     LaunchedEffect(conId, quien) {
         try {
-            lineas.clear(); lineas.addAll(c.api.privados(conId).privados.map { it.linea(yo, quien) })
+            val ps = c.api.privados(conId).privados
+            hayMas = ps.size >= PAGINA
+            lineas.clear(); lineas.addAll(ps.map { it.linea(yo, quien) })
         } catch (e: Throwable) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             error = mensajeDe(e)
@@ -363,18 +432,31 @@ fun Privado(ir: Ir, conId: String, nombre: String) {
     LaunchedEffect(conId) {
         c.tiempoReal.encender()
         c.tiempoReal.eventos.collect { ev ->
+            // «escribiendo» en privados (contrato §10): llega con el id de quien escribe.
+            if (ev.tipo == "escribiendo" && ev.escribePrivado == conId) { escribe = System.currentTimeMillis(); return@collect }
             val m = ev.privado ?: return@collect
-            if (ev.tipo == "privado" && (m.deId == conId || m.aId == conId) && lineas.none { it.id == m.id }) lineas.add(m.linea(yo, quien))
+            if (ev.tipo == "privado" && (m.deId == conId || m.aId == conId) && lineas.none { it.id == m.id }) {
+                lineas.add(m.linea(yo, quien))
+                if (m.deId == conId) escribe = 0L
+            }
         }
     }
+    LaunchedEffect(escribe) { if (escribe != 0L) { delay(4000); escribe = 0L } }
 
     Pantalla { arriba, abajo ->
         Column(Modifier.fillMaxSize()) {
             Encabezado(quien, null, { ir.atras() }, Modifier.padding(start = 16.dp, end = 16.dp, top = arriba + 6.dp)) {
                 Avatar(quien, foto, 36.dp, Modifier.tocable { ir.persona(conId, "privado") }, tamTexto = 14f)
+                BotonIcono(I.puntos, { opciones = true }, gel = if (LocalPaleta.current.oscuro) Gels.chipOscuro else Gels.icono, color = Color.Transparent, relleno = LocalPaleta.current.texto, iconoTam = 20.dp, trazo = 0f)
             }
-            Hilo(lineas.map { it.copy(foto = foto.orEmpty()) }, cargado, error, null, Modifier.weight(1f))
-            Entrada(abajo, {}) { t ->
+            Hilo(lineas.map { it.copy(foto = foto.orEmpty()) }, cargado, error, if (escribe != 0L) miosPrimer(quien) else null, Modifier.weight(1f), hayMas) {
+                val primero = lineas.firstOrNull()?.id ?: return@Hilo
+                runCatching { c.api.privados(conId, antes = primero).privados }.onSuccess { ps ->
+                    hayMas = ps.size >= PAGINA
+                    lineas.addAll(0, ps.filter { m -> lineas.none { it.id == m.id } }.map { it.linea(yo, quien) })
+                }.onFailure { avisos.error(mensajeDe(it)) }
+            }
+            Entrada(abajo, { c.tiempoReal.escribiendoPrivado(conId) }) { t ->
                 try {
                     val m = c.api.escribirPrivado(conId, t)
                     if (lineas.none { it.id == m.id }) lineas.add(m.linea(yo, quien))
@@ -383,6 +465,24 @@ fun Privado(ir: Ir, conId: String, nombre: String) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     avisos.error(mensajeDe(e)); false
                 }
+            }
+        }
+        if (opciones) ar.com.caigo.app.ui.pantallas.planes.HojaOpciones({ opciones = false }, listOf(
+            "Ver el perfil" to { ir.persona(conId, "privado") },
+            "Reportar a ${miosPrimer(quien)}" to { reportando = true },
+            "Bloquear a ${miosPrimer(quien)}" to {
+                alcance.launch {
+                    runCatching { c.api.bloquear(conId) }
+                        .onSuccess { avisos.ok("Bloqueaste a ${miosPrimer(quien)}. No se van a ver más."); ir.atras() }
+                        .onFailure { avisos.error(mensajeDe(it)) }
+                }
+            },
+        ))
+        if (reportando) ar.com.caigo.app.ui.pantallas.planes.HojaReporte({ reportando = false }) { motivo ->
+            alcance.launch {
+                runCatching { c.api.reportar(Reporte(usuarioId = conId, motivo = motivo)) }
+                    .onSuccess { avisos.ok("Gracias. Revisamos el perfil de ${miosPrimer(quien)} en menos de 24 h.") }
+                    .onFailure { avisos.error(mensajeDe(it)) }
             }
         }
     }

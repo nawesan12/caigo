@@ -214,7 +214,7 @@ class Api(
     suspend fun mensajes(planId: String, antes: Long? = null): Mensajes = get("/v1/planes/$planId/mensajes", "antes" to antes)
     suspend fun escribir(planId: String, texto: String): Mensaje = enviar("POST", "/v1/planes/$planId/mensajes", Texto(texto))
     suspend fun conversaciones(): Conversaciones = get("/v1/privados")
-    suspend fun privados(conId: String): Privados = get("/v1/privados/$conId")
+    suspend fun privados(conId: String, antes: Long? = null): Privados = get("/v1/privados/$conId", "antes" to antes)
     suspend fun escribirPrivado(conId: String, texto: String): Privado = enviar("POST", "/v1/privados/$conId", Texto(texto))
 
     // ——— Confianza ———
