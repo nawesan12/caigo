@@ -47,3 +47,21 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+  web:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /web
+    command: ['node', 'build']
+    env_file: ./web.conf
+    environment:
+      PORT: '3500'
+      HOST: 0.0.0.0
+      PROTOCOL_HEADER: x-forwarded-proto
+      HOST_HEADER: x-forwarded-host
+      CAIGO_API: http://api:4300
+    volumes:
+      - ./web:/web:ro
+    ports: ['127.0.0.1:3500:3500']
+    mem_limit: 192m
+    depends_on:
+      - api

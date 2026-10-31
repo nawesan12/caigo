@@ -1,4 +1,4 @@
-# Caigo (compose en /opt/caigo). Cloudflare hace de DNS/proxy; el certificado es el de origen de
+# Caigo (compose en /opt/caigo). Lo lleva la sesión de Caigo. Cloudflare hace de DNS/proxy; el certificado es el de origen de
 # Cloudflare para caigo.com.ar y *.caigo.com.ar.
 #
 # 80/443 están abiertos a todo el mundo (dominios propios de Corredor): `solo_cloudflare` corta lo
