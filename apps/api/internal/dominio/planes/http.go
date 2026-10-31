@@ -128,6 +128,56 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
+	mux.Handle("GET /v1/planes/{id}/qr", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
+		qr, err := s.QR(r.Context(), p.ID, r.PathValue("id"))
+		if err != nil {
+			mal(w, err)
+			return
+		}
+		respuesta.JSON(w, http.StatusOK, map[string]string{"codigo": qr})
+	}))
+	mux.Handle("POST /v1/planes/{id}/checkin", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
+		var l Llegada
+		if !respuesta.Leer(w, r, &l) {
+			return
+		}
+		if err := s.Checkin(r.Context(), p.ID, r.PathValue("id"), l); err != nil {
+			mal(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	mux.Handle("POST /v1/planes/{id}/repetimos", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
+		var in struct {
+			Repetir  bool      `json:"repetir"`
+			Volveria []Opinion `json:"volveria"`
+		}
+		if !respuesta.Leer(w, r, &in) {
+			return
+		}
+		nuevo, err := s.Repetimos(r.Context(), p.ID, r.PathValue("id"), in.Repetir, in.Volveria)
+		if err != nil {
+			mal(w, err)
+			return
+		}
+		respuesta.JSON(w, http.StatusOK, map[string]any{"nuevo": nuevo})
+	}))
+	mux.Handle("POST /v1/planes/{id}/en-vivo", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
+		link, err := s.LinkEnVivo(r.Context(), p.ID, r.PathValue("id"))
+		if err != nil {
+			mal(w, err)
+			return
+		}
+		respuesta.JSON(w, http.StatusOK, map[string]string{"link": link})
+	}))
+	mux.HandleFunc("GET /v1/publico/vivo/{token}", func(w http.ResponseWriter, r *http.Request) {
+		v, err := s.VerEnVivo(r.Context(), r.PathValue("token"))
+		if err != nil {
+			mal(w, err)
+			return
+		}
+		respuesta.JSON(w, http.StatusOK, v)
+	})
 	// Link público (sin sesión): lo que se ve en caigo.com.ar/p/<slug> antes de entrar.
 	mux.HandleFunc("GET /v1/publico/planes/{slug}", func(w http.ResponseWriter, r *http.Request) {
 		plan, err := s.Publico(r.Context(), r.PathValue("slug"))

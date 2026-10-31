@@ -19,6 +19,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
 
@@ -37,6 +38,10 @@ const (
 // Servicio de planes.
 type Servicio struct {
 	App *db.Pool
+	// Firma del QR de check-in y del link en vivo.
+	Firma firma.Firmador
+	// Sitio público (para el link en vivo).
+	Sitio string
 	// Ahora (tests). nil: time.Now.
 	Reloj func() time.Time
 }

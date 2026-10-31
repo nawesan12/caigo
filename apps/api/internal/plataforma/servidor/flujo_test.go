@@ -26,6 +26,8 @@ type entorno struct {
 	h     http.Handler
 	clerk *clerkfalso.Servidor
 	app   *db.Pool
+	// Dueño del esquema: para lo que la app no puede hacer (dar de alta al equipo).
+	migrador *db.Pool
 }
 
 func nuevoEntorno(t *testing.T) *entorno {
@@ -44,9 +46,16 @@ func nuevoEntorno(t *testing.T) *entorno {
 		t.Skipf("sin base de desarrollo: %v", err)
 	}
 	t.Cleanup(app.Close)
+	mig, err := db.Abrir(ctx, cfg.BaseMigrador)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(mig.Close)
 	f := clerkfalso.Nuevo(t)
 	c := &clerk.Cliente{Secreto: clerkfalso.Secreto, Emisor: clerkfalso.Emisor, API: f.URL, HTTP: f.Client()}
-	return &entorno{t: t, h: servidor.Nuevo(servidor.Dependencias{App: app, Clerk: c}), clerk: f, app: app}
+	h := servidor.Nuevo(servidor.Dependencias{App: app, Clerk: c, Secreto: "secreto-de-prueba",
+		Sitio: "https://caigo.test", APIPublica: "https://api.caigo.test", Archivos: t.TempDir()})
+	return &entorno{t: t, h: h, clerk: f, app: app, migrador: mig}
 }
 
 // persona da de alta a alguien en el Clerk falso y devuelve su token y su id de Caigo.
@@ -80,7 +89,9 @@ func (e *entorno) verificar(p persona, dni bool) {
 func (e *entorno) pedir(p persona, metodo, ruta string, cuerpo any, estado int, out any) {
 	e.t.Helper()
 	var buf bytes.Buffer
-	if cuerpo != nil {
+	if b, ok := cuerpo.([]byte); ok {
+		buf.Write(b)
+	} else if cuerpo != nil {
 		_ = json.NewEncoder(&buf).Encode(cuerpo)
 	}
 	r := httptest.NewRequest(metodo, ruta, &buf)

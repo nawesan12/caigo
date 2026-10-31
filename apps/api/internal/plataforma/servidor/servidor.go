@@ -10,11 +10,15 @@ import (
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/chat"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/personas"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sesion"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sms"
 )
 
 // Dependencias del servidor. App puede ser nil en tests que no tocan la base (y entonces sólo
@@ -30,6 +34,8 @@ type Dependencias struct {
 	Hub *chat.Hub
 	// Orígenes web que pueden abrir el WebSocket.
 	Origenes []string
+	// Clave de las firmas, sitio público, URL pública de la API y carpeta de archivos.
+	Secreto, Sitio, APIPublica, Archivos string
 }
 
 // Nuevo arma el handler con todas las rutas.
@@ -64,7 +70,9 @@ func Nuevo(d Dependencias) http.Handler {
 	})
 	if d.App != nil {
 		ses := &sesion.Resolvedor{Clerk: d.Clerk, App: d.App, Log: d.Log}
-		planes.Rutas(mux, &planes.Servicio{App: d.App, Reloj: d.Reloj}, ses.Exigir, d.Log)
+		planes.Rutas(mux, &planes.Servicio{App: d.App, Reloj: d.Reloj, Firma: firma.Firmador{Clave: []byte(d.Secreto)}, Sitio: d.Sitio}, ses.Exigir, d.Log)
+		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos}, SMS: sms.Simulado{Log: d.Log},
+			APIPublica: d.APIPublica, Reloj: d.Reloj}, ses, d.Log)
 		personas.Rutas(mux, &personas.Servicio{App: d.App}, ses.Exigir, d.Log)
 		avisos.Rutas(mux, d.App, ses.Exigir, d.Log)
 		if d.Hub == nil {

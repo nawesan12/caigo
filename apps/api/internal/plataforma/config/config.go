@@ -24,6 +24,10 @@ type Config struct {
 	// Firebase). Sin configurar, esa plataforma queda apagada.
 	APNsKeyID, APNsTeamID, APNsClave, APNsTopic string
 	FCMCuenta                                   string
+	// Clave para firmar QR de check-in, placas y links en vivo (32+ bytes al azar en producción).
+	Secreto string
+	// URL pública de la API (para armar las URLs de las fotos).
+	APIPublica string
 	// Carpeta de archivos subidos (fotos de perfil y de planes, DNI). En el VPS: /opt/caigo/archivos.
 	Archivos string
 }
@@ -49,6 +53,8 @@ func Leer() (Config, error) {
 		APNsClave:       os.Getenv("CAIGO_APNS_CLAVE"),
 		APNsTopic:       valor("CAIGO_APNS_TOPIC", "ar.com.caigo.app"),
 		FCMCuenta:       os.Getenv("CAIGO_FCM_CUENTA"),
+		Secreto:         os.Getenv("CAIGO_SECRETO"),
+		APIPublica:      valor("CAIGO_API_PUBLICA", "https://api.caigo.com.ar"),
 	}
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":
@@ -64,6 +70,8 @@ func Leer() (Config, error) {
 		c.BaseAdmin = conDefecto(c.BaseAdmin, fmt.Sprintf(local, "caigo", "caigo"))
 		c.Sitio = conDefecto(os.Getenv("CAIGO_SITIO"), "http://localhost:5173")
 		c.Archivos = conDefecto(os.Getenv("CAIGO_ARCHIVOS"), "archivos")
+		c.Secreto = conDefecto(c.Secreto, "secreto-de-desarrollo-no-usar-en-produccion")
+		c.APIPublica = conDefecto(os.Getenv("CAIGO_API_PUBLICA"), "http://localhost:4300")
 		if os.Getenv("CAIGO_CLERK_ORIGENES") == "" {
 			c.ClerkOrigenes = []string{"http://localhost:5173", "http://lugares.localhost:5173"}
 		}
@@ -74,7 +82,7 @@ func Leer() (Config, error) {
 // Exigir falla si falta alguna de las variables pedidas (por nombre de campo).
 func (c Config) Exigir(campos ...string) error {
 	vals := map[string]string{"BaseApp": c.BaseApp, "BaseMigrador": c.BaseMigrador, "BaseAdmin": c.BaseAdmin,
-		"ClerkSecreto": c.ClerkSecreto, "ClerkPublicable": c.ClerkPublicable}
+		"ClerkSecreto": c.ClerkSecreto, "ClerkPublicable": c.ClerkPublicable, "Secreto": c.Secreto}
 	var faltan []string
 	for _, f := range campos {
 		if vals[f] == "" {

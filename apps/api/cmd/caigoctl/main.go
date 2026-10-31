@@ -2,6 +2,7 @@
 //
 //	caigoctl bootstrap   crea roles y base (superusuario: CAIGO_BASE_DE_DATOS_ADMIN)
 //	caigoctl migrar      aplica las migraciones (CAIGO_BASE_DE_DATOS_MIGRADOR)
+//	caigoctl equipo <user_…> [no]   suma (o saca) a una persona del equipo de Caigo
 //
 // Las claves de los roles salen de CAIGO_CLAVE_<ROL> (vacías en desarrollo).
 package main
@@ -19,7 +20,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "uso: caigoctl bootstrap|migrar")
+		fmt.Fprintln(os.Stderr, "uso: caigoctl bootstrap|migrar|equipo <user_…> [no]")
 		os.Exit(2)
 	}
 	if err := correr(os.Args[1]); err != nil {
@@ -59,6 +60,28 @@ func correr(cmd string) error {
 			return err
 		}
 		fmt.Println("migraciones aplicadas")
+	case "equipo":
+		// La app no puede tocar la columna equipo: va con el dueño del esquema.
+		if err := cfg.Exigir("BaseMigrador"); err != nil {
+			return err
+		}
+		if len(os.Args) < 3 {
+			return fmt.Errorf("falta el id de Clerk (user_…): la persona tiene que haber entrado una vez a Caigo")
+		}
+		conn, err := db.Abrir(ctx, cfg.BaseMigrador)
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		si := len(os.Args) < 4 || os.Args[3] != "no"
+		tag, err := conn.Exec(ctx, `UPDATE usuarios SET equipo = $2 WHERE clerk_id = $1`, os.Args[2], si)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return fmt.Errorf("no hay nadie con ese id: que entre una vez a Caigo y probá de nuevo")
+		}
+		fmt.Println("listo")
 	default:
 		return fmt.Errorf("comando desconocido: %s", cmd)
 	}

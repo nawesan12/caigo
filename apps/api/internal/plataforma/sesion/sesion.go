@@ -49,6 +49,9 @@ type Resolvedor struct {
 	Log   *slog.Logger
 }
 
+// ErrSuspendida: la cuenta está suspendida por moderación.
+var ErrSuspendida = errors.New("sesion: cuenta suspendida")
+
 // ErrSinToken: el pedido no trae token.
 var ErrSinToken = errors.New("sesion: sin token")
 
@@ -77,7 +80,12 @@ func (s *Resolvedor) Resolver(ctx context.Context, token string) (Persona, error
 	}
 	p := Persona{Clerk: sujeto}
 	err = s.App.EnTx(ctx, func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `SELECT id, nombre, equipo FROM usuarios WHERE clerk_id = $1 AND baja_en IS NULL`, sujeto).Scan(&p.ID, &p.Nombre, &p.Equipo)
+		var suspendida bool
+		err := tx.QueryRow(ctx, `SELECT id, nombre, equipo, suspendido_en IS NOT NULL FROM usuarios
+			WHERE clerk_id = $1 AND baja_en IS NULL`, sujeto).Scan(&p.ID, &p.Nombre, &p.Equipo, &suspendida)
+		if suspendida {
+			return ErrSuspendida
+		}
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
@@ -108,6 +116,10 @@ func (s *Resolvedor) Resolver(ctx context.Context, token string) (Persona, error
 func (s *Resolvedor) Exigir(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, err := s.Resolver(r.Context(), Token(r))
+		if errors.Is(err, ErrSuspendida) {
+			problema.Escribir(w, problema.SinPermiso("Tu cuenta está suspendida. Escribinos a soporte@caigo.com.ar."))
+			return
+		}
 		if err != nil {
 			if !errors.Is(err, ErrSinToken) && !errors.Is(err, clerk.ErrToken) {
 				s.log().Warn("sesion: no se pudo resolver", "error", err)

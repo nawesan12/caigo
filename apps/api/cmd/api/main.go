@@ -35,7 +35,7 @@ func correr() error {
 	}
 	exigir := []string{"BaseApp"}
 	if !cfg.Desarrollo() {
-		exigir = append(exigir, "ClerkSecreto", "ClerkPublicable")
+		exigir = append(exigir, "ClerkSecreto", "ClerkPublicable", "Secreto")
 	}
 	if err := cfg.Exigir(exigir...); err != nil {
 		return err
@@ -51,7 +51,8 @@ func correr() error {
 
 	hub := &chat.Hub{Servicio: &chat.Servicio{App: app}}
 	go hub.Escuchar(ctx)
-	deps := servidor.Dependencias{App: app, Version: version, Hub: hub, Origenes: cfg.Hosts()}
+	deps := servidor.Dependencias{App: app, Version: version, Hub: hub, Origenes: cfg.Hosts(),
+		Secreto: cfg.Secreto, Sitio: cfg.Sitio, APIPublica: cfg.APIPublica, Archivos: cfg.Archivos}
 	if cfg.ClerkSecreto != "" {
 		c, err := clerk.Nuevo(cfg.ClerkSecreto, cfg.ClerkPublicable, cfg.ClerkOrigenes)
 		if err != nil {
