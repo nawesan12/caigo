@@ -116,7 +116,10 @@ func TestCheckinRepetimosYEnVivo(t *testing.T) {
 	e.pedir(lu, "POST", "/v1/planes/"+planID+"/checkin", map[string]any{"metodo": "geo", "lat": lat + 0.02, "lng": lng}, http.StatusConflict, nil)
 	// Con el QR del organizador sí.
 	var qr struct{ Codigo string }
-	e.pedir(lu, "GET", "/v1/planes/"+planID+"/qr", nil, http.StatusNotFound, nil)
+	// Lu recibe su QR personal (para la puerta de un lugar): no sirve como el del organizador.
+	var propio struct{ Codigo string }
+	e.pedir(lu, "GET", "/v1/planes/"+planID+"/qr", nil, http.StatusOK, &propio)
+	e.pedir(lu, "POST", "/v1/planes/"+planID+"/checkin", map[string]any{"metodo": "qr", "codigo": propio.Codigo}, http.StatusConflict, nil)
 	e.pedir(nico, "GET", "/v1/planes/"+planID+"/qr", nil, http.StatusOK, &qr)
 	e.pedir(lu, "POST", "/v1/planes/"+planID+"/checkin", map[string]any{"metodo": "qr", "codigo": qr.Codigo + "x"}, http.StatusConflict, nil)
 	e.pedir(lu, "POST", "/v1/planes/"+planID+"/checkin", map[string]any{"metodo": "qr", "codigo": qr.Codigo}, http.StatusNoContent, nil)

@@ -1,6 +1,7 @@
 package planes
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -94,6 +95,33 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
+	mux.Handle("PATCH /v1/planes/{id}", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
+		var cuerpo json.RawMessage
+		if !respuesta.Leer(w, r, &cuerpo) {
+			return
+		}
+		plan, err := s.Editar(r.Context(), p.ID, r.PathValue("id"), cuerpo)
+		if err != nil {
+			mal(w, err)
+			return
+		}
+		respuesta.JSON(w, http.StatusOK, plan)
+	}))
+	mux.Handle("DELETE /v1/planes/{id}/personas/{usuarioId}", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
+		if err := s.SacarPersona(r.Context(), p.ID, r.PathValue("id"), r.PathValue("usuarioId")); err != nil {
+			mal(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	mux.HandleFunc("GET /v1/publico/zonas", func(w http.ResponseWriter, r *http.Request) {
+		zs, err := s.Zonas(r.Context(), r.URL.Query().Get("ciudad"))
+		if err != nil {
+			mal(w, err)
+			return
+		}
+		respuesta.JSON(w, http.StatusOK, map[string]any{"zonas": zs})
+	})
 	mux.Handle("POST /v1/planes/{id}/sumarme", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
 		var e struct {
 			Cantidad int16  `json:"cantidad"`
@@ -267,6 +295,11 @@ func filtro(r *http.Request) (Filtro, error) {
 		return f, problema.Invalido("Esa categoría no existe.")
 	}
 	f.Ciudad = q.Get("ciudad")
+	f.Q = q.Get("q")
+	if len([]rune(f.Q)) > 60 {
+		return f, problema.Invalido("La búsqueda es muy larga.")
+	}
+	f.Zona = q.Get("zona")
 	f.SoloVerificados = q.Get("verificados") == "1"
 	if v := q.Get("faltan"); v != "" {
 		f.FaltanMin, _ = strconv.Atoi(v)

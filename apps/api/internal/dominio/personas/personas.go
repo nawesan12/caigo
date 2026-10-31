@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
+	"regexp"
 	"strings"
 	"time"
 
@@ -53,6 +55,27 @@ type Perfil struct {
 	// Sólo en el propio.
 	Equipo   bool   `json:"equipo,omitempty"`
 	Telefono string `json:"telefono,omitempty"`
+	// Autodeclarados y privados (sólo en el propio): "" | mujer | varon | no_binario.
+	Genero     *string `json:"genero,omitempty"`
+	Diversidad *bool   `json:"diversidad,omitempty"`
+	Avisos     *Avisos `json:"avisos,omitempty"`
+	// Próximos planes de la persona que quien mira puede ver (perfil ajeno).
+	Proximos []Proximo `json:"proximos,omitempty"`
+}
+
+// Avisos que la persona puede apagar.
+type Avisos struct {
+	PlanesCerca bool `json:"planesCerca"`
+	TuGente     bool `json:"tuGente"`
+}
+
+// Proximo es un plan que viene (mismo formato que en el mazo de Gente).
+type Proximo struct {
+	ID        string    `json:"id"`
+	Titulo    string    `json:"titulo"`
+	Categoria string    `json:"categoria"`
+	EmpiezaEn time.Time `json:"empiezaEn"`
+	Foto      string    `json:"foto"`
 }
 
 const columnas = `
@@ -88,7 +111,10 @@ func (s *Servicio) Yo(ctx context.Context, usuarioID string) (Perfil, error) {
 			return err
 		}
 		p.EnMiGente, p.Compartidos = false, 0
-		err = tx.QueryRow(ctx, `SELECT coalesce(telefono, '') FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&p.Telefono)
+		genero, diversidad, av := "", false, Avisos{PlanesCerca: true, TuGente: true}
+		err = tx.QueryRow(ctx, `SELECT coalesce(telefono, ''), genero, diversidad, avisos_cerca, avisos_gente
+			FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&p.Telefono, &genero, &diversidad, &av.PlanesCerca, &av.TuGente)
+		p.Genero, p.Diversidad, p.Avisos = &genero, &diversidad, &av
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -110,6 +136,27 @@ func (s *Servicio) Ver(ctx context.Context, usuarioID, otroID string) (Perfil, e
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("Esa persona no existe.")
 		}
+		if err != nil {
+			return err
+		}
+		// Sus próximos planes (organiza o va) que quien mira puede ver.
+		rows, err := tx.Query(ctx, `
+			SELECT p.id, p.titulo, p.categoria, p.empieza_en, p.foto FROM planes p
+			JOIN solicitudes s ON s.plan_id = p.id AND s.usuario_id = $1 AND s.estado = 'aceptada'
+			WHERE p.cancelado_en IS NULL AND p.empieza_en > now()
+				AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $2 AND b.bloqueado_id = p.organizador_id)
+					OR (b.usuario_id = p.organizador_id AND b.bloqueado_id = $2))
+				AND (p.visibilidad = 'publico' OR p.organizador_id = $2
+					OR EXISTS (SELECT 1 FROM solicitudes m WHERE m.plan_id = p.id AND m.usuario_id = $2 AND m.estado IN ('pendiente', 'aceptada'))
+					OR (p.visibilidad = 'mi_gente' AND EXISTS (SELECT 1 FROM mi_gente g WHERE g.usuario_id = p.organizador_id AND g.otro_id = $2)))
+			ORDER BY p.empieza_en LIMIT 5`, p.ID, usuarioID)
+		if err != nil {
+			return err
+		}
+		p.Proximos, err = pgx.CollectRows(rows, pgx.RowToStructByPos[Proximo])
+		if p.Proximos == nil {
+			p.Proximos = []Proximo{}
+		}
 		return err
 	})
 	p.Equipo = false
@@ -130,6 +177,16 @@ type Cambios struct {
 	Fotos       *[]string `json:"fotos"`
 	// Contacto de confianza para compartir el plan en vivo.
 	ContactoConfianza *string `json:"contactoConfianza"`
+	// Género autodeclarado ("" | mujer | varon | no_binario) y "me identifico como parte de la
+	// diversidad". Privados: sólo cuentan para los planes "Solo mujeres" / "Solo diversidades".
+	Genero     *string `json:"genero"`
+	Diversidad *bool   `json:"diversidad"`
+	Avisos     *struct {
+		PlanesCerca *bool `json:"planesCerca"`
+		TuGente     *bool `json:"tuGente"`
+	} `json:"avisos"`
+	// De dónde llegó (p:<slug>, utm:instagram). Se guarda sólo la primera vez.
+	Origen *string `json:"origen"`
 }
 
 // Actualizar aplica los cambios al perfil propio.
@@ -189,6 +246,19 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 	if c.Fotos != nil && len(*c.Fotos) > 6 {
 		mal("fotos", "Hasta 6 fotos.")
 	}
+	if c.Genero != nil && *c.Genero != "" && *c.Genero != "mujer" && *c.Genero != "varon" && *c.Genero != "no_binario" {
+		mal("genero", "El género es mujer, varon o no_binario.")
+	}
+	if c.Origen != nil {
+		*c.Origen = strings.TrimSpace(*c.Origen)
+		if len(*c.Origen) > 80 || !reOrigen.MatchString(*c.Origen) {
+			mal("origen", "Origen inválido.")
+		}
+	}
+	var cerca, gente *bool
+	if c.Avisos != nil {
+		cerca, gente = c.Avisos.PlanesCerca, c.Avisos.TuGente
+	}
 	if len(campos) > 0 {
 		return Perfil{}, problema.Invalido("Revisá tu perfil.", campos...)
 	}
@@ -202,20 +272,23 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 				zona = coalesce($4, zona), ciudad = coalesce($5, ciudad), bio = coalesce($6, bio),
 				trabajo = coalesce($7, trabajo), intereses = coalesce($8, intereses),
 				intenciones = coalesce($9, intenciones), prompts = coalesce($10, prompts),
-				fotos = coalesce($11, fotos), actualizado_en = now()
+				fotos = coalesce($11, fotos), actualizado_en = now(),
+				origen = CASE WHEN origen = '' THEN coalesce($12, '') ELSE origen END
 			WHERE id = $1`, usuarioID, c.Nombre, edad, c.Zona, c.Ciudad, c.Bio, c.Trabajo,
-			c.Intereses, c.Intenciones, prompts, c.Fotos); err != nil {
+			c.Intereses, c.Intenciones, prompts, c.Fotos, c.Origen); err != nil {
 			return err
 		}
-		if nacimiento == nil && c.ContactoConfianza == nil {
+		if nacimiento == nil && c.ContactoConfianza == nil && c.Genero == nil && c.Diversidad == nil && cerca == nil && gente == nil {
 			return nil
 		}
 		_, err := tx.Exec(ctx, `
-			INSERT INTO usuarios_privado (usuario_id, nacimiento, contacto_confianza)
-			VALUES ($1, $2, coalesce($3, ''))
+			INSERT INTO usuarios_privado (usuario_id, nacimiento, contacto_confianza, genero, diversidad, avisos_cerca, avisos_gente)
+			VALUES ($1, $2, coalesce($3, ''), coalesce($4, ''), coalesce($5, false), coalesce($6, true), coalesce($7, true))
 			ON CONFLICT (usuario_id) DO UPDATE SET nacimiento = coalesce($2, usuarios_privado.nacimiento),
-				contacto_confianza = coalesce($3, usuarios_privado.contacto_confianza)`,
-			usuarioID, nacimiento, c.ContactoConfianza)
+				contacto_confianza = coalesce($3, usuarios_privado.contacto_confianza),
+				genero = coalesce($4, usuarios_privado.genero), diversidad = coalesce($5, usuarios_privado.diversidad),
+				avisos_cerca = coalesce($6, usuarios_privado.avisos_cerca), avisos_gente = coalesce($7, usuarios_privado.avisos_gente)`,
+			usuarioID, nacimiento, c.ContactoConfianza, c.Genero, c.Diversidad, cerca, gente)
 		return err
 	})
 	if err != nil {
@@ -317,6 +390,58 @@ func (s *Servicio) Reportar(ctx context.Context, usuarioID string, r Reporte) er
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `INSERT INTO reportes (usuario_id, sobre_usuario_id, sobre_plan_id, motivo, detalle)
 			VALUES ($1, $2, $3, $4, $5)`, usuarioID, nulo(r.UsuarioID), nulo(r.PlanID), r.Motivo, strings.TrimSpace(r.Detalle))
+		return err
+	})
+}
+
+var reOrigen = regexp.MustCompile(`^[A-Za-z0-9:_./-]*$`)
+
+// Bloqueado es alguien que bloqueé.
+type Bloqueado struct {
+	ID     string `json:"id"`
+	Nombre string `json:"nombre"`
+	Foto   string `json:"foto"`
+}
+
+// Bloqueos lista a quienes bloqueé (el último primero).
+func (s *Servicio) Bloqueos(ctx context.Context, usuarioID string) ([]Bloqueado, error) {
+	out := []Bloqueado{}
+	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT u.id, u.nombre, coalesce(u.fotos[1], '') FROM bloqueos b
+			JOIN usuarios u ON u.id = b.bloqueado_id WHERE b.usuario_id = $1 ORDER BY b.creado_en DESC`, usuarioID)
+		if err != nil {
+			return err
+		}
+		out, err = pgx.CollectRows(rows, pgx.RowToStructByPos[Bloqueado])
+		if out == nil {
+			out = []Bloqueado{}
+		}
+		return err
+	})
+	return out, err
+}
+
+// Desbloquear saca un bloqueo propio (no devuelve a nadie a mi gente).
+func (s *Servicio) Desbloquear(ctx context.Context, usuarioID, otroID string) error {
+	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `DELETE FROM bloqueos WHERE usuario_id = $1 AND bloqueado_id::text = $2`, usuarioID, otroID)
+		return err
+	})
+}
+
+// Redondeo de la ubicación: 0,01° (~1 km). Es todo lo que se guarda.
+func redondear(x float64) float64 { return math.Round(x*100) / 100 }
+
+// GuardarUbicacion guarda la ubicación aproximada de la persona (la app la manda al abrir). El
+// worker la borra a las 24 h; sólo sirve para el aviso de planes cerca.
+func (s *Servicio) GuardarUbicacion(ctx context.Context, usuarioID string, lat, lng *float64) error {
+	if lat == nil || lng == nil || *lat < -90 || *lat > 90 || *lng < -180 || *lng > 180 || (*lat == 0 && *lng == 0) {
+		return problema.Invalido("Ubicación inválida.")
+	}
+	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO ubicaciones (usuario_id, lat, lng, actualizada_en) VALUES ($1, $2, $3, now())
+			ON CONFLICT (usuario_id) DO UPDATE SET lat = excluded.lat, lng = excluded.lng, actualizada_en = now()`,
+			usuarioID, redondear(*lat), redondear(*lng))
 		return err
 	})
 }

@@ -71,6 +71,32 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 		}
 		return sinCuerpo(w)
 	}))
+	mux.Handle("GET /v1/bloqueos", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		bs, err := s.Bloqueos(r.Context(), p.ID)
+		if err == nil {
+			respuesta.JSON(w, http.StatusOK, map[string]any{"bloqueos": bs})
+		}
+		return err
+	}))
+	mux.Handle("DELETE /v1/bloqueos/{id}", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		if err := s.Desbloquear(r.Context(), p.ID, r.PathValue("id")); err != nil {
+			return err
+		}
+		return sinCuerpo(w)
+	}))
+	mux.Handle("PUT /v1/yo/ubicacion", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		var in struct {
+			Lat *float64 `json:"lat"`
+			Lng *float64 `json:"lng"`
+		}
+		if !respuesta.Leer(w, r, &in) {
+			return nil
+		}
+		if err := s.GuardarUbicacion(r.Context(), p.ID, in.Lat, in.Lng); err != nil {
+			return err
+		}
+		return sinCuerpo(w)
+	}))
 	mux.Handle("POST /v1/reportes", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		var rep Reporte
 		if !respuesta.Leer(w, r, &rep) {

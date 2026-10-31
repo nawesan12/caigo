@@ -356,9 +356,11 @@ func (s *Servicio) Crear(ctx context.Context, usuarioID string, e Entrada) (Plan
 		if texto == "" {
 			texto = conDefecto(strings.TrimSpace(e.LugarNombre), e.Zona+", "+e.Ciudad)
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO planes_direccion (plan_id, direccion, lat, lng) VALUES ($1, $2, $3, $4)`,
-			id, texto, e.Lat, e.Lng)
-		return err
+		if _, err := tx.Exec(ctx, `INSERT INTO planes_direccion (plan_id, direccion, lat, lng) VALUES ($1, $2, $3, $4)`,
+			id, texto, e.Lat, e.Lng); err != nil {
+			return err
+		}
+		return Publicado(ctx, tx, id)
 	})
 	if err != nil {
 		return Plan{}, err
@@ -536,7 +538,9 @@ type Filtro struct {
 	Desde, Hasta time.Time
 	Categoria    string
 	Ciudad       string
-	Limite       int
+	// Texto libre (título, zona o lugar; 2 letras o más) y zona exacta.
+	Q, Zona string
+	Limite  int
 	// Filtros finos (Caigo Plus): sólo verificados, que falten al menos N, edad de quien
 	// organiza y sólo gratis.
 	SoloVerificados bool
@@ -617,6 +621,14 @@ func (s *Servicio) listar(ctx context.Context, usuarioID string, f Filtro) ([]Pl
 	}
 	if f.Ciudad != "" {
 		where = append(where, "lower(p.ciudad) = lower("+arg(f.Ciudad)+")")
+	}
+	if f.Zona != "" {
+		where = append(where, sinTildes("p.zona")+" = "+sinTildes(arg(f.Zona)))
+	}
+	if q := strings.TrimSpace(f.Q); len([]rune(q)) >= 2 {
+		patron := arg("%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(q) + "%")
+		where = append(where, "("+sinTildes("p.titulo")+" LIKE "+sinTildes(patron)+" OR "+sinTildes("p.zona")+" LIKE "+sinTildes(patron)+
+			" OR "+sinTildes("p.lugar_nombre")+" LIKE "+sinTildes(patron)+" OR "+sinTildes("coalesce(l.nombre, '')")+" LIKE "+sinTildes(patron)+")")
 	}
 	if f.SoloVerificados {
 		where = append(where, "p.solo_verificados")
@@ -736,21 +748,6 @@ func (s *Servicio) Mios(ctx context.Context, usuarioID, cual string) ([]Plan, er
 	return ps, err
 }
 
-// Cancelar baja el plan (sólo el organizador).
-func (s *Servicio) Cancelar(ctx context.Context, usuarioID, planID string) error {
-	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `UPDATE planes SET cancelado_en = now()
-			WHERE id = $1 AND organizador_id = $2 AND cancelado_en IS NULL`, planID, usuarioID)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() == 0 {
-			return problema.NoEncontrado("Ese plan no es tuyo o ya está cancelado.")
-		}
-		return nil
-	})
-}
-
 // Destacar: con Plus, un plan propio por semana va primero en Ahora y Explorar hasta que pasa.
 func (s *Servicio) Destacar(ctx context.Context, usuarioID, planID string) (Plan, error) {
 	if !esUUID(planID) {
@@ -790,6 +787,11 @@ func (s *Servicio) Destacar(ctx context.Context, usuarioID, planID string) (Plan
 		return Plan{}, err
 	}
 	return s.Ver(ctx, usuarioID, planID, nil)
+}
+
+// sinTildes compara sin mayúsculas ni tildes ("guemes" encuentra "Güemes").
+func sinTildes(expr string) string {
+	return "translate(lower(" + expr + "), 'áéíóúüñ', 'aeiouun')"
 }
 
 var reUUID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)

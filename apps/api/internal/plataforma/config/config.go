@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -40,6 +41,8 @@ type Config struct {
 	APIPublica, Panel string
 	// Carpeta de archivos subidos (fotos de perfil y de planes, DNI). En el VPS: /opt/caigo/archivos.
 	Archivos string
+	// Versión mínima de las apps: versionCode de Android y build de iOS (0: cualquiera).
+	MinAndroid, MinIos int
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -78,6 +81,13 @@ func Leer() (Config, error) {
 		WalletClave:        os.Getenv("CAIGO_WALLET_CLAVE"),
 		GoogleWalletEmisor: os.Getenv("CAIGO_GOOGLE_WALLET_EMISOR"),
 		APIPublica:         valor("CAIGO_API_PUBLICA", "https://api.caigo.com.ar"),
+	}
+	var err error
+	if c.MinAndroid, err = entero("CAIGO_MIN_ANDROID"); err != nil {
+		return c, err
+	}
+	if c.MinIos, err = entero("CAIGO_MIN_IOS"); err != nil {
+		return c, err
 	}
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":
@@ -136,6 +146,18 @@ func lista(v string) []string {
 		}
 	}
 	return out
+}
+
+func entero(k string) (int, error) {
+	v := strings.TrimSpace(os.Getenv(k))
+	if v == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return 0, fmt.Errorf("%s=%q: tiene que ser un entero", k, v)
+	}
+	return n, nil
 }
 
 func valor(k, def string) string { return conDefecto(os.Getenv(k), def) }
