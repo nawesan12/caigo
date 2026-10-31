@@ -1,0 +1,375 @@
+/*
+ * Piezas del handoff (docs/handoff/README.md): tokens, sombras "gel / 3D soft" y los componentes
+ * que se repiten en Mockups v5, el Prototipo y el Panel Lugares. Tipografía Geist en todo (el
+ * panel del handoff todavía usaba Bricolage + Plus Jakarta: mismas medidas y pesos).
+ */
+@import '@fontsource/geist/latin-400.css';
+@import '@fontsource/geist/latin-500.css';
+@import '@fontsource/geist/latin-600.css';
+@import '@fontsource/geist/latin-700.css';
+@import '@fontsource/geist/latin-800.css';
+
+:root {
+	--coral: #ff7868;
+	--violeta: #7456f1;
+	--violeta-texto: #5b43c9;
+	--lima: #c8f36b;
+	--blanco-calido: #faf9f6;
+	--grafito: #201d2b;
+	--carbon: #24212d;
+	--lavanda: #f0ecff;
+	--texto-2: #5c586b;
+	--texto-3: #6b6780;
+	--apagado: #a8a3bd;
+	--fondo-panel: #f3f0e9;
+	--input: #f5f2fc;
+
+	--grad-lima: linear-gradient(180deg, #f0ffc2 0%, #d6fa80 32%, #c8f36b 62%, #abdb4b 100%);
+	--grad-violeta: linear-gradient(180deg, #b3a3ff 0%, #8a70ff 30%, #7456f1 62%, #5f41e0 100%);
+	--grad-coral: linear-gradient(180deg, #ffb2a6 0%, #ff7868 55%, #f05e4c 100%);
+	--grad-off: linear-gradient(180deg, #f8f6ff, #ede8ff);
+	--grad-oscuro: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
+
+	--sh-lima:
+		inset 0 3px 2px rgba(255, 255, 255, 0.85), inset 0 -5px 0 rgba(96, 140, 10, 0.32),
+		0 4px 0 #94c43a, 0 16px 26px -10px rgba(120, 170, 30, 0.7);
+	--sh-violeta:
+		inset 0 3px 2px rgba(255, 255, 255, 0.45), inset 0 -5px 0 rgba(40, 20, 140, 0.35),
+		0 5px 0 #4a2fc2, 0 18px 28px -10px rgba(116, 86, 241, 0.75);
+	--sh-coral:
+		inset 0 2px 1px rgba(255, 255, 255, 0.6), inset 0 -3px 0 rgba(160, 40, 30, 0.25),
+		0 3px 0 #d04a3a;
+	--sh-sel:
+		inset 0 2px 1px rgba(255, 255, 255, 0.45), inset 0 -3px 0 rgba(40, 20, 140, 0.35),
+		0 3px 0 #4a2fc2;
+	--sh-off: inset 0 1.5px 0 #ffffff, 0 2px 0 #dcd5ee;
+	--sh-icono: inset 0 1.5px 0 #ffffff, inset 0 -2px 0 rgba(116, 86, 241, 0.1);
+	--sh-tarjeta-plan:
+		inset 0 1px 0 #ffffff, 0 2px 0 #e8e3f4, 0 16px 30px -10px rgba(80, 60, 160, 0.22);
+	--sh-tarjeta: inset 0 1px 0 #ffffff, 0 3px 0 #e6e0f3, 0 18px 30px -22px rgba(80, 60, 160, 0.35);
+	--sh-tarjeta-plana: inset 0 1px 0 #ffffff, 0 3px 0 #e6e0f3;
+	--sh-input: inset 0 2px 4px rgba(116, 86, 241, 0.14);
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+}
+
+body {
+	margin: 0;
+	font-family: 'Geist', system-ui, sans-serif;
+	color: var(--carbon);
+	background: var(--blanco-calido);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+/* Sin renglones viudos: títulos balanceados y texto corrido "pretty". */
+h1,
+h2,
+h3,
+h4,
+.titulo {
+	text-wrap: balance;
+	margin: 0;
+}
+p,
+li,
+.texto {
+	text-wrap: pretty;
+}
+p {
+	margin: 0;
+}
+
+a {
+	color: var(--violeta-texto);
+}
+a:hover {
+	color: #4a2fc2;
+}
+
+button,
+input,
+textarea,
+select {
+	font: inherit;
+	color: inherit;
+}
+button {
+	cursor: pointer;
+	border: 0;
+	background: none;
+	padding: 0;
+}
+input:focus,
+textarea:focus,
+select:focus {
+	outline: none;
+}
+:focus-visible {
+	outline: 3px solid #b3a3ff;
+	outline-offset: 2px;
+}
+
+img {
+	max-width: 100%;
+}
+
+.nw {
+	white-space: nowrap;
+}
+
+.sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}
+
+/* ——— Botones gel ——— */
+.gel {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	font-weight: 800;
+	text-decoration: none;
+	cursor: pointer;
+	border: 0;
+	transition: transform 0.08s ease;
+	-webkit-tap-highlight-color: transparent;
+}
+.gel:active {
+	transform: translateY(3px);
+}
+.gel:disabled,
+.gel[aria-disabled='true'] {
+	cursor: default;
+	opacity: 0.55;
+	transform: none;
+}
+.gel-lima {
+	color: var(--carbon);
+	background: var(--grad-lima);
+	box-shadow: var(--sh-lima);
+}
+.gel-lima:hover {
+	color: var(--carbon);
+}
+.gel-violeta {
+	color: #ffffff;
+	background: var(--grad-violeta);
+	box-shadow: var(--sh-violeta);
+}
+.gel-violeta:hover {
+	color: #ffffff;
+}
+/* El blanco "Atrás" del panel. */
+.gel-blanco {
+	color: var(--carbon);
+	background: linear-gradient(180deg, #ffffff, #f3f0fa);
+	box-shadow:
+		inset 0 2px 0 #ffffff,
+		0 4px 0 #dcd5ee;
+}
+.gel-blanco:hover {
+	color: var(--carbon);
+}
+
+/* ——— Badges ——— */
+.badge-coral {
+	display: inline-block;
+	color: var(--carbon);
+	background: var(--grad-coral);
+	box-shadow: var(--sh-coral);
+	font-weight: 700;
+	line-height: 1;
+	white-space: nowrap;
+}
+.badge-completo {
+	display: inline-block;
+	color: var(--carbon);
+	background: linear-gradient(180deg, #f0ffc2, #c8f36b);
+	box-shadow: 0 3px 0 #94c43a;
+	font-weight: 700;
+	line-height: 1;
+	white-space: nowrap;
+}
+
+/* ——— Chips ——— */
+.chip {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 11px 16px;
+	border-radius: 15px;
+	font-size: 14px;
+	font-weight: 700;
+	cursor: pointer;
+	color: var(--carbon);
+	background: var(--grad-off);
+	box-shadow: var(--sh-off);
+	border: 0;
+	white-space: nowrap;
+	-webkit-tap-highlight-color: transparent;
+}
+.chip[aria-pressed='true'],
+.chip.sel {
+	color: #ffffff;
+	background: var(--grad-violeta);
+	box-shadow: var(--sh-sel);
+}
+
+/* ——— Segmented ——— */
+.seg {
+	display: inline-flex;
+	padding: 4px;
+	border-radius: 16px;
+	background: linear-gradient(180deg, #e8e2fa, #f3f0ff);
+	box-shadow: inset 0 2px 4px rgba(116, 86, 241, 0.18);
+}
+.seg > * {
+	padding: 10px 18px;
+	border-radius: 12px;
+	font-size: 14px;
+	font-weight: 800;
+	color: var(--texto-2);
+	text-decoration: none;
+	cursor: pointer;
+	white-space: nowrap;
+}
+.seg > [aria-current='page'],
+.seg > [aria-pressed='true'] {
+	background: #ffffff;
+	color: var(--carbon);
+	box-shadow: 0 3px 8px -2px rgba(80, 60, 160, 0.3);
+}
+
+/* ——— Tarjetas ——— */
+.tarjeta {
+	background: #ffffff;
+	border-radius: 24px;
+	box-shadow: var(--sh-tarjeta);
+}
+.tarjeta-plana {
+	background: #ffffff;
+	border-radius: 22px;
+	box-shadow: var(--sh-tarjeta-plana);
+}
+.tarjeta-oscura {
+	background: var(--grad-oscuro);
+	color: var(--blanco-calido);
+}
+
+/* ——— Campos del panel ——— */
+.campo {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+.campo > span:first-child,
+.rotulo {
+	font-size: 14px;
+	font-weight: 800;
+}
+.input {
+	min-width: 0;
+	width: 100%;
+	height: 52px;
+	padding: 0 18px;
+	border-radius: 18px;
+	border: 0;
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--carbon);
+	background: var(--input);
+	box-shadow: var(--sh-input);
+}
+textarea.input {
+	height: auto;
+	min-height: 96px;
+	padding: 14px 18px;
+	resize: vertical;
+	font-weight: 500;
+	line-height: 1.5;
+}
+.input::placeholder {
+	color: #a8a3bd;
+}
+
+/* ——— Toggle ——— */
+.toggle {
+	flex: none;
+	position: relative;
+	width: 50px;
+	height: 30px;
+	border-radius: 15px;
+	background: #ddd8ea;
+	transition: background 0.15s;
+}
+.toggle::after {
+	content: '';
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: #ffffff;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+	transition: left 0.15s;
+}
+.toggle.on {
+	background: #7456f1;
+}
+.toggle.on::after {
+	left: 23px;
+}
+
+/* ——— Overline ——— */
+.overline {
+	font-size: 12px;
+	font-weight: 800;
+	letter-spacing: 1.5px;
+	color: var(--texto-2);
+}
+
+/* ——— Animaciones del handoff ——— */
+@keyframes tk-up {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes tk-pop {
+	0% {
+		opacity: 0;
+		transform: scale(0.8);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}
