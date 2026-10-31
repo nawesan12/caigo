@@ -71,6 +71,9 @@ struct CaigoRaiz: View {
         case .adentro: VistaAdentro()
         case .editarPerfil: EditarPerfil()
         case .gente: MiGente()
+        case let .editarPlan(id): Pendiente(titulo: "Editar plan \(id)")
+        case .bloqueos: Pendiente(titulo: "Bloqueos")
+        case .ajustesAvisos: Pendiente(titulo: "Avisos")
         }
     }
 

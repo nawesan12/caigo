@@ -48,6 +48,12 @@ enum Ruta: Hashable {
     case adentro
     case editarPerfil
     case gente
+    /// El organizador edita su plan (PATCH /v1/planes/{id}).
+    case editarPlan(String)
+    /// Gente que bloqueé (GET/DELETE /v1/bloqueos).
+    case bloqueos
+    /// Ajustes de avisos push (planes cerca, tu gente).
+    case ajustesAvisos
 }
 
 /// Las acciones de navegación que usan las pantallas. Ninguna pantalla toca la pila: así cada una se
@@ -125,4 +131,7 @@ final class Ir {
     }
     func editarPerfil() { ir(.editarPerfil) }
     func gente() { ir(.gente) }
+    func editarPlan(_ id: String) { ir(.editarPlan(id)) }
+    func bloqueos() { ir(.bloqueos) }
+    func ajustesAvisos() { ir(.ajustesAvisos) }
 }
