@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import ar.com.caigo.app.BuildConfig
 import ar.com.caigo.app.LocalApp
 import ar.com.caigo.app.datos.Plan
+import ar.com.caigo.app.ui.pantallas.planes.ChipDestacado
 import ar.com.caigo.app.logica.Cupo
 import ar.com.caigo.app.ui.Ir
 import ar.com.caigo.app.ui.Pestana
@@ -168,6 +169,8 @@ private fun TarjetaMio(pl: Plan, cual: String, ir: Ir) {
                         "historial" -> T("¿Repetimos?", 12f, 700, if (p.oscuro) C.lima else C.violetaTexto, Modifier.tocable { ir.repetimos(pl.id) })
                         else -> {
                             BadgeMio(pl, urgente = hoy)
+                            // Destacado con Plus: sólo la estrella del chip; la palabra no entra junto a «Compartir link».
+                            if (pl.destacado) ChipDestacado(soloEstrella = true)
                             if (!Cupo.completo(pl.faltan) && !hoy) {
                                 T(
                                     "Compartir link", 12f, 700, if (p.oscuro) C.lima else C.violetaTexto,

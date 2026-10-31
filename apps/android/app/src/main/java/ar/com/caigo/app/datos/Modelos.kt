@@ -77,6 +77,8 @@ data class Plan(
     val cancelacion: String = "",
     val beneficio: String = "",
     val aceptaGrupos: Boolean = true,
+    /** Destacado con Caigo Plus: va primero en Ahora y Explorar. */
+    val destacado: Boolean = false,
 )
 
 @Serializable
@@ -232,6 +234,11 @@ data class EstadoPlus(
     val sumadasHoy: Int = 0,
     val limite: Int = 3,
     val reiniciaEn: String = "",
+    /** «Me encanta» de hoy en Citas y cuántos hay por día (1 sin Plus, 5 con Plus). */
+    val encantasHoy: Int = 0,
+    val limiteEncantas: Int = 1,
+    /** Desde cuándo puede destacar otro plan (null: ya puede, si tiene Plus). */
+    val destacarDesde: String? = null,
 )
 
 @Serializable
@@ -434,3 +441,25 @@ data class Problema(
 
 @Serializable
 data class Campo(val path: String = "", val message: String = "")
+
+/**
+ * Filtros finos de Ahora/Explorar (Caigo Plus): sólo verificados, que falten al menos N, edad de
+ * quien organiza (18–99) y sólo gratis. Sin Plus la API responde 403 `plus`: no se mandan.
+ */
+data class FiltrosFinos(
+    val verificados: Boolean = false,
+    val faltan: Int? = null,
+    val edadDesde: Int? = null,
+    val edadHasta: Int? = null,
+    val gratis: Boolean = false,
+) {
+    val alguno: Boolean get() = verificados || (faltan ?: 0) > 0 || edadDesde != null || edadHasta != null || gratis
+
+    fun query(): Array<Pair<String, Any?>> = arrayOf(
+        "verificados" to (if (verificados) "1" else null),
+        "faltan" to faltan?.takeIf { it > 0 },
+        "edadDesde" to edadDesde?.coerceIn(18, 99),
+        "edadHasta" to edadHasta?.coerceIn(18, 99),
+        "gratis" to (if (gratis) "1" else null),
+    )
+}

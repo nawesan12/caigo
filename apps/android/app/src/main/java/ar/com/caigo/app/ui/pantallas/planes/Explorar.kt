@@ -37,12 +37,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import ar.com.caigo.app.LocalApp
+import ar.com.caigo.app.datos.FiltrosFinos
 import ar.com.caigo.app.datos.Plan
 import ar.com.caigo.app.logica.Cupo
 import ar.com.caigo.app.ui.Ir
 import ar.com.caigo.app.ui.altoTabBar
 import ar.com.caigo.app.ui.piezas.BadgeFalta
 import ar.com.caigo.app.ui.piezas.Chip
+import ar.com.caigo.app.ui.piezas.ChipPlus
 import ar.com.caigo.app.ui.piezas.Fecha
 import ar.com.caigo.app.ui.piezas.Foto
 import ar.com.caigo.app.ui.piezas.Interruptor
@@ -92,14 +94,22 @@ fun Explorar(ir: Ir) {
     var dia by rememberSaveable { mutableIntStateOf(0) }
     var busqueda by rememberSaveable { mutableStateOf("") }
     var verificados by rememberSaveable { mutableStateOf(false) }
+    var faltan by rememberSaveable { mutableStateOf<Int?>(null) }
+    var edad by rememberSaveable { mutableIntStateOf(0) }
+    var gratis by rememberSaveable { mutableStateOf(false) }
     var ciudad by rememberSaveable { mutableStateOf<String?>(null) }
     var filtros by rememberSaveable { mutableStateOf(false) }
     var todos by rememberSaveable { mutableStateOf(false) }
     val hoy = LocalDate.now(ZonaAR)
-    val semana = rememberCarga(categoria, verificados, ciudad) {
+    // Los filtros finos son de Caigo Plus: sin Plus no se mandan (la API respondería 403 `plus`).
+    val plus = rememberCarga { runCatching { c.api.plus().estado }.getOrNull() }
+    val conPlus = plus.dato?.activo == true
+    val (edadDesde, edadHasta) = rangosEdad[edad].second
+    val finos = if (conPlus) FiltrosFinos(verificados, faltan, edadDesde, edadHasta, gratis) else FiltrosFinos()
+    val semana = rememberCarga(categoria, ciudad, finos) {
         val desde = ZonedDateTime.now(ZonaAR)
         val hasta = hoy.plusDays(6).atStartOfDay(ZonaAR).plusDays(1)
-        c.api.explorar(desde = Fecha.iso(desde), hasta = Fecha.iso(hasta), categoria = categoria, ciudad = ciudad, verificados = verificados).planes
+        c.api.explorar(desde = Fecha.iso(desde), hasta = Fecha.iso(hasta), categoria = categoria, ciudad = ciudad, finos = finos).planes
     }
     val planes = semana.dato.orEmpty().filter { busqueda.isBlank() || it.titulo.contains(busqueda.trim(), true) || it.lugarNombre.contains(busqueda.trim(), true) }
     val delDia = planes.filter { Fecha.parse(it.empiezaEn)?.toLocalDate() == hoy.plusDays(dia.toLong()) }
@@ -128,7 +138,10 @@ fun Explorar(ir: Ir) {
                         Icono(I.filtros, 20.dp, C.blanco, 2.4f)
                     }
                 }
-                if (filtros) Filtros(verificados, { verificados = it }, ciudad, { ciudad = it })
+                if (filtros) Filtros(
+                    conPlus, { ir.plus("perfil") }, ciudad, { ciudad = it },
+                    verificados, { verificados = it }, faltan, { faltan = it }, edad, { edad = it }, gratis, { gratis = it },
+                )
             }
         }
         item {
@@ -195,19 +208,68 @@ fun Explorar(ir: Ir) {
     }
 }
 
+/** Edad de quien organiza (filtro fino): etiqueta y rango para la API. */
+private val rangosEdad = listOf(
+    "Todas" to (null to null),
+    "18–30" to (18 to 30),
+    "31–45" to (31 to 45),
+    "46+" to (46 to null),
+)
+
+/**
+ * Panel de filtros: ciudad para todos; los finos (verificados, que falten al menos N, edad de quien
+ * organiza y sólo gratis) con el chip «Plus» del prototipo. Sin Plus, tocarlos abre el paywall.
+ */
 @Composable
-private fun Filtros(verificados: Boolean, onVerificados: (Boolean) -> Unit, ciudad: String?, onCiudad: (String?) -> Unit) {
-    Column(Modifier.fillMaxWidth().gel(22.dp, Gels.neutra)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            T("Solo verificados", 14f, 700, C.carbon, modifier = Modifier.weight(1f))
-            Interruptor(verificados, onVerificados)
+private fun Filtros(
+    conPlus: Boolean, alPaywall: () -> Unit, ciudad: String?, onCiudad: (String?) -> Unit,
+    verificados: Boolean, onVerificados: (Boolean) -> Unit,
+    faltan: Int?, onFaltan: (Int?) -> Unit,
+    edad: Int, onEdad: (Int) -> Unit,
+    gratis: Boolean, onGratis: (Boolean) -> Unit,
+) {
+    @Composable
+    fun Separador() = Box(Modifier.fillMaxWidth().height(1.dp).background(C.lavanda))
+
+    /** Título de una fila fina, con el chip «Plus» si no lo tenés. */
+    @Composable
+    fun Titulo(texto: String, modifier: Modifier = Modifier) = Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        T(texto, 14f, 700, C.carbon, unRenglon = true)
+        if (!conPlus) ChipPlus()
+    }
+
+    @Composable
+    fun FilaInterruptor(texto: String, on: Boolean, onCambio: (Boolean) -> Unit) =
+        Row(Modifier.fillMaxWidth().tocable { if (conPlus) onCambio(!on) else alPaywall() }.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Titulo(texto, Modifier.weight(1f))
+            Interruptor(on && conPlus, { if (conPlus) onCambio(it) else alPaywall() })
         }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(C.lavanda))
+
+    @Composable
+    fun FilaChips(texto: String, opciones: List<String>, elegida: Int, onElegir: (Int) -> Unit) =
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Titulo(texto)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                opciones.forEachIndexed { i, l ->
+                    Chip(l, i == elegida, { if (conPlus) onElegir(i) else alPaywall() }, tam = 13f, padH = 12.dp, padV = 8.dp, radio = 13.dp)
+                }
+            }
+        }
+
+    Column(Modifier.fillMaxWidth().gel(22.dp, Gels.neutra)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(null to "Todas", "Mar del Plata" to "Mar del Plata", "Villa Gesell" to "Villa Gesell").forEach { (k, l) ->
                 Chip(l, ciudad == k, { onCiudad(k) }, tam = 13f, padH = 12.dp, padV = 8.dp, radio = 13.dp)
             }
         }
+        Separador()
+        FilaInterruptor("Solo verificados", verificados, onVerificados)
+        Separador()
+        FilaChips("Que falten al menos", listOf("Cualquiera", "1", "2", "3"), faltan ?: 0) { onFaltan(it.takeIf { n -> n > 0 }) }
+        Separador()
+        FilaChips("Edad de quien organiza", rangosEdad.map { it.first }, edad, onEdad)
+        Separador()
+        FilaInterruptor("Solo gratis", gratis, onGratis)
     }
 }
 
@@ -223,8 +285,11 @@ private fun TarjetaRecurrente(p: Plan, ir: Ir) {
         Foto(p.foto.ifBlank { p.lugar?.foto }, Modifier.fillMaxSize(), colorDeCategoria(p.categoria))
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to rgba(32, 29, 43, .88f), .75f to rgba(32, 29, 43, .2f))))
         Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Box(Modifier.gel(11.dp, vertical(rgba(255, 255, 255, .18f), rgba(255, 255, 255, .18f))).padding(horizontal = 10.dp, vertical = 6.dp)) {
-                T(if (t != null) "Todos los ${dias[t.dayOfWeek.value - 1]} · ${Fecha.hora(t)}" else "Todas las semanas", 12f, 800, C.blanco, unRenglon = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.gel(11.dp, vertical(rgba(255, 255, 255, .18f), rgba(255, 255, 255, .18f))).padding(horizontal = 10.dp, vertical = 6.dp)) {
+                    T(if (t != null) "Todos los ${dias[t.dayOfWeek.value - 1]} · ${Fecha.hora(t)}" else "Todas las semanas", 12f, 800, C.blanco, unRenglon = true)
+                }
+                if (p.destacado) ChipDestacado()
             }
             Row(verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -248,7 +313,11 @@ private fun FilaAgenda(p: Plan, ir: Ir) {
     ) {
         Foto(p.foto.ifBlank { p.lugar?.foto }, Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)), colorDeCategoria(p.categoria))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            T("${Fecha.hora(p.empiezaEn)} · ${nombreCategoria(p.categoria).uppercase()}", 12f, 800, if (pal.oscuro) C.lima else C.violeta, unRenglon = true)
+            // Destacado (Plus): la estrella del chip «Destacado» delante del renglón violeta; la palabra no entra.
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                if (p.destacado) Icono(I.estrella, 12.dp, Color.Transparent, 0f, relleno = if (pal.oscuro) C.lima else C.violeta)
+                T("${Fecha.hora(p.empiezaEn)} · ${nombreCategoria(p.categoria).uppercase()}", 12f, 800, if (pal.oscuro) C.lima else C.violeta, unRenglon = true)
+            }
             T(p.titulo, 15f, 700, pal.texto, alto = 1.25f, maxRenglones = 2)
             T(lugarYDistancia(p) + if (p.soloVerificados) " · Verificados" else "", 12f, 400, pal.texto2, unRenglon = true)
         }

@@ -78,6 +78,12 @@ class Contenedor(val ctx: Context) {
         salirLocal()
     }
 
+    /** Borra la cuenta en la API y, si salió bien, la sesión local (como al salir). */
+    suspend fun borrarCuenta() {
+        api.borrarCuenta()
+        salirLocal()
+    }
+
     private suspend fun salirLocal() {
         tiempoReal.apagar()
         sesion.borrar()

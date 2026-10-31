@@ -133,3 +133,52 @@ class MazoTest {
         assertEquals(0, r(e, Mazo.Accion.Foto(-5, 3)).foto)
     }
 }
+
+class EncantasTest {
+    @Test fun quedan() {
+        assertEquals(1, Encantas.quedan(0, 1))
+        assertEquals(0, Encantas.quedan(1, 1))
+        assertEquals(3, Encantas.quedan(2, 5))
+        assertEquals(0, Encantas.quedan(7, 5))
+    }
+
+    @Test fun aviso() {
+        assertEquals("Ya usaste tu me encanta de hoy. Con Plus tenés 5 por día.", Encantas.aviso(false, 1))
+        assertEquals("Ya usaste los 5 me encanta de hoy.", Encantas.aviso(true, 5))
+    }
+}
+
+class FiltrosFinosTest {
+    @Test fun sinFinosNoMandaNada() {
+        val f = ar.com.caigo.app.datos.FiltrosFinos()
+        assertTrue(!f.alguno)
+        assertTrue(f.query().all { it.second == null })
+    }
+
+    @Test fun finos() {
+        val f = ar.com.caigo.app.datos.FiltrosFinos(verificados = true, faltan = 2, edadDesde = 26, edadHasta = 35, gratis = true)
+        assertTrue(f.alguno)
+        assertEquals(
+            listOf("verificados" to "1", "faltan" to 2, "edadDesde" to 26, "edadHasta" to 35, "gratis" to "1"),
+            f.query().toList(),
+        )
+    }
+}
+
+class SenaTest {
+    @Test fun pagarTodoEnUnPlanConSena() {
+        // En un plan con seña, «Pagar todo» cobra la entrada completa: $8.000 + $600.
+        val d = Plata.desglose(800000, "entrada", 30, 1)
+        assertEquals(860000, d.total)
+        assertEquals(0, d.saldo)
+    }
+
+    @Test fun senaRedondeadaACien() {
+        // 25 % de $4.500 = $1.125 → $1.100; cargo 7,5 % de $4.500 = $337,50 → $300.
+        val d = Plata.desglose(450000, "sena", 25, 2)
+        assertEquals(220000, d.alLugar)
+        assertEquals(60000, d.cargo)
+        assertEquals(280000, d.total)
+        assertEquals(680000, d.saldo)
+    }
+}

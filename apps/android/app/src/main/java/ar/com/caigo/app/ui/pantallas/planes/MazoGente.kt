@@ -61,6 +61,7 @@ import ar.com.caigo.app.datos.ErrorApi
 import ar.com.caigo.app.datos.Plan
 import ar.com.caigo.app.datos.Tarjeta
 import ar.com.caigo.app.datos.mensajeDe
+import ar.com.caigo.app.logica.Encantas
 import ar.com.caigo.app.logica.Mazo
 import ar.com.caigo.app.ui.Ir
 import ar.com.caigo.app.ui.altoTabBar
@@ -135,6 +136,12 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
             if (lado > 0) {
                 val e = plus.dato
                 if (e != null && !e.activo && e.sumadasHoy >= e.limite) { volver(dx, dy); ir.plus("limit"); return@launch }
+                if (accion == "encanta" && e != null && Encantas.quedan(e.encantasHoy, e.limiteEncantas) == 0) {
+                    volver(dx, dy)
+                    avisos.error(Encantas.aviso(e.activo, e.limiteEncantas))
+                    if (!e.activo) ir.plus("perfil")
+                    return@launch
+                }
             }
             // La carta vuela ya; la API responde mientras tanto.
             estado = Mazo.reducir(estado, Mazo.Accion.Vuela(lado))
@@ -159,7 +166,15 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
             }.onFailure { e ->
                 estado = estado.copy(vuela = 0)
                 volver(dx, dy)
-                if (e is ErrorApi && e.codigo == "limite") ir.plus("limit") else avisos.error(mensajeDe(e))
+                when {
+                    e is ErrorApi && e.codigo == "limite" -> ir.plus("limit")
+                    e is ErrorApi && e.codigo == "limite_encanta" -> {
+                        avisos.error(e.detalle)
+                        plus.dato = plus.dato?.let { it.copy(encantasHoy = it.limiteEncantas) }
+                        if (plus.dato?.activo != true) ir.plus("perfil")
+                    }
+                    else -> avisos.error(mensajeDe(e))
+                }
             }
         }
     }
@@ -189,8 +204,18 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
                     .gel(13.dp, Gels.neutra).padding(horizontal = 11.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                val sumadas = ((e?.limite ?: 3) - (e?.sumadasHoy ?: 0)).coerceAtLeast(0)
                 Icono(I.mas, 13.dp, C.violetaTexto, 3.4f)
-                T(if (e?.activo == true) "Plus · sin límite" else "${((e?.limite ?: 3) - (e?.sumadasHoy ?: 0)).coerceAtLeast(0)} sumadas hoy", 12f, 800, C.violetaTexto, unRenglon = true)
+                if (esCitas) {
+                    // En Citas la misma pill suma los «me encanta» que quedan hoy (1 sin Plus, 5 con
+                    // Plus), con la estrella del botón; con las palabras no entra junto a «les interesás».
+                    T(if (e?.activo == true) "Plus" else "$sumadas", 12f, 800, C.violetaTexto, unRenglon = true)
+                    T("·", 12f, 800, C.violetaTexto)
+                    Icono(I.estrella, 13.dp, Color.Transparent, 0f, relleno = C.violetaTexto)
+                    T("${Encantas.quedan(e?.encantasHoy ?: 0, e?.limiteEncantas ?: 1)}", 12f, 800, C.violetaTexto, unRenglon = true)
+                } else {
+                    T(if (e?.activo == true) "Plus · sin límite" else "$sumadas sumadas hoy", 12f, 800, C.violetaTexto, unRenglon = true)
+                }
             }
         }
 

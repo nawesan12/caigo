@@ -179,6 +179,14 @@ val GelVidrio = Gel(
     listOf(ar.com.caigo.app.ui.tema.interna(1.5f, 0f, C.blanco), ar.com.caigo.app.ui.tema.interna(-2f, 0f, rgba(116, 86, 241, .1f))),
 )
 
+/** Chip lima «Plus» del prototipo (lo que es de Caigo Plus, cuando no lo tenés): 800 11px, 6×10, radio 11. */
+@Composable
+fun ChipPlus(texto: String = "Plus", modifier: Modifier = Modifier) {
+    Box(modifier.gel(11.dp, Brush.verticalGradient(listOf(C.lima, C.lima))).padding(horizontal = 10.dp, vertical = 6.dp)) {
+        T(texto, 11f, 800, C.carbon, unRenglon = true)
+    }
+}
+
 /** Chip de selección (SEL violeta / OFF lavanda), `600 14px`, padding 9×14, radio 14. */
 @Composable
 fun Chip(
