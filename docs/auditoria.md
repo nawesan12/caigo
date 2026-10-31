@@ -49,3 +49,57 @@ Citar archivo:línea. Prototipo = handlers del <script> de "Caigo Prototipo.dc.h
 - Pase de socio: visitas para el beneficio, beneficio, preview Wallet, toggle
 - Cobros: MP conectado, tabla PLAN/ENTRADAS/COBRADO/ESTADO (¿datos reales o "Datos de ejemplo."?)
 - Registro de lugar nuevo y estado pendiente de aprobación; varios lugares/miembros
+
+## Hallazgos por área (resumen del auditor)
+
+**Ingreso / verificación**
+- 01b «Voy solo / Somos 2 / Somos 4» decorativo (iOS Intro.swift:142, Android Intro.kt:216).
+- Web /app sin onboarding 01a–01c ni intereses al alta (Prototipo `onb`/`obNext`).
+- «Herramientas para salir tranqui» (en vivo, contacto de confianza, bloqueos) sin acción: iOS Verificacion.swift:97-139 (y fila DNI :83-89), Android Verificacion.kt:121-151. Falta GET/DELETE bloqueos (contrato §4).
+- /p no manda a verificarse ante `falta_selfie` (web p/[slug]/+page.server.ts:29-58).
+
+**Ahora / mapa**
+- Header de ubicación sin geocodificación inversa; iOS usa coordenadas fijas de MdP sin permiso (iOS Ahora.swift:45,79; Android Ahora.kt:120; web app/+page.svelte:12).
+- Vacío 13a dice siempre «Domingo a la siesta…» (iOS Ahora.swift:218, Android Ahora.kt:242).
+- Buscador del mapa filtra local: usar `q` (contrato §5).
+- Modo oscuro: falta en web /app; mapa iOS/Android con buscador/chips claros (MapaAhora.swift:68-100, Mapa.kt:157).
+- Chips del mapa web sin «Cita doble» y «Salida» (app/mapa/+page.svelte:12). Android Ahora no manda filtros finos (Ahora.kt:99).
+
+**Explorar**
+- Tiles con fotos de pexels enlazadas (iOS Explorar.swift:4-12, Android Explorar.kt:74-83) y sólo 5 de 8 categorías.
+- Filtro por zona (contrato §5). Web sólo «Solo verificados»: faltan fecha/zona/cupo (app/explorar/+page.svelte:116).
+- iOS Explorar no manda lat/lng (Explorar.swift:114); Android nunca manda `radio`.
+
+**Detalle**
+- Género no validado (contrato §1). Android beneficio `desbloqueado=false` fijo (Detalle.kt:208).
+- Web /app: no se puede salir de un plan aceptado (app/plan/[id]/+page.svelte:232), ni reportar, ni cancelar como organizador.
+
+**Crear plan**
+- Falta foto, descripción y duración en las tres apps (iOS Crear.swift:130-148, Android Crear.kt:205, web app/crear).
+- Android «Cambiar» lugar sin buscador (Crear.kt:525-563) y ciudad deducida de la latitud (Crear.kt:180). iOS zona por defecto «Güemes» (Crear.swift:133,188).
+
+**Mis planes / solicitudes**
+- Editar plan (contrato §2) en API, apps y panel. Cancelar sin aviso ni reembolso. Sacar aceptados. Android no confirma al cancelar (Detalle.kt:348).
+- Web: historial sin ¿Repetimos?/¿Volverías?/Reportar; Mis planes sin cancelar/editar.
+
+**Chat**
+- Sin menú reportar/bloquear/salir (iOS Chat.swift:153, Android Chat.kt:131). «Escribiendo» en privados (contrato §10). Android no pagina historial (`antes`, Chat.kt:93). Web: sondeo sin escribiendo; tarjeta fijada sin «check-in desde HH:MM».
+
+**Gente / Citas / Perfil**
+- Próximos planes en el perfil de una persona (contrato §5; iOS Persona.swift:161, Android). Android sin «Sacar de Mi gente».
+- «Planes compartidos» falta en Android (Perfil.kt:218-280) y web. Web editar perfil sin fotos, bio, prompts (app/perfil/+page.svelte:72). Sin ajustes de avisos (contrato §3) ni selector de tema.
+
+**Plus**
+- Límites fijos: usar `limite`/`limiteEncantas` (Android Plus.kt:347, web plus/+page.svelte:44). Web /plus: precios por semana y «−22 %» fijos (:28-39), sin contador ni cuenta regresiva, «Ya sos Plus» sin vencimiento ni cancelar, botones que van a «/» en vez de /app.
+
+**Pases / Tap / Panel de lugares**
+- «Probar» placa sólo abre /t; sin QR imprimible (panel/tap/+page.svelte:156). «Pedir placas» es mailto (:182).
+- Panel: editar/cancelar planes, check-in de planes gratis (contrato §6), editar datos y foto del lugar, estados de cobros, «Copiar link» muerto (nuevo/+page.svelte:133), «Ver la app como usuario» va a la landing.
+
+**Backoffice**: usuarios, planes, lugares, métricas y semilla (contrato §7).
+
+**Push**: avisos nuevos (contrato §3). Android no pide POST_NOTIFICATIONS (13+) ni borra el dispositivo al salir.
+
+**Landing**: planes reales en «¿Quién se prende?» (+page.svelte:14-52), lista de espera y origen (contrato §8), «Abrir en la app» con esquema propio en /p y /t (usar universal link o tienda).
+
+**Varios**: clientes no usan `/v1/version`; iOS `aps-environment: development` fijo (project.yml:39) → production en Release.
