@@ -95,10 +95,7 @@
 		clearTimeout(espera);
 		const t = busqueda.trim();
 		if (t.length === 1 || t === data.q) return;
-		espera = setTimeout(
-			() => goto(url({ q: t }), { keepFocus: true, noScroll: true, replaceState: true }),
-			300
-		);
+		espera = setTimeout(() => goto(url({ q: t }), { reset: false, replace: true }), 300);
 	}
 	const repite = (p: Plan) => {
 		const x = partes(p.empiezaEn);
@@ -178,7 +175,7 @@
 								aria-label="Elegir día"
 								onchange={(e) =>
 									goto(url({ fecha: (e.currentTarget as HTMLInputElement).value, dia: '' }), {
-										noScroll: true
+										reset: false
 									})}
 							/>
 						</label>

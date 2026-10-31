@@ -36,9 +36,8 @@
 		espera = setTimeout(
 			() =>
 				goto(`/app/mapa${q(data.categoria, t)}`, {
-					keepFocus: true,
-					noScroll: true,
-					replaceState: true
+					reset: false,
+					replace: true
 				}),
 			300
 		);
