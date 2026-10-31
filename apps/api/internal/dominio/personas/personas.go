@@ -56,9 +56,11 @@ type Perfil struct {
 	Equipo   bool   `json:"equipo,omitempty"`
 	Telefono string `json:"telefono,omitempty"`
 	// Autodeclarados y privados (sólo en el propio): "" | mujer | varon | no_binario.
-	Genero     *string `json:"genero,omitempty"`
-	Diversidad *bool   `json:"diversidad,omitempty"`
-	Avisos     *Avisos `json:"avisos,omitempty"`
+	Genero *string `json:"genero,omitempty"`
+	// Contacto de confianza (sólo en /v1/yo).
+	ContactoConfianza *string `json:"contactoConfianza,omitempty"`
+	Diversidad        *bool   `json:"diversidad,omitempty"`
+	Avisos            *Avisos `json:"avisos,omitempty"`
 	// Próximos planes de la persona que quien mira puede ver (perfil ajeno).
 	Proximos []Proximo `json:"proximos,omitempty"`
 }
@@ -111,10 +113,10 @@ func (s *Servicio) Yo(ctx context.Context, usuarioID string) (Perfil, error) {
 			return err
 		}
 		p.EnMiGente, p.Compartidos = false, 0
-		genero, diversidad, av := "", false, Avisos{PlanesCerca: true, TuGente: true}
-		err = tx.QueryRow(ctx, `SELECT coalesce(telefono, ''), genero, diversidad, avisos_cerca, avisos_gente
-			FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&p.Telefono, &genero, &diversidad, &av.PlanesCerca, &av.TuGente)
-		p.Genero, p.Diversidad, p.Avisos = &genero, &diversidad, &av
+		genero, diversidad, contacto, av := "", false, "", Avisos{PlanesCerca: true, TuGente: true}
+		err = tx.QueryRow(ctx, `SELECT coalesce(telefono, ''), genero, diversidad, avisos_cerca, avisos_gente, contacto_confianza
+			FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&p.Telefono, &genero, &diversidad, &av.PlanesCerca, &av.TuGente, &contacto)
+		p.Genero, p.Diversidad, p.Avisos, p.ContactoConfianza = &genero, &diversidad, &av, &contacto
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}

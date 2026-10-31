@@ -296,3 +296,14 @@ func TestBotonDeArrepentimiento(t *testing.T) {
 	e.pedir(equipo, "POST", "/v1/equipo/arrepentimientos/"+id, map[string]string{"nota": "Reembolsado en MP"}, http.StatusNoContent, nil)
 	e.pedir(equipo, "POST", "/v1/equipo/arrepentimientos/"+id, map[string]string{"nota": "otra vez"}, http.StatusNotFound, nil)
 }
+
+func TestContactoDeConfianzaEnYo(t *testing.T) {
+	e := nuevoEntorno(t)
+	p := e.persona("Contacto")
+	e.pedir(p, "PATCH", "/v1/yo", map[string]any{"contactoConfianza": "+54 9 223 555 0000"}, http.StatusOK, nil)
+	var yo struct{ ContactoConfianza string }
+	e.pedir(p, "GET", "/v1/yo", nil, http.StatusOK, &yo)
+	if yo.ContactoConfianza != "+54 9 223 555 0000" {
+		t.Fatalf("contacto: %q", yo.ContactoConfianza)
+	}
+}
