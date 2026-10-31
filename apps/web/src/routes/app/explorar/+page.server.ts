@@ -1,4 +1,4 @@
-import { conSesion } from '#lib/server/api.ts';
+import { quizasConSesion } from '#lib/server/api.ts';
 import { conUbicacion } from '#lib/server/app.ts';
 import { CATEGORIAS } from '#lib/plan.ts';
 import type { Plan } from '#lib/tipos.ts';
@@ -10,10 +10,11 @@ export const load: PageServerLoad = async (event) => {
 	const c = sp.get('categoria') ?? '';
 	const categoria = c in CATEGORIAS ? c : '';
 	const verificados = sp.get('verificados') === '1';
-	const { planes } = await conSesion<{ planes: Plan[] }>(
+	const q = conUbicacion(event, { categoria, verificados: verificados ? '1' : '' });
+	const { planes } = await quizasConSesion<{ planes: Plan[] }>(
 		event,
-		'GET',
-		`/v1/planes/explorar?${conUbicacion(event, { categoria, verificados: verificados ? '1' : '' })}`
+		`/v1/planes/explorar?${q}`,
+		`/v1/publico/planes/explorar?${q}`
 	);
 	return { planes, categoria, verificados, dia: sp.get('dia') ?? '' };
 };

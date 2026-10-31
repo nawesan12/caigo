@@ -1,4 +1,4 @@
-import { conSesion } from '#lib/server/api.ts';
+import { quizasConSesion } from '#lib/server/api.ts';
 import { conUbicacion } from '#lib/server/app.ts';
 import { FILTROS_AHORA } from '#lib/app.ts';
 import type { Plan } from '#lib/tipos.ts';
@@ -8,10 +8,11 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async (event) => {
 	const c = event.url.searchParams.get('categoria') ?? '';
 	const categoria = FILTROS_AHORA.some((f) => f.valor === c) ? c : '';
-	const { planes } = await conSesion<{ planes: Plan[] }>(
+	const q = conUbicacion(event, { categoria });
+	const { planes } = await quizasConSesion<{ planes: Plan[] }>(
 		event,
-		'GET',
-		`/v1/planes/ahora?${conUbicacion(event, { categoria })}`
+		`/v1/planes/ahora?${q}`,
+		`/v1/publico/planes/ahora?${q}`
 	);
 	return { planes, categoria };
 };

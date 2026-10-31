@@ -118,6 +118,20 @@ export function exigirToken(event: RequestEvent): string {
 	return t;
 }
 
+/**
+ * Para mirar sin cuenta: con sesión llama a `ruta`; sin sesión, a `publica` (la versión de
+ * /v1/publico/..., que sólo muestra planes públicos). Lo que convierte es dejar ver antes de pedir
+ * ingresar.
+ */
+export async function quizasConSesion<T = unknown>(
+	event: RequestEvent,
+	ruta: string,
+	publica: string
+): Promise<T> {
+	if (event.locals.token) return conSesion<T>(event, 'GET', ruta);
+	return api<T>('GET', publica, { ip: ipDe(event) });
+}
+
 /** Como `api`, con la sesión de la cookie. Si la sesión venció (401), borra la cookie y manda a ingresar. */
 export async function conSesion<T = unknown>(
 	event: RequestEvent,

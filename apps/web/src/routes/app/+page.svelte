@@ -10,7 +10,7 @@
 	let { data } = $props();
 
 	const lugar = $derived(
-		[data.yo.zona, data.yo.ciudad].filter(Boolean).join(', ') || 'Mar del Plata'
+		[data.yo?.zona, data.yo?.ciudad].filter(Boolean).join(', ') || 'Mar del Plata'
 	);
 	const q = (c: string) => (c ? `?categoria=${c}` : '');
 

@@ -1,5 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
+import { conSesion, ErrorApi, mensajeDe, quizasConSesion } from '#lib/server/api.ts';
 import { conUbicacion } from '#lib/server/app.ts';
 import { uuid } from '#lib/server/panel.ts';
 import type { Plan } from '#lib/tipos.ts';
@@ -8,7 +8,11 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async (event) => {
 	const id = uuid(event.params.id);
 	try {
-		const plan = await conSesion<Plan>(event, 'GET', `/v1/planes/${id}?${conUbicacion(event)}`);
+		const plan = await quizasConSesion<Plan>(
+			event,
+			`/v1/planes/${id}?${conUbicacion(event)}`,
+			`/v1/publico/planes/${id}`
+		);
 		const pago = event.url.searchParams.get('pago');
 		return {
 			plan,

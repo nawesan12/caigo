@@ -4,11 +4,25 @@ import { COOKIE_UBIC, leerUbicacion } from '#lib/app.ts';
 import type { Verificacion, Yo } from '#lib/tipos.ts';
 import type { LayoutServerLoad } from './$types';
 
+/** Lo que se puede mirar sin cuenta: Ahora (lista y mapa), Explorar y el detalle de un plan. */
+const SIN_CUENTA = new Set(['/app', '/app/mapa', '/app/explorar', '/app/plan/[id]']);
+
 /**
- * Caigo desde la web. Pide sesión (Google o Apple) y, una sola vez, la verificación: teléfono y
- * selfie. Sin eso la API no deja sumarse a planes.
+ * Caigo desde la web. Sin cuenta se pueden mirar los planes; para sumarse, crear o chatear pide
+ * sesión (Google o Apple) y, una sola vez, la verificación: teléfono y selfie.
  */
 export const load: LayoutServerLoad = async (event) => {
+	if (!event.locals.token && SIN_CUENTA.has(event.route.id ?? '')) {
+		event.setHeaders({ 'cache-control': 'private, no-store' });
+		// Sólo las pantallas de SIN_CUENTA llegan acá sin sesión, y no usan `yo` ni `verif` (lo
+		// tratan como opcional). Las demás siempre tienen sesión: el tipo queda sin null para ellas.
+		return {
+			yo: null as unknown as Yo,
+			verif: null as unknown as Verificacion,
+			anonimo: true,
+			ubic: leerUbicacion(event.cookies.get(COOKIE_UBIC))
+		};
+	}
 	const [yo, verif] = await Promise.all([
 		conSesion<Yo>(event, 'GET', '/v1/yo'),
 		conSesion<Verificacion>(event, 'GET', '/v1/verificacion')
@@ -19,5 +33,5 @@ export const load: LayoutServerLoad = async (event) => {
 		redirect(303, `/app/verificar?volver=${encodeURIComponent(volver)}`);
 	}
 	event.setHeaders({ 'cache-control': 'private, no-store' });
-	return { yo, verif, ubic: leerUbicacion(event.cookies.get(COOKIE_UBIC)) };
+	return { yo, verif, anonimo: false, ubic: leerUbicacion(event.cookies.get(COOKIE_UBIC)) };
 };
