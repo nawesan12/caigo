@@ -267,7 +267,7 @@ func (s *Servicio) Recurrencia(ctx context.Context) (int, error) {
 				AND p.empieza_en <= $1::timestamptz - interval '1 day' AND p.empieza_en > $1::timestamptz - interval '60 days'
 				AND NOT EXISTS (SELECT 1 FROM planes q WHERE coalesce(q.serie_id, q.id) = coalesce(p.serie_id, p.id)
 					AND q.empieza_en > p.empieza_en)
-			LIMIT 200`, ahora)
+			ORDER BY p.empieza_en LIMIT 1000`, ahora)
 		if err != nil {
 			return err
 		}
@@ -277,17 +277,19 @@ func (s *Servicio) Recurrencia(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	// Una serie que falla no frena a las demás.
 	creados := 0
+	var errs []error
 	for _, id := range ids {
 		ok, err := s.repetir(ctx, id, ahora)
 		if err != nil {
-			return creados, err
+			errs = append(errs, fmt.Errorf("plan %s: %w", id, err))
 		}
 		if ok {
 			creados++
 		}
 	}
-	return creados, nil
+	return creados, errors.Join(errs...)
 }
 
 func (s *Servicio) repetir(ctx context.Context, planID string, ahora time.Time) (bool, error) {
@@ -317,11 +319,12 @@ func (s *Servicio) repetir(ctx context.Context, planID string, ahora time.Time) 
 			serie, empieza).Scan(&otro); err != nil || otro {
 			return err
 		}
-		proximo := empieza.AddDate(0, 0, 7)
+		const semana = 7 * 24 * time.Hour
+		proximo := empieza.Add(semana)
 		for !proximo.After(ahora) {
-			proximo = proximo.AddDate(0, 0, 7)
+			proximo = proximo.Add(semana)
 		}
-		if proximo.After(ahora.AddDate(0, 0, 6)) {
+		if proximo.After(ahora.Add(6 * 24 * time.Hour)) {
 			return nil
 		}
 		var nuevo string

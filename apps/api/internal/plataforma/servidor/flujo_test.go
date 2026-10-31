@@ -90,6 +90,15 @@ func (e *entorno) persona(nombre string) persona {
 	var yo struct{ ID string }
 	e.pedir(p, "GET", "/v1/yo", nil, http.StatusOK, &yo)
 	p.id = yo.ID
+	// Al terminar, sus planes se cancelan: la base de desarrollo es compartida y los que quedan
+	// llenan el Ahora (tope de 60) de las corridas siguientes.
+	e.t.Cleanup(func() {
+		_ = e.app.EnSistema(context.Background(), func(tx pgx.Tx) error {
+			_, err := tx.Exec(context.Background(), `UPDATE planes SET cancelado_en = now()
+				WHERE organizador_id = $1 AND cancelado_en IS NULL AND empieza_en > now() - interval '1 day'`, p.id)
+			return err
+		})
+	})
 	return p
 }
 

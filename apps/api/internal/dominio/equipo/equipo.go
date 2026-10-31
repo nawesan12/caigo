@@ -124,7 +124,7 @@ func (s *Servicio) Planes(ctx context.Context, q, cual string) ([]Plan, error) {
 	switch cual {
 	case "", "proximos":
 	case "reportados":
-		cond = "EXISTS (SELECT 1 FROM reportes r WHERE r.sobre_plan_id = p.id AND r.estado = 'abierto') ORDER BY p.empieza_en DESC"
+		cond = "$3::timestamptz IS NOT NULL AND EXISTS (SELECT 1 FROM reportes r WHERE r.sobre_plan_id = p.id AND r.estado = 'abierto') ORDER BY p.empieza_en DESC"
 	default:
 		return nil, problema.Invalido("cual es proximos o reportados.")
 	}
