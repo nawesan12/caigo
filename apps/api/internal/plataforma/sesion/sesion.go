@@ -1,14 +1,21 @@
-// Package sesion resuelve quién hace cada pedido: verifica el token de Clerk (header Authorization
-// en las apps, cookie __session en la web) y lo traduce a la persona de Caigo. La primera vez que
-// alguien entra se le crea su fila en usuarios con el nombre que tenga en Clerk.
+// Package sesion resuelve quién hace cada pedido. Clerk es el proveedor de identidad: su token de
+// sesión se canjea una vez (POST /v1/sesion) por un token propio de Caigo (cs_…, 60 días, se
+// renueva con el uso), que es el que mandan la web y las apps en Authorization. También se acepta
+// el JWT de Clerk directo. La primera vez que alguien entra se le crea su fila en usuarios con el
+// nombre que tenga en Clerk.
 package sesion
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -66,10 +73,76 @@ func Token(r *http.Request) string {
 	return ""
 }
 
+// Vida de una sesión propia (se renueva con el uso).
+const vidaSesion = 60 * 24 * time.Hour
+
+func hashToken(t string) []byte {
+	h := sha256.Sum256([]byte(t))
+	return h[:]
+}
+
+// Crear canjea un token de Clerk por una sesión de Caigo. Devuelve el token (cs_…).
+func (s *Resolvedor) Crear(ctx context.Context, tokenClerk, cliente string) (string, Persona, error) {
+	if cliente != "web" && cliente != "ios" && cliente != "android" {
+		cliente = "web"
+	}
+	if strings.HasPrefix(tokenClerk, prefijo) {
+		return "", Persona{}, clerk.ErrToken
+	}
+	p, err := s.Resolver(ctx, tokenClerk)
+	if err != nil {
+		return "", Persona{}, err
+	}
+	b := make([]byte, 32)
+	_, _ = rand.Read(b)
+	tok := prefijo + base64.RawURLEncoding.EncodeToString(b)
+	err = s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO sesiones (token_hash, usuario_id, cliente, vence_en) VALUES ($1, $2, $3, now() + $4::interval)`,
+			hashToken(tok), p.ID, cliente, vidaSesion.String())
+		return err
+	})
+	return tok, p, err
+}
+
+// Cerrar borra la sesión del token.
+func (s *Resolvedor) Cerrar(ctx context.Context, token string) error {
+	return s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `DELETE FROM sesiones WHERE token_hash = $1`, hashToken(token))
+		return err
+	})
+}
+
+const prefijo = "cs_"
+
+// propia resuelve un token de sesión de Caigo.
+func (s *Resolvedor) propia(ctx context.Context, token string) (Persona, error) {
+	var p Persona
+	var suspendida bool
+	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx, `
+			UPDATE sesiones x SET usada_en = now(),
+				vence_en = CASE WHEN x.usada_en < now() - interval '1 day' THEN now() + $2::interval ELSE x.vence_en END
+			FROM usuarios u WHERE x.token_hash = $1 AND x.vence_en > now() AND u.id = x.usuario_id AND u.baja_en IS NULL
+			RETURNING u.id, u.clerk_id, u.nombre, u.equipo, u.suspendido_en IS NOT NULL`, hashToken(token), vidaSesion.String()).
+			Scan(&p.ID, &p.Clerk, &p.Nombre, &p.Equipo, &suspendida)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return clerk.ErrToken
+		}
+		return err
+	})
+	if err == nil && suspendida {
+		return Persona{}, ErrSuspendida
+	}
+	return p, err
+}
+
 // Resolver verifica el token y devuelve la persona, creándola si es la primera vez.
 func (s *Resolvedor) Resolver(ctx context.Context, token string) (Persona, error) {
 	if token == "" {
 		return Persona{}, ErrSinToken
+	}
+	if strings.HasPrefix(token, prefijo) {
+		return s.propia(ctx, token)
 	}
 	if s.Clerk == nil {
 		return Persona{}, clerk.ErrToken
@@ -130,6 +203,33 @@ func (s *Resolvedor) Exigir(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(Con(r.Context(), p)))
+	})
+}
+
+// Rutas de la sesión: POST /v1/sesion canjea el token de Clerk (Authorization) por uno de Caigo;
+// DELETE /v1/sesion la cierra.
+func (s *Resolvedor) Rutas(mux *http.ServeMux) {
+	mux.HandleFunc("POST /v1/sesion", func(w http.ResponseWriter, r *http.Request) {
+		tok, p, err := s.Crear(r.Context(), Token(r), r.URL.Query().Get("cliente"))
+		switch {
+		case errors.Is(err, ErrSuspendida):
+			problema.Escribir(w, problema.SinPermiso("Tu cuenta está suspendida. Escribinos a soporte@caigo.com.ar."))
+		case errors.Is(err, ErrSinToken) || errors.Is(err, clerk.ErrToken):
+			problema.Escribir(w, problema.SinSesion())
+		case err != nil:
+			s.log().Warn("sesion: no se pudo crear", "error", err)
+			problema.Escribir(w, problema.Interno())
+		default:
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Cache-Control", "no-store")
+			_ = json.NewEncoder(w).Encode(map[string]any{"token": tok, "usuarioId": p.ID, "equipo": p.Equipo})
+		}
+	})
+	mux.HandleFunc("DELETE /v1/sesion", func(w http.ResponseWriter, r *http.Request) {
+		if t := Token(r); strings.HasPrefix(t, prefijo) {
+			_ = s.Cerrar(r.Context(), t)
+		}
+		w.WriteHeader(http.StatusNoContent)
 	})
 }
 

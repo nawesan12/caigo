@@ -86,6 +86,7 @@ func Nuevo(d Dependencias) http.Handler {
 	})
 	if d.App != nil {
 		ses := &sesion.Resolvedor{Clerk: d.Clerk, App: d.App, Log: d.Log}
+		ses.Rutas(mux)
 		planes.Rutas(mux, &planes.Servicio{App: d.App, Reloj: d.Reloj, Firma: firma.Firmador{Clave: []byte(d.Secreto)}, Sitio: d.Sitio}, ses.Exigir, d.Log)
 		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos}, SMS: sms.Simulado{Log: d.Log},
 			APIPublica: d.APIPublica, Reloj: d.Reloj}, ses, d.Log)

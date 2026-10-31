@@ -33,5 +33,5 @@ Hecho (etapas 1 y 2 de la API):
 - Orígenes y redirects de Caigo ya cargados: https://caigo.com.ar, https://lugares.caigo.com.ar,
   `/sso-callback` en los dos y `ar.com.caigo.app://callback` (iOS y Android). Cambios: pedirlos a la
   sesión de Tu Local Web.
-- Caigo verifica el JWT de Clerk en cada pedido (JWKS en memoria), sin sesión propia: la API no
-  guarda sesiones y las apps renuevan el token con el SDK de Clerk.
+- Sesión: `POST /v1/sesion` canjea el JWT de Clerk (Authorization) por un token de Caigo `cs_…` (60 días,
+  se renueva con el uso); `DELETE /v1/sesion` lo cierra. La API también acepta el JWT de Clerk directo.

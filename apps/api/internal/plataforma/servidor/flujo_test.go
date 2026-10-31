@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -124,6 +125,26 @@ type plan struct {
 	Somos, Faltan, Pendientes  int
 	Direccion                  *struct{ Texto string }
 	Van                        []struct{ ID string }
+}
+
+func TestSesionPropia(t *testing.T) {
+	e := nuevoEntorno(t)
+	lu := e.persona("Lu")
+	var s struct{ Token, UsuarioID string }
+	e.pedir(lu, "POST", "/v1/sesion?cliente=ios", nil, http.StatusOK, &s)
+	if !strings.HasPrefix(s.Token, "cs_") || s.UsuarioID != lu.id {
+		t.Fatalf("sesión: %+v", s)
+	}
+	propia := persona{token: s.Token, id: lu.id}
+	var yo struct{ ID string }
+	e.pedir(propia, "GET", "/v1/yo", nil, http.StatusOK, &yo)
+	if yo.ID != lu.id {
+		t.Fatal("la sesión propia no resolvió a Lu")
+	}
+	// Una sesión no se canjea por otra.
+	e.pedir(propia, "POST", "/v1/sesion", nil, http.StatusUnauthorized, nil)
+	e.pedir(propia, "DELETE", "/v1/sesion", nil, http.StatusNoContent, nil)
+	e.pedir(propia, "GET", "/v1/yo", nil, http.StatusUnauthorized, nil)
 }
 
 func TestSinSesion(t *testing.T) {
