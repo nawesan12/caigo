@@ -114,6 +114,14 @@ func TestLugarDePuntaAPunta(t *testing.T) {
 
 	var creado struct{ ID string }
 	e.pedir(duena, "POST", "/v1/lugares/"+l.ID+"/planes", plan, http.StatusCreated, &creado)
+	var uno struct {
+		SenaPct   int
+		Beneficio string
+	}
+	e.pedir(duena, "GET", "/v1/lugares/"+l.ID+"/planes/"+creado.ID, nil, http.StatusOK, &uno)
+	if uno.SenaPct != 30 || uno.Beneficio != "Café y medialuna" {
+		t.Fatalf("plan del lugar: %+v", uno)
+	}
 
 	// La gente lo ve con entrada: no se "suma", compra.
 	var visto struct {

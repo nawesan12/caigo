@@ -11,6 +11,7 @@ import (
 
 	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/respuesta"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sesion"
 )
@@ -66,11 +67,21 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		return ok(w, http.StatusOK, l)
 	}))
 	mux.Handle("GET /v1/lugares/{id}/planes", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
-		ps, err := s.Planes(r.Context(), p.ID, r.PathValue("id"), r.URL.Query().Get("cual"))
+		ps, err := s.Planes(r.Context(), p.ID, r.PathValue("id"), r.URL.Query().Get("cual"), "")
 		if err != nil {
 			return err
 		}
 		return ok(w, http.StatusOK, map[string]any{"planes": ps})
+	}))
+	mux.Handle("GET /v1/lugares/{id}/planes/{plan}", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		ps, err := s.Planes(r.Context(), p.ID, r.PathValue("id"), "", r.PathValue("plan"))
+		if err != nil {
+			return err
+		}
+		if len(ps) == 0 {
+			return problema.NoEncontrado("Ese plan no es de tu lugar.")
+		}
+		return ok(w, http.StatusOK, ps[0])
 	}))
 	mux.Handle("POST /v1/lugares/{id}/planes", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		var pl PlanLugar

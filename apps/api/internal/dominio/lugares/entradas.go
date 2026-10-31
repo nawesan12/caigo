@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -188,17 +189,27 @@ type PlanDelLugar struct {
 	Cupo        int16     `json:"cupo"`
 	Confirmados int       `json:"confirmados"`
 	Cobro       string    `json:"cobro"`
-	Entradas    int       `json:"entradas"`
+	// Precio por persona y seña (sólo con cobro), beneficio por check-in y duración.
+	PrecioCentavos *int32 `json:"precioCentavos,omitempty"`
+	SenaPct        *int16 `json:"senaPct,omitempty"`
+	Beneficio      string `json:"beneficio,omitempty"`
+	DuracionMin    int16  `json:"duracionMin"`
+	Entradas       int    `json:"entradas"`
 	// Lo que recibe el lugar (sin el cargo de Caigo), en centavos.
 	CobradoCentavos int64  `json:"cobradoCentavos"`
 	Cancelado       bool   `json:"cancelado"`
 	Link            string `json:"link"`
 }
 
-// Planes del lugar: proximos | pasados.
-func (s *Servicio) Planes(ctx context.Context, usuarioID, lugarID, cual string) ([]PlanDelLugar, error) {
+// Planes del lugar: proximos | pasados, o uno solo si planID no está vacío.
+func (s *Servicio) Planes(ctx context.Context, usuarioID, lugarID, cual, planID string) ([]PlanDelLugar, error) {
+	args := []any{lugarID}
 	cond := "p.empieza_en + make_interval(mins => p.duracion_min) >= now() ORDER BY p.empieza_en"
-	if cual == "pasados" {
+	switch {
+	case planID != "":
+		cond = "p.id::text = $2"
+		args = append(args, planID)
+	case cual == "pasados":
 		cond = "p.empieza_en + make_interval(mins => p.duracion_min) < now() ORDER BY p.empieza_en DESC"
 	}
 	out := []PlanDelLugar{}
@@ -209,11 +220,11 @@ func (s *Servicio) Planes(ctx context.Context, usuarioID, lugarID, cual string) 
 		rows, err := tx.Query(ctx, `
 			SELECT p.id, p.slug, p.titulo, p.categoria, p.empieza_en, p.foto, p.total,
 				coalesce((SELECT sum(cantidad) FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'aceptada'), 0)::integer,
-				p.cobro,
+				p.cobro, p.precio_centavos, p.sena_pct, p.beneficio, p.duracion_min,
 				coalesce((SELECT sum(cantidad) FROM entradas e WHERE e.plan_id = p.id AND e.estado = 'pagada'), 0)::integer,
 				coalesce((SELECT sum(lugar_centavos) FROM entradas e WHERE e.plan_id = p.id AND e.estado = 'pagada'), 0)::bigint,
 				p.cancelado_en IS NOT NULL
-			FROM planes p WHERE p.lugar_id::text = $1 AND `+cond+` LIMIT 100`, lugarID)
+			FROM planes p WHERE p.lugar_id::text = $1 AND `+cond+` LIMIT 100`, args...)
 		if err != nil {
 			return err
 		}
@@ -221,7 +232,7 @@ func (s *Servicio) Planes(ctx context.Context, usuarioID, lugarID, cual string) 
 		for rows.Next() {
 			var x PlanDelLugar
 			if err := rows.Scan(&x.ID, &x.Slug, &x.Titulo, &x.Categoria, &x.EmpiezaEn, &x.Foto, &x.Cupo, &x.Confirmados,
-				&x.Cobro, &x.Entradas, &x.CobradoCentavos, &x.Cancelado); err != nil {
+				&x.Cobro, &x.PrecioCentavos, &x.SenaPct, &x.Beneficio, &x.DuracionMin, &x.Entradas, &x.CobradoCentavos, &x.Cancelado); err != nil {
 				return err
 			}
 			x.Link = strings.TrimRight(s.Sitio, "/") + "/p/" + x.Slug
@@ -362,7 +373,8 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 		cargo := planes.Cargo(precio)
 		lugarPP := precio
 		if cobro == "sena" {
-			lugarPP = int64(float64(precio)*float64(*senaPct)/100/100+0.5) * 100
+			// Seña: el % del precio, redondeado a $100 (como el panel).
+			lugarPP = int64(math.Round(float64(precio)*float64(*senaPct)/100/10000)) * 10000
 		}
 		c.CargoCentavos = cargo * q
 		c.TotalCentavos = (lugarPP + cargo) * q
