@@ -2,7 +2,7 @@ import SwiftUI
 import Nucleo
 
 /// Las categorías de Explorar: «Todos» y las 8 de un plan (06a), cada una con su foto local CC0
-/// (Recursos/Assets.xcassets/Explorar*, fuentes en apps/ios/FUENTES.md). Sin foto: el color de la categoría.
+/// (Recursos/Assets.xcassets/Explorar*, fuentes en apps/ios/FUENTES.md).
 private let tilesExplorar: [(String?, String, String?)] =
     [(nil, "Todos", "ExplorarTodos")] + Categorias.paraCrear.map { ($0.0, $0.1, fotoTile($0.0)) }
 
@@ -13,6 +13,8 @@ private func fotoTile(_ clave: String) -> String? {
     case "previa": return "ExplorarPrevia"
     case "salida": return "ExplorarSalida"
     case "gastronomia": return "ExplorarGastronomia"
+    case "cita_doble": return "ExplorarCitaDoble"
+    case "cultura": return "ExplorarCultura"
     case "otro": return "ExplorarOtro"
     default: return nil
     }

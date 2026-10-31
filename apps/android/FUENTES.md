@@ -11,9 +11,9 @@ obligatoria). Reducidas a 480 px y comprimidas al 72 %. Van en la app: no se enl
 | explorar_juego.jpg | Juego | G4IXBJ1V34 |
 | explorar_previa.jpg | Previa | EI9BBWFMXB |
 | explorar_salida.jpg | Salida | WM3J4YX5TK |
-| explorar_cita_doble.jpg | Cita doble | YBGQFVYDDC |
-| explorar_cultura.jpg | Cultura | B740UADQ1E |
-| explorar_gastronomia.jpg | Gastronomía | 3IVBNKC2JH |
+| explorar_cita_doble.jpg | Cita doble | MIMZ4PUM2F |
+| explorar_cultura.jpg | Cultura | O4ST1KJ9MD |
+| explorar_gastronomia.jpg | Gastronomía | RRSDBIHUMS |
 | explorar_otro.jpg | Otro | FM7201DCU7 |
 
 Página de cada una: `https://stocksnap.io/photo/<ID>`.
