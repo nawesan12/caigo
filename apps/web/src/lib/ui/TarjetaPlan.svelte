@@ -15,6 +15,7 @@
 		total,
 		personas,
 		href,
+		enlace,
 		accion = 'Sumarme'
 	}: {
 		foto?: string;
@@ -27,12 +28,16 @@
 		somos: number;
 		total: number;
 		personas: Avatar[];
+		/** El botón de la tarjeta. */
 		href?: string;
+		/** Toda la tarjeta lleva acá (el detalle del plan). */
+		enlace?: string;
 		accion?: string;
 	} = $props();
 </script>
 
 <article class="tarjeta-plan">
+	{#if enlace}<a class="cubre" href={enlace} aria-label={titulo}></a>{/if}
 	<div class="foto" style:background-color={tinte}>
 		{#if foto}<img src={foto} alt="" loading="lazy" />{/if}
 		<div class="chips">
@@ -55,14 +60,18 @@
 			</div>
 			{#if href}
 				<a class="gel gel-lima sumarme" {href}>
-					<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"
-						><path
-							d="M12 4v16M4 12h16"
-							stroke="#24212D"
-							stroke-width="4"
-							stroke-linecap="round"
-						/></svg
-					>{accion}</a
+					{#if accion !== 'Ver plan'}<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							aria-hidden="true"
+							><path
+								d="M12 4v16M4 12h16"
+								stroke="#24212D"
+								stroke-width="4"
+								stroke-linecap="round"
+							/></svg
+						>{/if}{accion}</a
 				>
 			{/if}
 		</div>
@@ -71,10 +80,17 @@
 
 <style>
 	.tarjeta-plan {
+		position: relative;
 		background: #ffffff;
 		border-radius: 24px;
 		overflow: hidden;
 		box-shadow: var(--sh-tarjeta-plan);
+	}
+	.cubre {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		border-radius: 24px;
 	}
 	.foto {
 		position: relative;
@@ -160,6 +176,8 @@
 		white-space: nowrap;
 	}
 	.sumarme {
+		position: relative;
+		z-index: 2;
 		flex: none;
 		gap: 6px;
 		padding: 9px 14px;

@@ -3,6 +3,7 @@
 	import Seo from '#lib/ui/Seo.svelte';
 	import Pie from '#lib/ui/Pie.svelte';
 	import TarjetaPlan from '#lib/ui/TarjetaPlan.svelte';
+	import Tiendas from '#lib/ui/Tiendas.svelte';
 
 	/*
 	 * Landing de Caigo. No está diseñada en el handoff: se arma sólo con piezas de Mockups v5 — el
@@ -72,9 +73,9 @@
 			Sumate a planes a los que les falta gente, o completá los tuyos. En Mar del Plata y
 			Villa&nbsp;Gesell.
 		</p>
-		<div class="tiendas" id="app">
-			<span class="tienda" aria-disabled="true"><small>Próximamente en</small>App Store</span>
-			<span class="tienda" aria-disabled="true"><small>Próximamente en</small>Google Play</span>
+		<div class="acciones" id="app">
+			<a class="gel gel-lima usar" href="/app">Usar Caigo desde la web</a>
+			<Tiendas tono="oscuro" />
 		</div>
 	</div>
 	<!-- La tarjeta flotante de 01a. -->
@@ -181,7 +182,7 @@
 			</div>
 			<div class="grilla">
 				{#each EJEMPLOS as e (e.titulo)}
-					<TarjetaPlan {...e} href="#app" />
+					<TarjetaPlan {...e} href="/app" />
 				{/each}
 			</div>
 		</div>
@@ -333,32 +334,19 @@
 		line-height: 1.5;
 		color: #c9c4da;
 	}
-	.tiendas {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: 10px;
-		margin-top: 6px;
-	}
-	.tienda {
+	.acciones {
 		display: flex;
 		flex-direction: column;
-		align-items: flex-start;
-		gap: 2px;
-		padding: 10px 18px;
-		border-radius: 18px;
-		background: rgba(255, 255, 255, 0.12);
-		box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.18);
-		font-size: 17px;
-		font-weight: 800;
-		color: #ffffff;
-		cursor: default;
+		align-items: center;
+		gap: 22px;
+		margin-top: 6px;
+		width: 100%;
 	}
-	.tienda small {
-		font-size: 11px;
-		font-weight: 700;
-		letter-spacing: 0.3px;
-		color: #c9c4da;
+	.usar {
+		width: min(100%, 340px);
+		height: 58px;
+		border-radius: 20px;
+		font-size: 17px;
 	}
 	/* Tarjeta flotante de 01a */
 	.flotante {
