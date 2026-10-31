@@ -1,12 +1,18 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Vacio from '#lib/ui/Vacio.svelte';
 	import { CATEGORIAS, faltanTexto } from '#lib/plan.ts';
 	import { diasParaElegir, partes } from '#lib/fechas.ts';
-	import { TINTES } from '#lib/app.ts';
+	import { FECHAS_EXPLORAR, sinViuda, TINTES } from '#lib/app.ts';
 	import type { Plan } from '#lib/tipos.ts';
 
-	/* Explorar (Mockups v5, pantalla 04). Fotos de las categorías: CC0 de static/fotos. */
+	/*
+	 * Explorar (Mockups v5, pantalla 04). Fotos de las categorías: CC0 de static/fotos. El buscador
+	 * y los filtros (fecha, zona, cupo, verificados) van a la API; el panel de filtros no está
+	 * dibujado: se arma con los chips y el overline del handoff.
+	 */
 	let { data } = $props();
 
 	const TILES = [
@@ -17,15 +23,27 @@
 		{ valor: 'cita_doble', foto: '/fotos/amigos.jpg' },
 		{ valor: 'gastronomia', foto: '/fotos/lugar.jpg' }
 	];
+	const CUPOS = [
+		{ valor: '2', etiqueta: 'Lugar para 2' },
+		{ valor: '3', etiqueta: 'Para 3' },
+		{ valor: '4', etiqueta: 'Para 4 o más' }
+	];
 	const LARGO = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 	const CORTO = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
-	let busqueda = $state('');
-	let filtros = $state(false);
+	let busqueda = $state(untrack(() => data.q));
+	const activos = $derived(
+		[data.fecha, data.zona, data.faltan, data.verificados && '1'].filter(Boolean).length
+	);
+	let filtros = $state(untrack(() => activos > 0));
 
 	const diaDe = (f: string) => {
 		const p = partes(f);
 		return `${p.anio}-${String(p.mes + 1).padStart(2, '0')}-${String(p.dia).padStart(2, '0')}`;
+	};
+	const largo = (valor: string, hoy: string) => {
+		const p = partes(valor + 'T12:00:00-03:00');
+		return valor === hoy ? 'Hoy' : `${LARGO[p.semana]} ${p.dia}`;
 	};
 	const dias = $derived(
 		diasParaElegir(new Date(), 6).map((d, i) => {
@@ -38,17 +56,28 @@
 			};
 		})
 	);
-	const filtrados = $derived.by(() => {
-		const q = busqueda.trim().toLowerCase();
-		if (!q) return data.planes;
-		return data.planes.filter((p) =>
-			[p.titulo, p.lugarNombre, p.zona, CATEGORIAS[p.categoria]].join(' ').toLowerCase().includes(q)
-		);
-	});
-	const conPlanes = $derived(new Set(filtrados.map((p) => diaDe(p.empiezaEn))));
+	const conPlanes = $derived(new Set(data.planes.map((p) => diaDe(p.empiezaEn))));
 	const elegido = $derived(dias.find((d) => d.valor === data.dia) ?? dias[0]);
-	const delDia = $derived(filtrados.filter((p) => diaDe(p.empiezaEn) === elegido.valor));
-	const recurrente = $derived(filtrados.find((p) => p.recurrente));
+	/** Con un filtro de fecha, una sección por día; si no, el día elegido en la tira. */
+	const secciones = $derived(
+		(data.fecha ? data.diasFecha : [elegido.valor])
+			.map((valor) => ({
+				valor,
+				titulo: largo(valor, dias[0].valor),
+				planes: data.planes
+					.filter((p) => diaDe(p.empiezaEn) === valor)
+					.sort((a, b) => a.empiezaEn.localeCompare(b.empiezaEn))
+			}))
+			.filter((s, _, todas) => s.planes.length || todas.length === 1)
+	);
+	/** La zona elegida va primero, para que se vea sin deslizar. */
+	const zonas = $derived(
+		data.zona ? [data.zona, ...data.zonas.filter((z) => z !== data.zona)] : data.zonas
+	);
+	const recurrente = $derived(data.planes.find((p) => p.recurrente));
+	const elegirDia = $derived(
+		data.fecha && !FECHAS_EXPLORAR.some((f) => f.valor === data.fecha) ? data.fecha : ''
+	);
 
 	function url(cambios: Record<string, string>) {
 		// Sólo arma un link: no es estado.
@@ -60,6 +89,16 @@
 		}
 		const s = q.toString();
 		return '/app/explorar' + (s ? '?' + s : '');
+	}
+	let espera: ReturnType<typeof setTimeout> | undefined;
+	function buscar() {
+		clearTimeout(espera);
+		const t = busqueda.trim();
+		if (t.length === 1 || t === data.q) return;
+		espera = setTimeout(
+			() => goto(url({ q: t }), { keepFocus: true, noScroll: true, replaceState: true }),
+			300
+		);
 	}
 	const repite = (p: Plan) => {
 		const x = partes(p.empiezaEn);
@@ -87,15 +126,19 @@
 				>
 				<input
 					bind:value={busqueda}
+					oninput={buscar}
+					onkeydown={(e) => e.key === 'Enter' && buscar()}
 					placeholder="¿Qué tenés ganas de hacer?"
 					aria-label="Buscar planes"
+					enterkeyhint="search"
 				/>
 				<button
 					class="filtrar"
 					onclick={() => (filtros = !filtros)}
-					aria-label="Filtros"
+					aria-label={activos ? `Filtros (${activos})` : 'Filtros'}
 					aria-expanded={filtros}
 				>
+					{#if activos}<span class="cuenta">{activos}</span>{/if}
 					<svg
 						width="20"
 						height="20"
@@ -114,13 +157,67 @@
 				</button>
 			</div>
 			{#if filtros}
-				<div class="chips">
-					<a
-						class="chip"
-						class:sel={data.verificados}
-						href={url({ verificados: data.verificados ? '' : '1' })}
-						data-sveltekit-noscroll>Solo verificados</a
-					>
+				<div class="filtros">
+					<span class="overline">FECHA</span>
+					<div class="chips">
+						{#each FECHAS_EXPLORAR as fe (fe.valor)}
+							<a
+								class="chip"
+								class:sel={data.fecha === fe.valor}
+								href={url({ fecha: data.fecha === fe.valor ? '' : fe.valor, dia: '' })}
+								data-sveltekit-noscroll>{fe.etiqueta}</a
+							>
+						{/each}
+						<label class="chip" class:sel={!!elegirDia}>
+							{elegirDia ? largo(elegirDia, dias[0].valor) : 'Elegir día'}
+							<input
+								type="date"
+								class="fecha"
+								value={elegirDia}
+								min={dias[0].valor}
+								aria-label="Elegir día"
+								onchange={(e) =>
+									goto(url({ fecha: (e.currentTarget as HTMLInputElement).value, dia: '' }), {
+										noScroll: true
+									})}
+							/>
+						</label>
+					</div>
+					<span class="overline">ZONA</span>
+					<div class="chips desliza">
+						{#each zonas as z (z)}
+							<a
+								class="chip"
+								class:sel={data.zona === z}
+								href={url({ zona: data.zona === z ? '' : z })}
+								data-sveltekit-noscroll>{z}</a
+							>
+						{/each}
+					</div>
+					<span class="overline">CUPO</span>
+					<div class="chips">
+						{#each CUPOS as cu (cu.valor)}
+							<a
+								class="chip"
+								class:sel={data.faltan === cu.valor}
+								href={url({ faltan: data.faltan === cu.valor ? '' : cu.valor })}
+								data-sveltekit-noscroll>{cu.etiqueta}<span class="plus">Plus</span></a
+							>
+						{/each}
+						<a
+							class="chip"
+							class:sel={data.verificados}
+							href={url({ verificados: data.verificados ? '' : '1' })}
+							data-sveltekit-noscroll>Solo verificados<span class="plus">Plus</span></a
+						>
+					</div>
+					{#if activos}
+						<a
+							class="limpiar"
+							href={url({ fecha: '', zona: '', faltan: '', verificados: '' })}
+							data-sveltekit-noscroll>Sacar los filtros</a
+						>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -144,10 +241,10 @@
 			{#each dias as d (d.valor)}
 				<a
 					class="dia"
-					class:on={d.valor === elegido.valor}
-					href={url({ dia: d.valor })}
+					class:on={data.fecha ? data.diasFecha.includes(d.valor) : d.valor === elegido.valor}
+					href={url({ dia: d.valor, fecha: '' })}
 					data-sveltekit-noscroll
-					aria-current={d.valor === elegido.valor ? 'date' : undefined}
+					aria-current={!data.fecha && d.valor === elegido.valor ? 'date' : undefined}
 				>
 					<span class="dc">{d.corto}</span>
 					<span class="dn">{d.num}</span>
@@ -168,7 +265,7 @@
 					<span class="frec">{repite(recurrente)}</span>
 					<div class="rec-pie">
 						<div class="rec-txt">
-							<span class="rt">{recurrente.titulo}</span>
+							<span class="rt">{sinViuda(recurrente.titulo)}</span>
 							<span class="rs"
 								>{[
 									recurrente.lugarNombre || recurrente.zona,
@@ -186,30 +283,43 @@
 			</a>
 		{/if}
 
-		<div class="sec">
-			<h2>{elegido.largo}</h2>
-			<span>{delDia.length} {delDia.length === 1 ? 'plan' : 'planes'}</span>
-		</div>
+		{#each secciones as sec (sec.valor)}
+			<div class="sec">
+				<h2>{sec.titulo}</h2>
+				<span>{sec.planes.length} {sec.planes.length === 1 ? 'plan' : 'planes'}</span>
+			</div>
 
-		{#each delDia as g (g.id)}
-			{@const x = partes(g.empiezaEn)}
-			<a class="fila" href="/app/plan/{g.id}">
-				<span class="fimg" style:background-color={TINTES[g.categoria]}>
-					{#if g.foto}<img src={g.foto} alt="" loading="lazy" />{/if}
-				</span>
-				<div class="ftxt">
-					<span class="fh">{x.hora} · {(CATEGORIAS[g.categoria] ?? '').toUpperCase()}</span>
-					<span class="ft">{g.titulo}</span>
-					<span class="fs"
-						>{[g.lugarNombre || (g.zona && `Zona ${g.zona}`), g.soloVerificados && 'Verificados']
-							.filter(Boolean)
-							.join(' · ')}</span
-					>
-				</div>
-				<span class="fb" class:coral={g.faltan === 1}>{faltanTexto(g.faltan)}</span>
-			</a>
+			{#each sec.planes as g (g.id)}
+				{@const x = partes(g.empiezaEn)}
+				<a class="fila" href="/app/plan/{g.id}">
+					<span class="fimg" style:background-color={TINTES[g.categoria]}>
+						{#if g.foto}<img src={g.foto} alt="" loading="lazy" />{/if}
+					</span>
+					<div class="ftxt">
+						<span class="fh">{x.hora} · {(CATEGORIAS[g.categoria] ?? '').toUpperCase()}</span>
+						<span class="ft">{sinViuda(g.titulo)}</span>
+						<span class="fs"
+							>{sinViuda(
+								[g.lugarNombre || (g.zona && `Zona ${g.zona}`), g.soloVerificados && 'Verificados']
+									.filter(Boolean)
+									.join('\u00a0· ')
+							)}</span
+						>
+					</div>
+					<span class="fb" class:coral={g.faltan === 1}>{faltanTexto(g.faltan)}</span>
+				</a>
+			{:else}
+				<Vacio
+					titulo={data.q || activos ? 'No encontramos planes así' : 'Ese día no hay nada todavía'}
+					texto={data.q || activos
+						? 'Probá con otra palabra o sacá algún filtro.'
+						: 'Armá un plan y que se sume la gente.'}
+				>
+					<a class="gel gel-lima" href="/app/crear">Armá un plan</a>
+				</Vacio>
+			{/each}
 		{:else}
-			<Vacio titulo="Ese día no hay nada todavía" texto="Armá un plan y que se sume la gente.">
+			<Vacio titulo="No encontramos planes así" texto="Probá con otra fecha o sacá algún filtro.">
 				<a class="gel gel-lima" href="/app/crear">Armá un plan</a>
 			</Vacio>
 		{/each}
@@ -272,14 +382,75 @@
 			0 4px 0 #4a2fc2,
 			0 16px 26px -10px rgba(116, 86, 241, 0.75);
 	}
+	.filtros {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		padding: 16px;
+		border-radius: 22px;
+		background: #ffffff;
+		box-shadow: var(--sh-tarjeta-plana);
+	}
 	.chips {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 8px;
 	}
+	.chips.desliza {
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		margin: -4px -16px;
+		padding: 4px 16px 8px;
+		scrollbar-width: none;
+	}
+	.chips.desliza::-webkit-scrollbar {
+		display: none;
+	}
 	.chips .chip {
+		position: relative;
 		text-decoration: none;
 		padding: 9px 13px;
 		border-radius: 13px;
+		font-size: 13px;
+	}
+	.plus {
+		padding: 2px 6px;
+		border-radius: 7px;
+		background: var(--lima);
+		color: var(--carbon);
+		font-size: 10px;
+		font-weight: 800;
+	}
+	.fecha {
+		position: absolute;
+		inset: 0;
+		opacity: 0;
+		cursor: pointer;
+	}
+	.limpiar {
+		align-self: flex-start;
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--violeta-texto);
+		text-decoration: none;
+	}
+	.filtrar {
+		position: relative;
+	}
+	.cuenta {
+		position: absolute;
+		top: -5px;
+		right: -5px;
+		min-width: 20px;
+		height: 20px;
+		padding: 0 5px;
+		border-radius: 10px;
+		background: var(--coral);
+		color: var(--carbon);
+		font-size: 11px;
+		font-weight: 800;
+		display: grid;
+		place-items: center;
 	}
 	.tiles {
 		display: flex;
@@ -496,10 +667,12 @@
 		font-size: 15px;
 		font-weight: 700;
 		line-height: 1.25;
+		text-wrap: balance;
 	}
 	.fs {
 		font-size: 12px;
-		color: #5c586b;
+		color: var(--texto-2);
+		text-wrap: balance;
 	}
 	.fb {
 		white-space: nowrap;

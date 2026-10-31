@@ -232,3 +232,8 @@ export function rangoFecha(
 	for (let i = 0; i <= 60; i++) if (diaAR(ahora, i) === fecha) return rango(i, 1);
 	return null;
 }
+
+/** Une las dos últimas palabras con un espacio duro: un título dinámico nunca deja una sola abajo. */
+export function sinViuda(t: string): string {
+	return t.trim().replace(/\s+(\S+)$/, ' $1');
+}
