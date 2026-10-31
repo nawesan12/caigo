@@ -249,6 +249,14 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
     public var compartidos = 0
     public var equipo = false
     public var telefono = ""
+    /// "" | mujer | varon | no_binario (autodeclarado, no se muestra a nadie).
+    public var genero = ""
+    /// «Me identifico como parte de la diversidad».
+    public var diversidad = false
+    public var avisos = AjustesAvisos()
+    public var contactoConfianza = ""
+    /// Sus próximos planes que quien mira puede ver (GET /v1/personas/{id}).
+    public var proximos: [ProximoPlan] = []
 
     public init(id: String = "", nombre: String = "") { self.id = id; self.nombre = nombre }
 
@@ -260,6 +268,8 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
         asistencia = c.v("asistencia", Asist()); planes = c.v("planes", 0); organizados = c.v("organizados", 0)
         miGente = c.v("miGente", 0); enMiGente = c.v("enMiGente", false); compartidos = c.v("compartidos", 0)
         equipo = c.v("equipo", false); telefono = c.v("telefono", "")
+        genero = c.v("genero", ""); diversidad = c.v("diversidad", false); avisos = c.v("avisos", AjustesAvisos())
+        contactoConfianza = c.v("contactoConfianza", ""); proximos = c.v("proximos", [])
     }
 
     /// Le falta algo del alta (nombre, teléfono o selfie).
@@ -277,7 +287,32 @@ public struct CambiosPerfil: Encodable, Sendable {
     public var intenciones: [String]?
     public var prompts: [Prompt]?
     public var fotos: [String]?
+    public var genero: String?
+    public var diversidad: Bool?
+    public var avisos: AjustesAvisos?
+    public var contactoConfianza: String?
     public init() {}
+}
+
+/// Ajustes de avisos push (contrato §3). Por defecto, los dos prendidos.
+public struct AjustesAvisos: Codable, Hashable, Sendable {
+    public var planesCerca = true
+    public var tuGente = true
+    public init(planesCerca: Bool = true, tuGente: Bool = true) { self.planesCerca = planesCerca; self.tuGente = tuGente }
+    public init(from d: Decoder) throws { let c = try d.lector(); planesCerca = c.v("planesCerca", true); tuGente = c.v("tuGente", true) }
+}
+
+/// Géneros que se pueden declarar (contrato §1).
+public enum Generos {
+    public static let todos: [(String, String)] = [("mujer", "Mujer"), ("varon", "Varón"), ("no_binario", "No binario")]
+    /// Si la persona cumple con lo que pide el plan (`cualquiera` | `mujeres` | `diversidades`).
+    public static func puedeSumarse(genero planGenero: String, miGenero: String, diversidad: Bool) -> Bool {
+        switch planGenero {
+        case "mujeres": return miGenero == "mujer"
+        case "diversidades": return diversidad || miGenero == "no_binario"
+        default: return true
+        }
+    }
 }
 
 /// Mi gente: la API devuelve perfiles; las listas usan la vista corta.
@@ -302,8 +337,9 @@ public struct Reporte: Encodable, Sendable {
 
 // MARK: - Gente / Citas
 
-public struct ProximoPlan: Decodable, Hashable, Identifiable, Sendable {
+public struct ProximoPlan: Codable, Hashable, Identifiable, Sendable {
     public var id = "", titulo = "", categoria = "", empiezaEn = "", foto = ""
+    public init(id: String, titulo: String = "") { self.id = id; self.titulo = titulo }
     public init(from d: Decoder) throws {
         let c = try d.lector()
         id = c.v("id", ""); titulo = c.v("titulo", ""); categoria = c.v("categoria", ""); empiezaEn = c.v("empiezaEn", ""); foto = c.v("foto", "")
@@ -478,9 +514,12 @@ public struct Evento: Decodable, Sendable {
     public var privado: Privado?
     public var planId = ""
     public var quien: Autor?
+    /// En `escribiendo` de un privado: el id de quien escribe (el campo `privado` viene como texto).
+    public var privadoDe = ""
     public init(from d: Decoder) throws {
         let c = try d.lector()
         tipo = c.v("tipo", ""); mensaje = c.o("mensaje"); privado = c.o("privado"); planId = c.v("planId", ""); quien = c.o("quien")
+        privadoDe = c.v("privado", "")
     }
 }
 
@@ -647,4 +686,73 @@ public struct Problema: Decodable, Sendable {
 public struct Campo: Decodable, Sendable {
     public var path = "", message = ""
     public init(from d: Decoder) throws { let c = try d.lector(); path = c.v("path", ""); message = c.v("message", "") }
+}
+
+// MARK: - Lo nuevo del contrato (docs/contrato-faltantes.md)
+
+/// Cambios de un plan (PATCH /v1/planes/{id}): sólo se manda lo que no es nil.
+public struct CambiosPlan: Encodable, Sendable {
+    public var titulo: String?
+    public var descripcion: String?
+    public var empiezaEn: String?
+    public var duracionMin: Int?
+    public var total: Int?
+    public var ingreso: String?
+    public var visibilidad: String?
+    public var soloVerificados: Bool?
+    public var ocultarDireccion: Bool?
+    public var edadMin: Int?
+    public var edadMax: Int?
+    public var genero: String?
+    public var nivel: String?
+    public var costoCentavos: Int?
+    public var foto: String?
+    public var zona: String?
+    public var lugarNombre: String?
+    public var direccion: String?
+    public var lat: Double?
+    public var lng: Double?
+    public init() {}
+}
+
+public struct Reembolso: Decodable, Sendable {
+    public var reembolsoCentavos = 0
+    public init(from d: Decoder) throws { reembolsoCentavos = try d.lector().v("reembolsoCentavos", 0) }
+}
+
+public struct Bloqueado: Decodable, Hashable, Identifiable, Sendable {
+    public var id = "", nombre = "", foto = ""
+    public init(id: String, nombre: String = "", foto: String = "") { self.id = id; self.nombre = nombre; self.foto = foto }
+    public init(from d: Decoder) throws { let c = try d.lector(); id = c.v("id", ""); nombre = c.v("nombre", ""); foto = c.v("foto", "") }
+}
+
+public struct Bloqueos: Decodable, Sendable {
+    public var bloqueos: [Bloqueado] = []
+    public init(from d: Decoder) throws { bloqueos = try d.lector().v("bloqueos", []) }
+}
+
+public struct Zonas: Decodable, Sendable {
+    public var zonas: [String] = []
+    public init(from d: Decoder) throws { zonas = try d.lector().v("zonas", []) }
+}
+
+/// GET /v1/version: `minIos` es el build (CFBundleVersion) mínimo que sigue andando.
+public struct Version: Decodable, Sendable {
+    public var version = ""
+    public var minIos = 0
+    public init(version: String = "", minIos: Int = 0) { self.version = version; self.minIos = minIos }
+    public init(from d: Decoder) throws { let c = try d.lector(); version = c.v("version", ""); minIos = c.v("minIos", 0) }
+
+    /// La app con este build tiene que actualizarse.
+    public func pideActualizar(build: Int) -> Bool { minIos > 0 && build < minIos }
+}
+
+public struct Ubicacion: Encodable, Sendable {
+    public var lat: Double
+    public var lng: Double
+    /// Redondeada a dos decimales (~1 km), como pide el contrato.
+    public init(lat: Double, lng: Double) {
+        self.lat = (lat * 100).rounded() / 100
+        self.lng = (lng * 100).rounded() / 100
+    }
 }

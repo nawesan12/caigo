@@ -117,21 +117,40 @@ public final class Api: @unchecked Sendable {
     public func sumarAMiGente(_ id: String) async throws { try await sinCuerpo("PUT", "/v1/gente/\(id)") }
     public func sacarDeMiGente(_ id: String) async throws { try await sinCuerpo("DELETE", "/v1/gente/\(id)") }
     public func bloquear(_ id: String) async throws { try await sinCuerpo("PUT", "/v1/bloqueos/\(id)") }
+    public func bloqueos() async throws -> Bloqueos { try await get("/v1/bloqueos") }
+    public func desbloquear(_ id: String) async throws { try await sinCuerpo("DELETE", "/v1/bloqueos/\(id)") }
+    /// Se manda al abrir la app (redondeada a ~1 km; la API la borra a las 24 h).
+    public func ubicacion(lat: Double, lng: Double) async throws { try await mandar("PUT", "/v1/yo/ubicacion", Ubicacion(lat: lat, lng: lng)) }
+    public func version() async throws -> Version { try await get("/v1/version") }
     public func reportar(_ r: Reporte) async throws { try await mandar("POST", "/v1/reportes", r) }
 
     // MARK: Planes
 
     public static func num(_ d: Double?) -> String? { d.map { String(format: "%.6f", $0) } }
 
-    public func ahora(lat: Double?, lng: Double?, categoria: String?, filtros: FiltrosFinos = FiltrosFinos()) async throws -> Planes {
-        try await get("/v1/planes/ahora", [("lat", Api.num(lat)), ("lng", Api.num(lng)), ("categoria", categoria)] + filtros.query)
+    /// `q` (≥ 2 letras) busca en título, zona y lugar; `ciudad` se usa cuando no hay ubicación.
+    public func ahora(lat: Double?, lng: Double?, categoria: String?, filtros: FiltrosFinos = FiltrosFinos(),
+                      q: String? = nil, zona: String? = nil, ciudad: String? = nil) async throws -> Planes {
+        try await get("/v1/planes/ahora", [("lat", Api.num(lat)), ("lng", Api.num(lng)), ("categoria", categoria),
+                                           ("q", Api.busqueda(q)), ("zona", zona), ("ciudad", ciudad)] + filtros.query)
     }
 
     public func explorar(desde: String? = nil, hasta: String? = nil, categoria: String? = nil, ciudad: String? = nil,
-                         filtros: FiltrosFinos = FiltrosFinos(), lat: Double? = nil, lng: Double? = nil) async throws -> Planes {
+                         filtros: FiltrosFinos = FiltrosFinos(), lat: Double? = nil, lng: Double? = nil,
+                         q: String? = nil, zona: String? = nil) async throws -> Planes {
         try await get("/v1/planes/explorar", [("desde", desde), ("hasta", hasta), ("categoria", categoria), ("ciudad", ciudad),
-                                              ("lat", Api.num(lat)), ("lng", Api.num(lng))] + filtros.query)
+                                              ("lat", Api.num(lat)), ("lng", Api.num(lng)),
+                                              ("q", Api.busqueda(q)), ("zona", zona)] + filtros.query)
     }
+
+    /// La búsqueda sólo viaja con 2 letras o más.
+    public static func busqueda(_ q: String?) -> String? {
+        guard let t = q?.trimmingCharacters(in: .whitespacesAndNewlines), t.count >= 2 else { return nil }
+        return t
+    }
+
+    /// Las zonas de una ciudad (las de planes de los próximos 30 días + las fijas).
+    public func zonas(ciudad: String) async throws -> Zonas { try await get("/v1/publico/zonas", [("ciudad", ciudad)]) }
 
     /// Sin sesión: lo público de Ahora, Explorar y el detalle.
     public func publicoExplorar() async throws -> Planes { try await get("/v1/publico/planes/explorar") }
@@ -143,6 +162,10 @@ public final class Api: @unchecked Sendable {
     public func publico(slug: String) async throws -> Plan { try await get("/v1/publico/planes/\(slug)") }
     public func crearPlan(_ p: PlanNuevo) async throws -> Plan { try await enviar("POST", "/v1/planes", p) }
     public func cancelarPlan(_ id: String) async throws { try await sinCuerpo("DELETE", "/v1/planes/\(id)") }
+    /// Organizador, plan que no empezó. 409 `cupo_menor` si `total` queda por debajo de los que van.
+    public func editarPlan(_ id: String, _ c: CambiosPlan) async throws -> Plan { try await enviar("PATCH", "/v1/planes/\(id)", c) }
+    /// Organizador: saca a alguien aceptado (409 `con_entrada` si pagó entrada).
+    public func sacarPersona(plan: String, usuario: String) async throws { try await sinCuerpo("DELETE", "/v1/planes/\(plan)/personas/\(usuario)") }
     public func destacar(_ id: String) async throws { try await sinCuerpo("POST", "/v1/planes/\(id)/destacar") }
 
     struct Sumarse: Encodable { var cantidad: Int; var mensaje: String }
@@ -240,6 +263,10 @@ public final class Api: @unchecked Sendable {
         try await enviar("POST", "/v1/planes/\(planId)/entradas", CompraEntradas(cantidad: cantidad, modo: modo))
     }
     public func pases() async throws -> Pases { try await get("/v1/pases") }
+    /// Cancela mi entrada según la política del plan (409 `sin_reembolso` si es estricta).
+    public func cancelarEntrada(_ id: String) async throws -> Reembolso {
+        try JSON.leer(Reembolso.self, try await crudo("DELETE", url("/v1/entradas/\(id)")))
+    }
     /// El .pkpass firmado de una entrada o de un pase de socio.
     public func pkpassEntrada(_ id: String) async throws -> Data { try await crudo("GET", url("/v1/pases/entradas/\(id)/apple")) }
     public func pkpassSocio(_ lugarId: String) async throws -> Data { try await crudo("GET", url("/v1/pases/socios/\(lugarId)/apple")) }

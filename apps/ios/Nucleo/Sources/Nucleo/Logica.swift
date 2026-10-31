@@ -198,3 +198,23 @@ public func linkPlan(_ slug: String) -> String { "caigo.com.ar/p/\(slug)" }
 /// Centro de Mar del Plata: donde arranca el mapa si no hay permiso de ubicación.
 public let latMDP = -38.0023
 public let lngMDP = -57.5575
+
+/// 13a · Ahora sin planes: la primera frase cambia según el día y la hora (en Argentina).
+public enum VacioAhora {
+    public static let titulo = "No hay planes cerca. ¿Armás uno?"
+
+    public static func cuerpo(_ d: Date = Date()) -> String {
+        let c = Fecha.calendario
+        let h = c.component(.hour, from: d)
+        let dia = Fecha.diaLargo(d)
+        let frase: String
+        switch h {
+        case 0..<6: frase = "\(dia) de madrugada, la costa duerme."
+        case 6..<12: frase = "\(dia) a la mañana, la costa recién se despierta."
+        case 12..<17: frase = "\(dia) a la siesta, la costa duerme."
+        case 17..<20: frase = "\(dia) a la tarde, la costa está tranqui."
+        default: frase = "\(dia) a la noche y nadie armó nada todavía."
+        }
+        return frase + " Si publicás algo ahora, sos lo primero que ven."
+    }
+}

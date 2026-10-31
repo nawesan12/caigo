@@ -246,3 +246,59 @@ import Testing
         #expect(abs(c.minX - 3) < 0.01 && abs(c.maxX - 21) < 0.01 && abs(c.minY - 3) < 0.01 && abs(c.maxY - 21) < 0.01)
     }
 }
+
+@Suite struct ContratoFaltantesTests {
+    @Test func vacioSegunHora() {
+        // Domingo 2 de noviembre de 2025, 15:00 en Argentina.
+        let siesta = Fecha.parse("2025-11-02T15:00:00-03:00")!
+        #expect(VacioAhora.cuerpo(siesta).hasPrefix("Domingo a la siesta, la costa duerme."))
+        let noche = Fecha.parse("2025-11-07T22:30:00-03:00")!
+        #expect(VacioAhora.cuerpo(noche).hasPrefix("Viernes a la noche"))
+    }
+
+    @Test func genero() {
+        #expect(Generos.puedeSumarse(genero: "mujeres", miGenero: "mujer", diversidad: false))
+        #expect(!Generos.puedeSumarse(genero: "mujeres", miGenero: "varon", diversidad: true))
+        #expect(Generos.puedeSumarse(genero: "diversidades", miGenero: "no_binario", diversidad: false))
+        #expect(Generos.puedeSumarse(genero: "diversidades", miGenero: "varon", diversidad: true))
+        #expect(Generos.puedeSumarse(genero: "cualquiera", miGenero: "", diversidad: false))
+    }
+
+    @Test func perfilNuevo() throws {
+        let json = #"{"id":"u1","genero":"mujer","diversidad":true,"avisos":{"planesCerca":false},"proximos":[{"id":"p1","titulo":"Truco"}]}"#
+        let p = try JSON.leer(Perfil.self, Data(json.utf8))
+        #expect(p.genero == "mujer" && p.diversidad)
+        #expect(!p.avisos.planesCerca && p.avisos.tuGente)
+        #expect(p.proximos.first?.titulo == "Truco")
+    }
+
+    @Test func eventoEscribiendoPrivado() throws {
+        let e = try JSON.leer(Evento.self, Data(#"{"tipo":"escribiendo","privado":"u9"}"#.utf8))
+        #expect(e.privadoDe == "u9" && e.privado == nil)
+    }
+
+    @Test func version() throws {
+        let v = try JSON.leer(Version.self, Data(#"{"version":"abc","minIos":7}"#.utf8))
+        #expect(v.pideActualizar(build: 6))
+        #expect(!v.pideActualizar(build: 7))
+        #expect(!Version().pideActualizar(build: 1))
+    }
+
+    @Test func ubicacionRedondeada() throws {
+        let u = Ubicacion(lat: -38.00234, lng: -57.55751)
+        #expect(u.lat == -38.0 && u.lng == -57.56)
+    }
+
+    @Test func busqueda() {
+        #expect(Api.busqueda(" t ") == nil)
+        #expect(Api.busqueda(" tr ") == "tr")
+        #expect(Api.busqueda(nil) == nil)
+    }
+
+    @Test func cambiosPlanSoloLoQueCambia() throws {
+        var c = CambiosPlan()
+        c.total = 6
+        let s = String(decoding: try JSON.codificador.encode(c), as: UTF8.self)
+        #expect(s == #"{"total":6}"#)
+    }
+}

@@ -96,4 +96,10 @@ public final class TiempoReal: @unchecked Sendable {
         let s = "{\"tipo\":\"escribiendo\",\"planId\":\"\(planId)\"}"
         ws?.send(.string(s)) { _ in }
     }
+
+    /// Avisa que la persona está escribiendo en un privado (`conId` es con quién habla).
+    public func escribiendo(privado conId: String) {
+        let s = "{\"tipo\":\"escribiendo\",\"privado\":\"\(conId)\"}"
+        ws?.send(.string(s)) { _ in }
+    }
 }

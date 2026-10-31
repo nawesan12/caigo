@@ -54,6 +54,10 @@ final class Contenedor {
     var tapPendiente: Destino?
     /// Token de APNs (hex) para registrarlo cuando haya sesión.
     var tokenPush: String?
+    /// 01b · «Voy solo / Somos 2 / Somos 4»: con cuántos se suma por defecto (1, 2 o 4).
+    var somos: Int {
+        didSet { UserDefaults.standard.set(somos, forKey: "somos") }
+    }
 
     /// Caja para que la API (fuera del actor principal) lea el token.
     final class CajaToken: @unchecked Sendable {
@@ -80,6 +84,8 @@ final class Contenedor {
         token = t
         usuarioId = Llavero.leer("usuario") ?? ""
         vioIntro = UserDefaults.standard.bool(forKey: "vioIntro")
+        let s = UserDefaults.standard.integer(forKey: "somos")
+        somos = s > 0 ? s : 1
         let vencer = Vencimiento()
         self.vencer = vencer
         api = Api(base: Config.api, sesion: Api.sesionHttp(), token: { caja.valor }, alVencer: { vencer.f() })
