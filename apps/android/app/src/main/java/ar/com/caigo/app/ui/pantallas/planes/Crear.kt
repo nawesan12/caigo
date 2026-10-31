@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -243,6 +244,11 @@ fun Crear(ir: Ir) {
                 else -> Paso3(b) { editandoCosto = true }
             }
         }
+        // Velo del color del fondo detrás del botón, como la barra de abajo del prototipo.
+        Box(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(120.dp + abajo)
+                .background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to pal.fondo.copy(alpha = 0f), .35f to pal.fondo)),
+        )
         Cta(
             if (paso < 2) "Siguiente" else "Publicar plan",
             { if (paso < 2) paso++ else publicar() },
@@ -542,7 +548,7 @@ private fun ElegirLugar(b: Borrador, cerrar: () -> Unit) {
     }
     Hoja(cerrar) {
         T("¿Dónde?", 22f, 700, LocalPaleta.current.texto)
-        Box(Modifier.fillMaxWidth().height(220.dp).gel(22.dp, null).background(Color(0xFFF2EFE9), RoundedCornerShape(22.dp))) {
+        Box(Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xFFF2EFE9))) {
             AndroidView({ vista }, Modifier.fillMaxSize().padding(0.dp))
             Box(Modifier.align(Alignment.Center).offset(y = (-14).dp)) { Icono(I.pin, 34.dp, C.violeta, 2.4f, relleno = C.blanco) }
         }

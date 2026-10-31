@@ -102,8 +102,11 @@ fun radial(
 }
 
 private fun redondeado(r: Rect, radio: Float): RoundRect {
-    val rr = radio.coerceIn(0f, minOf(r.width, r.height) / 2f)
-    return RoundRect(r, CornerRadius(rr, rr))
+    // Con extensión negativa (o mientras algo se anima desde tamaño 0) el rectángulo puede quedar
+    // invertido: se lo deja en cero en vez de fallar.
+    val rect = if (r.width < 0f || r.height < 0f) Rect(r.center, r.center) else r
+    val rr = radio.coerceIn(0f, maxOf(0f, minOf(rect.width, rect.height) / 2f))
+    return RoundRect(rect, CornerRadius(rr, rr))
 }
 
 private fun camino(rr: RoundRect) = Path().apply { addRoundRect(rr) }

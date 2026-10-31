@@ -155,16 +155,17 @@ private fun Tarjeta(s: Solicitud, completan: Boolean, ocupado: Boolean, aceptar:
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(Modifier.fillMaxWidth().tocable(verPersona), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row {
+            // Avatares solapados 14 px: el ancho del Row ya descuenta el solape (el offset no lo haría).
+            Row(horizontalArrangement = Arrangement.spacedBy((-14).dp)) {
                 Avatar(per.nombre, per.foto, 44.dp, borde = if (s.cantidad > 1) 2.dp else 0.dp, tamTexto = 17f)
                 if (s.cantidad > 1) {
-                    Avatar("+", null, 44.dp, Modifier.offset(x = (-14).dp), texto = "+${s.cantidad - 1}", fondo = C.lima to C.carbon, tamTexto = 15f)
+                    Avatar("+", null, 44.dp, texto = "+${s.cantidad - 1}", fondo = C.lima to C.carbon, tamTexto = 15f)
                 }
             }
-            Column(Modifier.weight(1f).then(if (s.cantidad > 1) Modifier.offset(x = (-14).dp) else Modifier), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     val nombre = if (s.cantidad > 1) "${miosPrimer(per.nombre)} · somos ${s.cantidad}" else listOfNotNull(miosPrimer(per.nombre), per.edad?.toString()).joinToString(", ")
-                    T(nombre, 15f, 700)
+                    T(nombre, 15f, 700, modifier = Modifier.weight(1f, fill = false), unRenglon = true)
                     if (per.verificada) MiosVerificado(15.dp)
                 }
                 T(if (per.enMiGente) miosAsistencia(per.asistencia, "está en tu gente") else miosAsistencia(per.asistencia), 12f, 400, p.texto2)
