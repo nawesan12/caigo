@@ -14,6 +14,7 @@ const ERRORES: Record<string, string> = {
 };
 
 export const load: PageServerLoad = ({ url, cookies, locals }) => {
+	const lugares = locals.sitio === 'lugares';
 	const volver = volverSeguro(url.searchParams.get('volver'));
 	if (locals.token) redirect(303, volver);
 	// Se guarda adónde volver mientras dura el ida y vuelta con Google o Apple.
@@ -26,6 +27,7 @@ export const load: PageServerLoad = ({ url, cookies, locals }) => {
 	});
 	const codigo = url.searchParams.get('error') ?? '';
 	return {
+		lugares,
 		error: codigo ? (ERRORES[codigo] ?? ERRORES.cancelado) : '',
 		dev
 	};

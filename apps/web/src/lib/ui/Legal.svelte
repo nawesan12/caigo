@@ -1,18 +1,39 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { PUBLIC_SITIO } from '$app/env/public';
 	import Seo from './Seo.svelte';
 	import Pie from './Pie.svelte';
+	import { ldMigas } from '#lib/seo.ts';
 
 	/** Páginas legales: la columna del link público y las tarjetas neutras del panel. */
 	let {
 		titulo,
 		ruta,
 		vigencia,
+		descripcion,
 		children
-	}: { titulo: string; ruta: string; vigencia?: string; children: Snippet } = $props();
+	}: {
+		titulo: string;
+		ruta: string;
+		vigencia?: string;
+		/** La meta description (140–160 caracteres). */
+		descripcion: string;
+		children: Snippet;
+	} = $props();
+	/** Sin los espacios duros del título visible. */
+	const nombre = $derived(titulo.replace(/\u00a0/g, ' '));
 </script>
 
-<Seo titulo="{titulo} · Caigo" {ruta} />
+<Seo
+	titulo="{nombre} · Caigo"
+	{descripcion}
+	{ruta}
+	tipo="article"
+	ld={ldMigas(PUBLIC_SITIO.replace(/\/+$/, ''), [
+		['Caigo', '/'],
+		[nombre, ruta]
+	])}
+/>
 
 <div class="fondo">
 	<div class="col">

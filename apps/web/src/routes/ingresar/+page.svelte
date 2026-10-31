@@ -2,6 +2,7 @@
 	import { PUBLIC_CLERK_PUBLICABLE } from '$app/env/public';
 	import { enhance } from '$app/forms';
 	import Seo from '#lib/ui/Seo.svelte';
+	import { OG_FIJAS, urlOgFija } from '#lib/og.ts';
 	import Pantalla from '#lib/ui/PantallaOscura.svelte';
 	import { fapiDe, iniciar, ErrorClerk, type ProveedorClerk } from '#lib/clerk.ts';
 
@@ -31,14 +32,30 @@
 	}
 </script>
 
-<Seo titulo="Entrar · Caigo" ruta="/ingresar" noindex />
+{#if data.lugares}
+	<!-- En lugares.caigo.com.ar ésta es la entrada (la raíz pide sesión y trae acá): se indexa. -->
+	<Seo
+		titulo="Publicá planes y llená tu lugar · Caigo para lugares"
+		descripcion="Caigo para lugares: publicá planes con entrada o seña, cobrá con Mercado Pago y hacé el check-in con Caigo Tap. Llená tu bar, café o cancha en la costa."
+		ruta="/ingresar"
+		lugares
+		imagen={urlOgFija('lugares')}
+		imagenAlt={OG_FIJAS.lugares.alt}
+	/>
+{:else}
+	<Seo titulo="Entrar · Caigo" ruta="/ingresar" noindex />
+{/if}
 
 <Pantalla>
 	<div class="centro">
 		<img src="/caigo-icon.png" alt="" class="icono" width="132" height="132" />
 		<span class="marca">Caigo</span>
 		<h1>Hacé planes. Conocé&nbsp;gente.</h1>
-		<p>Entrá con tu cuenta de Google o de Apple para sumarte a&nbsp;planes.</p>
+		{#if data.lugares}
+			<p>Entrá con tu cuenta de Google o de Apple para publicar los planes de tu&nbsp;lugar.</p>
+		{:else}
+			<p>Entrá con tu cuenta de Google o de Apple para sumarte a&nbsp;planes.</p>
+		{/if}
 	</div>
 
 	<div class="acciones">

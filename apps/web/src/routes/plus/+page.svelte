@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
+	import { PUBLIC_SITIO } from '$app/env/public';
 	import Seo from '#lib/ui/Seo.svelte';
+	import { OG_FIJAS, urlOgFija } from '#lib/og.ts';
+	import { ldMigas } from '#lib/seo.ts';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { pesosDeCentavos } from '#lib/precios.ts';
 
@@ -125,8 +128,15 @@
 
 <Seo
 	titulo="Caigo Plus · Caigo"
-	descripcion="Más planes. Más gente. Sin límites. Sumá a quien quieras, mirá quién te sumó y destacá tus planes."
+	descripcion="Con Caigo Plus sumás a toda la gente que quieras, ves quién te sumó, usás todos los filtros y tu plan sale destacado para que se llene más rápido."
 	ruta="/plus"
+	imagen={urlOgFija('plus')}
+	imagenAlt={OG_FIJAS.plus.alt}
+	noindex={!!data.conSesion}
+	ld={ldMigas(PUBLIC_SITIO.replace(/\/+$/, ''), [
+		['Caigo', '/'],
+		['Caigo Plus', '/plus']
+	])}
 />
 
 <div class="pw">

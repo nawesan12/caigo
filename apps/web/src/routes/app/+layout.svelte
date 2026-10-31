@@ -19,7 +19,10 @@
 </script>
 
 <svelte:head>
-	<meta name="robots" content="noindex" />
+	<!-- Todo /app es personal salvo Explorar sin cuenta, que pone sus propios metadatos. -->
+	{#if !(data.anonimo && page.route.id === '/app/explorar')}
+		<meta name="robots" content="noindex" />
+	{/if}
 	<meta name="theme-color" content={data.tema === 'oscuro' ? '#201D2B' : '#FAF9F6'} />
 </svelte:head>
 

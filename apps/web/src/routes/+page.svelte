@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { PUBLIC_PANEL } from '$app/env/public';
+	import { PUBLIC_PANEL, PUBLIC_SITIO } from '$app/env/public';
+	import { OG_FIJAS, urlOgFija } from '#lib/og.ts';
+	import { ldSitio } from '#lib/seo.ts';
 	import Seo from '#lib/ui/Seo.svelte';
 	import Pie from '#lib/ui/Pie.svelte';
 	import TarjetaPlan from '#lib/ui/TarjetaPlan.svelte';
@@ -62,8 +64,11 @@
 
 <Seo
 	titulo="Caigo · Hacé planes. Conocé gente."
-	descripcion="Sumate a planes a los que les falta gente en Mar del Plata y Villa Gesell: un fútbol al que le falta uno, una mesa de truco con tres, una previa que busca otro grupo."
+	descripcion="Sumate a planes a los que les falta gente en Mar del Plata y Villa Gesell: un fútbol 5 al que le falta uno, un truco de a cuatro o una previa que busca grupo."
 	ruta="/"
+	imagen={urlOgFija('inicio')}
+	imagenAlt={OG_FIJAS.inicio.alt}
+	ld={ldSitio(PUBLIC_SITIO.replace(/\/+$/, ''))}
 />
 
 <!-- 00 · Splash -->
@@ -75,7 +80,7 @@
 		<a class="vidrio-chico" href={PUBLIC_PANEL}>Para lugares</a>
 	</nav>
 	<div class="hero-centro">
-		<img src="/caigo-icon.png" alt="" class="icono" width="188" height="188" />
+		<img src="/caigo-icon.png" alt="" class="icono" width="188" height="188" fetchpriority="high" />
 		<h1 class="marca-grande">Caigo</h1>
 		<p class="lema">Hacé planes. Conocé gente.</p>
 		<p class="bajada">
@@ -112,7 +117,14 @@
 			<ol class="pasos">
 				<li class="paso paso-a">
 					<div class="paso-foto">
-						<img src="/fotos/previa.jpg" alt="" loading="lazy" />
+						<img
+							src="/fotos/previa.jpg"
+							alt=""
+							width="960"
+							height="640"
+							loading="lazy"
+							decoding="async"
+						/>
 						<div class="velo-a"></div>
 						<div class="mini">
 							<div class="av3 av3-chico">
@@ -135,7 +147,14 @@
 				</li>
 				<li class="paso paso-b">
 					<div class="paso-foto">
-						<img src="/fotos/amigos.jpg" alt="" loading="lazy" />
+						<img
+							src="/fotos/amigos.jpg"
+							alt=""
+							width="960"
+							height="677"
+							loading="lazy"
+							decoding="async"
+						/>
 						<div class="cita">
 							<div class="av3 av3-medio">
 								<span style="background-color:#7456F1;color:#fff">C</span>
@@ -168,9 +187,26 @@
 				</li>
 				<li class="paso paso-c">
 					<div class="polaroid">
-						<div class="marco"><img src="/fotos/grupo.jpg" alt="" loading="lazy" /></div>
+						<div class="marco">
+							<img
+								src="/fotos/grupo.jpg"
+								alt=""
+								width="960"
+								height="640"
+								loading="lazy"
+								decoding="async"
+							/>
+						</div>
 						<span class="somos6">Ya somos 6</span>
-						<img class="icono-c" src="/caigo-icon.png" alt="" loading="lazy" />
+						<img
+							class="icono-c"
+							src="/caigo-icon.png"
+							alt=""
+							width="308"
+							height="308"
+							loading="lazy"
+							decoding="async"
+						/>
 					</div>
 					<div class="paso-txt">
 						<span class="num lima-txt">03</span>
@@ -299,7 +335,14 @@
 					</a>
 				</div>
 				<div class="lugares-foto">
-					<img src="/fotos/lugar.jpg" alt="" loading="lazy" />
+					<img
+						src="/fotos/lugar.jpg"
+						alt=""
+						width="960"
+						height="720"
+						loading="lazy"
+						decoding="async"
+					/>
 				</div>
 			</div>
 		</div>

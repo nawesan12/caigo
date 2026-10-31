@@ -10,7 +10,11 @@
 	let enviando = $state(false);
 </script>
 
-<Legal titulo="Botón de&nbsp;arrepentimiento" ruta="/arrepentimiento">
+<Legal
+	titulo="Botón de&nbsp;arrepentimiento"
+	ruta="/arrepentimiento"
+	descripcion="¿Compraste Caigo Plus, una entrada o una seña en caigo.com.ar? Tenés 10 días corridos para arrepentirte, sin dar motivo y sin costo. Pedilo acá."
+>
 	{#if form && 'codigo' in form && form.codigo}
 		<h2>Recibimos tu pedido</h2>
 		<p>Tu código de trámite es:</p>

@@ -2,7 +2,12 @@
 	import Legal from '#lib/ui/Legal.svelte';
 </script>
 
-<Legal titulo="Política de&nbsp;privacidad" ruta="/privacidad" vigencia="31 de octubre de 2026">
+<Legal
+	titulo="Política de&nbsp;privacidad"
+	ruta="/privacidad"
+	vigencia="31 de octubre de 2026"
+	descripcion="Qué datos usa Caigo (teléfono, selfie, ubicación), para qué, con quién los compartimos y cómo pedís verlos, corregirlos o borrarlos cuando quieras."
+>
 	<p>
 		Esta política explica qué datos usa Caigo, para qué, con quién los compartimos y cómo podés
 		pedir que los corrijamos o los borremos. Aplica a la app de Caigo para iPhone y Android, a

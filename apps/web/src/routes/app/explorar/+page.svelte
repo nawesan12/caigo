@@ -2,7 +2,11 @@
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { PUBLIC_SITIO } from '$app/env/public';
+	import Seo from '#lib/ui/Seo.svelte';
 	import Vacio from '#lib/ui/Vacio.svelte';
+	import { ldMigas } from '#lib/seo.ts';
+	import { OG_FIJAS, urlOgFija } from '#lib/og.ts';
 	import { CATEGORIAS, faltanTexto } from '#lib/plan.ts';
 	import { diasParaElegir, partes } from '#lib/fechas.ts';
 	import { FECHAS_EXPLORAR, sinViuda, TINTES } from '#lib/app.ts';
@@ -104,7 +108,19 @@
 	};
 </script>
 
-<svelte:head><title>Explorar · Caigo</title></svelte:head>
+<!-- Explorar es lo único de /app que se indexa (sin cuenta: es igual para todos). -->
+<Seo
+	titulo="Explorar planes · Caigo"
+	descripcion="La agenda de Caigo: planes de deporte, juegos, previas, salidas y cultura en Mar del Plata y Villa Gesell para los próximos días. Elegí uno y sumate."
+	ruta="/app/explorar"
+	imagen={urlOgFija('inicio')}
+	imagenAlt={OG_FIJAS.inicio.alt}
+	noindex={!data.anonimo}
+	ld={ldMigas(PUBLIC_SITIO.replace(/\/+$/, ''), [
+		['Caigo', '/'],
+		['Explorar', '/app/explorar']
+	])}
+/>
 
 <div class="scroll">
 	<div class="contenido">

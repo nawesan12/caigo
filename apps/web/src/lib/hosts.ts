@@ -21,7 +21,11 @@ const COMPARTIDAS = [
 	'/salir',
 	'/archivo',
 	'/terminos',
-	'/privacidad'
+	'/privacidad',
+	// Cada host responde los suyos (ver routes/robots.txt y routes/sitemap.xml).
+	'/robots.txt',
+	'/sitemap.xml',
+	'/manifest.webmanifest'
 ];
 
 function esCompartida(ruta: string): boolean {

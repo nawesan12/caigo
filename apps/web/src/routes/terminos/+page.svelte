@@ -2,7 +2,12 @@
 	import Legal from '#lib/ui/Legal.svelte';
 </script>
 
-<Legal titulo="Términos y&nbsp;condiciones" ruta="/terminos" vigencia="31 de octubre de 2026">
+<Legal
+	titulo="Términos y&nbsp;condiciones"
+	ruta="/terminos"
+	vigencia="31 de octubre de 2026"
+	descripcion="Los términos de Caigo: cómo funcionan los planes, las sumadas, los pagos con Mercado Pago y la verificación, y qué esperamos de toda la comunidad."
+>
 	<p>
 		Estos términos son el acuerdo entre vos y Caigo cuando usás la app de Caigo para iPhone o
 		Android, caigo.com.ar o el panel de lugares. Al crear tu cuenta los aceptás. Cómo usamos tus

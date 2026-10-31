@@ -8,6 +8,8 @@
 	import { cuandoLargo } from '#lib/fechas.ts';
 	import { faltanTexto, lista, primerNombre } from '#lib/plan.ts';
 	import { desglose, pesos } from '#lib/precios.ts';
+	import { urlOgPlan } from '#lib/og.ts';
+	import { descripcionPlan, ldMigas, ldPlan } from '#lib/seo.ts';
 
 	/*
 	 * Link público del plan: pantalla 12 de Mockups v5 ("Link público en la web"), igual en
@@ -49,17 +51,35 @@
 	let sistema = $state<'ios' | 'android' | 'otro'>('otro');
 	onMount(() => (sistema = sistemaDe(navigator.userAgent)));
 	const app = $derived(abrirEnLaApp(universal, sistema));
-	const descripcionOg = $derived(
-		`${anfitrion} te invita a ${plan.titulo}. ${cuandoLargo(plan.empiezaEn)} · ${donde}. ${faltanTexto(plan.faltan)}.`
+	// SEO: la imagen OG versionada, el Event de schema.org y las migas.
+	const sitio = $derived(PUBLIC_SITIO.replace(/\/+$/, ''));
+	const og = $derived(urlOgPlan(plan));
+	const ogAlt = $derived(
+		`${anfitrion} te invita a ${plan.titulo}: ${plan.cancelado ? 'se canceló' : faltanTexto(plan.faltan)}, somos ${plan.somos} de ${plan.total}.`
 	);
+	// Un plan cancelado o que ya terminó no se indexa (el link sigue andando para quien lo tenga).
+	const terminado = $derived(
+		new Date(plan.empiezaEn).getTime() + (plan.duracionMin || 60) * 60_000 < Date.now()
+	);
+	const ld = $derived([
+		ldPlan(plan, { sitio, imagen: sitio + og }),
+		ldMigas(sitio, [
+			['Caigo', '/'],
+			['Explorar', '/app/explorar'],
+			[plan.titulo, `/p/${plan.slug}`]
+		])
+	]);
 	let enviando = $state(false);
 </script>
 
 <Seo
 	titulo="{plan.titulo} · Caigo"
-	descripcion={descripcionOg}
-	imagen={plan.foto || '/fotos/grupo.jpg'}
+	descripcion={descripcionPlan(plan)}
+	imagen={og}
+	imagenAlt={ogAlt}
 	ruta="/p/{plan.slug}"
+	noindex={plan.cancelado || terminado}
+	{ld}
 />
 
 <svelte:head>
