@@ -1,0 +1,95 @@
+# El proyecto de Xcode sale de acá: `xcodegen generate` (no se versiona el .xcodeproj).
+name: Caigo
+options:
+  bundleIdPrefix: ar.com.caigo
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: es
+  createIntermediateGroups: true
+packages:
+  Nucleo:
+    path: Nucleo
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: M6935MSNQB
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+targets:
+  Caigo:
+    type: application
+    platform: iOS
+    configFiles:
+      Debug: Config/Caigo.xcconfig
+      Release: Config/Caigo.xcconfig
+    sources:
+      - path: Caigo
+    dependencies:
+      - package: Nucleo
+    entitlements:
+      path: Caigo/Caigo.entitlements
+      properties:
+        aps-environment: development
+        com.apple.developer.associated-domains:
+          - applinks:caigo.com.ar
+        com.apple.developer.nfc.readersession.formats:
+          - TAG
+        com.apple.developer.applesignin:
+          - Default
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ar.com.caigo.app
+        PRODUCT_NAME: Caigo
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+    info:
+      path: Caigo/Info.plist
+      properties:
+        CFBundleDisplayName: Caigo
+        CFBundleDevelopmentRegion: es-AR
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CaigoAPI: $(CAIGO_API)
+        CaigoClerkPublicable: $(CAIGO_CLERK_PUBLICABLE)
+        CFBundleURLTypes:
+          - CFBundleURLName: ar.com.caigo.app
+            CFBundleURLSchemes: [ar.com.caigo.app]
+        UIAppFonts: [Geist-400.ttf, Geist-500.ttf, Geist-600.ttf, Geist-700.ttf, Geist-800.ttf]
+        UILaunchScreen:
+          UIColorName: ""
+          UIImageName: ""
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIBackgroundModes: [remote-notification]
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: "Para la selfie con prueba de vida, las fotos del DNI y escanear el QR de entrada."
+        NSLocationWhenInUseUsageDescription: "Para mostrarte los planes que tenés cerca y hacer check-in cuando llegás."
+        NSPhotoLibraryUsageDescription: "Para elegir las fotos de tu perfil y del plan."
+        NFCReaderUsageDescription: "Para hacer check-in apoyando el celu en la placa de Caigo Tap."
+        LSApplicationQueriesSchemes: [whatsapp]
+  CaigoTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [CaigoTests]
+    dependencies:
+      - target: Caigo
+      - package: Nucleo
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Caigo:
+    build:
+      targets:
+        Caigo: all
+        CaigoTests: [test]
+    test:
+      targets: [CaigoTests]

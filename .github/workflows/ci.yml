@@ -2,8 +2,9 @@
 name: ci
 on:
   push:
-    branches: [main]
+    branches: [main, ios]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   api:
@@ -58,3 +59,25 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v5
       - run: ./gradlew :app:assembleDebug test
+
+  # La app de iPhone: el proyecto sale de project.yml (XcodeGen) y se compila para el simulador sin
+  # firmar. El núcleo (modelos, API, lógica) se prueba aparte con swift test.
+  ios:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: apps/ios
+    steps:
+      - uses: actions/checkout@v5
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - run: ls /Applications | grep -i xcode; xcodebuild -version; swift --version
+      - run: brew install xcodegen
+      - run: swift test
+        working-directory: apps/ios/Nucleo
+      - run: xcodegen generate
+      - run: >-
+          xcodebuild -project Caigo.xcodeproj -scheme Caigo -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+          | tee build.log | xcbeautify --renderer github-actions || (grep -E 'error:' build.log | head -100; exit 1)
