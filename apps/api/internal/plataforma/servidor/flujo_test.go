@@ -60,6 +60,13 @@ func nuevoEntornoAjustado(t *testing.T, ajustar func(*servidor.Dependencias)) *e
 		t.Fatal(err)
 	}
 	t.Cleanup(mig.Close)
+	// Los topes por IP (todo el test sale de la misma) no pasan de una corrida a otra.
+	if err := app.EnSistema(ctx, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `DELETE FROM intentos WHERE clave LIKE '%|ip:%'`)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 	f := clerkfalso.Nuevo(t)
 	c := &clerk.Cliente{Secreto: clerkfalso.Secreto, Emisor: clerkfalso.Emisor, API: f.URL, HTTP: f.Client()}
 	d := servidor.Dependencias{App: app, Clerk: c, Secreto: "secreto-de-prueba",
@@ -83,6 +90,15 @@ func (e *entorno) persona(nombre string) persona {
 	var yo struct{ ID string }
 	e.pedir(p, "GET", "/v1/yo", nil, http.StatusOK, &yo)
 	p.id = yo.ID
+	// Al terminar, sus planes se cancelan: la base de desarrollo es compartida y los que quedan
+	// llenan el Ahora (tope de 60) de las corridas siguientes.
+	e.t.Cleanup(func() {
+		_ = e.app.EnSistema(context.Background(), func(tx pgx.Tx) error {
+			_, err := tx.Exec(context.Background(), `UPDATE planes SET cancelado_en = now()
+				WHERE organizador_id = $1 AND cancelado_en IS NULL AND empieza_en > now() - interval '1 day'`, p.id)
+			return err
+		})
+	})
 	return p
 }
 

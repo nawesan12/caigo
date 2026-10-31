@@ -5,8 +5,8 @@ e iOS programan contra este contrato en sus ramas. Todo en JSON, errores en prob
 Si al implementarlo algo tiene que cambiar, se cambia acá primero.
 
 ## 1. Género y «Solo mujeres / Solo diversidades»
-- `GET /v1/yo` suma `genero` (`""` | `mujer` | `varon` | `no_binario`) y `diversidad` (bool: «me
-  identifico como parte de la diversidad»). `PATCH /v1/yo` acepta los dos. Son autodeclarados, no se
+- `GET /v1/yo` suma `genero` (`""` | `mujer` | `varon` | `no_binario`), `diversidad` (bool: «me
+  identifico como parte de la diversidad») y `avisos` `{planesCerca, tuGente}`. `PATCH /v1/yo` acepta los dos. Son autodeclarados, no se
   muestran a nadie.
 - Sumarse (`POST /v1/planes/{id}/sumarme`), comprar entradas y aceptar invitaciones a un plan con
   `genero: mujeres` piden `genero == mujer`; con `genero: diversidades` piden `diversidad == true` o
@@ -31,7 +31,8 @@ Si al implementarlo algo tiene que cambiar, se cambia acá primero.
 - `DELETE /v1/entradas/{id}` (quien compró): cancela su entrada según la política del plan:
   `flex` → devuelve todo hasta 24 h antes; `mod` → hasta 72 h antes todo, después nada de la seña;
   `strict` → 409 `sin_reembolso`. El cargo por servicio no se devuelve cuando cancela la persona.
-  Responde `{ reembolsoCentavos }`.
+  Responde `{ reembolsoCentavos }`. Pasado el plazo de `flex`/`mod` se puede cancelar igual (libera el
+  lugar) con `reembolsoCentavos: 0`; en `mod` vale también para una entrada pagada entera.
 
 ## 3. Avisos push nuevos (worker)
 Datos del push: `{"plan": id, "pantalla": "detalle" | "checkin" | "repetimos" | "chat"}`.
@@ -43,6 +44,11 @@ Datos del push: `{"plan": id, "pantalla": "detalle" | "checkin" | "repetimos" | 
   persona por día).
 - `plan.cerca`: a quien tenga ubicación reciente (< 6 h) a menos de 5 km, intereses en común y no
   silenció avisos, cuando se publica un plan que empieza en < 3 h. Máx. 1 por persona por día.
+  «Intereses en común»: alguno de sus intereses es igual (sin mayúsculas) a uno del organizador o a la
+  categoría del plan (clave o nombre: `juego`/«Juego»).
+- `plan.recordatorio` de 2 h va a los aceptados que ya estaban adentro 2 h antes (no al organizador);
+  el del check-in, a todos los aceptados sin check-in. `solicitud.rechazada` y `solicitud.sacada` van con
+  pantalla `ahora`.
 - `PUT /v1/yo/ubicacion` `{lat, lng}`: la app la manda al abrir (redondeada a ~1 km; se borra a las
   24 h). `PATCH /v1/yo` acepta `avisos` `{planesCerca: bool, tuGente: bool}` (por defecto true).
 
@@ -63,7 +69,9 @@ Datos del push: `{"plan": id, "pantalla": "detalle" | "checkin" | "repetimos" | 
 ## 6. Lugares
 - Check-in de planes gratis en la puerta: `POST /v1/lugares/{id}/planes/{plan}/checkin/{usuarioId}`
   (miembro del lugar; aceptado en ese plan). `POST /v1/lugares/{id}/validar` además acepta el QR de
-  check-in que muestra la app (el mismo token que `/v1/planes/{id}/qr`).
+  check-in que muestra la app. Ese QR es personal: `GET /v1/planes/{id}/qr` pedido por alguien aceptado
+  (no el organizador) devuelve su código (`plan~persona` firmado); el organizador sigue recibiendo el
+  del plan. Los dos responden la `Validacion` y `GET .../asistentes` suma `usuarioId`.
 - `PUT /v1/lugares/{id}` (existe) acepta `foto`.
 
 ## 7. Backoffice (`/v1/equipo/...`, sólo equipo)
@@ -71,10 +79,13 @@ Datos del push: `{"plan": id, "pantalla": "detalle" | "checkin" | "repetimos" | 
   `POST usuarios/{id}/suspender {motivo}` y `POST usuarios/{id}/reactivar`.
 - `GET planes?q=&cual=proximos|reportados` y `POST planes/{id}/cancelar {motivo}` (como el
   organizador: avisa y devuelve).
-- `GET lugares?estado=` (todos) y `POST lugares/{id}/suspender|reactivar`.
+- `GET lugares?estado=` (sin `estado`: todos, los pendientes primero) y `POST
+  lugares/{id}/suspender {motivo}|reactivar` (aprobado ↔ suspendido).
 - `GET metricas` → por semana (últimas 8): planes publicados, completados (llegaron al cupo y
   empezaron), asistencia (check-ins / aceptados), horas promedio hasta completar, repetición a 30
-  días, organizadores activos, altas por `origen`.
+  días, organizadores activos, altas por `origen`. Forma: `{semanas: [{desde, publicados, completados,
+  asistencia, horasHastaCompletar, repeticion30d, organizadoresActivos, altas, altasPorOrigen}]}`
+  (proporciones de 0 a 1, `null` sin datos; «hasta completar» usa la última aceptación).
 - Planes semilla desde la web: `POST planes` con el cuerpo de `POST /v1/planes` + `organizadorId`.
 
 ## 8. Crecimiento
@@ -85,7 +96,9 @@ Datos del push: `{"plan": id, "pantalla": "detalle" | "checkin" | "repetimos" | 
 ## 9. Recurrencia
 - El worker crea la próxima fecha de un plan `recurrente` 6 días antes, aunque nadie conteste
   «¿Repetimos?» (mismo plan, mismo organizador, sin sumados). «¿Repetimos? No» corta la serie.
+  Cancelar el último plan de la serie también la corta. Vale para los planes de lugares.
 
 ## 10. Tiempo real
 - `escribiendo` también en privados: el cliente manda `{"tipo":"escribiendo","privado":"<id>"}` por el
-  WebSocket y el otro recibe `{"tipo":"escribiendo","privado":"<id de quien escribe>"}`.
+  WebSocket y el otro recibe `{"tipo":"escribiendo","privado":"<id de quien escribe>"}` (con `quien`
+  `{id, nombre}`, como en los planes).

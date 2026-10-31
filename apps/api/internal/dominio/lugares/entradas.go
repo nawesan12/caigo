@@ -162,8 +162,10 @@ func (s *Servicio) CrearPlan(ctx context.Context, usuarioID, lugarID string, p P
 			p.Cobro, nulo(p.PrecioCentavos), nulo(p.SenaPct), p.Incluye, p.Cancelacion, p.Beneficio, p.AceptaGrupos).Scan(&id); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO planes_direccion (plan_id, direccion, lat, lng) VALUES ($1, $2, $3, $4)`, id, l.direccion, l.lat, l.lng)
-		return err
+		if _, err := tx.Exec(ctx, `INSERT INTO planes_direccion (plan_id, direccion, lat, lng) VALUES ($1, $2, $3, $4)`, id, l.direccion, l.lat, l.lng); err != nil {
+			return err
+		}
+		return planes.Publicado(ctx, tx, id)
 	})
 	return id, err
 }
@@ -245,13 +247,14 @@ func (s *Servicio) Planes(ctx context.Context, usuarioID, lugarID, cual, planID 
 
 // Asistente de un plan del lugar ("Quiénes vienen").
 type Asistente struct {
-	Nombre   string     `json:"nombre"`
-	Foto     string     `json:"foto"`
-	Cantidad int16      `json:"cantidad"`
-	Pago     string     `json:"pago"` // gratis | pago | sena
-	Codigo   string     `json:"codigo,omitempty"`
-	Saldo    int32      `json:"saldoCentavos,omitempty"`
-	Checkin  *time.Time `json:"checkin,omitempty"`
+	UsuarioID string     `json:"usuarioId"`
+	Nombre    string     `json:"nombre"`
+	Foto      string     `json:"foto"`
+	Cantidad  int16      `json:"cantidad"`
+	Pago      string     `json:"pago"` // gratis | pago | sena
+	Codigo    string     `json:"codigo,omitempty"`
+	Saldo     int32      `json:"saldoCentavos,omitempty"`
+	Checkin   *time.Time `json:"checkin,omitempty"`
 }
 
 // Asistentes de un plan del lugar.
@@ -262,7 +265,7 @@ func (s *Servicio) Asistentes(ctx context.Context, usuarioID, lugarID, planID st
 			return err
 		}
 		rows, err := tx.Query(ctx, `
-			SELECT u.nombre, coalesce(u.fotos[1], ''), s.cantidad,
+			SELECT u.id, u.nombre, coalesce(u.fotos[1], ''), s.cantidad,
 				CASE WHEN e.id IS NULL THEN 'gratis' WHEN e.modo = 'sena' THEN 'sena' ELSE 'pago' END,
 				coalesce(e.codigo, ''), coalesce(e.saldo_centavos, 0), s.checkin_en
 			FROM solicitudes s JOIN usuarios u ON u.id = s.usuario_id JOIN planes p ON p.id = s.plan_id
@@ -275,7 +278,7 @@ func (s *Servicio) Asistentes(ctx context.Context, usuarioID, lugarID, planID st
 		defer rows.Close()
 		for rows.Next() {
 			var a Asistente
-			if err := rows.Scan(&a.Nombre, &a.Foto, &a.Cantidad, &a.Pago, &a.Codigo, &a.Saldo, &a.Checkin); err != nil {
+			if err := rows.Scan(&a.UsuarioID, &a.Nombre, &a.Foto, &a.Cantidad, &a.Pago, &a.Codigo, &a.Saldo, &a.Checkin); err != nil {
 				return err
 			}
 			out = append(out, a)
@@ -321,16 +324,17 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 		var selfie, dni, cancelado, grupos bool
 		var empieza time.Time
 		var soloVerif bool
+		var generoPlan string
 		var lid *string
 		var prec *int32
 		err := tx.QueryRow(ctx, `SELECT p.lugar_id, p.titulo, p.slug, p.cobro, p.precio_centavos, p.sena_pct, p.total,
-				p.cancelado_en IS NOT NULL, p.empieza_en, p.solo_verificados, p.acepta_grupos, coalesce(l.nombre, ''),
+				p.cancelado_en IS NOT NULL, p.empieza_en, p.solo_verificados, p.acepta_grupos, coalesce(l.nombre, ''), p.genero,
 				coalesce((SELECT sum(cantidad) FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'aceptada'), 0)::integer
 					-- Las compras sin pagar reservan su lugar mientras vale la preferencia (30 min).
 					+ coalesce((SELECT sum(cantidad) FROM entradas y WHERE y.plan_id = p.id AND y.estado = 'pendiente'
 						AND y.usuario_id <> $2 AND y.creada_en > now() - interval '30 minutes'), 0)::integer
 			FROM planes p LEFT JOIN lugares l ON l.id = p.lugar_id WHERE p.id::text = $1 FOR UPDATE OF p`, planID, usuarioID).
-			Scan(&lid, &titulo, &slug, &cobro, &prec, &senaPct, &total, &cancelado, &empieza, &soloVerif, &grupos, &lugarNombre, &sumados)
+			Scan(&lid, &titulo, &slug, &cobro, &prec, &senaPct, &total, &cancelado, &empieza, &soloVerif, &grupos, &lugarNombre, &generoPlan, &sumados)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && lid == nil) {
 			return problema.NoEncontrado("Ese plan no tiene entradas.")
 		}
@@ -357,6 +361,9 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 			return problema.Conflicto("sin_grupos", "Este plan es de a una persona.")
 		case sumados+int(cantidad) > int(total):
 			return problema.Conflicto("completo", "No quedan tantos lugares (puede que se liberen si alguien no termina de pagar).")
+		}
+		if err := planes.ChequearGenero(ctx, tx, usuarioID, generoPlan); err != nil {
+			return err
 		}
 		var ya bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM solicitudes WHERE plan_id::text = $1 AND usuario_id = $2 AND estado = 'aceptada')`,
@@ -512,6 +519,14 @@ func (s *Servicio) aplicar(ctx context.Context, ref string, pagoID int64, estado
 			if _, err := tx.Exec(ctx, `UPDATE entradas SET estado = 'pagada', mp_pago = $2, pagada_en = now(), actualizada_en = now() WHERE id = $1`, id, pagoID); err != nil {
 				return err
 			}
+			var cancelado bool
+			if err := tx.QueryRow(ctx, `SELECT cancelado_en IS NOT NULL FROM planes WHERE id = $1`, planID).Scan(&cancelado); err != nil {
+				return err
+			}
+			if cancelado {
+				// Pagó después de que se canceló el plan: se le devuelve todo.
+				return outbox.Publicar(ctx, tx, "entrada.reembolsar", map[string]any{"entradaId": id, "total": true})
+			}
 			if _, err := tx.Exec(ctx, `INSERT INTO solicitudes (plan_id, usuario_id, cantidad, estado, respondida_en)
 				VALUES ($1, $2, $3, 'aceptada', now()) ON CONFLICT (plan_id, usuario_id) DO UPDATE SET
 				cantidad = excluded.cantidad, estado = 'aceptada', respondida_en = now()`, planID, usuarioID, cantidad); err != nil {
@@ -553,6 +568,10 @@ type Validacion struct {
 
 // Validar el código de una entrada (TK-4821) en la puerta: hace el check-in y desbloquea el beneficio.
 func (s *Servicio) Validar(ctx context.Context, usuarioID, lugarID, codigo string) (Validacion, error) {
+	// También el QR de check-in que muestra la app (planes gratis o sin entrada).
+	if v, ok, err := s.validarQR(ctx, usuarioID, lugarID, codigo); ok {
+		return v, err
+	}
 	codigo = strings.ToUpper(strings.TrimSpace(codigo))
 	if !strings.HasPrefix(codigo, "TK-") {
 		codigo = "TK-" + codigo

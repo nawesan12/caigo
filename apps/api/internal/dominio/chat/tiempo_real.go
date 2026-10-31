@@ -22,6 +22,21 @@ type Evento struct {
 	Privado *Privado `json:"privado,omitempty"`
 	PlanID  string   `json:"planId,omitempty"`
 	Quien   *Autor   `json:"quien,omitempty"`
+	// "escribiendo" en un privado: id de quien escribe (viaja como "privado").
+	EscribePrivado string `json:"-"`
+}
+
+// MarshalJSON: el "escribiendo" de un privado viaja como {"tipo":"escribiendo","privado":"<id>"}.
+func (e Evento) MarshalJSON() ([]byte, error) {
+	type plano Evento
+	if e.Tipo == "escribiendo" && e.EscribePrivado != "" {
+		return json.Marshal(struct {
+			Tipo    string `json:"tipo"`
+			Privado string `json:"privado"`
+			Quien   *Autor `json:"quien,omitempty"`
+		}{e.Tipo, e.EscribePrivado, e.Quien})
+	}
+	return json.Marshal(plano(e))
 }
 
 // Hub reparte los eventos a las conexiones abiertas de cada persona. Hay una sola API, así que
@@ -155,8 +170,9 @@ func (h *Hub) Conectar(w http.ResponseWriter, r *http.Request, usuarioID, nombre
 		var ultimo time.Time
 		for {
 			var in struct {
-				Tipo   string `json:"tipo"`
-				PlanID string `json:"planId"`
+				Tipo    string `json:"tipo"`
+				PlanID  string `json:"planId"`
+				Privado string `json:"privado"`
 			}
 			_, b, err := c.Read(ctx)
 			if err != nil {
@@ -166,6 +182,10 @@ func (h *Hub) Conectar(w http.ResponseWriter, r *http.Request, usuarioID, nombre
 				continue
 			}
 			ultimo = time.Now()
+			if in.Privado != "" {
+				h.escribiendoPrivado(ctx, usuarioID, nombre, in.Privado)
+				continue
+			}
 			_ = h.Servicio.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 				esta, abierto, err := participa(ctx, tx, in.PlanID, usuarioID, time.Now())
 				if err != nil || !esta || !abierto {
@@ -205,5 +225,21 @@ func (h *Hub) Conectar(w http.ResponseWriter, r *http.Request, usuarioID, nombre
 				return
 			}
 		}
+	}
+}
+
+// escribiendoPrivado avisa al otro que la persona le está escribiendo, si pueden hablar.
+func (h *Hub) escribiendoPrivado(ctx context.Context, usuarioID, nombre, otroID string) {
+	if otroID == usuarioID {
+		return
+	}
+	var ok bool
+	err := h.Servicio.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		var err error
+		ok, err = puedenHablar(ctx, tx, usuarioID, otroID)
+		return err
+	})
+	if err == nil && ok {
+		h.mandar(otroID, Evento{Tipo: "escribiendo", EscribePrivado: usuarioID, Quien: &Autor{ID: usuarioID, Nombre: nombre}})
 	}
 }

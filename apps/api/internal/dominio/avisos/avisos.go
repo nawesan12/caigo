@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -78,6 +79,15 @@ type Enviador struct {
 	APNs *apns.Cliente
 	FCM  *fcm.Cliente
 	Log  *slog.Logger
+	// Reloj (tests). nil: time.Now.
+	Reloj func() time.Time
+}
+
+func (e *Enviador) log() *slog.Logger {
+	if e.Log != nil {
+		return e.Log
+	}
+	return slog.Default()
 }
 
 // Aviso es un push para una persona.
@@ -147,6 +157,14 @@ func (e *Enviador) Manejadores() map[string]outbox.Manejador {
 		"interes.nuevo":      e.interesNuevo,
 		"invitacion.nueva":   e.invitacionNueva,
 		"entrada.pagada":     e.entradaPagada,
+		// Planes (contrato del 31/10).
+		"plan.cancelado":      e.planCancelado,
+		"plan.cambiado":       e.planCambiado,
+		"plan.recordatorio":   e.planRecordatorio,
+		"plan.repetimos":      e.planRepetimos,
+		"plan.publicado":      e.planPublicado,
+		"solicitud.rechazada": e.solicitudFuera(false),
+		"solicitud.sacada":    e.solicitudFuera(true),
 		// Al equipo: un pedido de arrepentimiento (hay que responder en el día).
 		"arrepentimiento.nuevo": e.arrepentimientoNuevo,
 	}

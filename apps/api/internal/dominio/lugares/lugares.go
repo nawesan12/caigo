@@ -34,6 +34,8 @@ type Servicio struct {
 	// Sitio público (caigo.com.ar), panel (lugares.caigo.com.ar) y API pública.
 	Sitio, Panel, APIPublica string
 	Reloj                    func() time.Time
+	// Reembolsos de Mercado Pago. nil: los de MP.
+	Reembolsos Reembolsador
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -275,27 +277,6 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, lugarID string, e Edic
 		return Lugar{}, err
 	}
 	return s.Ver(ctx, usuarioID, lugarID)
-}
-
-// Pendientes de aprobación (equipo).
-func (s *Servicio) Pendientes(ctx context.Context) ([]Lugar, error) {
-	out := []Lugar{}
-	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT `+columnas+desde+` WHERE l.estado = 'pendiente' ORDER BY l.creado_en`, "00000000-0000-0000-0000-000000000000")
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			l, err := escanear(rows)
-			if err != nil {
-				return err
-			}
-			out = append(out, l)
-		}
-		return rows.Err()
-	})
-	return out, err
 }
 
 // Revisar aprueba o rechaza un lugar (equipo).

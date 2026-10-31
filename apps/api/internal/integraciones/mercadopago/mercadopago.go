@@ -245,3 +245,14 @@ func SinEtiqueta(email string) string {
 	local, _, _ = strings.Cut(local, "+")
 	return local + "@" + dominio
 }
+
+// Reembolsar devuelve un pago con el token de la cuenta que cobró (POST /v1/payments/{id}/refunds).
+// centavos nil: todo (cuerpo vacío); si no, un reembolso parcial por ese monto. idem va como
+// X-Idempotency-Key: reintentar el mismo reembolso no devuelve dos veces.
+func (c *Config) Reembolsar(ctx context.Context, token string, pagoID int64, centavos *int64, idem string) error {
+	var cuerpo any
+	if centavos != nil {
+		cuerpo = map[string]float64{"amount": float64(*centavos) / 100}
+	}
+	return c.JSON(ctx, http.MethodPost, "/v1/payments/"+strconv.FormatInt(pagoID, 10)+"/refunds", token, idem, cuerpo, nil)
+}

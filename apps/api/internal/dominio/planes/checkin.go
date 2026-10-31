@@ -25,21 +25,31 @@ const (
 const (
 	propositoQR   = "checkin"
 	propositoVivo = "vivo"
+	// PropositoAsiste: el QR de una persona aceptada ("plan~usuario"), para la puerta de un lugar.
+	PropositoAsiste = "asiste"
 )
 
-// QR devuelve el código que muestra el organizador para el check-in (vale hasta el fin de la ventana).
+// QR devuelve el código de check-in del plan (vale hasta el fin de la ventana). Al organizador, el
+// que escanean los que llegan; a alguien aceptado, el suyo, que muestra en la puerta de un lugar
+// aliado (el lugar lo valida en POST /v1/lugares/{id}/validar).
 func (s *Servicio) QR(ctx context.Context, usuarioID, planID string) (string, error) {
 	var fin time.Time
+	var org bool
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `SELECT empieza_en + make_interval(mins => duracion_min) FROM planes
-			WHERE id::text = $1 AND organizador_id = $2 AND cancelado_en IS NULL`, planID, usuarioID).Scan(&fin)
+		err := tx.QueryRow(ctx, `SELECT p.empieza_en + make_interval(mins => p.duracion_min), p.organizador_id = $2
+			FROM planes p WHERE p.id::text = $1 AND p.cancelado_en IS NULL AND (p.organizador_id = $2
+				OR EXISTS (SELECT 1 FROM solicitudes s WHERE s.plan_id = p.id AND s.usuario_id = $2 AND s.estado = 'aceptada'))`,
+			planID, usuarioID).Scan(&fin, &org)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return problema.NoEncontrado("Ese plan no es tuyo.")
+			return problema.NoEncontrado("No estás en ese plan.")
 		}
 		return err
 	})
 	if err != nil {
 		return "", err
+	}
+	if !org {
+		return s.Firma.Firmar(PropositoAsiste, planID+"~"+usuarioID, fin.Add(checkinDespues)), nil
 	}
 	return s.Firma.Firmar(propositoQR, planID, fin.Add(checkinDespues)), nil
 }
@@ -118,7 +128,7 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 	if len(ops) > 60 {
 		return nil, problema.Invalido("Demasiadas personas.")
 	}
-	var nuevo string
+	var nuevo, existente string
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var org, titulo, zona string
 		var empieza time.Time
@@ -155,8 +165,24 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 				}
 			}
 		}
-		if !repetir || org != usuarioID {
+		if org != usuarioID {
 			return nil
+		}
+		if !repetir {
+			// "Esta vez no": corta la serie (los planes recurrentes dejan de repetirse).
+			_, err := tx.Exec(ctx, `UPDATE planes SET recurrente = false WHERE organizador_id = $2 AND recurrente
+				AND coalesce(serie_id, id) = (SELECT coalesce(serie_id, id) FROM planes WHERE id::text = $1)
+				AND empieza_en >= (SELECT empieza_en FROM planes WHERE id::text = $1)`, planID, usuarioID)
+			return err
+		}
+		// Ya está la semana que viene (la creó el worker o un "Sí" anterior): se devuelve esa.
+		err = tx.QueryRow(ctx, `SELECT n.id FROM planes v JOIN planes n ON coalesce(n.serie_id, n.id) = coalesce(v.serie_id, v.id)
+			AND n.empieza_en = v.empieza_en + interval '7 days' WHERE v.id::text = $1 LIMIT 1`, planID).Scan(&existente)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return err
 		}
 		// Mismo plan, una semana después, en la misma serie. Arranca con el grupo del organizador.
 		return tx.QueryRow(ctx, `
@@ -171,6 +197,10 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 				FROM viejo RETURNING id, somos)
 			SELECT id FROM n`, planID, slug(titulo, zona)).Scan(&nuevo)
 	})
+	if err == nil && existente != "" {
+		p, err := s.Ver(ctx, usuarioID, existente, nil)
+		return &p, err
+	}
 	if err != nil || nuevo == "" {
 		return nil, err
 	}
@@ -179,9 +209,11 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 			SELECT $1, organizador_id, somos, 'aceptada', now() FROM planes WHERE id = $1`, nuevo); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO planes_direccion (plan_id, direccion, lat, lng)
-			SELECT $1, direccion, lat, lng FROM planes_direccion WHERE plan_id::text = $2`, nuevo, planID)
-		return err
+		if _, err := tx.Exec(ctx, `INSERT INTO planes_direccion (plan_id, direccion, lat, lng)
+			SELECT $1, direccion, lat, lng FROM planes_direccion WHERE plan_id::text = $2`, nuevo, planID); err != nil {
+			return err
+		}
+		return Publicado(ctx, tx, nuevo)
 	})
 	if err != nil {
 		return nil, err
