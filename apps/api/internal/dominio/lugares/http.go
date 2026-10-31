@@ -201,6 +201,28 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		}
 		return listo(w)
 	}))
+	mux.Handle("POST /v1/lugares/{id}/placas/pedido", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		var in struct {
+			Cantidad int    `json:"cantidad"`
+			Tipo     string `json:"tipo"`
+			Nota     string `json:"nota"`
+		}
+		if !respuesta.Leer(w, r, &in) {
+			return nil
+		}
+		pe, err := s.PedirPlacas(r.Context(), p.ID, r.PathValue("id"), in.Cantidad, in.Tipo, in.Nota)
+		if err != nil {
+			return err
+		}
+		return ok(w, http.StatusCreated, pe)
+	}))
+	mux.Handle("GET /v1/lugares/{id}/placas/pedidos", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		ps, err := s.PedidosDelLugar(r.Context(), p.ID, r.PathValue("id"))
+		if err != nil {
+			return err
+		}
+		return ok(w, http.StatusOK, map[string]any{"pedidos": ps})
+	}))
 
 	// La persona.
 	mux.Handle("POST /v1/planes/{id}/entradas", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
@@ -269,6 +291,25 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 			return listo(w)
 		}))
 	}
+	mux.Handle("GET /v1/equipo/pedidos-placas", h(equipo, func(w http.ResponseWriter, r *http.Request, _ sesion.Persona) error {
+		ps, err := s.PedidosPlacas(r.Context())
+		if err != nil {
+			return err
+		}
+		return ok(w, http.StatusOK, map[string]any{"pedidos": ps})
+	}))
+	mux.Handle("POST /v1/equipo/pedidos-placas/{id}/atendido", h(equipo, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		var in struct {
+			Nota string `json:"nota"`
+		}
+		if !respuesta.Leer(w, r, &in) {
+			return nil
+		}
+		if err := s.AtenderPedidoPlacas(r.Context(), p.ID, r.PathValue("id"), in.Nota); err != nil {
+			return err
+		}
+		return listo(w)
+	}))
 	mux.Handle("POST /v1/equipo/lugares/{id}", h(equipo, func(w http.ResponseWriter, r *http.Request, _ sesion.Persona) error {
 		var in struct {
 			Aprobar bool   `json:"aprobar"`
