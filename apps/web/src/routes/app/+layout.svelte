@@ -6,7 +6,7 @@
 	 * Caigo desde la web: las pantallas de Mockups v5 a 390 px. En el celular ocupan toda la pantalla;
 	 * en la compu van centradas dentro del marco de teléfono del handoff (radio 48, borde #15131C).
 	 */
-	let { children } = $props();
+	let { children, data } = $props();
 
 	const TABS: Record<string, 'ahora' | 'explorar' | 'mis' | 'perfil'> = {
 		'/app': 'ahora',
@@ -25,7 +25,7 @@
 
 <div class="lienzo">
 	<a class="marca" href="/" aria-label="Caigo, inicio">Caigo</a>
-	<div class="tel">
+	<div class="tel" data-tema={data.tema}>
 		{@render children()}
 		{#if activa}<TabBar {activa} />{/if}
 	</div>

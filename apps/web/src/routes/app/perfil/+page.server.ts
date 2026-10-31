@@ -1,28 +1,29 @@
-import { fail } from '@sveltejs/kit';
-import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
-import type { Actions } from './$types';
+import { conSesion, ErrorApi } from '#lib/server/api.ts';
+import type { Plan } from '#lib/tipos.ts';
+import type { PageServerLoad } from './$types';
 
-export const actions: Actions = {
-	default: async (event) => {
-		const f = await event.request.formData();
-		const intereses = f
-			.getAll('interes')
-			.map((x) => String(x).trim())
-			.filter(Boolean)
-			.slice(0, 12);
-		try {
-			await conSesion(event, 'PATCH', '/v1/yo', {
-				cuerpo: {
-					nombre: String(f.get('nombre') ?? '').trim(),
-					ciudad: String(f.get('ciudad') ?? '').trim(),
-					zona: String(f.get('zona') ?? '').trim(),
-					intereses
-				}
-			});
-			return { ok: true };
-		} catch (e) {
-			if (!(e instanceof ErrorApi)) throw e;
-			return fail(400, { error: mensajeDe(e) });
-		}
-	}
+type Persona = { id: string; nombre: string; fotos: string[] };
+
+/** Si la API dice que no, vacío; lo demás (redirect a ingresar) sigue de largo. */
+const o =
+	<T>(v: T) =>
+	(e: unknown): T => {
+		if (e instanceof ErrorApi) return v;
+		throw e;
+	};
+
+/**
+ * Perfil propio (11): suma Mi gente (las caras de la tarjeta) y los planes compartidos, que son
+ * los últimos del historial. Si alguna falla, la pantalla igual se ve.
+ */
+export const load: PageServerLoad = async (event) => {
+	const [gente, historial] = await Promise.all([
+		conSesion<{ gente: Persona[] }>(event, 'GET', '/v1/gente')
+			.then((r) => r.gente)
+			.catch(o<Persona[]>([])),
+		conSesion<{ planes: Plan[] }>(event, 'GET', '/v1/planes/mios?cual=historial')
+			.then((r) => r.planes.filter((p) => !p.cancelado).slice(0, 6))
+			.catch(o<Plan[]>([]))
+	]);
+	return { gente: gente.slice(0, 4), compartidos: historial };
 };

@@ -182,6 +182,9 @@ export type EstadoPlus = {
 	sumadasHoy: number;
 	limite: number;
 	reiniciaEn: string;
+	encantasHoy?: number;
+	limiteEncantas?: number;
+	destacarDesde?: string;
 };
 
 export type Yo = {
@@ -262,4 +265,85 @@ export type Arrepentimiento = {
 	creadoEn: string;
 	atendidoEn?: string;
 	nota?: string;
+};
+
+/** Backoffice: una persona en /v1/equipo/usuarios (contrato §7). */
+export type UsuarioEquipo = {
+	id: string;
+	nombre: string;
+	foto?: string;
+	ciudad: string;
+	creado: string;
+	verificada: boolean;
+	/** Estado del DNI ("", "pendiente", "aprobado", "rechazado") o, si la API lo manda así, true/false. */
+	dni: string | boolean;
+	/** Suspendida: true o la fecha. */
+	suspendido?: boolean | string;
+	reportes: number;
+};
+
+/** Backoffice: un plan en /v1/equipo/planes (el Plan de siempre, con sus reportes). */
+export type PlanEquipo = Plan & { reportes?: number };
+
+/** Backoffice: una semana de /v1/equipo/metricas (las últimas 8, de la más vieja a la más nueva). */
+export type SemanaMetricas = {
+	/** Lunes de la semana (YYYY-MM-DD). */
+	semana: string;
+	publicados: number;
+	/** Llegaron al cupo y empezaron. */
+	completados: number;
+	/** Check-ins / aceptados, de 0 a 1. */
+	asistencia: number;
+	/** Horas promedio desde que se publica hasta que se completa. */
+	horasHastaCompletar: number;
+	/** De 0 a 1: quienes volvieron a un plan dentro de los 30 días. */
+	repeticion30: number;
+	organizadores: number;
+	/** Altas por origen (p:<slug>, utm:instagram, "" = directo). */
+	altas: Record<string, number>;
+};
+
+/** Perfil propio completo (GET /v1/yo): lo que suma el contrato (§1, §3, §4) llega opcional. */
+export type Prompt = { p: string; r: string };
+export type Genero = '' | 'mujer' | 'varon' | 'no_binario';
+export type YoCompleto = Yo & {
+	bio: string;
+	trabajo: string;
+	intenciones: string[];
+	prompts: Prompt[];
+	telefono?: string;
+	genero?: Genero;
+	diversidad?: boolean;
+	contactoConfianza?: string;
+	avisos?: { planesCerca: boolean; tuGente: boolean };
+	origen?: string;
+};
+
+/** GET /v1/bloqueos (contrato §4). */
+export type Bloqueado = { id: string; nombre: string; foto?: string };
+
+/** Panel: un asistente con su id (contrato §6, para el check-in de planes gratis). */
+export type AsistenteConId = Asistente & { usuarioId?: string };
+
+/** Panel: lo que se edita de un plan del lugar (PATCH /v1/lugares/{lugar}/planes/{plan}, §2). */
+export type EdicionPlanLugar = {
+	id: string;
+	titulo: string;
+	categoria: string;
+	descripcion: string;
+	foto: string;
+	empiezaEn: string;
+	duracionMin: number;
+	cupo: number;
+	confirmados: number;
+	entradas: number;
+	aceptaGrupos: boolean;
+	recurrente: boolean;
+	cobro: 'gratis' | 'entrada' | 'sena';
+	precioCentavos?: number;
+	senaPct?: number;
+	incluye: string;
+	cancelacion: string;
+	beneficio: string;
+	quien: 'cualquiera' | 'verificados' | 'mujeres';
 };

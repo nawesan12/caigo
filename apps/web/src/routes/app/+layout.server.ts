@@ -4,6 +4,10 @@ import { COOKIE_UBIC, leerUbicacion } from '#lib/app.ts';
 import type { Verificacion, Yo } from '#lib/tipos.ts';
 import type { LayoutServerLoad } from './$types';
 
+/** Tema de /app (perfil › ajustes): claro, oscuro o como el teléfono. */
+const TEMAS = ['claro', 'oscuro', 'sistema'] as const;
+type Tema = (typeof TEMAS)[number];
+
 /** Lo que se puede mirar sin cuenta: Ahora (lista y mapa), Explorar y el detalle de un plan. */
 const SIN_CUENTA = new Set(['/app', '/app/mapa', '/app/explorar', '/app/plan/[id]']);
 
@@ -12,6 +16,8 @@ const SIN_CUENTA = new Set(['/app', '/app/mapa', '/app/explorar', '/app/plan/[id
  * sesión (Google o Apple) y, una sola vez, la verificación: teléfono y selfie.
  */
 export const load: LayoutServerLoad = async (event) => {
+	const t = event.cookies.get('caigo_tema') as Tema;
+	const tema: Tema = TEMAS.includes(t) ? t : 'claro';
 	if (!event.locals.token && SIN_CUENTA.has(event.route.id ?? '')) {
 		event.setHeaders({ 'cache-control': 'private, no-store' });
 		// Sólo las pantallas de SIN_CUENTA llegan acá sin sesión, y no usan `yo` ni `verif` (lo
@@ -20,6 +26,7 @@ export const load: LayoutServerLoad = async (event) => {
 			yo: null as unknown as Yo,
 			verif: null as unknown as Verificacion,
 			anonimo: true,
+			tema,
 			ubic: leerUbicacion(event.cookies.get(COOKIE_UBIC))
 		};
 	}
@@ -34,5 +41,5 @@ export const load: LayoutServerLoad = async (event) => {
 		redirect(303, `/app/verificar?volver=${encodeURIComponent(volver)}`);
 	}
 	event.setHeaders({ 'cache-control': 'private, no-store' });
-	return { yo, verif, anonimo: false, ubic: leerUbicacion(event.cookies.get(COOKIE_UBIC)) };
+	return { yo, verif, anonimo: false, tema, ubic: leerUbicacion(event.cookies.get(COOKIE_UBIC)) };
 };
