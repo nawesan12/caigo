@@ -1,0 +1,25 @@
+# Caigo (compose en /opt/caigo). Cloudflare hace de DNS/proxy; el certificado es el de origen de
+# Cloudflare para caigo.com.ar y *.caigo.com.ar.
+#
+# 80/443 están abiertos a todo el mundo (dominios propios de Corredor): `solo_cloudflare` corta lo
+# que no venga de Cloudflare. El snippet vive en /etc/caddy/sitios/00-cloudflare.caddy (compartido).
+
+api.caigo.com.ar {
+	tls /etc/caddy/certs/caigo.pem /etc/caddy/certs/caigo.key
+	import solo_cloudflare
+	encode zstd gzip
+	# Fotos y DNI suben como cuerpo crudo (hasta 8 MB).
+	request_body {
+		max_size 10MB
+	}
+	reverse_proxy 127.0.0.1:4300
+}
+
+caigo.com.ar, www.caigo.com.ar, lugares.caigo.com.ar {
+	tls /etc/caddy/certs/caigo.pem /etc/caddy/certs/caigo.key
+	import solo_cloudflare
+	@www host www.caigo.com.ar
+	redir @www https://caigo.com.ar{uri} permanent
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3500
+}

@@ -1,9 +1,38 @@
-# /opt/caigo/api.conf (chmod 600). Las claves reales están en CREDENCIALES.md (PROD_*).
+# /opt/caigo/api.conf (chmod 600). Las claves reales van en CREDENCIALES.md (gitignored), nunca acá.
 CAIGO_ENTORNO=produccion
 CAIGO_DIRECCION=:4300
 CAIGO_SITIO=https://caigo.com.ar
+CAIGO_PANEL=https://lugares.caigo.com.ar
+CAIGO_API_PUBLICA=https://api.caigo.com.ar
+CAIGO_ARCHIVOS=/datos/archivos
 CAIGO_BASE_DE_DATOS=postgres://caigo_app:CLAVE_APP@postgres:5432/caigo?sslmode=disable
 CAIGO_BASE_DE_DATOS_MIGRADOR=postgres://caigo_migrador:CLAVE_MIGRADOR@postgres:5432/caigo?sslmode=disable
 CAIGO_BASE_DE_DATOS_ADMIN=postgres://postgres:CLAVE_POSTGRES@postgres:5432/postgres?sslmode=disable
 CAIGO_CLAVE_APP=CLAVE_APP
 CAIGO_CLAVE_MIGRADOR=CLAVE_MIGRADOR
+# 32+ bytes al azar (firmas de QR, placas, links en vivo, tokens de Wallet).
+CAIGO_SECRETO=
+# 32 bytes en base64 (tokens de Mercado Pago y claves de placas cifrados).
+CAIGO_CLAVE_CIFRADO=
+# Clerk producción (instancia compartida de Grupo Vimo).
+CAIGO_CLERK_SECRETO=
+CAIGO_CLERK_PUBLICABLE=
+CAIGO_CLERK_ORIGENES=https://caigo.com.ar,https://lugares.caigo.com.ar
+# Push: APNs (copia propia del .p8 en /opt/caigo/apns) y FCM (cuenta de servicio de Firebase).
+CAIGO_APNS_KEY_ID=ZXZDZ763W6
+CAIGO_APNS_TEAM_ID=M6935MSNQB
+CAIGO_APNS_CLAVE=/datos/apns/AuthKey.p8
+CAIGO_APNS_TOPIC=ar.com.caigo.app
+CAIGO_FCM_CUENTA=
+# Tiendas y Wallet (vacío: apagado).
+CAIGO_GOOGLE_PLAY_CUENTA=
+CAIGO_GOOGLE_CLAVE_WEBHOOK=
+CAIGO_GOOGLE_WALLET_EMISOR=
+CAIGO_WALLET_PASS_TYPE=pass.ar.com.caigo
+CAIGO_WALLET_CERT=
+CAIGO_WALLET_CLAVE=
+# Mercado Pago (app de Caigo, marketplace).
+CAIGO_MP_APP_ID=
+CAIGO_MP_SECRETO=
+CAIGO_MP_TOKEN=
+CAIGO_MP_SECRETO_WEBHOOK=

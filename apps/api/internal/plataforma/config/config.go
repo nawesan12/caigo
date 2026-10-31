@@ -57,7 +57,7 @@ func Leer() (Config, error) {
 		ClerkSecreto:       os.Getenv("CAIGO_CLERK_SECRETO"),
 		ClerkPublicable:    os.Getenv("CAIGO_CLERK_PUBLICABLE"),
 		ClerkOrigenes:      lista(valor("CAIGO_CLERK_ORIGENES", "https://caigo.com.ar,https://lugares.caigo.com.ar")),
-		Archivos:           valor("CAIGO_ARCHIVOS", "/app/archivos"),
+		Archivos:           valor("CAIGO_ARCHIVOS", "/datos/archivos"),
 		APNsKeyID:          os.Getenv("CAIGO_APNS_KEY_ID"),
 		APNsTeamID:         os.Getenv("CAIGO_APNS_TEAM_ID"),
 		APNsClave:          os.Getenv("CAIGO_APNS_CLAVE"),

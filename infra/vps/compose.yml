@@ -1,11 +1,13 @@
-# Caigo en el VPS (/opt/caigo). Postgres propio; la api es un binario estático montado en
-# una alpine (se despliega subiendo bin/*.nuevo y haciendo mv: el binario en uso no se pisa).
+# Caigo en el VPS (/opt/caigo). Postgres propio; api y worker son binarios estáticos montados en una
+# alpine (se despliega subiendo bin/*.nuevo y haciendo mv: el binario en uso no se pisa).
 # Publicado sólo en 127.0.0.1: Docker se saltea UFW. Puertos reservados: 4300 api, 3500 web.
+# Registro común de todas las apps: /opt/VPS.md.
 name: caigo
 services:
   postgres:
     image: postgres:17
     restart: unless-stopped
+    command: ['postgres', '-c', 'shared_buffers=64MB', '-c', 'max_connections=40']
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD_FILE: /run/secrets/pg
@@ -20,12 +22,28 @@ services:
   api:
     image: alpine:3.20
     restart: unless-stopped
-    command: ['/app/api']
+    command: ['/app/bin/api']
     env_file: ./api.conf
     volumes:
-      - ./bin:/app:ro
+      - ./bin:/app/bin:ro
+      - ./archivos:/datos/archivos
+      - ./apns:/datos/apns:ro
+      - ./claves:/datos/claves:ro
     ports: ['127.0.0.1:4300:4300']
     mem_limit: 128m
+    depends_on:
+      postgres:
+        condition: service_healthy
+  worker:
+    image: alpine:3.20
+    restart: unless-stopped
+    command: ['/app/bin/worker']
+    env_file: ./api.conf
+    volumes:
+      - ./bin:/app/bin:ro
+      - ./apns:/datos/apns:ro
+      - ./claves:/datos/claves:ro
+    mem_limit: 96m
     depends_on:
       postgres:
         condition: service_healthy
