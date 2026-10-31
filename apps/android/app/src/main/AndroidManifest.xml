@@ -27,6 +27,8 @@
         android:networkSecurityConfig="@xml/red"
         android:supportsRtl="true"
         android:theme="@style/Tema.Caigo">
+        <!-- Los modelos de ML Kit (cara y códigos) se bajan al instalar, con Google Play. -->
+        <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="face,barcode" />
 
         <!-- Firebase se inicia a mano (ver push/Push.kt): sin config no hay push. -->
         <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
