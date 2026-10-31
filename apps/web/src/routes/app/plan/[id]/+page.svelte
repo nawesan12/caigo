@@ -5,6 +5,8 @@
 	import Avatar from '#lib/app-ui/Avatar.svelte';
 	import Verificado from '#lib/app-ui/Verificado.svelte';
 	import BajateLaApp from '#lib/app-ui/BajateLaApp.svelte';
+	import Confirmar from '#lib/app-ui/Confirmar.svelte';
+	import Reportar from '#lib/app-ui/Reportar.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { CATEGORIAS, faltanTexto, primerNombre } from '#lib/plan.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
@@ -44,6 +46,15 @@
 	const organiza = $derived(p.lugar ? p.lugar.nombre : primerNombre(p.organizador.nombre));
 
 	let grupo = $state(false);
+	let reportar = $state(false);
+	let salir = $state(false);
+	let cancelar = $state(false);
+	/** Lo que el organizador todavía puede tocar: un plan propio que no empezó ni se canceló. */
+	const editable = $derived(
+		estado === 'organizador' && !p.cancelado && new Date(p.empiezaEn).getTime() > Date.now()
+	);
+	/** Los que se sumaron (sin el organizador ni su grupo). */
+	const otros = $derived(p.van.filter((v) => !v.organizador).length);
 	let cantidad = $state(2);
 	let enviando = $state(false);
 	/** Con seña se elige: pagar todo (como en el Prototipo, lo primero) o señar. */
@@ -99,6 +110,9 @@
 	</div>
 
 	<div class="hoja">
+		{#if data.editado}
+			<p class="aviso ok" role="status">Listo, guardamos los cambios.</p>
+		{/if}
 		{#if data.pago}
 			<p class="aviso {data.pago}" role="status">
 				{data.pago === 'ok'
@@ -213,6 +227,26 @@
 				texto="Este plan es sólo para personas con DNI verificado. El DNI se verifica desde la app."
 			/>
 		{/if}
+
+		{#if !data.anonimo}
+			<div class="acciones">
+				{#if editable}
+					<div class="fila-acc">
+						{#if !p.lugar}<a href="/app/plan/{p.id}/editar">Editar plan</a><span aria-hidden="true"
+								>·</span
+							>{/if}
+						<button onclick={() => (cancelar = true)}>Cancelar el plan</button>
+					</div>
+				{:else if estado === 'aceptada' && !p.cancelado}
+					<button onclick={() => (salir = true)}>Salir del plan</button>
+				{/if}
+				{#if estado !== 'organizador'}
+					<span class="paso-algo"
+						>¿Pasó algo? <button onclick={() => (reportar = true)}>Reportar</button></span
+					>
+				{/if}
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -314,6 +348,27 @@
 		</form>
 	{/if}
 </div>
+
+{#if !data.anonimo}
+	<Reportar bind:abierta={reportar} planId={p.id} />
+	<Confirmar
+		bind:abierta={salir}
+		titulo="¿Salís del plan?"
+		texto={`Le avisamos a ${organiza} y tu lugar queda libre para otra persona.`}
+		boton="Sí, salgo"
+		accion="?/salir"
+		listo="Saliste del plan."
+	/>
+	<Confirmar
+		bind:abierta={cancelar}
+		titulo="¿Cancelás el plan?"
+		texto={otros > 0
+			? `Les avisamos a ${otros === 1 ? 'la persona que va' : `las ${otros} personas que van`} y a los que pidieron sumarse.`
+			: 'Le avisamos a quien haya pedido sumarse. No se puede deshacer.'}
+		boton="Sí, cancelar"
+		accion="?/cancelar"
+	/>
+{/if}
 
 <style>
 	.scroll {
@@ -715,6 +770,34 @@
 		font-size: 14px;
 		font-weight: 700;
 		color: #5b43c9;
+	}
+	.acciones {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 14px;
+		padding-top: 4px;
+	}
+	.fila-acc {
+		display: flex;
+		gap: 8px;
+		align-items: center;
+		color: var(--texto-2);
+	}
+	.acciones a,
+	.acciones button {
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--violeta-texto);
+		text-decoration: none;
+	}
+	.paso-algo {
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--texto-2);
+	}
+	.acciones .paso-algo button {
+		font-size: 13px;
 	}
 	.error {
 		padding: 10px 12px;

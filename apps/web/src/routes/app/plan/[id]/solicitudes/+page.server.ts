@@ -20,7 +20,19 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions: Actions = {
-	default: async (event) => {
+	/** Sacar a alguien que ya estaba adentro (contrato §2). No a quien pagó su entrada. */
+	sacar: async (event) => {
+		const id = uuid(event.params.id);
+		const quien = uuid(String((await event.request.formData()).get('usuario') ?? ''));
+		try {
+			await conSesion(event, 'DELETE', `/v1/planes/${id}/personas/${quien}`);
+			return { ok: 'sacar' };
+		} catch (e) {
+			if (!(e instanceof ErrorApi)) throw e;
+			return fail(e.estado === 409 ? 409 : 400, { error: mensajeDe(e) });
+		}
+	},
+	responder: async (event) => {
 		const f = await event.request.formData();
 		const sid = uuid(String(f.get('id') ?? ''));
 		const accion = f.get('accion') === 'aceptar' ? 'aceptar' : 'rechazar';

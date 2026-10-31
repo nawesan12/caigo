@@ -3,6 +3,7 @@
 	import { PUBLIC_SITIO } from '$app/env/public';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Avatar from '#lib/app-ui/Avatar.svelte';
+	import Confirmar from '#lib/app-ui/Confirmar.svelte';
 	import Verificado from '#lib/app-ui/Verificado.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
@@ -13,6 +14,10 @@
 	let { data } = $props();
 
 	const p = $derived(data.plan);
+	/** Los que ya están adentro (sin quien organiza). */
+	const adentro = $derived(p.van.filter((v) => !v.organizador));
+	let aSacar = $state<PersonaCorta | null>(null);
+	let sacarAbierta = $state(false);
 	const sub = $derived(`${p.titulo} · ${cuandoCorto(p.empiezaEn)}`);
 	const datoDe = (x: PersonaCorta) => {
 		const a = x.asistencia;
@@ -63,6 +68,7 @@
 				{@const completan = s.cantidad === p.faltan}
 				<form
 					method="POST"
+					action="?/responder"
 					class="sol"
 					class:completan
 					use:enhance={() =>
@@ -135,8 +141,46 @@
 				</button>
 			</div>
 		{/if}
+
+		{#if adentro.length && !p.cancelado}
+			<span class="overline-app">YA VAN</span>
+			{#each adentro as v (v.id)}
+				<div class="sol">
+					<div class="sol-cab">
+						<Avatar nombre={v.nombre} foto={v.foto} tam={44} borde="2px solid #FFFFFF" />
+						<div class="sol-txt">
+							<span class="n"
+								>{primerNombre(v.nombre)}{v.edad ? `, ${v.edad}` : ''}{#if v.verificada}<Verificado
+										tam={15}
+									/>{/if}</span
+							>
+							<span class="d">{datoDe(v)}</span>
+						</div>
+						<button
+							class="sacar"
+							onclick={() => {
+								aSacar = v;
+								sacarAbierta = true;
+							}}>Sacar</button
+						>
+					</div>
+				</div>
+			{/each}
+		{/if}
 	</div>
 </div>
+
+{#if aSacar}
+	<Confirmar
+		bind:abierta={sacarAbierta}
+		titulo="¿Sacás a {primerNombre(aSacar.nombre)}?"
+		texto="Le avisamos que ya no está en el plan y su lugar queda libre para otra persona."
+		boton="Sí, sacar"
+		accion="?/sacar"
+		campos={{ usuario: aSacar.id }}
+		listo="Listo, su lugar quedó libre."
+	/>
+{/if}
 
 <style>
 	.contenido {
@@ -280,6 +324,19 @@
 		box-shadow: var(--sh-icono);
 		font-size: 14px;
 		line-height: 1.4;
+	}
+	.overline-app {
+		margin-top: 8px;
+		font-size: 13px;
+		font-weight: 800;
+		letter-spacing: 1px;
+		color: var(--texto-2);
+	}
+	.sacar {
+		flex: none;
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--violeta-texto);
 	}
 	.botones {
 		display: grid;
