@@ -177,6 +177,7 @@
 			/>
 
 			<form method="POST" action="/salir" class="salir"><button>Salir</button></form>
+			<a class="borrar-cuenta" href="/app/borrar">Borrar mi cuenta</a>
 		{/if}
 	</div>
 </div>
@@ -335,6 +336,15 @@
 	.salir {
 		display: flex;
 		justify-content: center;
+	}
+	.borrar-cuenta {
+		align-self: center;
+		margin-top: -14px;
+		text-decoration: none;
+		padding: 4px 8px;
+		font-size: 13px;
+		font-weight: 700;
+		color: #d04a3a;
 	}
 	.salir button {
 		font-size: 14px;
