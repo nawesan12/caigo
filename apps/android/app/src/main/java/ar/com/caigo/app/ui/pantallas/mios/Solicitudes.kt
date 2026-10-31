@@ -82,6 +82,7 @@ fun Solicitudes(ir: Ir, planId: String) {
                 if (aceptar) avisos.ok("${miosPrimer(s.persona.nombre)} ya está adentro.")
                 plan.recargar()
             } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 avisos.error(mensajeDe(e))
             } finally {
                 ocupado = null

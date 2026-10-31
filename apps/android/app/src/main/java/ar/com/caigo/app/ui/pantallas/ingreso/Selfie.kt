@@ -289,6 +289,7 @@ fun Selfie(ir: Ir, volver: Boolean) {
                             c.api.selfie(a.id)
                             if (volver) ir.atras() else ir.alta(rutaDeAlta(c))
                         } catch (e: Exception) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
                             avisos.error(ingresoMensaje(e))
                         } finally {
                             cargando = false

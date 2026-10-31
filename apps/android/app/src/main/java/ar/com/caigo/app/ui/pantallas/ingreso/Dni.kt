@@ -191,6 +191,7 @@ fun Dni(ir: Ir, planId: String?) {
                     paso = PasoDni.FRENTE
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 avisos.error(ingresoMensaje(e))
                 vida.reiniciar(); selfie = null
                 paso = PasoDni.SELFIE

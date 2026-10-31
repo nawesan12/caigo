@@ -92,6 +92,9 @@ class Contenedor(val ctx: Context) {
     @Volatile
     private var ultima: Pair<Double, Double>? = null
 
+    /** La última ubicación que ya se conoce, sin esperar (para no frenar la carga de una pantalla). */
+    val ubicacionConocida: Pair<Double, Double>? get() = ultima
+
     /** Ubicación actual (FusedLocation). Sin permiso o sin señal: null. Usa la última si es reciente. */
     @SuppressLint("MissingPermission")
     suspend fun ubicacion(): Pair<Double, Double>? {

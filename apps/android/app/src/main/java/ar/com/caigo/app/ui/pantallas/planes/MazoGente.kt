@@ -192,7 +192,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
             }
         }
 
-        BoxWithConstraints(Modifier.fillMaxSize().padding(top = 98.dp, bottom = altoTabBar() + 82.dp, start = 14.dp, end = 14.dp)) {
+        BoxWithConstraints(Modifier.fillMaxSize().padding(top = 98.dp, bottom = altoTabBar() + 96.dp, start = 14.dp, end = 14.dp)) {
             val alto = maxHeight
             when {
                 mazo.dato == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -219,11 +219,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
                     CartaPersona(
                         arriba, esCitas, estado.foto,
                         Modifier.fillMaxSize().zIndex(1f)
-                            .graphicsLayer {
-                                translationX = dx.value * density
-                                translationY = dy.value * density
-                                rotationZ = Mazo.rotacion(dx.value)
-                            }
+                            // La entrada va antes de la transformación: así las posiciones son de la pantalla y no de la carta que se mueve.
                             .pointerInput(arriba.id) {
                                 awaitEachGesture {
                                     val inicio = awaitFirstDown()
@@ -233,13 +229,15 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
                                     while (true) {
                                         val ev = awaitPointerEvent()
                                         val ch = ev.changes.firstOrNull { it.id == inicio.id } ?: break
-                                        if (!ch.pressed) break
-                                        val d = ch.positionChange()
-                                        tx += d.x / densidad; ty += d.y / densidad
+                                        // Desde donde arrancó el dedo (incluye el último movimiento antes de soltar).
+                                        tx = (ch.position.x - inicio.position.x) / densidad
+                                        ty = (ch.position.y - inicio.position.y) / densidad
                                         ch.consume()
+                                        if (!ch.pressed) break
                                         alcance.launch { dx.snapTo(tx); dy.snapTo(ty) }
                                         estado = Mazo.reducir(estado, Mazo.Accion.Mueve(tx, ty))
                                     }
+                                    estado = Mazo.reducir(estado, Mazo.Accion.Mueve(tx, ty))
                                     if (kotlin.math.abs(tx) < 6 && kotlin.math.abs(ty) < 6) {
                                         // Toque: abajo abre el perfil, arriba cambia de foto.
                                         estado = estado.copy(arrastrando = false)
@@ -257,6 +255,11 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
                                         }
                                     }
                                 }
+                            }
+                            .graphicsLayer {
+                                translationX = dx.value * density
+                                translationY = dy.value * density
+                                rotationZ = Mazo.rotacion(dx.value)
                             },
                         tinte = dx.value,
                         alto = alto,
@@ -272,7 +275,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
             val escMeGusta by animateFloatAsState(1f + .15f * (if (dx.value > 0) k else 0f), tween(150), label = "mg")
             val escPaso by animateFloatAsState(1f + .18f * (if (dx.value < 0) k else 0f), tween(150), label = "ps")
             Row(
-                Modifier.align(Alignment.BottomCenter).padding(bottom = altoTabBar() + 2.dp).height(76.dp),
+                Modifier.align(Alignment.BottomCenter).padding(bottom = altoTabBar() + 14.dp).height(76.dp),
                 horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.CenterVertically,
             ) {
                 BotonRedondo(60.dp, gelPaso, Modifier.scale(escPaso), { reaccionar("paso") }) { Icono(I.cruz, 24.dp, C.coral2, 3.2f) }

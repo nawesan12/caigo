@@ -387,6 +387,7 @@ fun EditarPerfil(ir: Ir) {
                 }
                 fotos.add(c.api.subir("foto", jpeg).url)
             } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 avisos.error(mensajeDe(e))
             } finally {
                 subiendo = false
@@ -487,6 +488,7 @@ fun EditarPerfil(ir: Ir) {
                             avisos.ok("Listo, actualizamos tu perfil.")
                             ir.atras()
                         } catch (e: Throwable) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
                             avisos.error(mensajeDe(e))
                         } finally {
                             guardando = false

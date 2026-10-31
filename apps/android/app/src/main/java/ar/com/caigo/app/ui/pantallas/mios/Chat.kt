@@ -93,6 +93,7 @@ fun Chat(ir: Ir, planId: String) {
             val ms = c.api.mensajes(planId).mensajes
             lineas.clear(); lineas.addAll(ms.map { it.linea(yo) })
         } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             error = mensajeDe(e)
         }
         cargado = true
@@ -119,6 +120,7 @@ fun Chat(ir: Ir, planId: String) {
         if (lineas.none { it.id == m.id }) lineas.add(m.linea(yo))
         true
     } catch (e: Throwable) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
         avisos.error(mensajeDe(e)); false
     }
 
@@ -353,6 +355,7 @@ fun Privado(ir: Ir, conId: String, nombre: String) {
         try {
             lineas.clear(); lineas.addAll(c.api.privados(conId).privados.map { it.linea(yo, quien) })
         } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             error = mensajeDe(e)
         }
         cargado = true
@@ -377,6 +380,7 @@ fun Privado(ir: Ir, conId: String, nombre: String) {
                     if (lineas.none { it.id == m.id }) lineas.add(m.linea(yo, quien))
                     true
                 } catch (e: Throwable) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
                     avisos.error(mensajeDe(e)); false
                 }
             }

@@ -78,6 +78,7 @@ fun Ingresar(ir: Ir) {
         } catch (e: Clerk.ErrorClerk) {
             avisos.error(mensajeClerk(e.codigo))
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             avisos.error(ingresoMensaje(e))
         } finally {
             ocupado = null
@@ -93,6 +94,7 @@ fun Ingresar(ir: Ir) {
                 avisos.error(mensajeClerk(e.codigo))
                 ocupado = null
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 avisos.error(ingresoMensaje(e))
                 ocupado = null
             }
@@ -168,6 +170,7 @@ fun DebugToken(ir: Ir) {
                         if (usuario.isBlank()) c.sesion.guardar(token, yo.id)
                         ir.alta(rutaDeAlta(c))
                     } catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
                         c.sesion.borrar()
                         avisos.error(ingresoMensaje(e))
                     } finally {

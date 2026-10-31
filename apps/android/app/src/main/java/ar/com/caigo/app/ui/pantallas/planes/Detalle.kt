@@ -134,13 +134,14 @@ fun DetallePlan(ir: Ir, id: String? = null, slug: String? = null) {
     var plan by remember { mutableStateOf<Plan?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var vuelta by remember { mutableIntStateOf(0) }
-    LaunchedEffect(planId, slug, vuelta) {
+    LaunchedEffect(slug, vuelta) {
         try {
             val pid = planId ?: c.api.publico(slug!!).id.also { planId = it }
-            val punto = c.ubicacion()
+            val punto = c.ubicacionConocida
             plan = c.api.plan(pid, punto?.first, punto?.second)
             error = null
         } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             error = mensajeDe(e)
         }
     }

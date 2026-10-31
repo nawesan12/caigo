@@ -90,6 +90,7 @@ fun Pases(ir: Ir) {
             if (e.codigo == "sin_wallet") sinWallet = true
             avisos.error(e.detalle)
         } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             avisos.error(mensajeDe(e))
         }
     }

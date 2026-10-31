@@ -216,13 +216,15 @@ private fun slideAmigos(saltar: () -> Unit, avanzar: () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize().background(C.blancoCalido).ingresoGrano()) {
         val e = ingresoEscala()
         val altoTotal = maxHeight
-        Image(painterResource(R.drawable.ingreso_amigos), null, Modifier.fillMaxWidth().height(e.y(470f)), contentScale = ContentScale.Crop)
+        Image(painterResource(R.drawable.ingreso_amigos), null, Modifier.fillMaxWidth().height(maxHeight - 300.dp), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxWidth().height(140.dp).background(Brush.verticalGradient(listOf(rgba(32, 29, 43, .5f), rgba(32, 29, 43, 0f)))))
         ingresoContenido { arriba, nav ->
             ingresoSaltar(.22f, saltar, Modifier.align(Alignment.TopEnd).padding(top = arriba + 12.dp, end = 24.dp))
-            // Píldora "Cita doble" sobre la foto.
+          Column(Modifier.fillMaxSize()) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+            // Píldora "Cita doble" sobre la foto, siempre arriba de la hoja.
             Row(
-                Modifier.padding(start = 24.dp, top = (altoTotal - 420.dp - nav).coerceAtLeast(arriba + 70.dp))
+                Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 22.dp)
                     .gel(22.dp, Gel(vertical(rgba(255, 255, 255, .95f), rgba(248, 246, 255, .9f)), listOf(interna(1.5f, 0f, C.blanco), externa(20f, 40f, rgba(20, 10, 60, .55f), spread = -14f))))
                     .padding(start = 18.dp, top = 10.dp, end = 16.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -241,9 +243,10 @@ private fun slideAmigos(saltar: () -> Unit, avanzar: () -> Unit) {
                 ) { Icono(I.mas, 16.dp, C.lima, 4f) }
                 T("Cita doble", 17f, 700, C.carbon, modifier = Modifier.offset(x = (-8).dp))
             }
+            }
             // Hoja de abajo: alto natural, pegada abajo; la foto y la píldora ocupan lo que sobra.
             Column(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                Modifier.fillMaxWidth()
                     .background(C.blancoCalido, RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp))
                     .ingresoGrano()
                     .padding(start = 26.dp, end = 26.dp, top = 30.dp, bottom = 40.dp + nav),
@@ -275,6 +278,7 @@ private fun slideAmigos(saltar: () -> Unit, avanzar: () -> Unit) {
                     siguiente(60.dp, avanzar)
                 }
             }
+          }
         }
     }
 }

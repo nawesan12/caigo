@@ -93,6 +93,7 @@ internal suspend fun sumarse(c: Contenedor, ir: Ir, avisos: Avisos, plan: Plan, 
         }
         null
     } catch (e: Throwable) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
         avisos.error(mensajeDe(e))
         null
     }
@@ -165,12 +166,14 @@ internal fun TarjetaPlan(plan: Plan, ir: Ir, modifier: Modifier = Modifier, alto
                 T(lugarYDistancia(plan), 13f, 400, p.texto2, unRenglon = true)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Con "Adentro" / "Esperando…" el botón es más ancho: van sólo las cuentas, como en el prototipo.
+                val conAvatares = plan.van.isNotEmpty() && plan.miEstado == "ninguno"
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    if (plan.van.isNotEmpty()) {
+                    if (conAvatares) {
                         Avatares(plan.van.map { it.nombre to it.foto }, total = plan.somos)
                     }
                     T(Cupo.somos(plan.somos, plan.total), 13f, 600, if (p.oscuro) C.apagado2 else C.texto2, unRenglon = true,
-                        modifier = Modifier.padding(start = if (plan.van.isNotEmpty()) 6.dp else 0.dp))
+                        modifier = Modifier.padding(start = if (conAvatares) 6.dp else 0.dp))
                 }
                 AccionTarjeta(plan, ir, alCambiar)
             }

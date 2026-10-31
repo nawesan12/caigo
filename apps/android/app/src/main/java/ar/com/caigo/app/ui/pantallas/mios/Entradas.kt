@@ -159,6 +159,7 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
                 else -> avisos.error(e.detalle)
             }
         } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             avisos.error(mensajeDe(e))
         } finally {
             pagando = false

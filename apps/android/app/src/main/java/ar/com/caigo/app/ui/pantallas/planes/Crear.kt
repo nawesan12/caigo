@@ -216,6 +216,7 @@ fun Crear(ir: Ir) {
         } catch (e: ErrorApi) {
             avisos.error(e.problema.issues.firstOrNull()?.message ?: e.detalle)
         } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             avisos.error(mensajeDe(e))
         } finally {
             publicando = false

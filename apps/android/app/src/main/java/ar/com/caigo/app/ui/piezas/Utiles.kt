@@ -134,6 +134,7 @@ class Carga<T>(private val cargar: suspend () -> T) {
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             error = mensajeDe(e)
         } finally {
             cargando = false

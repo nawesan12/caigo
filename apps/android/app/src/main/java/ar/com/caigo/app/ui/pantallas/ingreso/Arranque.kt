@@ -87,6 +87,7 @@ fun Arranque(ir: Ir) {
             } catch (e: ErrorApi) {
                 if (e.estado == 401) "ingresar" else ingresoRutaApp
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 // Sin conexión: se entra igual y cada pantalla avisa.
                 ingresoRutaApp
             }

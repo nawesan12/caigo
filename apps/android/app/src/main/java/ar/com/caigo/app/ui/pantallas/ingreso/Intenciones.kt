@@ -118,6 +118,7 @@ fun Intenciones(ir: Ir, soloEditar: Boolean) {
                     ir.principal(Pestana.Ahora, modo)
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 avisos.error(ingresoMensaje(e))
             } finally {
                 cargando = false

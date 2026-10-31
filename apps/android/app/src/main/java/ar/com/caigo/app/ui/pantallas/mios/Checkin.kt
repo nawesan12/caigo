@@ -130,6 +130,7 @@ fun Checkin(ir: Ir, planId: String) {
                 delay(1200)
                 ir.atras()
             } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 if (e is ErrorApi && e.codigo == "lejos") lejos = true
                 avisos.error(mensajeDe(e))
             } finally {
@@ -187,6 +188,7 @@ fun Checkin(ir: Ir, planId: String) {
                             try {
                                 compartir(ctx, c.api.enVivo(planId).link)
                             } catch (e: Throwable) {
+                                if (e is kotlinx.coroutines.CancellationException) throw e
                                 avisos.error(mensajeDe(e))
                             } finally {
                                 compartiendo = false
@@ -239,6 +241,7 @@ fun Repetimos(ir: Ir, planId: String) {
                     ir.atras()
                 }
             } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 avisos.error(mensajeDe(e))
             } finally {
                 mandando = null
@@ -340,6 +343,7 @@ fun Repetimos(ir: Ir, planId: String) {
                                 c.api.reportar(Reporte(planId = planId, motivo = k))
                                 avisos.ok("Gracias. Lo revisamos en menos de 24 h.")
                             } catch (e: Throwable) {
+                                if (e is kotlinx.coroutines.CancellationException) throw e
                                 avisos.error(mensajeDe(e))
                             }
                         }
@@ -418,6 +422,7 @@ fun EscanearQr(ir: Ir, planId: String) {
                         avisos.ok("Listo, tu asistencia quedó registrada.")
                         ir.atras()
                     } catch (e: Throwable) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
                         avisos.error(mensajeDe(e))
                         delay(2500)
                         leyendo = false

@@ -155,6 +155,7 @@ fun Datos(ir: Ir) {
                             )
                             ir.alta(rutaDeAlta(c))
                         } catch (e: Exception) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
                             avisos.error(ingresoMensaje(e))
                         } finally {
                             cargando = false
@@ -194,6 +195,7 @@ fun Telefono(ir: Ir) {
                 if (BuildConfig.DEBUG && r.codigoDePrueba.isNotBlank()) codigo = r.codigoDePrueba
                 else runCatching { foco.requestFocus() }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 avisos.error(ingresoMensaje(e))
             } finally {
                 cargando = false
@@ -242,6 +244,7 @@ fun Telefono(ir: Ir) {
                             c.api.confirmarCodigo(codigo)
                             ir.alta(rutaDeAlta(c))
                         } catch (e: Exception) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
                             avisos.error(ingresoMensaje(e))
                         } finally {
                             cargando = false

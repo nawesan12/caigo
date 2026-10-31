@@ -115,6 +115,7 @@ fun Tap(ir: Ir, planId: String?) {
             c.ultimoTap = c.api.tap(Lectura(t.placa, t.picc, t.cmac))
             ir.adentro()
         } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             avisos.error(mensajeDe(e))
             escaneando = false
         } finally {

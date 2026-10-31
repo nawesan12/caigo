@@ -117,6 +117,7 @@ fun Plus(ir: Ir, motivo: String) {
             productos = play.productos(Facturacion.PRODUCTOS).associateBy { it.productId }
             if (productos.isEmpty()) errorPlay = "Caigo Plus todavía no está disponible en Google Play."
         } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             errorPlay = e.message
         }
     }
@@ -129,6 +130,7 @@ fun Plus(ir: Ir, motivo: String) {
             val e = c.api.plusGoogle(token)
             if (e.activo) listo = true else avisos.error("Google Play todavía no confirmó la compra. Probá de nuevo en un rato.")
         } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             avisos.error(mensajeDe(e))
         }
     }
@@ -175,6 +177,7 @@ fun Plus(ir: Ir, motivo: String) {
             val token = compras.firstOrNull { cp -> cp.products.any { it in Facturacion.PRODUCTOS } }?.purchaseToken
             if (token == null) avisos.error("No encontramos compras de Caigo Plus en esta cuenta de Google.") else registrar(token)
         } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             avisos.error(mensajeDe(e))
         }
     }

@@ -29,6 +29,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import ar.com.caigo.app.Contenedor
 import ar.com.caigo.app.Destino
 import ar.com.caigo.app.LocalApp
@@ -129,12 +130,18 @@ fun CaigoNav(c: Contenedor) {
     val avisos = remember { Avisos() }
     val token by c.sesion.token.collectAsState()
     val destino by c.destino.collectAsState()
+    val entrada by nav.currentBackStackEntryAsState()
+    val rutaActual = entrada?.destination?.route
 
     // Links, avisos y placas: se resuelven cuando hay sesión.
-    LaunchedEffect(destino, token) {
+    LaunchedEffect(destino, token, rutaActual) {
         val d = destino ?: return@LaunchedEffect
         if (d is Destino.VueltaClerk) return@LaunchedEffect // la toma la pantalla de ingreso
         if (token == null) return@LaunchedEffect
+        // Se espera a que termine el arranque y el alta: si no, el arranque limpia la pila y se pierde.
+        if (rutaActual == null || rutaActual == "arranque" || rutaActual == "intro" || rutaActual == "ingresar" ||
+            rutaActual == "debug" || rutaActual == "datos" || rutaActual == "telefono" || rutaActual.startsWith("selfie?") ||
+            rutaActual.startsWith("intenciones?")) return@LaunchedEffect
         c.destino.value = null
         when (d) {
             is Destino.Plan -> ir.plan(d.id)
