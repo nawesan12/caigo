@@ -39,8 +39,10 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
 4. App Store: subir un build (necesita Xcode o CI con firma) para las experiencias del App Clip y las
    capturas de revisión de las suscripciones.
 5. SMS real: elegir proveedor (hoy simulado).
-6. Web: «Pedir placas» (mailto), menú reportar/bloquear en el chat web, mapa oscuro con teselas
-   oscuras. Fotos de Explorar «Cita doble» y «Cultura» en iOS (faltan) y Android (no encajan).
+6. Fotos de Explorar «Cita doble» y «Cultura» en iOS (faltan) y Android (no encajan). Web (rama
+   `pendientes`, sin desplegar): «Pedir placas» con pedido real (migración 00015, `/equipo` › Placas),
+   menú del chat de /app (ver/reportar/salir o cancelar) y mapa oscuro con OpenFreeMap dark. La web no
+   tiene chats privados: el menú de privados (ver perfil/reportar/bloquear) queda para cuando existan.
 7. Probar en dispositivos reales: nada de iOS se vio corriendo; Android sólo ingreso, permisos, Ahora
    y filtros.
 
