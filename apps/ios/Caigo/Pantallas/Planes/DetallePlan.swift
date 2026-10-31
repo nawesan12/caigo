@@ -376,9 +376,9 @@ private struct ContenidoDetalle: View {
             // Prototipo: "Pagar todo" o "Señar N %"; el modo lo manda el checkout a la API.
             let d = Plata.desglose(precio, cobro: sena ? "sena" : "entrada", senaPct: pct, cantidad: n,
                                    cargoPorPersona: p.cargoCentavos > 0 ? p.cargoCentavos : nil)
-            Segmentado(opciones: ["Pagar todo", "Señar \(pct) %"], seleccion: Binding(get: { sena ? 1 : 0 }, set: { sena = $0 == 1 }),
+            Segmentado(opciones: ["Pagar todo", "Señar \(pct)%"], seleccion: Binding(get: { sena ? 1 : 0 }, set: { sena = $0 == 1 }),
                        radio: 15, radioOpcion: 12, alto: 44)
-            T(sena ? "Pagás \(Plata.pesos(d.total)) ahora y \(Plata.pesos(d.saldo)) en el lugar." : "Pagás \(Plata.pesos(d.total)) con el cargo por servicio.",
+            T(sena ? "Reservás con \(Plata.pesos(d.alLugar)); el resto en el lugar" : "Entrada completa ahora",
               13, 600, pal.texto2, alinear: .center)
         }
         if !deLugar && p.ingreso != "libre" { campoMensaje }
