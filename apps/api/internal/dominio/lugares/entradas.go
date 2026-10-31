@@ -311,7 +311,10 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 		err := tx.QueryRow(ctx, `SELECT p.lugar_id, p.titulo, p.slug, p.cobro, p.precio_centavos, p.sena_pct, p.total,
 				p.cancelado_en IS NOT NULL, p.empieza_en, p.solo_verificados, p.acepta_grupos, coalesce(l.nombre, ''),
 				coalesce((SELECT sum(cantidad) FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'aceptada'), 0)::integer
-			FROM planes p LEFT JOIN lugares l ON l.id = p.lugar_id WHERE p.id::text = $1 FOR UPDATE OF p`, planID).
+					-- Las compras sin pagar reservan su lugar mientras vale la preferencia (30 min).
+					+ coalesce((SELECT sum(cantidad) FROM entradas y WHERE y.plan_id = p.id AND y.estado = 'pendiente'
+						AND y.usuario_id <> $2 AND y.creada_en > now() - interval '30 minutes'), 0)::integer
+			FROM planes p LEFT JOIN lugares l ON l.id = p.lugar_id WHERE p.id::text = $1 FOR UPDATE OF p`, planID, usuarioID).
 			Scan(&lid, &titulo, &slug, &cobro, &prec, &senaPct, &total, &cancelado, &empieza, &soloVerif, &grupos, &lugarNombre, &sumados)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && lid == nil) {
 			return problema.NoEncontrado("Ese plan no tiene entradas.")
@@ -338,7 +341,7 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 		case cantidad > 1 && !grupos:
 			return problema.Conflicto("sin_grupos", "Este plan es de a una persona.")
 		case sumados+int(cantidad) > int(total):
-			return problema.Conflicto("completo", "No quedan tantos lugares.")
+			return problema.Conflicto("completo", "No quedan tantos lugares (puede que se liberen si alguien no termina de pagar).")
 		}
 		var ya bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM solicitudes WHERE plan_id::text = $1 AND usuario_id = $2 AND estado = 'aceptada')`,

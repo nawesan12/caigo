@@ -383,10 +383,13 @@ const desde = `
 	LEFT JOIN solicitudes m ON m.plan_id = p.id AND m.usuario_id = $1
 	LEFT JOIN lugares l ON l.id = p.lugar_id`
 
-// visible: lo que puede encontrar quien mira ($1) en las listas. Los planes "por link" no se listan.
-const visible = `
+// sinBloqueo: ni quien mira ($1) bloqueó al organizador ni al revés.
+const sinBloqueo = `
 	NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $1 AND b.bloqueado_id = p.organizador_id)
-		OR (b.usuario_id = p.organizador_id AND b.bloqueado_id = $1))
+		OR (b.usuario_id = p.organizador_id AND b.bloqueado_id = $1))`
+
+// visible: lo que puede encontrar quien mira ($1) en las listas. Los planes "por link" no se listan.
+const visible = sinBloqueo + `
 	AND (p.organizador_id = $1 OR m.estado IS NOT NULL OR p.visibilidad = 'publico'
 		OR (p.visibilidad = 'mi_gente' AND EXISTS (SELECT 1 FROM mi_gente g
 			WHERE g.usuario_id = p.organizador_id AND g.otro_id = $1)))`
@@ -433,7 +436,7 @@ func (s *Servicio) Ver(ctx context.Context, usuarioID, idOSlug string, desdePunt
 		}
 		var err error
 		p, err = escanear(tx.QueryRow(ctx, `SELECT `+columnas+desde+`
-			WHERE `+campo+` = $2 AND (p.visibilidad = 'link' OR (`+visible+`))`, usuarioID, idOSlug))
+			WHERE `+campo+` = $2 AND ((p.visibilidad = 'link' AND `+sinBloqueo+`) OR (`+visible+`))`, usuarioID, idOSlug))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("Ese plan no existe o no lo podés ver.")
 		}
