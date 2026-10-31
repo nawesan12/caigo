@@ -3,6 +3,7 @@
 //	caigoctl bootstrap   crea roles y base (superusuario: CAIGO_BASE_DE_DATOS_ADMIN)
 //	caigoctl migrar      aplica las migraciones (CAIGO_BASE_DE_DATOS_MIGRADOR)
 //	caigoctl equipo <user_…> [no]   suma (o saca) a una persona del equipo de Caigo
+//	caigoctl semilla <planes.json>  publica planes semilla del equipo (ver docs/semilla.md)
 //
 // Las claves de los roles salen de CAIGO_CLAVE_<ROL> (vacías en desarrollo).
 package main
@@ -20,7 +21,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "uso: caigoctl bootstrap|migrar|equipo <user_…> [no]")
+		fmt.Fprintln(os.Stderr, "uso: caigoctl bootstrap|migrar|equipo <user_…> [no]|semilla <planes.json>")
 		os.Exit(2)
 	}
 	if err := correr(os.Args[1]); err != nil {
@@ -82,6 +83,14 @@ func correr(cmd string) error {
 			return fmt.Errorf("no hay nadie con ese id: que entre una vez a Caigo y probá de nuevo")
 		}
 		fmt.Println("listo")
+	case "semilla":
+		if err := cfg.Exigir("BaseApp"); err != nil {
+			return err
+		}
+		if len(os.Args) < 3 {
+			return fmt.Errorf("falta el archivo de planes")
+		}
+		return semilla(ctx, cfg.BaseApp, os.Args[2])
 	default:
 		return fmt.Errorf("comando desconocido: %s", cmd)
 	}
