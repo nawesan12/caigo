@@ -13,11 +13,12 @@ for c in api worker caigoctl; do
 done
 if [[ "${1:-}" == "--migrar" ]]; then
 	# Copia antes de migrar (hay datos reales).
-	ssh "$VPS" 'cd /opt/caigo && mkdir -p /var/backups/vimo/manual 2>/dev/null; docker compose exec -T postgres pg_dump -U postgres -Fc caigo > /var/backups/vimo/manual/caigo-$(date +%Y%m%d-%H%M).dump || docker compose exec -T postgres pg_dump -U postgres -Fc caigo > /opt/caigo/caigo-$(date +%Y%m%d-%H%M).dump'
+	# /var/backups/vimo/manual es de root: la copia queda en /opt/caigo/copias (600).
+	ssh "$VPS" 'cd /opt/caigo && mkdir -p -m 700 copias && umask 077 && docker compose exec -T postgres pg_dump -U postgres -Fc caigo > copias/caigo-$(date +%Y%m%d-%H%M).dump'
 fi
 ssh "$VPS" 'cd /opt/caigo && for c in api worker caigoctl; do mv bin/$c.nuevo bin/$c; done'
 if [[ "${1:-}" == "--migrar" ]]; then
 	ssh "$VPS" 'cd /opt/caigo && docker compose run --rm --no-deps -T api /app/bin/caigoctl migrar'
 fi
-ssh "$VPS" 'cd /opt/caigo && docker compose up -d api worker && sleep 2 && curl -fsS http://127.0.0.1:4300/salud/listo && echo'
+ssh "$VPS" 'cd /opt/caigo && docker compose up -d api worker && docker compose restart api worker && sleep 2 && curl -fsS http://127.0.0.1:4300/salud/listo && echo'
 echo "desplegada la versión $V"
