@@ -53,6 +53,16 @@ Web publicada (31/10) en https://caigo.com.ar y https://lugares.caigo.com.ar: co
 - Comprar entradas con seña: el que compra elige «Pagar todo» o «Señar N %» (`modo`), como el
   Prototipo. Web hecha; Android en la rama `android`.
 
+## 31/10 (tarde): legales, baja, iOS
+- Borrar la cuenta: `DELETE /v1/yo` (web `/app/borrar`, Android e iOS en Perfil).
+- Términos, Privacidad (Ley 25.326) y botón de arrepentimiento (`/arrepentimiento`, Res. 424/2020;
+  pestaña en /equipo, aviso push al equipo). Titular: Nahuel Santillán, CUIT 20-44859234-1.
+  Casillas hola@, soporte@, privacidad@ y postmaster@caigo.com.ar (Stalwart de Tu Local Web).
+- Fichas de las tiendas: `docs/tiendas.md`. Planes semilla cargados (4, organiza Nahuel, equipo).
+- Android 0.2.0 (versionCode 2) con todo lo de Plus, seña y baja.
+- iOS en main (`apps/ios`, XcodeGen; CI en macos-15 con Xcode 26.3). Compila, pero nunca corrió:
+  falta la pasada visual con Xcode o un iPhone, la App Clip y los productos de App Store Connect.
+
 ## Clerk de producción (aviso de la sesión de Tu Local Web, 31/10)
 - Instancia compartida `clerk.grupovimo.com.ar` (app «Grupo Vimo»), Google y Apple activos, Access
   mode Open. Claves pk_live/sk_live: dashboard o CREDENCIALES.md de mostrador-v2, nunca al repo.
