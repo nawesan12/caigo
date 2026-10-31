@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 import Nucleo
 
 /// Las categorías del filtro de Ahora (las del mockup 02).
@@ -18,6 +19,12 @@ struct Ahora: View {
     @State private var mapa = false
     @State private var categoria: String?
     @State private var punto: (Double, Double)?
+    /// Sin permiso de ubicación (o sin señal): se consulta por la ciudad del perfil.
+    @State private var sinUbicacion = false
+    /// Barrio y ciudad de la ubicación (geocodificación inversa) para el header.
+    @State private var lugarActual: String?
+    /// Lo que se busca en el mapa (va a la API como `q`).
+    @State private var busqueda = ""
     @State private var planes: [Plan]?
     @State private var error: String?
     @State private var cargando = true
@@ -30,33 +37,76 @@ struct Ahora: View {
     }
     private var conCitas: Bool { c.yo?.intenciones.contains("citas") == true }
 
-    private struct Clave: Equatable { var lat: Double?; var lng: Double?; var categoria: String?; var vuelta: Int }
+    private struct Clave: Equatable {
+        var lat: Double?; var lng: Double?; var sinUbicacion: Bool; var categoria: String?; var q: String?; var vuelta: Int
+    }
 
     var body: some View {
         Group {
             if modoActual == "planes" && mapa {
-                MapaAhora(planes: planes ?? [], punto: punto, categoria: $categoria, alLista: { mapa = false })
+                MapaAhora(planes: planes ?? [], punto: punto, categoria: $categoria, busqueda: $busqueda, alLista: { mapa = false })
             } else {
                 contenido
             }
         }
         .task {
             if c.yo == nil { await c.recargarYo() }
-            punto = await c.ubicacion() ?? (latMDP, lngMDP)
-            invitaciones = try? await c.api.invitaciones()
+            await ubicar()
         }
-        .task(id: Clave(lat: punto?.0, lng: punto?.1, categoria: categoria, vuelta: vuelta)) {
+        .task { invitaciones = try? await c.api.invitaciones() }
+        .task(id: Clave(lat: punto?.0, lng: punto?.1, sinUbicacion: sinUbicacion, categoria: categoria,
+                        q: mapa ? Api.busqueda(busqueda) : nil, vuelta: vuelta)) {
+            await cargar()
+        }
+        .task(id: punto.map { "\($0.0),\($0.1)" }) {
             guard let (la, ln) = punto else { return }
-            cargando = true
-            do {
-                planes = try await c.api.ahora(lat: la, lng: ln, categoria: categoria).planes
-                error = nil
-            } catch is CancellationError {
-            } catch {
-                self.error = mensajeDe(error)
-            }
-            cargando = false
+            lugarActual = await Ahora.barrio(la, ln)
         }
+    }
+
+    /// Pide el permiso si hace falta. Sin ubicación se consulta por ciudad, y si después llega el permiso
+    /// (la persona lo acepta en el cartel del sistema) se pasa a la ubicación.
+    private func ubicar() async {
+        c.ubicador.pedirPermiso()
+        if let u = await c.ubicacion() { punto = u; sinUbicacion = false; return }
+        sinUbicacion = true
+        for _ in 0..<30 {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            if Task.isCancelled { return }
+            if c.ubicador.permitido, let u = await c.ubicacion() { punto = u; sinUbicacion = false; return }
+        }
+    }
+
+    private func cargar() async {
+        guard punto != nil || sinUbicacion else { return }
+        let q = mapa ? Api.busqueda(busqueda) : nil
+        // Mientras se escribe en el buscador, se espera a que la persona pare (y la tarea anterior se cancela).
+        if q != nil {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            if Task.isCancelled { return }
+        }
+        cargando = true
+        do {
+            let ciudad = punto == nil ? ((c.yo?.ciudad).flatMap { $0.isEmpty ? nil : $0 } ?? "Mar del Plata") : nil
+            planes = try await c.api.ahora(lat: punto?.0, lng: punto?.1, categoria: categoria, q: q, ciudad: ciudad).planes
+            error = nil
+        } catch is CancellationError {
+        } catch let e as URLError where e.code == .cancelled {
+        } catch {
+            self.error = mensajeDe(error)
+        }
+        cargando = false
+    }
+
+    /// "Güemes, Mar del Plata" de unas coordenadas (CLGeocoder).
+    static func barrio(_ la: Double, _ ln: Double) async -> String? {
+        let marcas = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: la, longitude: ln),
+                                                                     preferredLocale: Locale(identifier: "es_AR"))
+        guard let m = marcas?.first else { return nil }
+        let partes = [m.subLocality, m.locality].compactMap { $0 }.filter { !$0.isEmpty }
+        var vistas: [String] = []
+        for x in partes where !vistas.contains(x) { vistas.append(x) }
+        return vistas.isEmpty ? nil : vistas.joined(separator: ", ")
     }
 
     private var contenido: some View {
@@ -78,7 +128,8 @@ struct Ahora: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 4) {
                 Icono(I.pin, 16, p.oscuro ? C.lima : C.violeta, trazo: 2.2)
-                let lugar = [c.yo?.zona ?? "", c.yo?.ciudad ?? ""].filter { !$0.isEmpty }.joined(separator: ", ")
+                let delPerfil = [c.yo?.zona ?? "", c.yo?.ciudad ?? ""].filter { !$0.isEmpty }.joined(separator: ", ")
+                let lugar = lugarActual ?? delPerfil
                 T(lugar.isEmpty ? "Mar del Plata" : lugar, 14, 600, p.oscuro ? C.apagado2 : C.texto2, unRenglon: true)
                 Spacer(minLength: 8)
                 if p.oscuro {
@@ -214,8 +265,8 @@ struct PlanesVacioAhora: View {
             }
             .rotationEffect(.degrees(-10))
             .frame(height: 180)
-            T("No hay planes cerca. ¿Armás uno?", 30, 700, p.texto, alto: 1.08, espaciado: -0.6, alinear: .center)
-            T("Domingo a la siesta, la costa duerme. Si publicás algo ahora, sos lo primero que ven.", 15, 400, p.texto2, alto: 1.5, alinear: .center)
+            T(VacioAhora.titulo, 30, 700, p.texto, alto: 1.08, espaciado: -0.6, alinear: .center)
+            T(VacioAhora.cuerpo(Date()), 15, 400, p.texto2, alto: 1.5, alinear: .center)
             VStack(spacing: 12) {
                 Cta(texto: "Armá un plan", alto: 58, tam: 16) { ir.crear() }
                 Button { ir.principal(.explorar) } label: { T("Ver lo que hay mañana", 14, 700, C.violetaTexto) }

@@ -57,23 +57,15 @@ struct Chat: View {
     @Environment(\.paleta) private var p
     @State private var plan: Plan?
     @State private var hilo = MiosHilo()
+    @State private var opciones = false
+    @State private var reportando = false
+    @State private var confirmando = false
 
     var body: some View {
         Pantalla {
-            VStack(spacing: 0) {
-                encabezado.padding(.horizontal, 16).padding(.top, 6)
-                if let pl = plan { tarjetaFijada(pl).padding(.horizontal, 16).padding(.top, 12) }
-                MiosVistaHilo(hilo: hilo)
-                MiosEntrada(alTipear: { c.tiempoReal.escribiendo(planId: planId) }) { t in
-                    do {
-                        let m = try await c.api.escribir(planId, t)
-                        hilo.agregar(m.linea(c.usuarioId))
-                        return true
-                    } catch {
-                        c.avisos.error(error)
-                        return false
-                    }
-                }
+            ZStack(alignment: .bottom) {
+                chat
+                hojas
             }
         }
         .task(id: planId) {
@@ -92,6 +84,71 @@ struct Chat: View {
             if let o = hilo.oyente { c.tiempoReal.dejar(o) }
             hilo.oyente = nil
         }
+    }
+
+    /// Menú del chat: reportar el plan y salir (el organizador no sale: cancela el plan).
+    @ViewBuilder
+    private var hojas: some View {
+        let organizo = plan?.esMio == true
+        if opciones {
+            HojaOpciones(cerrar: { opciones = false }, filas: [
+                Opcion(texto: "Reportar el plan") { reportando = true },
+                Opcion(texto: organizo ? "Cancelar el plan" : "Salir del plan") { confirmando = true },
+            ])
+        }
+        if reportando {
+            HojaReporte(cerrar: { reportando = false }) { motivo in
+                Task {
+                    do {
+                        try await c.api.reportar(Reporte(planId: planId, motivo: motivo))
+                        c.avisos.ok("Gracias. Lo revisa una persona del equipo en menos de 24 h.")
+                    } catch {
+                        c.avisos.error(error)
+                    }
+                }
+            }
+        }
+        if confirmando {
+            HojaOpciones(cerrar: { confirmando = false }, filas: [
+                Opcion(texto: organizo ? "Cancelar el plan y avisarles" : "Salir del plan") { salir(organizo) },
+                Opcion(texto: organizo ? "No, lo mantengo" : "Me quedo") {},
+            ])
+        }
+    }
+
+    private func salir(_ organizo: Bool) {
+        Task {
+            do {
+                if organizo {
+                    try await c.api.cancelarPlan(planId)
+                    c.avisos.ok("Cancelaste el plan. Les avisamos a todos.")
+                } else {
+                    try await c.api.salir(planId)
+                    c.avisos.ok("Saliste del plan.")
+                }
+                ir.principal(.mis)
+            } catch {
+                c.avisos.error(error)
+            }
+        }
+    }
+
+    private var chat: some View {
+            VStack(spacing: 0) {
+                encabezado.padding(.horizontal, 16).padding(.top, 6)
+                if let pl = plan { tarjetaFijada(pl).padding(.horizontal, 16).padding(.top, 12) }
+                MiosVistaHilo(hilo: hilo)
+                MiosEntrada(alTipear: { c.tiempoReal.escribiendo(planId: planId) }) { t in
+                    do {
+                        let m = try await c.api.escribir(planId, t)
+                        hilo.agregar(m.linea(c.usuarioId))
+                        return true
+                    } catch {
+                        c.avisos.error(error)
+                        return false
+                    }
+                }
+            }
     }
 
     private func escuchar() {
@@ -136,6 +193,8 @@ struct Chat: View {
                 }
                 .padding(.leading, 8)
             }
+            BotonIcono(d: I.puntos, iconoTam: 20, trazo: 0, gel: Gels.chip(p), color: .clear, relleno: p.texto) { opciones = true }
+                .accessibilityLabel("Más opciones")
         }
     }
 
@@ -361,28 +420,19 @@ struct VistaPrivado: View {
     @Environment(Ir.self) private var ir
     @State private var persona: Perfil?
     @State private var hilo = MiosHilo()
+    @State private var opciones = false
+    @State private var reportando = false
+    /// Último aviso de «escribiendo» que se mandó (como mucho uno cada 2 s).
+    @State private var ultimoEscribiendo = Date.distantPast
+    @Environment(\.paleta) private var p
 
     private var quien: String { nombre.isEmpty ? (persona?.nombre ?? "") : nombre }
 
     var body: some View {
         Pantalla {
-            VStack(spacing: 0) {
-                Encabezado(titulo: quien, volver: { ir.atras() }) {
-                    Avatar(nombre: quien, foto: persona?.fotos.first, tam: 36, tamTexto: 14)
-                        .onTapGesture { ir.persona(conId, desde: "privado") }
-                }
-                .padding(.horizontal, 16).padding(.top, 6)
-                MiosVistaHilo(hilo: hilo, foto: persona?.fotos.first ?? "")
-                MiosEntrada(alTipear: {}) { t in
-                    do {
-                        let m = try await c.api.escribirPrivado(conId, t)
-                        hilo.agregar(m.linea(c.usuarioId, quien))
-                        return true
-                    } catch {
-                        c.avisos.error(error)
-                        return false
-                    }
-                }
+            ZStack(alignment: .bottom) {
+                conversacion
+                hojas
             }
         }
         .task(id: conId) {
@@ -399,10 +449,15 @@ struct VistaPrivado: View {
             c.tiempoReal.encender()
             let yo = c.usuarioId, h = hilo, id = conId
             let nombreFijo = quien
+            let persona = persona
             hilo.oyente = c.tiempoReal.escuchar { ev in
                 MainActor.assumeIsolated {
                     if ev.tipo == "privado", let m = ev.privado, m.deId == id || m.aId == id {
                         h.agregar(m.linea(yo, nombreFijo))
+                        if m.deId == id { h.escribe = nil }
+                    } else if ev.tipo == "escribiendo", ev.privadoDe == id {
+                        let n = nombreFijo.isEmpty ? (persona?.nombre ?? "") : nombreFijo
+                        h.marcarEscribe(n.isEmpty ? "Escribiendo" : miosPrimer(n))
                     }
                 }
             }
@@ -411,5 +466,68 @@ struct VistaPrivado: View {
             if let o = hilo.oyente { c.tiempoReal.dejar(o) }
             hilo.oyente = nil
         }
+    }
+
+    /// Menú: reportar o bloquear a la otra persona.
+    @ViewBuilder
+    private var hojas: some View {
+        let n = miosPrimer(quien)
+        if opciones {
+            HojaOpciones(cerrar: { opciones = false }, filas: [
+                Opcion(texto: "Reportar a \(n)") { reportando = true },
+                Opcion(texto: "Bloquear a \(n)") {
+                    Task {
+                        do {
+                            try await c.api.bloquear(conId)
+                            c.avisos.ok("Bloqueaste a \(n). No se van a ver más.")
+                            ir.atras()
+                        } catch {
+                            c.avisos.error(error)
+                        }
+                    }
+                },
+            ])
+        }
+        if reportando {
+            HojaReporte(cerrar: { reportando = false }) { motivo in
+                Task {
+                    do {
+                        try await c.api.reportar(Reporte(usuarioId: conId, motivo: motivo))
+                        c.avisos.ok("Gracias. Revisamos el perfil de \(n) en menos de 24 h.")
+                    } catch {
+                        c.avisos.error(error)
+                    }
+                }
+            }
+        }
+    }
+
+    private var conversacion: some View {
+            VStack(spacing: 0) {
+                Encabezado(titulo: quien, volver: { ir.atras() }) {
+                    HStack(spacing: 8) {
+                        Avatar(nombre: quien, foto: persona?.fotos.first, tam: 36, tamTexto: 14)
+                            .onTapGesture { ir.persona(conId, desde: "privado") }
+                        BotonIcono(d: I.puntos, iconoTam: 20, trazo: 0, gel: Gels.chip(p), color: .clear, relleno: p.texto) { opciones = true }
+                            .accessibilityLabel("Más opciones")
+                    }
+                }
+                .padding(.horizontal, 16).padding(.top, 6)
+                MiosVistaHilo(hilo: hilo, foto: persona?.fotos.first ?? "")
+                MiosEntrada(alTipear: {
+                    guard Date().timeIntervalSince(ultimoEscribiendo) >= 2 else { return }
+                    ultimoEscribiendo = Date()
+                    c.tiempoReal.escribiendo(privado: conId)
+                }) { t in
+                    do {
+                        let m = try await c.api.escribirPrivado(conId, t)
+                        hilo.agregar(m.linea(c.usuarioId, quien))
+                        return true
+                    } catch {
+                        c.avisos.error(error)
+                        return false
+                    }
+                }
+            }
     }
 }

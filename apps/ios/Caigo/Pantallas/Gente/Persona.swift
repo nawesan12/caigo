@@ -189,6 +189,12 @@ struct PerfilPersona: View {
                     }
                 }
             }
+            if !p.proximos.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    T("Sus próximos planes", 15, 800, C.carbon)
+                    ForEach(p.proximos) { pr in proximo(pr) }
+                }
+            }
             T("Reportar o bloquear a \(p.nombre)", 13, 700, C.texto2, alinear: .center)
                 .padding(8)
                 .frame(maxWidth: .infinity)
@@ -260,6 +266,28 @@ struct PerfilPersona: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(18)
             .gel(24, Gels.neutra)
+    }
+
+    /// Fila de «Sus próximos planes» (Prototipo): foto 56, título, cuándo y categoría.
+    private func proximo(_ pr: ProximoPlan) -> some View {
+        HStack(spacing: 12) {
+            Foto(url: pr.foto, tinte: colorDeCategoria(pr.categoria))
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            VStack(alignment: .leading, spacing: 3) {
+                T(pr.titulo, 15, 800, C.carbon, unRenglon: true)
+                T([Fecha.cuando(pr.empiezaEn), Categorias.nombre(pr.categoria)].filter { !$0.isEmpty }.joined(separator: " · "),
+                  12, 600, C.texto2, unRenglon: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Icono(I.adelante, 18, Color(hex: 0x9A95AD), trazo: 2.6)
+        }
+        .padding(EdgeInsets(top: 10, leading: 10, bottom: 10, trailing: 14))
+        .gel(22, Gels.neutra)
+        .contentShape(Rectangle())
+        .onTapGesture { ir.plan(pr.id) }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
     }
 
     private func estadistica(_ v: String, _ l: String) -> some View {

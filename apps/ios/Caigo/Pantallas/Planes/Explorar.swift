@@ -1,16 +1,22 @@
 import SwiftUI
 import Nucleo
 
-private func pexels(_ id: Int) -> String { "https://images.pexels.com/photos/\(id)/pexels-photo-\(id).jpeg?auto=compress&cs=tinysrgb&w=600" }
+/// Las categorías de Explorar: «Todos» y las 8 de un plan (06a), cada una con su foto local CC0
+/// (Recursos/Assets.xcassets/Explorar*, fuentes en Recursos/FUENTES.md). Sin foto: el color de la categoría.
+private let tilesExplorar: [(String?, String, String?)] =
+    [(nil, "Todos", "ExplorarTodos")] + Categorias.paraCrear.map { ($0.0, $0.1, fotoTile($0.0)) }
 
-/// Las categorías con foto de Explorar (las del prototipo, con sus mismas fotos de referencia).
-private let tilesExplorar: [(String?, String, String)] = [
-    (nil, "Todos", pexels(19116858)),
-    ("deporte", "Deporte", pexels(27572834)),
-    ("juego", "Juego", pexels(8551084)),
-    ("previa", "Previa", pexels(6760903)),
-    ("salida", "Salida", pexels(2962035)),
-]
+private func fotoTile(_ clave: String) -> String? {
+    switch clave {
+    case "deporte": return "ExplorarDeporte"
+    case "juego": return "ExplorarJuego"
+    case "previa": return "ExplorarPrevia"
+    case "salida": return "ExplorarSalida"
+    case "gastronomia": return "ExplorarGastronomia"
+    case "otro": return "ExplorarOtro"
+    default: return nil
+    }
+}
 
 /// Edad de quien organiza (filtro fino): etiqueta y rango para la API.
 private let rangosEdad: [(String, Int?, Int?)] = [("Todas", nil, nil), ("18–30", 18, 30), ("31–45", 31, 45), ("46+", 46, nil)]
@@ -32,6 +38,9 @@ struct Explorar: View {
     @State private var edad = 0
     @State private var gratis = false
     @State private var ciudad: String?
+    @State private var zona: String?
+    @State private var zonas: [String] = []
+    @State private var punto: (Double, Double)?
     @State private var filtros = false
     @State private var todos = false
     @State private var semana: [Plan]?
@@ -47,7 +56,9 @@ struct Explorar: View {
         return FiltrosFinos(verificados: verificados, faltan: faltan, edadDesde: r.1, edadHasta: r.2, gratis: gratis)
     }
 
-    private struct Clave: Equatable { var categoria: String?; var ciudad: String?; var finos: FiltrosFinos; var vuelta: Int }
+    private struct Clave: Equatable {
+        var categoria: String?; var ciudad: String?; var zona: String?; var lat: Double?; var finos: FiltrosFinos; var vuelta: Int
+    }
 
     private func fechaDia(_ i: Int) -> Date { Fecha.calendario.date(byAdding: .day, value: i, to: Fecha.calendario.startOfDay(for: Date()))! }
 
@@ -106,12 +117,22 @@ struct Explorar: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .refreshable { vuelta += 1 }
-        .task { if c.plus == nil { await c.recargarPlus() } }
-        .task(id: Clave(categoria: categoria, ciudad: ciudad, finos: finos, vuelta: vuelta)) {
+        .task {
+            if c.plus == nil { await c.recargarPlus() }
+            // La ubicación sólo sirve para la distancia: si no hay permiso, no se pide de nuevo acá.
+            if c.ubicador.permitido { punto = await c.ubicacion() }
+        }
+        .task(id: ciudad ?? c.yo?.ciudad ?? "") {
+            let cdad = ciudad ?? c.yo?.ciudad ?? ""
+            zonas = (try? await c.api.zonas(ciudad: cdad.isEmpty ? "Mar del Plata" : cdad).zonas) ?? []
+            if let z = zona, !zonas.contains(z) { zona = nil }
+        }
+        .task(id: Clave(categoria: categoria, ciudad: ciudad, zona: zona, lat: punto?.0, finos: finos, vuelta: vuelta)) {
             let cal = Fecha.calendario
             let hasta = cal.date(byAdding: .day, value: 7, to: cal.startOfDay(for: Date()))!
             do {
-                semana = try await c.api.explorar(desde: Fecha.iso(Date()), hasta: Fecha.iso(hasta), categoria: categoria, ciudad: ciudad, filtros: finos).planes
+                semana = try await c.api.explorar(desde: Fecha.iso(Date()), hasta: Fecha.iso(hasta), categoria: categoria, ciudad: ciudad,
+                                                  filtros: finos, lat: punto?.0, lng: punto?.1, zona: zona).planes
                 error = nil
             } catch is CancellationError {
             } catch let e as ErrorApi where e.codigo == "plus" {
@@ -146,7 +167,10 @@ struct Explorar: View {
                     let on = k == categoria
                     let radio: CGFloat = on ? 20 : 24
                     ZStack(alignment: .bottomLeading) {
-                        Foto(url: foto)
+                        colorDeCategoria(k ?? "")
+                        if let foto {
+                            Image(foto).resizable().scaledToFill().frame(width: on ? 86 : 96, height: on ? 102 : 112).clipped()
+                        }
                         LinearGradient(stops: Fondo.paradas((0.4, rgba(32, 29, 43, 0)), (1, rgba(32, 29, 43, 0.85))), startPoint: .top, endPoint: .bottom)
                         T(l, 15, 700, C.blanco).padding(10)
                     }
@@ -199,6 +223,24 @@ struct Explorar: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
+            if !zonas.isEmpty {
+                separador
+                VStack(alignment: .leading, spacing: 10) {
+                    T("Zona", 14, 700, C.carbon, unRenglon: true)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            Chip(texto: "Todas", on: zona == nil, tam: 13, padH: 12, padV: 8, radio: 13) { zona = nil }
+                            ForEach(zonas, id: \.self) { z in
+                                Chip(texto: z, on: zona == z, tam: 13, padH: 12, padV: 8, radio: 13) { zona = zona == z ? nil : z }
+                            }
+                        }
+                        .padding(.horizontal, 16).padding(.bottom, 4)
+                    }
+                    .padding(.horizontal, -16)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16).padding(.vertical, 12)
+            }
             separador
             filaInterruptor("Solo verificados", $verificados)
             separador

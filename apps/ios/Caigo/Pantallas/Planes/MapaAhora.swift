@@ -16,28 +16,23 @@ struct MapaAhora: View {
     var planes: [Plan]
     var punto: (Double, Double)?
     @Binding var categoria: String?
+    /// Lo que se busca: Ahora lo manda a la API como `q` (título, zona o lugar).
+    @Binding var busqueda: String
     var alLista: () -> Void
     @Environment(Ir.self) private var ir
-    @State private var busqueda = ""
+    @Environment(\.paleta) private var p
     @State private var elegido: String?
     @State private var camara: MapCameraPosition = .automatic
     @State private var ubicado = false
-
-    private var visibles: [Plan] {
-        let q = busqueda.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return planes }
-        return planes.filter {
-            $0.titulo.localizedCaseInsensitiveContains(q) || $0.lugarNombre.localizedCaseInsensitiveContains(q)
-                || ($0.lugar?.nombre.localizedCaseInsensitiveContains(q) ?? false)
-        }
-    }
 
     private func region(_ la: Double, _ ln: Double, _ metros: Double = 3500) -> MapCameraPosition {
         .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: la, longitude: ln), latitudinalMeters: metros, longitudinalMeters: metros))
     }
 
     var body: some View {
-        let vis = visibles
+        let vis = planes
+        // Modo oscuro (14a): mapa oscuro y buscador, interruptor y chips con los gels oscuros.
+        let gelFlotante: Fondo? = p.oscuro ? Gels.tarjetaOscura.fondo : .liso(C.blanco)
         let seleccionado = vis.first { $0.id == elegido } ?? vis.first
         ZStack(alignment: .bottom) {
             Map(position: $camara) {
@@ -61,35 +56,41 @@ struct MapaAhora: View {
             }
             .mapStyle(.standard(pointsOfInterest: .excludingAll))
             .mapControls { MapCompass().mapControlVisibility(.hidden) }
+            .environment(\.colorScheme, p.oscuro ? .dark : .light)
             .ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     HStack(spacing: 10) {
-                        Icono(I.lupaChica, 18, C.carbon, trazo: 2.2)
-                        PlanesCampo(texto: $busqueda, pista: "Buscá un plan o un lugar", color: C.carbon)
+                        Icono(I.lupaChica, 18, p.texto, trazo: 2.2)
+                        PlanesCampo(texto: $busqueda, pista: "Buscá un plan o un lugar", colorPista: p.texto2, color: p.texto)
+                        if !busqueda.isEmpty {
+                            Icono(I.cruz, 14, p.texto2, trazo: 2.6).tocable { busqueda = "" }
+                                .accessibilityLabel("Borrar la búsqueda")
+                        }
                     }
                     .padding(.horizontal, 16)
                     .frame(height: 50)
-                    .gel(18, .liso(C.blanco), sombraFlotante)
+                    .gel(18, gelFlotante, sombraFlotante)
                     HStack(spacing: 0) {
                         Button(action: alLista) {
-                            T("Lista", 14, 600, C.texto2).padding(.horizontal, 12).frame(height: 42)
+                            T("Lista", 14, 600, p.texto2).padding(.horizontal, 12).frame(height: 42)
                         }
                         .buttonStyle(EstiloPlano())
-                        T("Mapa", 14, 700, C.blancoCalido).padding(.horizontal, 12).frame(height: 42).gel(12, Gels.oscuroSel)
+                        T("Mapa", 14, 700, p.oscuro ? C.carbon : C.blancoCalido).padding(.horizontal, 12).frame(height: 42)
+                            .gel(12, p.oscuro ? Gels.limaChico : Gels.oscuroSel)
                     }
                     .padding(4)
-                    .gel(16, .liso(C.blanco), sombraFlotante)
+                    .gel(16, gelFlotante, sombraFlotante)
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(filtrosMapa, id: \.1) { k, l in
                             let on = k == categoria
                             Button { categoria = k } label: {
-                                T(l, 13, on ? 700 : 600, on ? C.blanco : C.carbon, unRenglon: true)
+                                T(l, 13, on ? 700 : 600, on ? (p.oscuro ? C.carbon : C.blanco) : p.texto, unRenglon: true)
                                     .padding(.horizontal, 13).padding(.vertical, 8)
-                                    .gel(13, on ? planesVioletaChico : Gel(fondo: .liso(C.blanco)))
+                                    .gel(13, on ? (p.oscuro ? Gels.limaChico : planesVioletaChico) : (p.oscuro ? Gels.chipOscuro : Gel(fondo: .liso(C.blanco))))
                             }
                             .buttonStyle(EstiloToque())
                         }
@@ -104,9 +105,9 @@ struct MapaAhora: View {
                 Button {
                     if let (la, ln) = punto { withAnimation { camara = region(la, ln, 2200) } }
                 } label: {
-                    Icono(I.ubicacion, 20, C.violeta, trazo: 2.2)
+                    Icono(I.ubicacion, 20, p.oscuro ? C.lima : C.violeta, trazo: 2.2)
                         .frame(width: 46, height: 46)
-                        .gel(16, .liso(C.blanco), [externa(8, 20, rgba(36, 33, 45, 0.12))])
+                        .gel(16, gelFlotante, [externa(8, 20, rgba(36, 33, 45, 0.12))])
                 }
                 .buttonStyle(EstiloToque())
                 .accessibilityLabel("Volver a mi ubicación")
@@ -163,6 +164,7 @@ private struct PinMapa: View {
 private struct TarjetaFlotante: View {
     var plan: Plan
     @Environment(Ir.self) private var ir
+    @Environment(\.paleta) private var p
 
     var body: some View {
         HStack(spacing: 12) {
@@ -178,8 +180,8 @@ private struct TarjetaFlotante: View {
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(C.carbon))
                 }
-                T(plan.titulo, 18, 700, C.carbon, alto: 1.15, renglones: 2)
-                T(lugarYDistancia(plan), 12, 400, C.texto2, unRenglon: true)
+                T(plan.titulo, 18, 700, p.texto, alto: 1.15, renglones: 2)
+                T(lugarYDistancia(plan), 12, 400, p.texto2, unRenglon: true)
                 HStack {
                     BadgeFalta(faltan: plan.faltan, tam: 16)
                     Spacer(minLength: 0)
@@ -195,7 +197,7 @@ private struct TarjetaFlotante: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(12)
-        .gel(26, .liso(C.blanco), [externa(16, 40, rgba(36, 33, 45, 0.18))])
+        .gel(26, p.oscuro ? Gels.tarjetaOscura.fondo : .liso(C.blanco), [externa(16, 40, rgba(36, 33, 45, 0.18))])
         .contentShape(Rectangle())
         .onTapGesture { ir.plan(plan.id) }
     }
