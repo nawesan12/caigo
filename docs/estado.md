@@ -70,8 +70,13 @@ Web publicada (31/10) en https://caigo.com.ar y https://lugares.caigo.com.ar: co
 - Wallet: Pass Type ID `pass.ar.com.caigo`, certificado «Caigo pases» (vence 30/11/2027). Clave
   generada en el VPS; cert y clave en /opt/caigo/claves/wallet-*.pem (600, deploy) y rutas en api.conf.
 - Clerk producción: Native applications › iOS con `ar.com.caigo.app` y `ar.com.caigo.app.Clip`.
-- Falta App Store Connect: la app, las suscripciones de Plus, experiencias del App Clip y la URL de
-  avisos del servidor (https://api.caigo.com.ar/v1/webhooks/apple).
+- App Store Connect: app «Caigo» (id 6829274265, SKU caigo-ios, español de México). Grupo de
+  suscripción «Caigo Plus» con `plus_temporada` (3 meses, US$ 6,99), `plus_mes` (1 mes, US$ 2,99, 1
+  semana gratis) y `plus_semana` (1 semana, US$ 0,99). Sólo Argentina: Apple cobra en USD ahí (se
+  calculó con el dólar tarjeta del 31/10, $2.028). Avisos del servidor (producción y sandbox) →
+  https://api.caigo.com.ar/v1/webhooks/apple; la API trata igual las compras de sandbox (TestFlight).
+- Falta: experiencias del App Clip (piden un build con el Clip subido), capturas de pantalla para
+  revisión de cada suscripción y la ficha de la app (textos en docs/tiendas.md).
 
 ## Clerk de producción (aviso de la sesión de Tu Local Web, 31/10)
 - Instancia compartida `clerk.grupovimo.com.ar` (app «Grupo Vimo»), Google y Apple activos, Access
