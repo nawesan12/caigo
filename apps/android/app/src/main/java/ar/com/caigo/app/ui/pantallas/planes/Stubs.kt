@@ -7,9 +7,6 @@ import ar.com.caigo.app.ui.Ir
 fun Explorar(ir: Ir) { }
 
 @Composable
-fun DetallePlan(ir: Ir, id: String? = null, slug: String? = null) { }
-
-@Composable
 fun Crear(ir: Ir) { }
 
 @Composable
