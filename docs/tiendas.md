@@ -74,7 +74,8 @@ la landing. Los límites de caracteres están al lado de cada campo.
 | Mensajes | Sí | Chat del plan y privados | No |
 | Compras | Sí | Plus y entradas | Mercado Pago / Google Play procesan el pago |
 | Identificadores del dispositivo | Sí | Avisos (FCM) | No |
-Cifrado en tránsito: sí. Se puede pedir borrar la cuenta: sí (desde Perfil).
+Cifrado en tránsito: sí. Borrar la cuenta: sí, desde Perfil en la app y en la web.
+**Link para borrar la cuenta** (lo pide Play): https://caigo.com.ar/app/borrar (pide ingresar y borra todo: `DELETE /v1/yo`).
 
 ## App Store
 
