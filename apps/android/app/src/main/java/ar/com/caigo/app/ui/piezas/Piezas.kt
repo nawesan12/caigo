@@ -25,6 +25,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -445,3 +449,28 @@ fun Alto(d: Dp) = Spacer(Modifier.height(d))
 
 @Composable
 fun Ancho(d: Dp) = Spacer(Modifier.width(d))
+
+/**
+ * Pantalla completa con el fondo del handoff. El contenido recibe el alto de la barra de estado
+ * ([arriba]: en el mockup son los 50 px del "9:41") y el de la barra de navegación ([abajo]).
+ * Las medidas del mockup se pasan restando 50: `top:56px` → `arriba + 6.dp`.
+ */
+@Composable
+fun Pantalla(
+    modifier: Modifier = Modifier,
+    oscuro: Boolean = LocalPaleta.current.oscuro,
+    brillo: Brush? = null,
+    fondo: Modifier? = null,
+    contenido: @Composable BoxScope.(arriba: Dp, abajo: Dp) -> Unit,
+) {
+    val arriba = androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val abajo = androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    Box(
+        modifier.fillMaxSize().then(fondo ?: Modifier.fondoCaigo(oscuro, brillo))
+            .androidx_ime(),
+    ) { contenido(arriba, abajo) }
+}
+
+/** Corre el contenido cuando aparece el teclado. */
+@Composable
+private fun Modifier.androidx_ime(): Modifier = this.then(Modifier.imePadding())
