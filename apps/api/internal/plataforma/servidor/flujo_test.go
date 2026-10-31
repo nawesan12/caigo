@@ -241,6 +241,20 @@ func TestElCicloDelPlan(t *testing.T) {
 		t.Fatal("el plan no aparece en Ahora")
 	}
 
+	// Sin sesión también se ve en Ahora (sin dirección ni estado), y por id.
+	var pubAhora struct{ Planes []plan }
+	e.pedir(persona{}, "GET", "/v1/publico/planes/ahora?lat=-38.0130&lng=-57.5400", nil, http.StatusOK, &pubAhora)
+	visto2 := false
+	for _, x := range pubAhora.Planes {
+		if x.ID == p.ID {
+			visto2 = x.Direccion == nil && x.MiEstado == "ninguno"
+		}
+	}
+	if !visto2 {
+		t.Fatal("el plan no aparece bien en Ahora sin sesión")
+	}
+	e.pedir(persona{}, "GET", "/v1/publico/planes/"+p.ID, nil, http.StatusOK, nil)
+
 	// El link público no trae la dirección.
 	var pub plan
 	e.pedir(persona{}, "GET", "/v1/publico/planes/"+p.Slug, nil, http.StatusOK, &pub)

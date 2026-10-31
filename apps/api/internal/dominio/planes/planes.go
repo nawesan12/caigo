@@ -461,14 +461,21 @@ func (s *Servicio) Ver(ctx context.Context, usuarioID, idOSlug string, desdePunt
 	return p, err
 }
 
-// Publico es el plan para el link público (sin sesión): sin dirección exacta ni datos de nadie
-// más que el nombre y la foto del organizador y de los que van.
+// nadie es quien mira sin sesión: no está en ningún plan ni en la gente de nadie.
+const nadie = "00000000-0000-0000-0000-000000000000"
+
+// Publico es el plan para el link público (sin sesión), por slug o id: sin dirección exacta ni
+// datos de nadie más que el nombre y la foto del organizador y de los que van.
 func (s *Servicio) Publico(ctx context.Context, slugPlan string) (Plan, error) {
 	var p Plan
+	campo := "p.slug"
+	if esUUID(slugPlan) {
+		campo = "p.id::text"
+	}
 	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		var err error
 		p, err = escanear(tx.QueryRow(ctx, `SELECT `+columnas+desde+`
-			WHERE p.slug = $2 AND p.visibilidad IN ('publico', 'link')`, "00000000-0000-0000-0000-000000000000", slugPlan))
+			WHERE `+campo+` = $2 AND p.visibilidad IN ('publico', 'link')`, nadie, slugPlan))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("Ese plan no existe o es privado.")
 		}
@@ -544,6 +551,17 @@ func (s *Servicio) Ahora(ctx context.Context, usuarioID string, f Filtro) ([]Pla
 		sort.SliceStable(ps, func(i, j int) bool { return *ps[i].DistanciaM < *ps[j].DistanciaM })
 	}
 	return ps, nil
+}
+
+// AhoraPublico y ExplorarPublico: lo mismo sin sesión (para mirar antes de entrar). Sólo planes
+// públicos; nunca la dirección ni el estado de nadie.
+func (s *Servicio) AhoraPublico(ctx context.Context, f Filtro) ([]Plan, error) {
+	return s.Ahora(ctx, nadie, f)
+}
+
+// ExplorarPublico es Explorar sin sesión.
+func (s *Servicio) ExplorarPublico(ctx context.Context, f Filtro) ([]Plan, error) {
+	return s.Explorar(ctx, nadie, f)
 }
 
 // Explorar: la agenda, por fecha.

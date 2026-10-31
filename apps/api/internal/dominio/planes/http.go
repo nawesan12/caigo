@@ -178,6 +178,33 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 		}
 		respuesta.JSON(w, http.StatusOK, v)
 	})
+	// Mirar sin sesión (la web, antes de entrar).
+	mux.HandleFunc("GET /v1/publico/planes/ahora", func(w http.ResponseWriter, r *http.Request) {
+		f, err := filtro(r)
+		if err != nil {
+			mal(w, err)
+			return
+		}
+		ps, err := s.AhoraPublico(r.Context(), f)
+		if err != nil {
+			mal(w, err)
+			return
+		}
+		respuesta.JSON(w, http.StatusOK, map[string]any{"planes": ps})
+	})
+	mux.HandleFunc("GET /v1/publico/planes/explorar", func(w http.ResponseWriter, r *http.Request) {
+		f, err := filtro(r)
+		if err != nil {
+			mal(w, err)
+			return
+		}
+		ps, err := s.ExplorarPublico(r.Context(), f)
+		if err != nil {
+			mal(w, err)
+			return
+		}
+		respuesta.JSON(w, http.StatusOK, map[string]any{"planes": ps})
+	})
 	// Link público (sin sesión): lo que se ve en caigo.com.ar/p/<slug> antes de entrar.
 	mux.HandleFunc("GET /v1/publico/planes/{slug}", func(w http.ResponseWriter, r *http.Request) {
 		plan, err := s.Publico(r.Context(), r.PathValue("slug"))
