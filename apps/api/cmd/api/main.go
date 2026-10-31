@@ -12,10 +12,14 @@ import (
 	"time"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/chat"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
+	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/google"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/servidor"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/tiendas"
 )
 
 // version la pone el build: -ldflags "-X main.version=<commit>".
@@ -53,6 +57,19 @@ func correr() error {
 	go hub.Escuchar(ctx)
 	deps := servidor.Dependencias{App: app, Version: version, Hub: hub, Origenes: cfg.Hosts(),
 		Secreto: cfg.Secreto, Sitio: cfg.Sitio, APIPublica: cfg.APIPublica, Archivos: cfg.Archivos}
+	cuentaPlay, err := google.Leer(cfg.GooglePlayCuenta)
+	if err != nil {
+		return err
+	}
+	deps.Tiendas = &plus.Tiendas{Apple: &tiendas.Apple{Bundle: cfg.AppleBundle}, Sitio: cfg.Sitio}
+	if cuentaPlay != nil {
+		deps.Tiendas.Play = &tiendas.Google{Cuenta: cuentaPlay, Paquete: cfg.GooglePaquete}
+	}
+	if cfg.MPAppID != "" || cfg.MPToken != "" {
+		deps.Tiendas.MP = &mercadopago.Config{AppID: cfg.MPAppID, Secreto: cfg.MPSecreto, TokenPlataforma: cfg.MPToken,
+			SecretoWebhook: cfg.MPSecretoWebhook}
+	}
+	deps.ClaveGoogle = cfg.GoogleClaveWebhook
 	if cfg.ClerkSecreto != "" {
 		c, err := clerk.Nuevo(cfg.ClerkSecreto, cfg.ClerkPublicable, cfg.ClerkOrigenes)
 		if err != nil {

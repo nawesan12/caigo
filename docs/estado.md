@@ -17,7 +17,7 @@ Hecho (etapas 1 y 2 de la API):
 ## Lo que sigue
 3. ~~Chat por WebSocket, push (APNs + FCM) con outbox y worker.~~ Hecho: `/v1/planes/{id}/mensajes`, `/v1/privados`, `/v1/tiempo-real` (WebSocket, LISTEN/NOTIFY `caigo_tiempo_real`), `/v1/dispositivos`, `cmd/worker`.
 4. ~~Check-in, ¿Repetimos?, verificación y fotos.~~ Hecho: `/v1/archivos` (cuerpo crudo, ?tipo=foto|selfie|dni; fotos públicas, el resto sólo dueño y equipo), `/v1/verificacion` (teléfono con SMS simulado que devuelve `codigoDePrueba`, selfie, DNI), `/v1/equipo/dni` y `/v1/equipo/reportes` (suspender), `/v1/planes/{id}/qr|checkin|repetimos|en-vivo`, `/v1/publico/vivo/{token}`. `caigoctl equipo user_…` da de alta al equipo.
-5. Modos Gente/Citas y Caigo Plus.
+5. ~~Modos Gente/Citas y Caigo Plus.~~ Hecho: `/v1/gente/mazo|{id}/reaccion|recibidos`, `/v1/planes/{id}/invitar`, `/v1/invitaciones`, `/v1/plus` (+ `/apple` con JWS de StoreKit 2 verificado contra Apple Root CA G3, `/google` con la Play Developer API, `/mercadopago` con preapproval), webhooks `/v1/webhooks/apple|google|mercadopago`. Productos en las tiendas: `plus_semana`, `plus_mes`, `plus_temporada`; la app pone appAccountToken (iOS) / obfuscatedAccountId (Android) = id de la persona en Caigo.
 6. Lugares, entradas/señas con Mercado Pago, Caigo Tap y Wallet.
 7. Web. 8. VPS. 9. iOS. 10. Android.
 
@@ -27,7 +27,11 @@ Hecho (etapas 1 y 2 de la API):
 - No cambiar métodos de ingreso, access mode ni conexiones sociales sin avisar a esa sesión (afecta
   a las cuatro apps). Sumar orígenes y redirects propios sí se puede.
 - Android con Google: hace falta un cliente OAuth Android en el proyecto `grupo-vimo` con el SHA-1
-  de la firma (pedirlo a esa sesión). iOS con Apple: agrupar `ar.com.caigo.app` con el App ID
-  primario `ar.com.tulocalweb.app` (Services ID `ar.com.grupovimo.ingreso`), coordinado.
+  de la firma (pedirlo a esa sesión). iOS con Apple: `ar.com.caigo.app` es su propio primary App ID
+  (Nahuel decidió NO agruparlas: Apple mostraría «Tu Local Web» al entrar a Caigo). El ingreso web con
+  Apple usa el Services ID compartido `ar.com.grupovimo.ingreso` («Grupo Vimo»).
+- Orígenes y redirects de Caigo ya cargados: https://caigo.com.ar, https://lugares.caigo.com.ar,
+  `/sso-callback` en los dos y `ar.com.caigo.app://callback` (iOS y Android). Cambios: pedirlos a la
+  sesión de Tu Local Web.
 - Caigo verifica el JWT de Clerk en cada pedido (JWKS en memoria), sin sesión propia: la API no
   guarda sesiones y las apps renuevan el token con el SDK de Clerk.

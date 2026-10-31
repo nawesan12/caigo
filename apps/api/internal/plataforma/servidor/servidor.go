@@ -11,8 +11,11 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/chat"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/gente"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/personas"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
+	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
@@ -36,6 +39,10 @@ type Dependencias struct {
 	Origenes []string
 	// Clave de las firmas, sitio público, URL pública de la API y carpeta de archivos.
 	Secreto, Sitio, APIPublica, Archivos string
+	// Tiendas de Plus (Apple, Google Play, Mercado Pago). nil: todas apagadas.
+	Tiendas *plus.Tiendas
+	// Clave del webhook de Google Play.
+	ClaveGoogle string
 }
 
 // Nuevo arma el handler con todas las rutas.
@@ -79,6 +86,15 @@ func Nuevo(d Dependencias) http.Handler {
 			d.Hub = &chat.Hub{Servicio: &chat.Servicio{App: d.App, Reloj: d.Reloj}, Log: d.Log}
 		}
 		chat.Rutas(mux, d.Hub.Servicio, d.Hub, ses, d.Origenes, d.Log)
+		gente.Rutas(mux, &gente.Servicio{App: d.App, Reloj: d.Reloj}, ses.Exigir, d.Log)
+		if d.Tiendas == nil {
+			d.Tiendas = &plus.Tiendas{}
+		}
+		ps := &plus.Servicio{App: d.App, Reloj: d.Reloj}
+		plus.Rutas(mux, ps, d.Tiendas, ses, d.ClaveGoogle, d.Log)
+		mercadopago.Webhook(mux, d.Tiendas.MP, map[string]mercadopago.Manejador{
+			"subscription_preapproval": ps.AvisoMP(d.Tiendas),
+		}, d.Log)
 	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		problema.Escribir(w, problema.NoEncontrado("Esa ruta no existe."))

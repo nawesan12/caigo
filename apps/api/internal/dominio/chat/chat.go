@@ -164,8 +164,8 @@ func Sistema(ctx context.Context, tx pgx.Tx, planID, texto string) error {
 	return err
 }
 
-// puedenHablar: comparten un plan (los dos aceptados) o uno tiene al otro en su gente, y no hay
-// bloqueo.
+// puedenHablar: comparten un plan (los dos aceptados), uno tiene al otro en su gente o en Citas
+// el interés es mutuo; y no hay bloqueo.
 func puedenHablar(ctx context.Context, tx pgx.Tx, a, b string) (bool, error) {
 	var ok bool
 	err := tx.QueryRow(ctx, `
@@ -174,7 +174,9 @@ func puedenHablar(ctx context.Context, tx pgx.Tx, a, b string) (bool, error) {
 			AND (EXISTS (SELECT 1 FROM mi_gente g WHERE (g.usuario_id = $1 AND g.otro_id::text = $2)
 				OR (g.usuario_id::text = $2 AND g.otro_id = $1))
 			OR EXISTS (SELECT 1 FROM solicitudes x JOIN solicitudes y ON x.plan_id = y.plan_id
-				WHERE x.usuario_id = $1 AND y.usuario_id::text = $2 AND x.estado = 'aceptada' AND y.estado = 'aceptada'))`,
+				WHERE x.usuario_id = $1 AND y.usuario_id::text = $2 AND x.estado = 'aceptada' AND y.estado = 'aceptada')
+			OR EXISTS (SELECT 1 FROM intereses x JOIN intereses y ON y.usuario_id = x.otro_id AND y.otro_id = x.usuario_id AND y.modo = x.modo
+				WHERE x.usuario_id = $1 AND x.otro_id::text = $2 AND x.modo = 'citas' AND x.accion <> 'paso' AND y.accion <> 'paso'))`,
 		a, b).Scan(&ok)
 	return ok, err
 }

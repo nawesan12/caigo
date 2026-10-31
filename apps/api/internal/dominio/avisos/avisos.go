@@ -144,6 +144,8 @@ func (e *Enviador) Manejadores() map[string]outbox.Manejador {
 		"solicitud.aceptada": e.solicitudAceptada,
 		"mensaje.plan":       e.mensajePlan,
 		"privado.nuevo":      e.privadoNuevo,
+		"interes.nuevo":      e.interesNuevo,
+		"invitacion.nueva":   e.invitacionNueva,
 	}
 }
 
@@ -231,6 +233,48 @@ func (e *Enviador) privadoNuevo(ctx context.Context, ev outbox.Evento) error {
 	}
 	return e.Mandar(ctx, a, Aviso{Titulo: nombre, Cuerpo: recortar(texto, 140),
 		Datos: map[string]string{"privado": de}, Colapso: "priv-" + de})
+}
+
+// interesNuevo: en Citas, si es mutuo se avisa a los dos; si no, un aviso sin nombre (se ve con Plus).
+func (e *Enviador) interesNuevo(ctx context.Context, ev outbox.Evento) error {
+	var d struct {
+		De, A, Modo string
+		Mutuo       bool
+	}
+	if err := json.Unmarshal(ev.Datos, &d); err != nil {
+		return nil
+	}
+	var de, a string
+	if err := e.leer(ctx, `SELECT (SELECT nombre FROM usuarios WHERE id = $1), (SELECT nombre FROM usuarios WHERE id = $2)`,
+		[]any{d.De, d.A}, &de, &a); err != nil {
+		return ignorarSiNoEsta(err)
+	}
+	if d.Mutuo && d.Modo == "citas" {
+		return errors.Join(
+			e.Mandar(ctx, d.A, Aviso{Titulo: "¡Es mutuo con " + de + "!", Cuerpo: "Ya pueden hablar.", Datos: map[string]string{"privado": d.De}}),
+			e.Mandar(ctx, d.De, Aviso{Titulo: "¡Es mutuo con " + a + "!", Cuerpo: "Ya pueden hablar.", Datos: map[string]string{"privado": d.A}}),
+		)
+	}
+	t := "Alguien te sumó a su gente"
+	if d.Modo == "citas" {
+		t = "Le interesás a alguien"
+	}
+	return e.Mandar(ctx, d.A, Aviso{Titulo: t, Cuerpo: "Entrá a ver quién es.", Datos: map[string]string{"pantalla": "recibidos", "modo": d.Modo},
+		Colapso: "recibidos-" + d.Modo})
+}
+
+func (e *Enviador) invitacionNueva(ctx context.Context, ev outbox.Evento) error {
+	var d struct{ PlanID, De, A string }
+	if err := json.Unmarshal(ev.Datos, &d); err != nil {
+		return nil
+	}
+	var de, titulo string
+	if err := e.leer(ctx, `SELECT u.nombre, p.titulo FROM usuarios u, planes p WHERE u.id = $1 AND p.id = $2`,
+		[]any{d.De, d.PlanID}, &de, &titulo); err != nil {
+		return ignorarSiNoEsta(err)
+	}
+	return e.Mandar(ctx, d.A, Aviso{Titulo: de + " te invita", Cuerpo: titulo + ". ¿Te prendés?",
+		Datos: map[string]string{"plan": d.PlanID, "pantalla": "invitaciones"}})
 }
 
 func ignorarSiNoEsta(err error) error {

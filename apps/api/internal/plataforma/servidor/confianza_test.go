@@ -2,9 +2,11 @@ package servidor_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -58,7 +60,7 @@ func TestVerificacion(t *testing.T) {
 	e.pedir(mar, "POST", "/v1/archivos?tipo=dni", jpeg, http.StatusCreated, &frente)
 	e.pedir(mar, "POST", "/v1/archivos?tipo=dni", jpeg, http.StatusCreated, &dorso)
 	e.pedir(mar, "POST", "/v1/archivos?tipo=selfie", jpeg, http.StatusCreated, &s2)
-	dni := map[string]string{"frenteId": frente.ID, "dorsoId": dorso.ID, "selfieId": s2.ID, "numero": "38.123.456",
+	dni := map[string]string{"frenteId": frente.ID, "dorsoId": dorso.ID, "selfieId": s2.ID, "numero": fmt.Sprint(30000000 + time.Now().UnixNano()%60000000),
 		"apellido": "GOMEZ", "nombres": "MARTINA", "sexo": "F", "nacimiento": "1999-03-02"}
 	e.pedir(mar, "POST", "/v1/verificacion/dni", dni, http.StatusNoContent, nil)
 	e.pedir(mar, "POST", "/v1/verificacion/dni", dni, http.StatusConflict, nil)

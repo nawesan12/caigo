@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk/clerkfalso"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
@@ -30,7 +31,9 @@ type entorno struct {
 	migrador *db.Pool
 }
 
-func nuevoEntorno(t *testing.T) *entorno {
+func nuevoEntorno(t *testing.T) *entorno { return nuevoEntornoCon(t, nil) }
+
+func nuevoEntornoCon(t *testing.T, tiendas *plus.Tiendas) *entorno {
 	t.Helper()
 	t.Setenv("CAIGO_ENTORNO", "desarrollo")
 	cfg, err := config.Leer()
@@ -53,7 +56,7 @@ func nuevoEntorno(t *testing.T) *entorno {
 	t.Cleanup(mig.Close)
 	f := clerkfalso.Nuevo(t)
 	c := &clerk.Cliente{Secreto: clerkfalso.Secreto, Emisor: clerkfalso.Emisor, API: f.URL, HTTP: f.Client()}
-	h := servidor.Nuevo(servidor.Dependencias{App: app, Clerk: c, Secreto: "secreto-de-prueba",
+	h := servidor.Nuevo(servidor.Dependencias{App: app, Clerk: c, Secreto: "secreto-de-prueba", Tiendas: tiendas,
 		Sitio: "https://caigo.test", APIPublica: "https://api.caigo.test", Archivos: t.TempDir()})
 	return &entorno{t: t, h: h, clerk: f, app: app, migrador: mig}
 }

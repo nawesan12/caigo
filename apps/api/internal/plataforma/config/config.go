@@ -24,6 +24,13 @@ type Config struct {
 	// Firebase). Sin configurar, esa plataforma queda apagada.
 	APNsKeyID, APNsTeamID, APNsClave, APNsTopic string
 	FCMCuenta                                   string
+	// Tiendas: bundle de la app de iPhone, cuenta de servicio y paquete de Google Play, y la clave
+	// que va en la URL del webhook de Play.
+	AppleBundle, GooglePlayCuenta, GooglePaquete, GoogleClaveWebhook string
+	// Mercado Pago (app de Caigo): id, secreto, token de la cuenta, secreto de webhooks.
+	MPAppID, MPSecreto, MPToken, MPSecretoWebhook string
+	// Clave maestra (32 bytes en base64) para cifrar los tokens de Mercado Pago de los lugares.
+	ClaveCifrado string
 	// Clave para firmar QR de check-in, placas y links en vivo (32+ bytes al azar en producción).
 	Secreto string
 	// URL pública de la API (para armar las URLs de las fotos).
@@ -38,23 +45,32 @@ func (c Config) Desarrollo() bool { return c.Entorno == "desarrollo" }
 // Leer arma la configuración desde las variables CAIGO_*.
 func Leer() (Config, error) {
 	c := Config{
-		Entorno:         valor("CAIGO_ENTORNO", "desarrollo"),
-		Direccion:       valor("CAIGO_DIRECCION", ":4300"),
-		BaseApp:         os.Getenv("CAIGO_BASE_DE_DATOS"),
-		BaseMigrador:    os.Getenv("CAIGO_BASE_DE_DATOS_MIGRADOR"),
-		BaseAdmin:       os.Getenv("CAIGO_BASE_DE_DATOS_ADMIN"),
-		Sitio:           valor("CAIGO_SITIO", "https://caigo.com.ar"),
-		ClerkSecreto:    os.Getenv("CAIGO_CLERK_SECRETO"),
-		ClerkPublicable: os.Getenv("CAIGO_CLERK_PUBLICABLE"),
-		ClerkOrigenes:   lista(valor("CAIGO_CLERK_ORIGENES", "https://caigo.com.ar,https://lugares.caigo.com.ar")),
-		Archivos:        valor("CAIGO_ARCHIVOS", "/app/archivos"),
-		APNsKeyID:       os.Getenv("CAIGO_APNS_KEY_ID"),
-		APNsTeamID:      os.Getenv("CAIGO_APNS_TEAM_ID"),
-		APNsClave:       os.Getenv("CAIGO_APNS_CLAVE"),
-		APNsTopic:       valor("CAIGO_APNS_TOPIC", "ar.com.caigo.app"),
-		FCMCuenta:       os.Getenv("CAIGO_FCM_CUENTA"),
-		Secreto:         os.Getenv("CAIGO_SECRETO"),
-		APIPublica:      valor("CAIGO_API_PUBLICA", "https://api.caigo.com.ar"),
+		Entorno:            valor("CAIGO_ENTORNO", "desarrollo"),
+		Direccion:          valor("CAIGO_DIRECCION", ":4300"),
+		BaseApp:            os.Getenv("CAIGO_BASE_DE_DATOS"),
+		BaseMigrador:       os.Getenv("CAIGO_BASE_DE_DATOS_MIGRADOR"),
+		BaseAdmin:          os.Getenv("CAIGO_BASE_DE_DATOS_ADMIN"),
+		Sitio:              valor("CAIGO_SITIO", "https://caigo.com.ar"),
+		ClerkSecreto:       os.Getenv("CAIGO_CLERK_SECRETO"),
+		ClerkPublicable:    os.Getenv("CAIGO_CLERK_PUBLICABLE"),
+		ClerkOrigenes:      lista(valor("CAIGO_CLERK_ORIGENES", "https://caigo.com.ar,https://lugares.caigo.com.ar")),
+		Archivos:           valor("CAIGO_ARCHIVOS", "/app/archivos"),
+		APNsKeyID:          os.Getenv("CAIGO_APNS_KEY_ID"),
+		APNsTeamID:         os.Getenv("CAIGO_APNS_TEAM_ID"),
+		APNsClave:          os.Getenv("CAIGO_APNS_CLAVE"),
+		APNsTopic:          valor("CAIGO_APNS_TOPIC", "ar.com.caigo.app"),
+		FCMCuenta:          os.Getenv("CAIGO_FCM_CUENTA"),
+		Secreto:            os.Getenv("CAIGO_SECRETO"),
+		AppleBundle:        valor("CAIGO_APPLE_BUNDLE", "ar.com.caigo.app"),
+		GooglePlayCuenta:   os.Getenv("CAIGO_GOOGLE_PLAY_CUENTA"),
+		GooglePaquete:      valor("CAIGO_GOOGLE_PAQUETE", "ar.com.caigo.app"),
+		GoogleClaveWebhook: os.Getenv("CAIGO_GOOGLE_CLAVE_WEBHOOK"),
+		MPAppID:            os.Getenv("CAIGO_MP_APP_ID"),
+		MPSecreto:          os.Getenv("CAIGO_MP_SECRETO"),
+		MPToken:            os.Getenv("CAIGO_MP_TOKEN"),
+		MPSecretoWebhook:   os.Getenv("CAIGO_MP_SECRETO_WEBHOOK"),
+		ClaveCifrado:       os.Getenv("CAIGO_CLAVE_CIFRADO"),
+		APIPublica:         valor("CAIGO_API_PUBLICA", "https://api.caigo.com.ar"),
 	}
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":
