@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -88,6 +90,10 @@ private val gelTicket = Gel(
     grano = true,
 )
 
+/** Opciones de cobro del checkout (coModes): elegida lavanda con borde violeta, la otra blanca. */
+private val gelModoOn = Gel(vertical(C.lavanda, C.lavanda), listOf(externa(3f, 0f, C.borde5)))
+private val gelModoOff = Gel(vertical(C.blanco, C.blanco), listOf(interna(1f, 0f, C.blanco), externa(3f, 0f, C.borde1)))
+
 /** Lima gel del CTA de checkout (base de 5 px). */
 private val gelPagar = Gels.lima
 
@@ -119,6 +125,8 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
     var pagando by remember { mutableStateOf(false) }
     var compra by remember { mutableStateOf<Compra?>(null) }
     var revisando by remember { mutableStateOf(false) }
+    // En un plan con seña se elige: pagar todo (por defecto, como el prototipo) o señar.
+    var modo by remember { mutableStateOf("entrada") }
 
     /** Busca la entrada ya pagada en "Mis pases" (el webhook de Mercado Pago la marca como pagada). */
     suspend fun revisar(): Boolean {
@@ -146,7 +154,7 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
     fun pagar(plan: Plan) = alcance.launch {
         pagando = true
         try {
-            val r = c.api.comprarEntradas(plan.id, q)
+            val r = c.api.comprarEntradas(plan.id, q, if (plan.cobro == "sena" && plan.senaPct != null) modo else "entrada")
             when {
                 r.link.isNotBlank() -> { compra = r; abrirPestana(ctx, r.link) }
                 r.entradaId.isNotBlank() -> ir.entrada(r.entradaId, plan.id)
@@ -196,10 +204,11 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
             return@Pantalla
         }
 
-        val sena = plan.cobro == "sena" && plan.senaPct != null
+        val conSena = plan.cobro == "sena" && plan.senaPct != null
+        val sena = conSena && modo == "sena"
         val precio = (plan.precioCentavos ?: 0).toLong()
-        val porPersona = Plata.desglose(precio, plan.cobro, plan.senaPct, 1, plan.cargoCentavos.takeIf { it > 0 })
-        val d = Plata.desglose(precio, plan.cobro, plan.senaPct, q, plan.cargoCentavos.takeIf { it > 0 })
+        val porPersona = Plata.desglose(precio, "sena", plan.senaPct, 1, plan.cargoCentavos.takeIf { it > 0 })
+        val d = Plata.desglose(precio, if (sena) "sena" else "entrada", plan.senaPct, q, plan.cargoCentavos.takeIf { it > 0 })
         val maximo = if (plan.aceptaGrupos) minOf(10, plan.faltan.coerceAtLeast(1)) else 1
 
         Column(
@@ -233,18 +242,24 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
                     BotonCantidad("+", q < maximo) { q++ }
                 }
             }
-            // La forma de cobro la define el lugar: se muestra la que corresponde, elegida.
-            Column(
-                Modifier.fillMaxWidth().gel(20.dp, Gel(vertical(C.lavanda, C.lavanda), listOf(interna(0f, 0f, C.violeta, spread = -2.5f), externa(3f, 0f, C.borde5))))
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
-            ) {
-                if (sena) {
-                    T("Señar ${plan.senaPct}%", 15f, 800, C.carbon)
-                    T("Reservás con ${Plata.pesos(porPersona.alLugar)}; el resto en el lugar", 12f, 600, C.texto2, alto = 1.35f)
-                } else {
-                    T("Pagar todo", 15f, 800, C.carbon)
-                    T("Entrada completa ahora", 12f, 600, C.texto2, alto = 1.35f)
+            // Plan con seña: «Pagar todo» o «Señar N%», las dos opciones del prototipo (coModes).
+            if (conSena) Row(Modifier.fillMaxWidth().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                listOf(
+                    Triple("entrada", "Pagar todo", "Entrada completa ahora"),
+                    Triple("sena", "Señar ${plan.senaPct}%", "Reservás con ${Plata.pesos(porPersona.alLugar)}; el resto en el lugar"),
+                ).forEach { (k, l, sub) ->
+                    val on = modo == k
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight().toque(alBajar = 3.dp) { modo = k }
+                            .gel(20.dp, if (on) gelModoOn else gelModoOff)
+                            // El anillo violeta de 2,5 (inset 0 0 0 2.5px #7456F1) de la opción elegida.
+                            .then(if (on) Modifier.border(2.5.dp, C.violeta, RoundedCornerShape(20.dp)) else Modifier)
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        T(l, 15f, 800, C.carbon)
+                        T(sub, 12f, 600, C.texto2, alto = 1.35f)
+                    }
                 }
             }
             Column(
@@ -290,7 +305,7 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
                 .background(Brush.verticalGradient(0f to p.fondo.copy(alpha = 0f), .25f to p.fondo))
                 .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 30.dp + abajo),
         ) {
-            Cta("Pagar ${Plata.pesos(d.total)}", { pagar(plan) }, Modifier.fillMaxWidth(), gel = gelPagar, alto = 62.dp, radio = 22.dp, tam = 18f, color = C.carbon, cargando = pagando)
+            Cta((if (sena) "Señar " else "Pagar ") + Plata.pesos(d.total), { pagar(plan) }, Modifier.fillMaxWidth(), gel = gelPagar, alto = 62.dp, radio = 22.dp, tam = 18f, color = C.carbon, cargando = pagando)
         }
     }
 }

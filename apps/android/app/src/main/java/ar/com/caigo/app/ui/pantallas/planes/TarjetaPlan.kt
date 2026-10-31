@@ -73,6 +73,18 @@ internal fun ChipFoto(texto: String, oscuro: Boolean, modifier: Modifier = Modif
     Box(modifier.gel(11.dp, g).padding(horizontal = 10.dp, vertical = 6.dp)) { T(texto, 12f, 700, c, unRenglon = true) }
 }
 
+/** Plan destacado con Caigo Plus: el chip lima de «Lugar aliado» con la estrella del me encanta. */
+@Composable
+internal fun ChipDestacado(modifier: Modifier = Modifier, soloEstrella: Boolean = false) {
+    Row(
+        modifier.gel(11.dp, Gel(vertical(C.lima, C.lima), emptyList())).padding(horizontal = if (soloEstrella) 8.dp else 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Icono(I.estrella, if (soloEstrella) 14.dp else 12.dp, Color.Transparent, 0f, relleno = C.carbon)
+        if (!soloEstrella) T("Destacado", 12f, 700, C.carbon, unRenglon = true)
+    }
+}
+
 /**
  * Sumarse a un plan desde la tarjeta o el detalle. Los errores de verificación llevan a la selfie o
  * al DNI (y vuelven); el resto se muestra tal cual en el toast.
@@ -158,6 +170,7 @@ internal fun TarjetaPlan(plan: Plan, ir: Ir, modifier: Modifier = Modifier, alto
                 ChipFoto(Fecha.cuando(plan.empiezaEn), oscuro = true)
                 if (plan.lugar != null) ChipFoto("Lugar aliado", false, fondo = Gel(vertical(C.lima, C.lima), emptyList()), color = C.carbon)
             }
+            if (plan.destacado) ChipDestacado(Modifier.align(Alignment.BottomStart).padding(12.dp))
             BadgeFalta(plan.faltan, Modifier.align(Alignment.BottomEnd).padding(12.dp))
         }
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

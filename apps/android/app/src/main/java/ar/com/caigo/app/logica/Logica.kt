@@ -24,6 +24,15 @@ object Cupo {
     fun segmentos(somos: Int, total: Int): List<Boolean> = List(total.coerceIn(0, 60)) { it < somos }
 }
 
+/** «Me encanta» en Citas: 1 por día sin Plus, 5 con Plus (la API corta con 409 `limite_encanta`). */
+object Encantas {
+    fun quedan(hoy: Int, limite: Int): Int = (limite - hoy).coerceAtLeast(0)
+
+    /** Lo que dice la API al pasarse (gente.Reaccionar), para no hacer volar la carta en vano. */
+    fun aviso(plus: Boolean, limite: Int): String =
+        if (plus) "Ya usaste los $limite me encanta de hoy." else "Ya usaste tu me encanta de hoy. Con Plus tenés 5 por día."
+}
+
 /** Plata en centavos → "$4.500" (pesos argentinos, sin decimales si son redondos). */
 object Plata {
     private val miles = DecimalFormat("#,##0", DecimalFormatSymbols(Locale.forLanguageTag("es-AR")).apply { groupingSeparator = '.' })

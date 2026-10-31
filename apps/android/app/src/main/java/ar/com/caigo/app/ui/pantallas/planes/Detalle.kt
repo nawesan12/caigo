@@ -43,6 +43,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import ar.com.caigo.app.LocalApp
+import ar.com.caigo.app.datos.ErrorApi
 import ar.com.caigo.app.datos.Plan
 import ar.com.caigo.app.datos.Reporte
 import ar.com.caigo.app.datos.mensajeDe
@@ -329,6 +330,21 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
             cerrar = { opciones = false },
             filas = buildList {
                 add("Compartir link" to { compartir(ctx, link) })
+                if (organizo && !p.cancelado && !yaPaso(p) && !p.destacado) add("Destacar plan" to {
+                    alcance.launch {
+                        try {
+                            c.api.destacar(p.id)
+                            avisos.ok("Listo. Tu plan sale destacado en Ahora y Explorar.")
+                            recargar()
+                        } catch (e: ErrorApi) {
+                            // Sin Plus: el paywall. Ya usado esta semana: el detalle trae desde cuándo.
+                            if (e.codigo == "plus") ir.plus("perfil") else avisos.error(e.detalle)
+                        } catch (e: Throwable) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
+                            avisos.error(mensajeDe(e))
+                        }
+                    }
+                })
                 if (organizo && !p.cancelado && !yaPaso(p)) add("Cancelar el plan" to {
                     alcance.launch {
                         runCatching { c.api.cancelarPlan(p.id) }.onSuccess { avisos.ok("Cancelaste el plan. Le avisamos a la gente."); recargar() }.onFailure { avisos.error(mensajeDe(it)) }
@@ -352,16 +368,18 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ChipsDetalle(p: Plan) {
     val pal = LocalPaleta.current
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         val claro = if (pal.oscuro) Gel(vertical(Color(0xFF2E2A3D), Color(0xFF2E2A3D)), emptyList()) else Gels.chipClaro
         ChipFoto(nombreCategoria(p.categoria), false, fondo = claro, color = pal.texto)
         val pronto = Fecha.enCuanto(p.empiezaEn)
         if (pronto != null) ChipFoto(pronto, false, fondo = Gels.coralBadge, color = C.carbon)
         else ChipFoto(Fecha.cuando(p.empiezaEn), true, fondo = if (pal.oscuro) Gels.coralBadge else Gels.oscuroSel, color = if (pal.oscuro) C.carbon else C.blancoCalido)
         if (p.nivel.isNotBlank()) ChipFoto(p.nivel, false, fondo = claro, color = pal.texto)
+        if (p.destacado) ChipDestacado()
     }
 }
 

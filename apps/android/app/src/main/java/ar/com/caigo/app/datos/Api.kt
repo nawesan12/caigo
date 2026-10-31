@@ -127,10 +127,10 @@ class Api(
 
     suspend fun explorar(
         desde: String? = null, hasta: String? = null, categoria: String? = null, ciudad: String? = null,
-        verificados: Boolean = false, faltan: Int? = null, lat: Double? = null, lng: Double? = null,
+        lat: Double? = null, lng: Double? = null, finos: FiltrosFinos = FiltrosFinos(),
     ): Planes = get(
         "/v1/planes/explorar", "desde" to desde, "hasta" to hasta, "categoria" to categoria, "ciudad" to ciudad,
-        "verificados" to (if (verificados) "1" else null), "faltan" to faltan, "lat" to lat, "lng" to lng,
+        "lat" to lat, "lng" to lng, *finos.query(),
     )
 
     suspend fun mios(cual: String): Planes = get("/v1/planes/mios", "cual" to cual)
@@ -138,6 +138,9 @@ class Api(
     suspend fun publico(slug: String): Plan = get("/v1/publico/planes/$slug")
     suspend fun crearPlan(p: PlanNuevo): Plan = enviar("POST", "/v1/planes", p)
     suspend fun cancelarPlan(id: String) = sinCuerpo("DELETE", "/v1/planes/$id")
+
+    /** Con Plus, un plan propio por semana sale primero en Ahora y Explorar. */
+    suspend fun destacar(id: String): Plan = decodificar(crudo("POST", url("/v1/planes/$id/destacar")))
 
     @kotlinx.serialization.Serializable
     data class Sumarse(val cantidad: Int, val mensaje: String = "")
@@ -233,9 +236,11 @@ class Api(
     // ——— Entradas, pases y tap ———
 
     @kotlinx.serialization.Serializable
-    data class Cantidad(val cantidad: Int)
+    data class Cantidad(val cantidad: Int, val modo: String = "")
 
-    suspend fun comprarEntradas(planId: String, cantidad: Int): Compra = enviar("POST", "/v1/planes/$planId/entradas", Cantidad(cantidad))
+    /** modo: `entrada` (pagar todo) o `sena` (sólo si el plan tiene seña); vacío, lo que diga el plan. */
+    suspend fun comprarEntradas(planId: String, cantidad: Int, modo: String = ""): Compra =
+        enviar("POST", "/v1/planes/$planId/entradas", Cantidad(cantidad, modo))
     suspend fun pases(): Pases = get("/v1/pases")
     suspend fun walletEntrada(id: String): Link = get("/v1/pases/entradas/$id/google")
     suspend fun walletSocio(lugarId: String): Link = get("/v1/pases/socios/$lugarId/google")

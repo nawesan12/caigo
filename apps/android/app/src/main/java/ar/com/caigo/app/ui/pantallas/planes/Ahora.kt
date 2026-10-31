@@ -221,7 +221,7 @@ private fun BannerInvitaciones(ir: Ir, n: Int, bloqueada: Boolean, titulos: List
             T(if (n == 1) "1 persona te invita a su plan" else "$n personas te invitan a sus planes", 14f, 800, C.blancoCalido)
             if (titulos.isNotEmpty()) T(titulos.joinToString(", ") { it.substringBefore(" en ") }, 12f, 600, Color(0xFFC9C4DA), unRenglon = true)
         }
-        if (bloqueada) Box(Modifier.gel(11.dp, vertical(C.lima, C.lima)).padding(horizontal = 10.dp, vertical = 6.dp)) { T("Plus", 11f, 800, C.carbon) }
+        if (bloqueada) ar.com.caigo.app.ui.piezas.ChipPlus()
         Icono(I.adelante, 18.dp, Color(0xFFC9C4DA), 2.6f)
     }
 }
