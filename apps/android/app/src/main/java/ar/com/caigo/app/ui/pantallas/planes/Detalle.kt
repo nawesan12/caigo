@@ -259,7 +259,7 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                 p.miEstado == "pendiente" -> Box(
                     Modifier.fillMaxWidth().height(62.dp).gel(22.dp, vertical(C.tinte1, C.tinte1), listOf(interna(3f, 6f, rgba(116, 86, 241, .2f)))),
                     contentAlignment = Alignment.Center,
-                ) { T("Le avisamos a ${p.organizador.nombre}. Esperá un toque…", 16f, 800, C.violetaTexto, alinear = TextAlign.Center) }
+                ) { T("Le avisamos a ${p.organizador.nombre}. Esperá un toque…", 15f, 800, C.violetaTexto, alinear = TextAlign.Center, modifier = Modifier.padding(horizontal = 14.dp)) }
                 adentro -> {
                     if (yaPaso(p)) {
                         Cta("¿Repetimos?", { ir.repetimos(p.id) }, Modifier.fillMaxWidth(), gel = Gels.violeta, color = C.blanco, alto = 58.dp)

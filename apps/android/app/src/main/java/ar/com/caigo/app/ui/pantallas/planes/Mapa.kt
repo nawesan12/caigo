@@ -178,7 +178,8 @@ internal fun MapaAhora(
         }
 
         // Buscador, Lista/Mapa y filtros.
-        Column(Modifier.padding(top = arriba + 8.dp, start = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Buscador y filtros por encima de los pines.
+        Column(Modifier.zIndex(5f).padding(top = arriba + 8.dp, start = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     Modifier.weight(1f).height(50.dp).gel(18.dp, blanco, sombraFlotante).padding(horizontal = 16.dp),
@@ -210,7 +211,7 @@ internal fun MapaAhora(
         // Volver a mi ubicación.
         val seleccionado = visibles.firstOrNull { it.id == elegido }
         Box(
-            Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = abajo + if (seleccionado != null) 262.dp else 130.dp)
+            Modifier.zIndex(5f).align(Alignment.BottomEnd).padding(end = 16.dp, bottom = abajo + if (seleccionado != null) 262.dp else 130.dp)
                 .size(46.dp).toque {
                     punto?.let { (la, ln) -> mapa?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(la, ln), 14.0)) }
                 }.gel(16.dp, blanco, listOf(externa(8f, 20f, rgba(36, 33, 45, .12f)))),
@@ -218,7 +219,7 @@ internal fun MapaAhora(
         ) { Icono(I.ubicacion, 20.dp, C.violeta, 2.2f) }
 
         // Tarjeta flotante del plan elegido.
-        if (seleccionado != null) TarjetaFlotante(seleccionado, ir, Modifier.align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = abajo + 118.dp))
+        if (seleccionado != null) TarjetaFlotante(seleccionado, ir, Modifier.zIndex(5f).align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = abajo + 118.dp))
     }
 }
 
