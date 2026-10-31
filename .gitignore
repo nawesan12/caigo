@@ -1,0 +1,10 @@
+CREDENCIALES.md
+.env
+*.local
+/apps/api/bin/
+/apps/api/archivos/
+.DS_Store
+node_modules/
+# El handoff (con el deck y el brief del negocio) no va al repo público: sale del zip
+# ~/Trabajo/vimo/Tuki Mockups v2 Updates.zip (ver README).
+/docs/handoff/

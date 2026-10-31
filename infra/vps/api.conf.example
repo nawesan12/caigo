@@ -1,0 +1,9 @@
+# /opt/caigo/api.conf (chmod 600). Las claves reales están en CREDENCIALES.md (PROD_*).
+CAIGO_ENTORNO=produccion
+CAIGO_DIRECCION=:4300
+CAIGO_SITIO=https://caigo.com.ar
+CAIGO_BASE_DE_DATOS=postgres://caigo_app:CLAVE_APP@postgres:5432/caigo?sslmode=disable
+CAIGO_BASE_DE_DATOS_MIGRADOR=postgres://caigo_migrador:CLAVE_MIGRADOR@postgres:5432/caigo?sslmode=disable
+CAIGO_BASE_DE_DATOS_ADMIN=postgres://postgres:CLAVE_POSTGRES@postgres:5432/postgres?sslmode=disable
+CAIGO_CLAVE_APP=CLAVE_APP
+CAIGO_CLAVE_MIGRADOR=CLAVE_MIGRADOR
