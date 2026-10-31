@@ -106,6 +106,8 @@ fun Datos(ir: Ir) {
     var nacimiento by remember { mutableStateOf("") }
     var ciudad by remember { mutableStateOf(yo?.ciudad?.takeIf { it.isNotBlank() } ?: "Mar del Plata") }
     var zona by remember { mutableStateOf(yo?.zona.orEmpty()) }
+    var genero by remember { mutableStateOf(yo?.genero.orEmpty()) }
+    var diversidad by remember { mutableStateOf(yo?.diversidad == true) }
     var cargando by remember { mutableStateOf(false) }
     val fecha = fechaDe(nacimiento)
     val listo = nombre.isNotBlank() && fecha != null && zona.isNotBlank()
@@ -134,6 +136,11 @@ fun Datos(ir: Ir) {
                     }
                     ingresoCampo(zona, { zona = it.take(60) }, Modifier.fillMaxWidth(), pista = if (ciudad == "Villa Gesell") "Zona" else "Güemes")
                 }
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    T("¿Cómo te identificás?", 14f, 700, C.carbon)
+                    T("No se lo mostramos a nadie. Sirve para los planes «solo mujeres» y «solo diversidades».", 13f, 400, C.texto2, alto = 1.45f)
+                    CamposGenero(genero, diversidad, { genero = it }, { diversidad = it })
+                }
             }
             Column(
                 Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 36.dp + abajo, top = 12.dp),
@@ -151,7 +158,10 @@ fun Datos(ir: Ir) {
                         cargando = true
                         try {
                             c.yo.value = c.api.actualizarYo(
-                                CambiosPerfil(nombre = nombre.trim(), nacimiento = f.toString(), ciudad = ciudad, zona = zona.trim()),
+                                CambiosPerfil(
+                                    nombre = nombre.trim(), nacimiento = f.toString(), ciudad = ciudad, zona = zona.trim(),
+                                    genero = genero, diversidad = diversidad,
+                                ),
                             )
                             ir.alta(rutaDeAlta(c))
                         } catch (e: Exception) {

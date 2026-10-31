@@ -59,7 +59,7 @@ class TiempoReal(
                     }
 
                     override fun onMessage(webSocket: WebSocket, text: String) {
-                        runCatching { json.decodeFromString<Evento>(text) }.getOrNull()?.let { _eventos.tryEmit(it) }
+                        leer(text)?.let { _eventos.tryEmit(it) }
                     }
 
                     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
@@ -94,7 +94,28 @@ class TiempoReal(
         ws?.send(json.encodeToString(Escribiendo.serializer(), Escribiendo(planId = planId)))
     }
 
+    @Serializable
+    private data class EscribiendoPrivado(val tipo: String = "escribiendo", val privado: String)
+
+    /** Avisa que la persona está escribiendo en un privado con [conId] (contrato §10). */
+    fun escribiendoPrivado(conId: String) {
+        ws?.send(json.encodeToString(EscribiendoPrivado.serializer(), EscribiendoPrivado(privado = conId)))
+    }
+
     companion object {
+        /**
+         * Lee un evento. «escribiendo» en un privado trae `privado` como texto (el id de quien escribe),
+         * no como mensaje: se separa antes de decodificar.
+         */
+        fun leer(texto: String): Evento? = runCatching {
+            val o = json.parseToJsonElement(texto) as? kotlinx.serialization.json.JsonObject ?: return null
+            val pv = o["privado"]
+            if (pv is kotlinx.serialization.json.JsonPrimitive && pv.isString) {
+                val sin = kotlinx.serialization.json.JsonObject(o - "privado")
+                json.decodeFromJsonElement(Evento.serializer(), sin).copy(escribePrivado = pv.content)
+            } else json.decodeFromJsonElement(Evento.serializer(), o)
+        }.getOrNull()
+
         /** Espera creciente entre reconexiones: 1, 2, 4, 8, 16, 30, 30… segundos. */
         fun espera(intento: Int): Long = minOf(30_000L, 1000L shl minOf(intento, 5))
     }

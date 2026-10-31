@@ -74,14 +74,50 @@ class Contenedor(val ctx: Context) {
     }
 
     suspend fun salir() {
+        Push.olvidar(this)
         api.cerrarSesion()
         salirLocal()
     }
 
     /** Borra la cuenta en la API y, si salió bien, la sesión local (como al salir). */
     suspend fun borrarCuenta() {
+        // El dispositivo se borra antes: después de la baja la sesión ya no sirve.
+        Push.olvidar(this)
         api.borrarCuenta()
         salirLocal()
+    }
+
+    /**
+     * Al abrir la app con sesión: la ubicación para los avisos de «plan cerca» (`PUT /v1/yo/ubicacion`,
+     * redondeada a ~1 km). Sin permiso no se manda nada.
+     */
+    suspend fun mandarUbicacion() {
+        val (la, ln) = ubicacion() ?: return
+        runCatching { api.ubicacion(la, ln) }
+    }
+
+    /**
+     * El pedido de avisos (Android 13+) ya se contestó o no hacía falta. Ahora espera esto para pedir la
+     * ubicación: dos pedidos de permiso juntos hacen que Android descarte uno.
+     */
+    val avisosResueltos = MutableStateFlow(false)
+
+    /** La app es más vieja que la mínima que pide la API (`/v1/version`): hay que actualizar. */
+    val actualizar = MutableStateFlow(false)
+
+    suspend fun chequearVersion() {
+        val v = runCatching { api.version() }.getOrNull() ?: return
+        actualizar.value = v.minAndroid > BuildConfig.VERSION_CODE
+    }
+
+    /** Pregunta de género pendiente (ante `falta_genero`): la hoja la responde con true si se guardó. */
+    val preguntaGenero = MutableStateFlow<kotlinx.coroutines.CompletableDeferred<Boolean>?>(null)
+
+    /** Abre la hoja de género y espera la respuesta. */
+    suspend fun preguntarGenero(): Boolean {
+        val d = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        preguntaGenero.value = d
+        return try { d.await() } finally { if (preguntaGenero.value === d) preguntaGenero.value = null }
     }
 
     private suspend fun salirLocal() {
@@ -151,7 +187,11 @@ class App : Application(), SingletonImageLoader.Factory {
         // El WebSocket vive mientras la app está en primer plano.
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
-                if (contenedor.sesion.token.value != null) contenedor.tiempoReal.encender()
+                contenedor.alcance.launch { contenedor.chequearVersion() }
+                if (contenedor.sesion.token.value != null) {
+                    contenedor.tiempoReal.encender()
+                    contenedor.alcance.launch { contenedor.mandarUbicacion() }
+                }
             }
 
             override fun onStop(owner: LifecycleOwner) = contenedor.tiempoReal.apagar()

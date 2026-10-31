@@ -28,6 +28,7 @@ android {
 
         buildConfigField("String", "CLERK_PUBLICABLE", cadena(local("caigo.clerk.publicable")))
         buildConfigField("String", "MAPA_ESTILO", cadena(local("caigo.mapa.estilo", "https://tiles.openfreemap.org/styles/liberty")))
+        buildConfigField("String", "MAPA_ESTILO_OSCURO", cadena(local("caigo.mapa.estiloOscuro", "https://tiles.openfreemap.org/styles/dark")))
         buildConfigField("String", "SITIO", cadena(local("caigo.sitio", "https://caigo.com.ar")))
         // Firebase sin google-services.json: si faltan estos datos, el push queda apagado.
         buildConfigField("String", "FIREBASE_APP_ID", cadena(local("caigo.firebase.appId")))

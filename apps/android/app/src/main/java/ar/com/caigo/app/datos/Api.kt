@@ -120,20 +120,35 @@ class Api(
     suspend fun persona(id: String): Perfil = get("/v1/personas/$id")
     suspend fun miGente(): Gente = get("/v1/gente")
     suspend fun sumarAMiGente(id: String) = sinCuerpo("PUT", "/v1/gente/$id")
+    suspend fun sacarDeMiGente(id: String) = sinCuerpo("DELETE", "/v1/gente/$id")
     suspend fun bloquear(id: String) = sinCuerpo("PUT", "/v1/bloqueos/$id")
+    suspend fun bloqueos(): Bloqueos = get("/v1/bloqueos")
+    suspend fun desbloquear(id: String) = sinCuerpo("DELETE", "/v1/bloqueos/$id")
+
+    @kotlinx.serialization.Serializable
+    data class Punto(val lat: Double, val lng: Double)
+
+    /** La ubicación de quien usa la app, redondeada a ~1 km (para «plan cerca»; la API la borra a las 24 h). */
+    suspend fun ubicacion(lat: Double, lng: Double) = mandar("PUT", "/v1/yo/ubicacion", Punto(redondear(lat), redondear(lng)))
+
+    /** GET /v1/version (pública): la versión mínima de la app. */
+    suspend fun version(): Version = decodificar(crudo("GET", url("/v1/version"), autorizacion = ""))
+    suspend fun zonas(ciudad: String): Zonas = get("/v1/publico/zonas", "ciudad" to ciudad)
     suspend fun reportar(r: Reporte) = mandar("POST", "/v1/reportes", r)
 
     // ——— Planes ———
 
-    suspend fun ahora(lat: Double?, lng: Double?, categoria: String?): Planes =
-        get("/v1/planes/ahora", "lat" to lat, "lng" to lng, "categoria" to categoria)
+    suspend fun ahora(
+        lat: Double?, lng: Double?, categoria: String?, q: String? = null, finos: FiltrosFinos = FiltrosFinos(),
+    ): Planes = get("/v1/planes/ahora", "lat" to lat, "lng" to lng, "categoria" to categoria, "q" to busqueda(q), *finos.query())
 
     suspend fun explorar(
         desde: String? = null, hasta: String? = null, categoria: String? = null, ciudad: String? = null,
         lat: Double? = null, lng: Double? = null, finos: FiltrosFinos = FiltrosFinos(),
+        q: String? = null, zona: String? = null, radio: Int? = null,
     ): Planes = get(
         "/v1/planes/explorar", "desde" to desde, "hasta" to hasta, "categoria" to categoria, "ciudad" to ciudad,
-        "lat" to lat, "lng" to lng, *finos.query(),
+        "lat" to lat, "lng" to lng, "q" to busqueda(q), "zona" to zona, "radio" to radio, *finos.query(),
     )
 
     suspend fun mios(cual: String): Planes = get("/v1/planes/mios", "cual" to cual)
@@ -141,6 +156,10 @@ class Api(
     suspend fun publico(slug: String): Plan = get("/v1/publico/planes/$slug")
     suspend fun crearPlan(p: PlanNuevo): Plan = enviar("POST", "/v1/planes", p)
     suspend fun cancelarPlan(id: String) = sinCuerpo("DELETE", "/v1/planes/$id")
+    suspend fun editarPlan(id: String, c: CambiosPlan): Plan = enviar("PATCH", "/v1/planes/$id", c)
+
+    /** El organizador saca a alguien aceptado (no a una entrada paga: 409 `con_entrada`). */
+    suspend fun sacarPersona(planId: String, usuarioId: String) = sinCuerpo("DELETE", "/v1/planes/$planId/personas/$usuarioId")
 
     /** Con Plus, un plan propio por semana sale primero en Ahora y Explorar. */
     suspend fun destacar(id: String): Plan = decodificar(crudo("POST", url("/v1/planes/$id/destacar")))
@@ -195,7 +214,7 @@ class Api(
     suspend fun mensajes(planId: String, antes: Long? = null): Mensajes = get("/v1/planes/$planId/mensajes", "antes" to antes)
     suspend fun escribir(planId: String, texto: String): Mensaje = enviar("POST", "/v1/planes/$planId/mensajes", Texto(texto))
     suspend fun conversaciones(): Conversaciones = get("/v1/privados")
-    suspend fun privados(conId: String): Privados = get("/v1/privados/$conId")
+    suspend fun privados(conId: String, antes: Long? = null): Privados = get("/v1/privados/$conId", "antes" to antes)
     suspend fun escribirPrivado(conId: String, texto: String): Privado = enviar("POST", "/v1/privados/$conId", Texto(texto))
 
     // ——— Confianza ———
@@ -226,6 +245,7 @@ class Api(
     data class Dispositivo(val plataforma: String, val token: String)
 
     suspend fun registrarDispositivo(token: String) = mandar("PUT", "/v1/dispositivos", Dispositivo("android", token))
+    suspend fun borrarDispositivo(token: String) = sinCuerpo("DELETE", "/v1/dispositivos/" + java.net.URLEncoder.encode(token, "UTF-8"))
 
     // ——— Plus ———
 
@@ -245,11 +265,20 @@ class Api(
     suspend fun comprarEntradas(planId: String, cantidad: Int, modo: String = ""): Compra =
         enviar("POST", "/v1/planes/$planId/entradas", Cantidad(cantidad, modo))
     suspend fun pases(): Pases = get("/v1/pases")
+
+    /** Cancela la entrada según la política del plan; `strict` responde 409 `sin_reembolso`. */
+    suspend fun cancelarEntrada(id: String): Reembolso = decodificar(crudo("DELETE", url("/v1/entradas/$id")))
     suspend fun walletEntrada(id: String): Link = get("/v1/pases/entradas/$id/google")
     suspend fun walletSocio(lugarId: String): Link = get("/v1/pases/socios/$lugarId/google")
     suspend fun tap(l: Lectura): ResultadoTap = enviar("POST", "/v1/tap", l)
 
     companion object {
+        /** `q` va desde 2 letras (contrato §5); menos, no se manda. */
+        fun busqueda(q: String?): String? = q?.trim()?.takeIf { it.length >= 2 }
+
+        /** ~1 km: dos decimales de grado. */
+        fun redondear(v: Double): Double = Math.round(v * 100) / 100.0
+
         fun http(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

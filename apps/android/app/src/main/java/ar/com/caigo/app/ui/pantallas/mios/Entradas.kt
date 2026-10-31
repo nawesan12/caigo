@@ -1,5 +1,6 @@
 package ar.com.caigo.app.ui.pantallas.mios
 
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -154,7 +155,7 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
     fun pagar(plan: Plan) = alcance.launch {
         pagando = true
         try {
-            val r = c.api.comprarEntradas(plan.id, q, if (plan.cobro == "sena" && plan.senaPct != null) modo else "entrada")
+            val r = ar.com.caigo.app.ui.pantallas.ingreso.conGenero(c) { c.api.comprarEntradas(plan.id, q, if (plan.cobro == "sena" && plan.senaPct != null) modo else "entrada") }
             when {
                 r.link.isNotBlank() -> { compra = r; abrirPestana(ctx, r.link) }
                 r.entradaId.isNotBlank() -> ir.entrada(r.entradaId, plan.id)
@@ -343,6 +344,7 @@ fun Entrada(ir: Ir, entradaId: String, planId: String) {
         try { c.api.walletEntrada(entradaId).link } catch (e: ErrorApi) { if (e.codigo == "sin_wallet") "" else throw e }
     }
     val entrada = pases.dato?.entradas?.firstOrNull { it.id == entradaId }
+    var cancelando by remember { mutableStateOf(false) }
 
     Pantalla { arriba, abajo ->
         if (entrada == null) {
@@ -413,7 +415,13 @@ fun Entrada(ir: Ir, entradaId: String, planId: String) {
                 LaunchedEffect(wallet.error) { avisos.error(wallet.error!!) }
             }
             Cta("Ver el plan", { ir.plan(entrada.planId) }, Modifier.fillMaxWidth(), gel = Gels.violeta, radio = 22.dp, color = C.blanco)
+            // Cancelar según la política del plan (el texto de peligro de «Borrar mi cuenta»).
+            if (!entrada.validada && entrada.estado != "cancelada") T(
+                "Cancelar mi entrada", 15f, 700, C.coral2,
+                Modifier.tocable { cancelando = true }.padding(horizontal = 18.dp, vertical = 12.dp),
+            )
         }
+        HojaCancelarEntrada(cancelando, { cancelando = false }, entrada.id, plan.dato?.cancelacion.orEmpty()) { pases.recargar() }
     }
 }
 
@@ -455,6 +463,58 @@ fun QrEntrada(ir: Ir, entradaId: String) {
             ) { CodigoQr(entrada.codigo, Modifier.size(225.dp)) }
             T(entrada.codigo, 28f, 800, alto = 1f, espaciado = px(1.5f, 28f))
             T("Mostralo en la puerta. Subí el brillo si está oscuro.", 14f, 600, LocalPaleta.current.texto2, alto = 1.5f, alinear = TextAlign.Center)
+        }
+    }
+}
+
+
+/** Lo que dice la política de cancelación del plan (flex | mod | strict), con las reglas del contrato §2. */
+internal fun textoPolitica(cancelacion: String): String = when (cancelacion) {
+    "flex" -> "Hasta 24 h antes te devolvemos todo, menos el cargo por servicio. Después podés cancelar igual, pero sin devolución."
+    "mod" -> "Hasta 72 h antes te devolvemos todo, menos el cargo por servicio. Después, lo que pagaste no se devuelve."
+    "strict" -> "Este plan no devuelve las entradas si cancelás."
+    else -> "Te devolvemos según la política del lugar, menos el cargo por servicio."
+}
+
+/** Hoja para cancelar mi entrada (DELETE /v1/entradas/{id}); con `strict` sólo explica que no se devuelve. */
+@Composable
+internal fun BoxScope.HojaCancelarEntrada(abierta: Boolean, cerrar: () -> Unit, entradaId: String, cancelacion: String, alCancelar: () -> Unit) {
+    val c = LocalApp.current
+    val p = LocalPaleta.current
+    val avisos = LocalAvisos.current
+    val alcance = rememberCoroutineScope()
+    var enviando by remember { mutableStateOf(false) }
+    val sinDevolucion = cancelacion == "strict"
+    MiosHoja(abierta, { if (!enviando) cerrar() }, if (sinDevolucion) "Esta entrada no se devuelve" else "¿Cancelar tu entrada?") {
+        T(textoPolitica(cancelacion), 15f, 400, p.texto2, alto = 1.5f)
+        MiosGrupo {
+            if (!sinDevolucion) {
+                Box(
+                    Modifier.fillMaxWidth().tocable {
+                        if (enviando) return@tocable
+                        enviando = true
+                        alcance.launch {
+                            try {
+                                val r = c.api.cancelarEntrada(entradaId)
+                                avisos.ok(
+                                    if (r.reembolsoCentavos > 0) "Cancelaste tu entrada. Te devolvemos ${Plata.pesos(r.reembolsoCentavos)}."
+                                    else "Cancelaste tu entrada. Esta vez no hay devolución.",
+                                )
+                                cerrar(); alCancelar()
+                            } catch (e: Throwable) {
+                                if (e is kotlinx.coroutines.CancellationException) throw e
+                                avisos.error(mensajeDe(e))
+                            } finally {
+                                enviando = false
+                            }
+                        }
+                    }.padding(horizontal = 18.dp, vertical = 16.dp),
+                ) { if (enviando) Puntitos(C.coral2) else T("Cancelar mi entrada", 15f, 700, C.coral2) }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(if (p.oscuro) p.separador else C.lavanda))
+            }
+            Box(Modifier.fillMaxWidth().tocable { if (!enviando) cerrar() }.padding(horizontal = 18.dp, vertical = 16.dp)) {
+                T(if (sinDevolucion) "Entendido" else "Volver", 15f, 700)
+            }
         }
     }
 }

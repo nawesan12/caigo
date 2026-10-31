@@ -85,13 +85,28 @@ internal fun ChipDestacado(modifier: Modifier = Modifier, soloEstrella: Boolean 
     }
 }
 
+/** 01b: con cuántos sale (Voy solo / Somos 2 / Somos 4), si el plan acepta grupos y hay lugar. */
+internal fun cantidadPorDefecto(c: Contenedor, p: Plan): Int =
+    if (p.aceptaGrupos && p.faltan > 1) c.sesion.grupo.coerceIn(1, minOf(10, p.faltan)) else 1
+
+/** Quien mira no entra por género (ya lo cargó y no coincide): el texto para mostrar, o null. */
+internal fun fueraPorGenero(p: Plan, yo: ar.com.caigo.app.datos.Perfil?): String? {
+    if (yo == null || (yo.genero.isBlank() && !yo.diversidad)) return null
+    return when (p.genero) {
+        "mujeres" -> if (yo.genero != "mujer") "Este plan es solo para mujeres." else null
+        "diversidades" -> if (!yo.diversidad && yo.genero != "no_binario") "Este plan es solo para diversidades." else null
+        else -> null
+    }
+}
+
 /**
  * Sumarse a un plan desde la tarjeta o el detalle. Los errores de verificación llevan a la selfie o
  * al DNI (y vuelven); el resto se muestra tal cual en el toast.
  */
 internal suspend fun sumarse(c: Contenedor, ir: Ir, avisos: Avisos, plan: Plan, cantidad: Int, mensaje: String = ""): String? =
     try {
-        val e = c.api.sumarme(plan.id, cantidad, mensaje).estado
+        // Planes «solo mujeres / solo diversidades»: si falta el género, se pregunta y se reintenta.
+        val e = ar.com.caigo.app.ui.pantallas.ingreso.conGenero(c) { c.api.sumarme(plan.id, cantidad, mensaje) }.estado
         avisos.ok(
             if (e == "aceptada") "¡Estás adentro!"
             else "Le pediste a ${plan.organizador.nombre.ifBlank { "quien organiza" }} sumarte.",
@@ -135,7 +150,7 @@ internal fun AccionTarjeta(plan: Plan, ir: Ir, alCambiar: (String) -> Unit) {
                     if (esDeLugar(plan)) ir.plan(plan.id)
                     else alcance.launch {
                         enviando = true
-                        sumarse(c, ir, avisos, plan, 1)?.let(alCambiar)
+                        sumarse(c, ir, avisos, plan, cantidadPorDefecto(c, plan))?.let(alCambiar)
                         enviando = false
                     }
                 }

@@ -182,3 +182,18 @@ class SenaTest {
         assertEquals(680000, d.saldo)
     }
 }
+
+class VacioTest {
+    @Test fun domingoALaSiestaSigueComoEnElHandoff() {
+        assertEquals("Domingo a la siesta, la costa duerme. Si publicás algo ahora, sos lo primero que ven.", Vacio.frase(7, 15))
+    }
+
+    @Test fun cambiaSegunElDiaYLaHora() {
+        assertTrue(Vacio.frase(5, 22).startsWith("Viernes a la noche"))
+        assertTrue(Vacio.frase(2, 22).startsWith("Todavía nadie"))
+        assertTrue(Vacio.frase(3, 9).startsWith("La mañana"))
+        assertTrue(Vacio.frase(3, 3).startsWith("A esta hora"))
+        // Ninguna nombra al domingo fuera del domingo.
+        (1..6).forEach { d -> (0..23).forEach { h -> assertTrue(!Vacio.frase(d, h).contains("Domingo")) } }
+    }
+}

@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import ar.com.caigo.app.R
 import ar.com.caigo.app.ui.pantallas.mios.MisPlanes
 import ar.com.caigo.app.ui.pantallas.mios.Perfil
@@ -66,6 +67,23 @@ fun OcultarTabBar(oculta: Boolean) {
 fun Principal(ir: Ir, inicial: Pestana, modo: String?) {
     var tab by rememberSaveable { mutableStateOf(inicial) }
     val p = LocalPaleta.current
+    val c = ar.com.caigo.app.LocalApp.current
+    // Avisos (Android 13+): se piden una vez, al llegar a la app después del alta (como iOS).
+    val permisoAvisos = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { ok ->
+        c.avisosResueltos.value = true
+        if (ok) c.alcance.launch { ar.com.caigo.app.push.Push.registrar(c) }
+    }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (!c.sesion.avisosPedidos && ar.com.caigo.app.push.Push.necesitaPermiso(c.ctx)) {
+            c.sesion.marcarAvisosPedidos()
+            permisoAvisos.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            c.sesion.marcarAvisosPedidos()
+            c.avisosResueltos.value = true
+        }
+    }
     val oculta = androidx.compose.runtime.remember { mutableStateOf(false) }
     androidx.compose.runtime.CompositionLocalProvider(LocalTabBarOculta provides oculta) {
         Box(Modifier.fillMaxSize().fondoCaigo(p.oscuro)) {

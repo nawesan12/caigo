@@ -75,7 +75,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun ingresoBarraClara(clara: Boolean) {
     val vista = LocalView.current
-    val oscuroSistema = isSystemInDarkTheme()
+    val oscuroSistema = ar.com.caigo.app.ui.tema.LocalPaleta.current.oscuro
     DisposableEffect(clara) {
         val w = (vista.context as? Activity)?.window
         if (w != null) WindowCompat.getInsetsController(w, vista).isAppearanceLightStatusBars = !clara
@@ -213,7 +213,10 @@ internal fun ingresoContenido(contenido: @Composable androidx.compose.foundation
 /** 01b · Sumate solo o con amigos. */
 @Composable
 private fun slideAmigos(saltar: () -> Unit, avanzar: () -> Unit) {
-    var cuantos by remember { mutableIntStateOf(1) }
+    // Se guarda y es el valor por defecto al sumarse a un plan (Voy solo / Somos 2 / Somos 4).
+    val c = LocalApp.current
+    val alcance = rememberCoroutineScope()
+    var cuantos by remember { mutableIntStateOf(listOf(1, 2, 4).indexOf(c.sesion.grupo).coerceAtLeast(0)) }
     BoxWithConstraints(Modifier.fillMaxSize().background(C.blancoCalido).ingresoGrano()) {
         val e = ingresoEscala()
         val altoTotal = maxHeight
@@ -259,7 +262,7 @@ private fun slideAmigos(saltar: () -> Unit, avanzar: () -> Unit) {
                     listOf("Voy solo", "Somos 2", "Somos 4").forEachIndexed { i, o ->
                         val on = i == cuantos
                         Box(
-                            Modifier.weight(1f).height(46.dp).tocable { cuantos = i }
+                            Modifier.weight(1f).height(46.dp).tocable { cuantos = i; alcance.launch { c.sesion.guardarGrupo(listOf(1, 2, 4)[i]) } }
                                 .then(if (on) Modifier.gel(16.dp, Gel(Gels.violeta.fondo, listOf(
                                     interna(3f, 2f, rgba(255, 255, 255, .45f)), interna(-5f, 0f, rgba(40, 20, 140, .35f)), externa(4f, 0f, C.violetaBase),
                                     externa(16f, 26f, rgba(116, 86, 241, .75f), spread = -10f),

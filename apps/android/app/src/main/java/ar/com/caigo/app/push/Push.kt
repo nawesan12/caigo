@@ -53,15 +53,32 @@ object Push {
         runCatching {
             val t = FirebaseMessaging.getInstance().token.await()
             c.api.registrarDispositivo(t)
+            c.sesion.guardarTokenPush(t)
         }
     }
+
+    /** Al salir o borrar la cuenta: `DELETE /v1/dispositivos/{token}` (con la sesión todavía viva). */
+    suspend fun olvidar(c: Contenedor) {
+        val t = c.sesion.tokenPush.ifBlank {
+            if (!disponible || FirebaseApp.getApps(c.ctx).isEmpty()) "" else runCatching { FirebaseMessaging.getInstance().token.await() }.getOrDefault("")
+        }
+        if (t.isNotBlank()) runCatching { c.api.borrarDispositivo(t) }
+    }
+
+    /** Android 13+ pide permiso para mostrar avisos; antes viene dado. */
+    fun necesitaPermiso(ctx: Context): Boolean =
+        android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
 }
 
 /** Recibe los avisos y los muestra; al tocarlos se abre la pantalla que dice `data.pantalla`. */
 class ServicioPush : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         val c = (application as App).contenedor
-        if (c.sesion.token.value != null) c.alcance.launch { runCatching { c.api.registrarDispositivo(token) } }
+        if (c.sesion.token.value != null) c.alcance.launch {
+            runCatching { c.api.registrarDispositivo(token); c.sesion.guardarTokenPush(token) }
+        }
     }
 
     override fun onMessageReceived(m: RemoteMessage) {

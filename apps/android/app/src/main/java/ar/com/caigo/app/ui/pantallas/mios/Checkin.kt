@@ -173,6 +173,10 @@ fun Checkin(ir: Ir, planId: String) {
             }
             Spacer(Modifier.weight(1f))
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                // Plan de un lugar: el QR personal es lo que valida la puerta (contrato §6).
+                if (pl?.lugar != null && pl.miEstado == "aceptada" && !listo) {
+                    Cta("Mostrar mi QR en la puerta", { ir.qrOrganizador(planId) }, Modifier.fillMaxWidth(), gel = Gels.blanco, icono = I.qr, iconoTrazo = 2.2f, iconoTam = 20.dp)
+                }
                 if (lejos && !listo) {
                     Cta("Escanear el QR del organizador", { ir.escanearQr(planId) }, Modifier.fillMaxWidth(), gel = Gels.violeta, color = C.blanco, icono = I.qr, iconoTrazo = 2.2f, iconoTam = 20.dp)
                 }
@@ -392,7 +396,12 @@ fun QrOrganizador(ir: Ir, planId: String) {
                     else -> Puntitos()
                 }
             }
-            T("Mostralo cuando llegue la gente: lo escanean y cuenta su asistencia.", 14f, 600, p.texto2, alto = 1.5f, alinear = TextAlign.Center)
+            // Quien organiza muestra el del plan; alguien aceptado, su QR personal (lo valida el lugar).
+            val mio = plan.dato?.let { it.miEstado != "organizador" } == true
+            T(
+                if (mio) "Mostralo en la puerta: lo escanean y queda tu check-in." else "Mostralo cuando llegue la gente: lo escanean y cuenta su asistencia.",
+                14f, 600, p.texto2, alto = 1.5f, alinear = TextAlign.Center,
+            )
             Spacer(Modifier.weight(1f))
             Box(Modifier.background(p.superficie, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 10.dp)) {
                 T("Subí el brillo si está oscuro.", 13f, 700, if (p.oscuro) C.lima else C.violetaTexto)

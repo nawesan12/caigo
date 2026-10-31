@@ -247,7 +247,7 @@ fun Plus(ir: Ir, motivo: String) {
             }
             Column(Modifier.offset(y = (-40).dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 if (n > 0) TeaserRecibidos(fotosTeaser, n)
-                TablaPlus()
+                TablaPlus(plus.dato?.estado)
                 T("Elegí tu plan", 20f, 700, C.blanco, Modifier.padding(top = 4.dp))
                 if (plus.cargando && planes.isEmpty()) {
                     Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) { Puntitos(C.lima) }
@@ -343,11 +343,15 @@ private fun TeaserRecibidos(fotos: List<String>, n: Int) {
 
 /** Comparación Gratis / Plus (la tabla del prototipo). */
 @Composable
-private fun TablaPlus() {
+private fun TablaPlus(e: ar.com.caigo.app.datos.EstadoPlus?) {
+    // Los límites salen de la API (`limite` es el gratis; `limiteEncantas`, el de quien mira).
+    val sumadas = e?.limite ?: 3
+    val encantasGratis = if (e?.activo == true) 1 else e?.limiteEncantas ?: 1
+    val encantasPlus = if (e?.activo == true) e.limiteEncantas else 5
     val filas = listOf(
-        Triple("Sumadas en Gente", "3 por día", "Sin límite"),
+        Triple("Sumadas en Gente", "$sumadas por día", "Sin límite"),
         Triple("Ver quién te sumó", "—", "✓"),
-        Triple("Me encanta en Citas", "1 por día", "5 por día"),
+        Triple("Me encanta en Citas", "$encantasGratis por día", "$encantasPlus por día"),
         Triple("Tu plan destacado", "—", "1 por semana"),
         Triple("Filtros finos", "Básicos", "Todos"),
     )
