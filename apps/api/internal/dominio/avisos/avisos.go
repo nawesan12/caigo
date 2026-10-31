@@ -167,6 +167,8 @@ func (e *Enviador) Manejadores() map[string]outbox.Manejador {
 		"solicitud.sacada":    e.solicitudFuera(true),
 		// Al equipo: un pedido de arrepentimiento (hay que responder en el día).
 		"arrepentimiento.nuevo": e.arrepentimientoNuevo,
+		// Al equipo: un lugar pidió placas Caigo Tap.
+		"placas.pedido": e.placasPedido,
 	}
 }
 
@@ -175,6 +177,35 @@ func (e *Enviador) arrepentimientoNuevo(ctx context.Context, ev outbox.Evento) e
 	if err := json.Unmarshal(ev.Datos, &d); err != nil {
 		return nil
 	}
+	return e.alEquipo(ctx, Aviso{Titulo: "Pedido de arrepentimiento " + d.Codigo,
+		Cuerpo: "Revisalo en caigo.com.ar/equipo.", Colapso: "arr-" + d.Codigo})
+}
+
+// placasPedido: un lugar pidió placas Caigo Tap (hay que prepararlas y coordinar el envío).
+func (e *Enviador) placasPedido(ctx context.Context, ev outbox.Evento) error {
+	var d struct{ ID string }
+	if err := json.Unmarshal(ev.Datos, &d); err != nil {
+		return nil
+	}
+	var lugar, tipo string
+	var cantidad int
+	if err := e.leer(ctx, `SELECT l.nombre, p.cantidad, p.tipo FROM pedidos_placas p JOIN lugares l ON l.id = p.lugar_id
+		WHERE p.id::text = $1`, []any{d.ID}, &lugar, &cantidad, &tipo); err != nil {
+		return ignorarSiNoEsta(err)
+	}
+	cuantas := "1 placa"
+	if cantidad != 1 {
+		cuantas = fmt.Sprintf("%d placas", cantidad)
+	}
+	if tipo == "ntag424" {
+		cuantas += " NTAG 424"
+	}
+	return e.alEquipo(ctx, Aviso{Titulo: lugar + " pidió " + cuantas,
+		Cuerpo: "Revisalo en caigo.com.ar/equipo.", Colapso: "placas-" + d.ID})
+}
+
+// alEquipo manda el aviso a todas las personas del equipo.
+func (e *Enviador) alEquipo(ctx context.Context, a Aviso) error {
 	var equipo []string
 	err := e.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `SELECT id FROM usuarios WHERE equipo AND baja_en IS NULL`)
@@ -188,8 +219,7 @@ func (e *Enviador) arrepentimientoNuevo(ctx context.Context, ev outbox.Evento) e
 		return err
 	}
 	for _, id := range equipo {
-		if err := e.Mandar(ctx, id, Aviso{Titulo: "Pedido de arrepentimiento " + d.Codigo,
-			Cuerpo: "Revisalo en caigo.com.ar/equipo.", Colapso: "arr-" + d.Codigo}); err != nil {
+		if err := e.Mandar(ctx, id, a); err != nil {
 			return err
 		}
 	}

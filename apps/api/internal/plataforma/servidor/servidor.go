@@ -158,6 +158,7 @@ var Reglas = map[string]limite.Regla{
 	"GET /v1/publico/planes/ahora":                            {Max: 120, Ventana: time.Minute, PorIP: true},
 	"GET /v1/publico/planes/explorar":                         {Max: 120, Ventana: time.Minute, PorIP: true},
 	"POST /v1/publico/espera":                                 {Max: 5, Ventana: time.Hour, PorIP: true},
+	"POST /v1/lugares/{id}/placas/pedido":                     {Max: 10, Ventana: 24 * time.Hour},
 }
 
 // recuperar convierte un panic en un 500 con problem+json y lo registra, sin tirar el proceso.

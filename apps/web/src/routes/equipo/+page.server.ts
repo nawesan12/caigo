@@ -4,6 +4,7 @@ import type {
 	Arrepentimiento,
 	DNIPendiente,
 	Lugar,
+	PedidoPlacas,
 	PlanEquipo,
 	Reporte,
 	SemanaMetricas,
@@ -14,7 +15,7 @@ import type { Actions, PageServerLoad } from './$types';
 
 /**
  * Backoffice del equipo de Caigo: métricas, usuarios, planes, lugares (todos y pendientes), DNI,
- * reportes, arrepentimientos y planes semilla (contrato §7). Cada sección carga por separado: si
+ * reportes, arrepentimientos, pedidos de placas y planes semilla (contrato §7). Cada sección carga por separado: si
  * una ruta de la API todavía no existe o falla, esa sección muestra el aviso y el resto anda.
  */
 
@@ -27,6 +28,7 @@ const TABS = [
 	'dni',
 	'reportes',
 	'arrepentimientos',
+	'placas',
 	'semilla'
 ] as const;
 type Tab = (typeof TABS)[number];
@@ -105,12 +107,13 @@ export const load: PageServerLoad = async (event) => {
 		return s ? `?${s}` : '';
 	};
 
-	// Las cuatro colas de siempre se cargan siempre (sus números van en la barra).
-	const [l, d, r, a] = await Promise.all([
+	// Las colas se cargan siempre (sus números van en la barra).
+	const [l, d, r, a, pp] = await Promise.all([
 		intentar<{ lugares: Lugar[] }>(event, '/v1/equipo/lugares?estado=pendiente'),
 		intentar<{ pendientes: DNIPendiente[] }>(event, '/v1/equipo/dni'),
 		intentar<{ reportes: Reporte[] }>(event, '/v1/equipo/reportes'),
-		intentar<{ arrepentimientos: Arrepentimiento[] }>(event, '/v1/equipo/arrepentimientos')
+		intentar<{ arrepentimientos: Arrepentimiento[] }>(event, '/v1/equipo/arrepentimientos'),
+		intentar<{ pedidos: PedidoPlacas[] }>(event, '/v1/equipo/pedidos-placas')
 	]);
 
 	let usuarios: Seccion<UsuarioEquipo[]> = { datos: null, error: '' };
@@ -154,6 +157,8 @@ export const load: PageServerLoad = async (event) => {
 		reportesError: r.error,
 		arrepentimientos: a.datos?.arrepentimientos ?? [],
 		arrepentimientosError: a.error,
+		placas: pp.datos?.pedidos ?? [],
+		placasError: pp.error,
 		usuarios,
 		planes,
 		locales,
@@ -212,6 +217,16 @@ export const actions: Actions = {
 		return hacer(
 			() =>
 				conSesion(event, 'POST', `/v1/equipo/arrepentimientos/${id(f)}`, {
+					cuerpo: { nota: motivo(f, 'nota') }
+				}),
+			'Pedido atendido.'
+		);
+	},
+	placas: async (event) => {
+		const f = await event.request.formData();
+		return hacer(
+			() =>
+				conSesion(event, 'POST', `/v1/equipo/pedidos-placas/${id(f)}/atendido`, {
 					cuerpo: { nota: motivo(f, 'nota') }
 				}),
 			'Pedido atendido.'

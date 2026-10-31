@@ -19,6 +19,8 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | GET | `/v1/equipo/arrepentimientos` | equipo | dominio/confianza |
 | POST | `/v1/equipo/arrepentimientos/{id}` | equipo | dominio/confianza |
 | GET | `/v1/equipo/dni` | equipo | dominio/confianza |
+| GET | `/v1/equipo/pedidos-placas` | equipo | dominio/lugares |
+| POST | `/v1/equipo/pedidos-placas/{id}/atendido` | equipo | dominio/lugares |
 | POST | `/v1/equipo/dni/{id}` | equipo | dominio/confianza |
 | GET | `/v1/equipo/lugares` | equipo | dominio/lugares |
 | POST | `/v1/equipo/lugares/{id}` | equipo | dominio/lugares |
@@ -52,6 +54,8 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | GET | `/v1/lugares/{id}/placas` | sesión | dominio/lugares |
 | POST | `/v1/lugares/{id}/placas` | sesión | dominio/lugares |
 | DELETE | `/v1/lugares/{id}/placas/{placa}` | sesión | dominio/lugares |
+| POST | `/v1/lugares/{id}/placas/pedido` | sesión | dominio/lugares |
+| GET | `/v1/lugares/{id}/placas/pedidos` | sesión | dominio/lugares |
 | GET | `/v1/lugares/{id}/planes` | sesión | dominio/lugares |
 | POST | `/v1/lugares/{id}/planes` | sesión | dominio/lugares |
 | DELETE | `/v1/lugares/{id}/planes/{plan}` | sesión | dominio/lugares |
@@ -217,3 +221,14 @@ hora por IP).
 
 **Tiempo real.** `{"tipo":"escribiendo","privado":"<id del otro>"}` por el WebSocket; el otro recibe
 `{"tipo":"escribiendo","privado":"<id de quien escribe>","quien":{id,nombre}}` (sólo si pueden hablar).
+
+## Pedidos de placas Caigo Tap (31/10)
+- `POST /v1/lugares/{id}/placas/pedido` `{cantidad 1-20, tipo: "comun"|"ntag424", nota ≤500}` → 201 con el
+  pedido. Miembro del lugar y lugar aprobado (409 `sin_aprobar`); hasta 3 pendientes a la vez (409
+  `demasiados`); tope de 10 por día. Encola `placas.pedido` → push a todo el equipo.
+- `GET /v1/lugares/{id}/placas/pedidos` → `{pedidos: [{id, cantidad, tipo, nota, creadoEn, atendidoEn?, respuesta?}]}`
+  (los 20 últimos).
+- `GET /v1/equipo/pedidos-placas` → pendientes primero y atendidos de los últimos 30 días, con
+  `lugarId, lugarNombre, lugarCiudad, lugarDireccion, lugarTelefono, lugarInstagram, pidioNombre`.
+- `POST /v1/equipo/pedidos-placas/{id}/atendido` `{nota}` → 204 (la nota le llega al lugar como `respuesta`);
+  404 si no existe o ya se atendió.

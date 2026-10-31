@@ -3,11 +3,13 @@
 	import { PUBLIC_MAPA_ESTILO } from '$app/env/public';
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import { faltanTexto } from '#lib/plan.ts';
+	import { ESTILO_OSCURO, seguirTema } from './tema-mapa.ts';
 	import type { Plan } from '#lib/tipos.ts';
 
 	/**
 	 * El mapa de "Ahora" con los pines del handoff: la burbuja con el contador (coral, lima si está
-	 * completo, violeta la elegida) y el punto violeta de quien mira.
+	 * completo, violeta la elegida) y el punto violeta de quien mira. En modo oscuro va con las
+	 * teselas oscuras y cambia en vivo si cambia el tema (los pines son del DOM: quedan).
 	 */
 	let {
 		planes,
@@ -29,6 +31,7 @@
 	let mapa: import('maplibre-gl').Map | undefined;
 	let lib: typeof import('maplibre-gl') | undefined;
 	let marcas: import('maplibre-gl').Marker[] = [];
+	let oscuro = $state(false);
 
 	const OSM = {
 		version: 8 as const,
@@ -72,14 +75,21 @@
 		}
 	}
 
+	const estilo = (o: boolean) => (o ? ESTILO_OSCURO : PUBLIC_MAPA_ESTILO || OSM);
+
 	onMount(() => {
 		let vivo = true;
+		const [inicial, dejar] = seguirTema(caja, (o) => {
+			oscuro = o;
+			mapa?.setStyle(estilo(o));
+		});
+		oscuro = inicial;
 		import('maplibre-gl').then((m) => {
 			if (!vivo) return;
 			lib = m;
 			mapa = new m.Map({
 				container: caja,
-				style: PUBLIC_MAPA_ESTILO || OSM,
+				style: estilo(oscuro),
 				center: [centro[1], centro[0]],
 				zoom: 13,
 				attributionControl: { compact: true }
@@ -88,6 +98,7 @@
 		});
 		return () => {
 			vivo = false;
+			dejar();
 			mapa?.remove();
 		};
 	});
@@ -102,13 +113,16 @@
 	});
 </script>
 
-<div class="mapa" bind:this={caja}></div>
+<div class="mapa" class:oscuro bind:this={caja}></div>
 
 <style>
 	.mapa {
 		position: absolute;
 		inset: 0;
 		background: #f2efe8;
+	}
+	.mapa.oscuro {
+		background: #201d2b;
 	}
 	.mapa :global(.maplibregl-ctrl-bottom-right) {
 		bottom: 96px;

@@ -2,6 +2,9 @@
 	import { onMount, tick, untrack } from 'svelte';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Avatar from '#lib/app-ui/Avatar.svelte';
+	import Confirmar from '#lib/app-ui/Confirmar.svelte';
+	import Opciones, { type Opcion } from '#lib/app-ui/Opciones.svelte';
+	import Reportar from '#lib/app-ui/Reportar.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
 	import { primerNombre } from '#lib/plan.ts';
@@ -10,7 +13,9 @@
 
 	/*
 	 * Chat del plan (Mockups v5, 08): plan fijado arriba, mensajes del sistema en la pill lima,
-	 * burbujas propias violetas y ajenas blancas. Se actualiza cada 4 s mientras está abierto.
+	 * burbujas propias violetas y ajenas blancas. Se actualiza cada 4 s mientras está abierto. El
+	 * botón de los tres puntos abre el menú de las apps: ver el plan, reportarlo y salir (quien
+	 * organiza, cancelarlo), con la confirmación de siempre antes de salir o cancelar.
 	 */
 	let { data } = $props();
 
@@ -19,6 +24,24 @@
 	let texto = $state('');
 	let enviando = $state(false);
 	let lista: HTMLDivElement | undefined = $state();
+	let menu = $state(false);
+	let reportar = $state(false);
+	let salir = $state(false);
+	let cancelar = $state(false);
+
+	const organizo = $derived(p.miEstado === 'organizador');
+	const organiza = $derived(p.lugar ? p.lugar.nombre : primerNombre(p.organizador.nombre));
+	const otros = $derived(p.van.filter((v) => !v.organizador).length);
+	const opciones = $derived.by(() => {
+		const o: Opcion[] = [{ texto: 'Ver el plan', href: `/app/plan/${p.id}` }];
+		if (!organizo)
+			o.push({ texto: 'Reportar el plan', peligro: true, accion: () => (reportar = true) });
+		if (!p.cancelado && organizo && new Date(p.empiezaEn).getTime() > Date.now())
+			o.push({ texto: 'Cancelar el plan', peligro: true, accion: () => (cancelar = true) });
+		else if (!p.cancelado && p.miEstado === 'aceptada')
+			o.push({ texto: 'Salir del plan', peligro: true, accion: () => (salir = true) });
+		return o;
+	});
 
 	const estadoTxt = $derived(
 		p.faltan <= 0
@@ -93,6 +116,9 @@
 				<Avatar nombre={v.nombre} foto={v.foto} tam={30} borde="2px solid #FAF9F6" />
 			{/each}
 		</div>
+		<button class="icono-btn" aria-label="Opciones del chat" onclick={() => (menu = true)}
+			><Icono nombre="puntos" tam={20} trazo={4.4} /></button
+		>
 	</div>
 
 	<a class="fijado" href="/app/plan/{p.id}">
@@ -149,6 +175,25 @@
 		</button>
 	</form>
 </div>
+
+<Opciones bind:abierta={menu} {opciones} />
+<Reportar bind:abierta={reportar} planId={p.id} />
+<Confirmar
+	bind:abierta={salir}
+	titulo="¿Salís del plan?"
+	texto={`Le avisamos a ${organiza} y tu lugar queda libre para otra persona.`}
+	boton="Sí, salgo"
+	accion="?/salir"
+/>
+<Confirmar
+	bind:abierta={cancelar}
+	titulo="¿Cancelás el plan?"
+	texto={otros > 0
+		? `Les avisamos a ${otros === 1 ? 'la persona que va' : `las ${otros} personas que van`} y a los que pidieron sumarse.`
+		: 'Le avisamos a quien haya pedido sumarse. No se puede deshacer.'}
+	boton="Sí, cancelar"
+	accion="?/cancelar"
+/>
 
 <style>
 	.chat {

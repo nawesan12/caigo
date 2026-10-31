@@ -5,6 +5,7 @@
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { cuandoCorto, partes } from '#lib/fechas.ts';
 	import { CATEGORIAS } from '#lib/plan.ts';
+	import { placasTexto } from '#lib/placas.ts';
 	import type { SubmitFunction } from '$app/forms';
 	import Grafico from './Grafico.svelte';
 	import Semilla from './Semilla.svelte';
@@ -28,6 +29,12 @@
 			l: 'Arrepentimientos',
 			icono: 'cobros',
 			n: data.arrepentimientos.filter((a) => !a.atendidoEn).length
+		},
+		{
+			k: 'placas',
+			l: 'Placas',
+			icono: 'tap',
+			n: data.placas.filter((x) => !x.atendidoEn).length
 		},
 		{ k: 'semilla', l: 'Planes semilla', icono: 'mas', n: 0 }
 	]);
@@ -636,6 +643,48 @@
 				{:else}
 					<p class="vacia tarjeta-plana">
 						{data.arrepentimientosError || 'No hay pedidos de arrepentimiento.'}
+					</p>
+				{/each}
+			</div>
+		{:else if data.tab === 'placas'}
+			<h1>Placas</h1>
+			<div class="lista">
+				{#each data.placas as x (x.id)}
+					<form method="POST" action="?/placas" class="tarjeta-plana item" use:enhance={resultado}>
+						<input type="hidden" name="id" value={x.id} />
+						<div class="cab">
+							<div>
+								<span class="t">{pegar(x.lugarNombre ?? '')}</span>
+								<span class="s"
+									>Pidió {x.pidioNombre} · {fecha(x.creadoEn)}{x.lugarTelefono
+										? ` · ${x.lugarTelefono}`
+										: ''}{x.lugarInstagram ? ` · @${x.lugarInstagram.replace(/^@/, '')}` : ''}</span
+								>
+							</div>
+							<span class="chip-dato" class:alerta={!x.atendidoEn}>{placasTexto(x)}</span>
+						</div>
+						<p class="detalle">
+							{pegar(`${x.lugarDireccion}, ${x.lugarCiudad}`)}{#if x.nota}<br />{x.nota}{/if}
+						</p>
+						{#if x.atendidoEn}
+							<p class="s">
+								Atendido el {fecha(x.atendidoEn)}{x.respuesta ? ` · ${x.respuesta}` : ''}
+							</p>
+						{:else}
+							<input
+								class="input"
+								name="nota"
+								maxlength="300"
+								placeholder="Qué se hizo: cuándo salen, por dónde, seguimiento"
+							/>
+							<div class="acc">
+								<button class="gel gel-violeta b">Marcar atendido</button>
+							</div>
+						{/if}
+					</form>
+				{:else}
+					<p class="vacia tarjeta-plana">
+						{data.placasError || 'No hay pedidos de placas.'}
 					</p>
 				{/each}
 			</div>
