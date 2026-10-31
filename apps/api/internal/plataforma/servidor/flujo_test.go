@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -275,4 +276,15 @@ func TestIngresoLibreRespetaElCupo(t *testing.T) {
 		t.Fatalf("ingreso libre: %q", est.Estado)
 	}
 	e.pedir(b, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusConflict, nil)
+}
+
+func TestTopes(t *testing.T) {
+	e := nuevoEntorno(t)
+	p := e.persona("Insistente")
+	for i := range 5 {
+		e.pedir(p, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": fmt.Sprintf("+54922355500%02d", i)}, http.StatusOK, nil)
+		// El servicio pide 30 s entre códigos: se corre el envío para que el tope sea lo que corte.
+		e.sistema(`UPDATE telefono_codigos SET enviado_en = now() - interval '1 minute' WHERE usuario_id = $1`, p.id)
+	}
+	e.pedir(p, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": "+5492235550099"}, http.StatusTooManyRequests, nil)
 }

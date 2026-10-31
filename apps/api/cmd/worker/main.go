@@ -7,6 +7,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/lugares"
@@ -74,5 +77,37 @@ func correr() error {
 		manejadores[k] = m
 	}
 	w := &outbox.Worker{Pool: app, Manejadores: manejadores}
+	go limpiar(ctx, app)
 	return w.Correr(ctx)
+}
+
+// limpiar borra cada hora lo que ya no sirve: topes viejos, sesiones vencidas, estados de OAuth
+// usados o vencidos, códigos de teléfono vencidos y eventos del outbox publicados hace más de 30 días.
+func limpiar(ctx context.Context, app *db.Pool) {
+	t := time.NewTicker(time.Hour)
+	defer t.Stop()
+	for {
+		err := app.EnSistema(ctx, func(tx pgx.Tx) error {
+			for _, q := range []string{
+				`DELETE FROM intentos WHERE desde < now() - interval '2 days'`,
+				`DELETE FROM sesiones WHERE vence_en < now()`,
+				`DELETE FROM mp_estados WHERE vence_en < now() - interval '1 day'`,
+				`DELETE FROM telefono_codigos WHERE vence_en < now() - interval '1 day'`,
+				`DELETE FROM outbox WHERE publicado_en < now() - interval '30 days'`,
+			} {
+				if _, err := tx.Exec(ctx, q); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil && ctx.Err() == nil {
+			slog.Warn("limpieza fallida", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/cifrado"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/limite"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sesion"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sms"
@@ -118,7 +119,28 @@ func Nuevo(d Dependencias) http.Handler {
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		problema.Escribir(w, problema.NoEncontrado("Esa ruta no existe."))
 	})
-	return recuperar(d.Log, mux)
+	return recuperar(d.Log, limite.Envolver(mux, d.App, Reglas, d.Log))
+}
+
+// Reglas: topes por ruta (por sesión, o por IP si no hay sesión o la regla lo pide).
+var Reglas = map[string]limite.Regla{
+	"POST /v1/sesion":                          {Max: 20, Ventana: 10 * time.Minute, PorIP: true},
+	"POST /v1/verificacion/telefono":           {Max: 5, Ventana: time.Hour},
+	"POST /v1/verificacion/telefono/confirmar": {Max: 10, Ventana: time.Hour},
+	"POST /v1/verificacion/dni":                {Max: 5, Ventana: 24 * time.Hour},
+	"POST /v1/archivos":                        {Max: 60, Ventana: time.Hour},
+	"POST /v1/planes":                          {Max: 20, Ventana: 24 * time.Hour},
+	"POST /v1/planes/{id}/mensajes":            {Max: 60, Ventana: time.Minute},
+	"POST /v1/privados/{id}":                   {Max: 30, Ventana: time.Minute},
+	"POST /v1/reportes":                        {Max: 20, Ventana: 24 * time.Hour},
+	"POST /v1/planes/{id}/invitar":             {Max: 60, Ventana: time.Hour},
+	"POST /v1/planes/{id}/entradas":            {Max: 20, Ventana: time.Hour},
+	"POST /v1/tap":                             {Max: 30, Ventana: time.Minute},
+	"POST /v1/lugares":                         {Max: 5, Ventana: 24 * time.Hour},
+	"POST /v1/lugares/{id}/validar":            {Max: 120, Ventana: time.Minute},
+	"POST /v1/plus/mercadopago":                {Max: 10, Ventana: time.Hour},
+	"GET /v1/publico/planes/{slug}":            {Max: 120, Ventana: time.Minute, PorIP: true},
+	"GET /v1/publico/vivo/{token}":             {Max: 60, Ventana: time.Minute, PorIP: true},
 }
 
 // recuperar convierte un panic en un 500 con problem+json y lo registra, sin tirar el proceso.
