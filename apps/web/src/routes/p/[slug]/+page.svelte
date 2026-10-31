@@ -17,9 +17,11 @@
 	const estado = $derived(form && 'estado' in form ? form.estado : data.miEstado);
 	const anfitrion = $derived(plan.lugar?.nombre || primerNombre(plan.organizador.nombre));
 	const nombres = $derived.by(() => {
+		// "Nico, Lu y Cami"; si hay más gente que nombres (grupos), "Nico, Juli y 8 más".
 		const n = plan.van.map((p) => primerNombre(p.nombre)).filter(Boolean);
-		if (n.length <= 3) return lista(n);
-		return `${n.slice(0, 2).join(', ')} y ${plan.somos - 2} más`;
+		const vistos = n.slice(0, n.length <= 3 && plan.somos <= 3 ? 3 : 2);
+		const resto = plan.somos - vistos.length;
+		return resto > 0 ? `${vistos.join(', ')} y ${resto} más` : lista(vistos);
 	});
 	const donde = $derived(
 		[plan.zona ? `Zona ${plan.zona}` : plan.lugarNombre, plan.ciudad].filter(Boolean).join(', ')

@@ -16,7 +16,7 @@
 			<span class="s">{texto}</span>
 		</div>
 	</div>
-	<Tiendas />
+	<Tiendas chico />
 </div>
 
 <style>

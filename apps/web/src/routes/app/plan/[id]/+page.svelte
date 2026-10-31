@@ -167,7 +167,7 @@
 						<span class="ft">{pesos(d.paga)} por persona</span>
 						<span class="fs"
 							>{p.cobro === 'sena'
-								? `Seña · resto ${pesos(d.resto)} en el lugar`
+								? `Seña · resto ${pesos(d.resto)} en el\u00a0lugar`
 								: 'Entrada con servicio incluido'}</span
 						>
 					</div>

@@ -29,7 +29,7 @@ export const actions: Actions = {
 		const mensaje = String(f.get('mensaje') ?? '')
 			.trim()
 			.slice(0, 200);
-		let link = '';
+		let link: string;
 		try {
 			const plan = await conSesion<Plan>(event, 'GET', `/v1/planes/${id}`);
 			if (plan.lugar && plan.cobro !== 'gratis') {

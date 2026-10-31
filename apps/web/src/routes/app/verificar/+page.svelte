@@ -235,7 +235,7 @@
 								bind:value={codigo}
 								oninput={() => (codigo = codigo.replace(/\D/g, '').slice(0, 6))}
 							/>
-							{#each Array(6) as _, i (i)}
+							{#each [0, 1, 2, 3, 4, 5] as i (i)}
 								<span class="celda" class:llena={!!codigo[i]} class:actual={codigo.length === i}
 									>{codigo[i] ?? ''}</span
 								>
@@ -256,7 +256,6 @@
 			<div class="aro" style:--p="{Math.round(progreso * 100)}%">
 				<div class="cara">
 					{#if camara === 'prendida'}
-						<!-- svelte-ignore a11y_media_has_caption -->
 						<video bind:this={video} playsinline muted autoplay></video>
 					{:else}
 						<Icono nombre="usuario" tam={96} color="#7456F1" trazo={1.4} />

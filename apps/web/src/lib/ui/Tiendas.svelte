@@ -3,11 +3,14 @@
 	 * Las insignias oficiales de las tiendas (static/logos, sin modificar), con "Próximamente" arriba
 	 * y sin link mientras no esté la app. 48 px en el celular, 44 px en la compu (Apple pide 40 de mínimo).
 	 */
-	let { tono = 'claro', centrado = true }: { tono?: 'claro' | 'oscuro'; centrado?: boolean } =
-		$props();
+	let {
+		tono = 'claro',
+		centrado = true,
+		chico = false
+	}: { tono?: 'claro' | 'oscuro'; centrado?: boolean; chico?: boolean } = $props();
 </script>
 
-<div class="tiendas {tono}" class:centrado>
+<div class="tiendas {tono}" class:centrado class:chico>
 	<span class="pronto">Próximamente</span>
 	<div class="insignias">
 		<img src="/logos/appstore.svg" alt="Próximamente en App Store" width="120" height="40" />
@@ -51,5 +54,9 @@
 		img {
 			height: 44px;
 		}
+	}
+	/* Dentro de una tarjeta angosta: 40 px, el mínimo que pide Apple. */
+	.chico img {
+		height: 40px;
 	}
 </style>

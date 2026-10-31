@@ -51,6 +51,8 @@
 	const recurrente = $derived(filtrados.find((p) => p.recurrente));
 
 	function url(cambios: Record<string, string>) {
+		// Sólo arma un link: no es estado.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const q = new URLSearchParams(page.url.search);
 		for (const [k, v] of Object.entries(cambios)) {
 			if (v) q.set(k, v);

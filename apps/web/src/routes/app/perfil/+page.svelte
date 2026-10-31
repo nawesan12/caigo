@@ -156,7 +156,9 @@
 				<div class="st clara">
 					<span class="sv violeta">{yo.planes}</span>
 					<span class="sl">Planes</span>
-					<span class="sd">{yo.organizados} organizados</span>
+					<span class="sd"
+						>{yo.organizados} {yo.organizados === 1 ? 'organizado' : 'organizados'}</span
+					>
 				</div>
 			</div>
 
