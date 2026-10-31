@@ -1,5 +1,44 @@
 # Estado
 
+## Cómo retomar (actualizado 31/10/2026, noche)
+**Todo está en `main`** (sin ramas ni worktrees abiertos). Producción: API 92c1383 y web 60985da en el
+VPS (`/opt/caigo`); iOS y Android en main, compilados en GitHub Actions (CI verde: api, web,
+android, ios).
+
+**Reglas de Nahuel para trabajar:**
+- Compilar Android e iOS sólo en GitHub (CI), nunca en la compu (está muy cargada). No armar APK ni
+  builds para instalar salvo que lo pida.
+- Todo a main; desplegar con `infra/vps/desplegar-api.sh [--migrar]` (hace pg_dump antes de migrar)
+  y `infra/vps/desplegar-web.sh`.
+- UI fiel al handoff, sin renglones viudos, copy rioplatense. No crear cuentas externas sin su ok
+  (ya autorizó «configurá vos todo» para Apple, MP y Firebase).
+
+**Documentos clave:** `docs/auditoria.md` (lo que faltaba contra el handoff),
+`docs/contrato-faltantes.md` (API de esos faltantes, ya implementada), `docs/api.md` (todas las
+rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.md` (fichas),
+`docs/semilla.md`.
+
+**Pendiente (en orden):**
+1. Mercado Pago: app «Caigo» creada (1737058147653670, webhook configurado), faltan las credenciales
+   de producción: Nahuel tiene que verificar su identidad (QR) en el panel de MP. Después cargar
+   `CAIGO_MP_APP_ID`, `CAIGO_MP_SECRETO`, `CAIGO_MP_TOKEN`, `CAIGO_MP_SECRETO_WEBHOOK` en
+   `/opt/caigo/api.conf` y reiniciar api y worker.
+2. Firebase: Caigo va en el proyecto común `grupo-vimo` (lo arma la sesión de Tu Local Web). Cuando
+   pase appId, remitente y clave: `apps/android/local.properties` (`caigo.firebase.*`, hoy con los
+   datos del proyecto viejo caigo-5d3b6, que queda sin usar) y la cuenta de servicio con FCM a
+   `/opt/caigo/claves/fcm.json` → `CAIGO_FCM_CUENTA=/datos/claves/fcm.json`.
+3. Play Console (cuenta «Grupo Vimo»): Nahuel tiene que verificar un Android y su teléfono. Después:
+   app `ar.com.caigo.app`, suscripciones plus_semana/mes/temporada, cuenta de servicio, Pub/Sub y
+   huella de Play App Signing en assetlinks.json. Cuenta personal: prueba cerrada 12 testers × 14 días.
+4. App Store: subir un build (necesita Xcode o CI con firma) para las experiencias del App Clip y las
+   capturas de revisión de las suscripciones.
+5. SMS real: elegir proveedor (hoy simulado).
+6. Web: «Pedir placas» (mailto), menú reportar/bloquear en el chat web, mapa oscuro con teselas
+   oscuras. Fotos de Explorar «Cita doble» y «Cultura» en iOS (faltan) y Android (no encajan).
+7. Probar en dispositivos reales: nada de iOS se vio corriendo; Android sólo ingreso, permisos, Ahora
+   y filtros.
+
+
 ## 31/10/2026 — arranque
 Decisiones de Nahuel y plan por etapas: ver `docs/decisiones.md`.
 
