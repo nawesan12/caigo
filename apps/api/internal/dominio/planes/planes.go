@@ -65,6 +65,8 @@ type Persona struct {
 	Asistencia  Asist  `json:"asistencia"`
 	EnMiGente   bool   `json:"enMiGente,omitempty"`
 	Organizador bool   `json:"organizador,omitempty"`
+	// Ya hizo check-in en el plan ("Lu y Nico ya llegaron"; sólo en la lista de los que van).
+	Llego bool `json:"llego,omitempty"`
 }
 
 // Asist es la asistencia real: fue a Fue de De planes con check-in.
@@ -501,7 +503,7 @@ func (s *Servicio) completar(ctx context.Context, tx pgx.Tx, usuarioID string, p
 		p.Van = []Persona{}
 	}
 	rows, err := tx.Query(ctx, `
-		SELECT s.plan_id, u.id, u.nombre, coalesce(u.fotos[1], ''), u.dni_en IS NOT NULL
+		SELECT s.plan_id, u.id, u.nombre, coalesce(u.fotos[1], ''), u.dni_en IS NOT NULL, s.checkin_en IS NOT NULL
 		FROM solicitudes s JOIN usuarios u ON u.id = s.usuario_id
 		WHERE s.plan_id = ANY($1::uuid[]) AND s.estado = 'aceptada'
 		ORDER BY s.respondida_en NULLS FIRST, s.creada_en`, ids)
@@ -512,7 +514,7 @@ func (s *Servicio) completar(ctx context.Context, tx pgx.Tx, usuarioID string, p
 	for rows.Next() {
 		var planID string
 		var u Persona
-		if err := rows.Scan(&planID, &u.ID, &u.Nombre, &u.Foto, &u.Verificada); err != nil {
+		if err := rows.Scan(&planID, &u.ID, &u.Nombre, &u.Foto, &u.Verificada, &u.Llego); err != nil {
 			return err
 		}
 		u.Organizador = u.ID == por[planID].Organizador.ID
