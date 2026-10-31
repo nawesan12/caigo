@@ -3,12 +3,15 @@
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
+	import { partes } from '#lib/fechas.ts';
+	import { CANTIDADES, placasTexto } from '#lib/placas.ts';
 	import type { SubmitFunction } from '$app/forms';
 
 	/*
 	 * Caigo Tap + Pase de socio (Panel Lugares, vista "tap"). Lo que el handoff no dibuja (el
 	 * formulario de "+ Activar placa" y la clave del chip NTAG 424) va con la tarjeta, los chips y
-	 * la tarjeta oscura del mismo panel.
+	 * la tarjeta oscura del mismo panel. «Pedir placas» abre el pedido (cantidad, tipo y nota) con
+	 * esas mismas piezas y el toast del handoff; abajo, el estado de los pedidos del lugar.
 	 */
 	let { data, form } = $props();
 
@@ -48,9 +51,15 @@
 			avisar(t);
 		}
 	}
-	const mailto = $derived(
-		`mailto:hola@caigo.com.ar?subject=${encodeURIComponent(`Placas Caigo Tap para ${lugar.nombre}`)}`
-	);
+	let pidiendo = $state(false);
+	let cantidad = $state(2);
+	let tipo = $state<'comun' | 'ntag424'>('comun');
+	const dia = (f: string) => {
+		const p = partes(f);
+		return `${p.dia}/${p.mes + 1}`;
+	};
+	/** Pega las dos últimas palabras (lo que escribe el equipo): sin renglones viudos. */
+	const pegar = (t: string) => t.replace(/ (\S+)\s*$/, '\u00a0$1');
 </script>
 
 <svelte:head><title>Caigo Tap · Caigo para lugares</title></svelte:head>
@@ -180,8 +189,96 @@
 					<span class="t">¿Querés más placas?</span>
 					<span class="s">Te mandamos placas Caigo Tap con tu nombre, listas para pegar.</span>
 				</div>
-				<a class="gel gel-lima pedir" href={mailto}>Pedir placas</a>
+				<button
+					type="button"
+					class="gel gel-lima pedir"
+					aria-expanded={pidiendo}
+					onclick={() => (pidiendo = !pidiendo)}>Pedir placas</button
+				>
 			</div>
+
+			{#if pidiendo}
+				<form
+					method="POST"
+					action="?/pedir"
+					class="nueva tarjeta-plana"
+					use:enhance={() =>
+						async ({ result, update }) => {
+							if (result.type === 'success') {
+								avisar('Listo. Te escribimos para coordinar el envío de las placas.');
+								pidiendo = false;
+							} else if (result.type === 'failure')
+								avisar(String(result.data?.error ?? 'No se pudo.'));
+							await update({ reset: false });
+						}}
+				>
+					<div class="campo">
+						<span>Cuántas</span>
+						<div class="chips">
+							{#each CANTIDADES as n (n)}
+								<button
+									type="button"
+									class="chip num"
+									aria-pressed={cantidad === n}
+									onclick={() => (cantidad = n)}>{n}</button
+								>
+							{/each}
+						</div>
+						<input type="hidden" name="cantidad" value={cantidad} />
+					</div>
+					<div class="campo">
+						<span>Qué placa</span>
+						<div class="chips">
+							<button
+								type="button"
+								class="chip"
+								aria-pressed={tipo === 'comun'}
+								onclick={() => (tipo = 'comun')}>Común</button
+							>
+							<button
+								type="button"
+								class="chip"
+								aria-pressed={tipo === 'ntag424'}
+								onclick={() => (tipo = 'ntag424')}>NTAG 424 DNA</button
+							>
+						</div>
+						<span class="s"
+							>{tipo === 'comun'
+								? 'Con el link firmado y el QR. Sirve para la puerta y la\u00a0barra.'
+								: 'Con firma criptográfica en cada tap: no se puede\u00a0copiar.'}</span
+						>
+						<input type="hidden" name="tipo" value={tipo} />
+					</div>
+					<label class="campo">
+						<span>Nota (opcional)</span>
+						<input
+							class="input"
+							name="nota"
+							maxlength="500"
+							placeholder="Ej: Dos para la barra, a nombre de Juli"
+						/>
+					</label>
+					<button class="gel gel-violeta guardar">Pedir {placasTexto({ cantidad, tipo })}</button>
+				</form>
+			{/if}
+
+			{#if data.pedidos.length}
+				<span class="overline pedidos-t">TUS PEDIDOS</span>
+				{#each data.pedidos as x (x.id)}
+					<div class="placa tarjeta-plana">
+						<span class="ico"><Icono nombre="tap" tam={22} color="#24212D" trazo={2.4} /></span>
+						<div class="placa-txt">
+							<span class="pn">{placasTexto(x)}</span>
+							<span class="pd" class:espera={!x.atendidoEn}
+								><i></i>{x.atendidoEn
+									? `Atendido el ${dia(x.atendidoEn)}`
+									: `En preparación desde el\u00a0${dia(x.creadoEn)}`}</span
+							>
+							{#if x.atendidoEn && x.respuesta}<span class="pr">{pegar(x.respuesta)}</span>{/if}
+						</div>
+					</div>
+				{/each}
+			{/if}
 		</div>
 
 		<form
@@ -447,6 +544,17 @@
 	.baja {
 		color: #9a2e1f;
 		background: #ffe1db;
+	}
+	.pd.espera i {
+		background: #7456f1;
+	}
+	.pr {
+		font-size: 13px;
+		font-weight: 600;
+		color: #24212d;
+	}
+	.pedidos-t {
+		margin-top: 12px;
 	}
 	.vacia {
 		padding: 24px 20px;

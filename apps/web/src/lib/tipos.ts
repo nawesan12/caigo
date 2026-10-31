@@ -131,6 +131,25 @@ export type Placa = {
 	claveSun?: string;
 };
 
+/** Pedido de placas Caigo Tap (POST /v1/lugares/{id}/placas/pedido). Los campos lugar* y
+ * pidioNombre vienen sólo en la cola del equipo. */
+export type PedidoPlacas = {
+	id: string;
+	cantidad: number;
+	tipo: 'comun' | 'ntag424';
+	nota: string;
+	creadoEn: string;
+	atendidoEn?: string;
+	respuesta?: string;
+	lugarId?: string;
+	lugarNombre?: string;
+	lugarCiudad?: string;
+	lugarDireccion?: string;
+	lugarTelefono?: string;
+	lugarInstagram?: string;
+	pidioNombre?: string;
+};
+
 export type CobroPlan = {
 	planId: string;
 	titulo: string;

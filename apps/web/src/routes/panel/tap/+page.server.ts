@@ -1,17 +1,23 @@
 import { fail } from '@sveltejs/kit';
 import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
 import { lugarAprobado, misLugares, uuid } from '#lib/server/panel.ts';
-import type { Lugar, Placa } from '#lib/tipos.ts';
+import { leerPedido } from '#lib/placas.ts';
+import type { Lugar, PedidoPlacas, Placa } from '#lib/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
 	const lugar = await lugarAprobado(event);
-	const { placas } = await conSesion<{ placas: Placa[] }>(
-		event,
-		'GET',
-		`/v1/lugares/${lugar.id}/placas`
-	);
-	return { placas: placas.filter((p) => p.activa) };
+	const [{ placas }, pedidos] = await Promise.all([
+		conSesion<{ placas: Placa[] }>(event, 'GET', `/v1/lugares/${lugar.id}/placas`),
+		// Si la lista de pedidos falla, la página igual anda (sólo no se ven los pedidos).
+		conSesion<{ pedidos: PedidoPlacas[] }>(event, 'GET', `/v1/lugares/${lugar.id}/placas/pedidos`)
+			.then((r) => r.pedidos ?? [])
+			.catch((e) => {
+				if (e instanceof ErrorApi) return [] as PedidoPlacas[];
+				throw e;
+			})
+	]);
+	return { placas: placas.filter((p) => p.activa), pedidos };
 };
 
 async function conLugar<T>(event: Parameters<Actions[string]>[0], f: (l: Lugar) => Promise<T>) {
@@ -38,6 +44,16 @@ export const actions: Actions = {
 			});
 			// La clave del chip se muestra esta única vez.
 			return { activada: placa };
+		});
+	},
+	pedir: async (event) => {
+		const pedido = leerPedido(await event.request.formData());
+		if ('error' in pedido) return fail(400, { error: pedido.error });
+		return conLugar(event, async (l) => {
+			await conSesion<PedidoPlacas>(event, 'POST', `/v1/lugares/${l.id}/placas/pedido`, {
+				cuerpo: pedido
+			});
+			return { pedido: true };
 		});
 	},
 	baja: async (event) => {
