@@ -119,3 +119,121 @@ export function telefonoAR(t: string): string {
 	const d = t.replace(/\D/g, '');
 	return d.startsWith('54') ? `+${d}` : d;
 }
+
+/** "Le copa": lo que se sugiere elegir (LIKES del Prototipo). */
+export const INTERESES_SUGERIDOS = [
+	'Fútbol 5',
+	'Pádel',
+	'Truco',
+	'Previas',
+	'After beach',
+	'Surf',
+	'Cine',
+	'Asado',
+	'Running',
+	'Juegos de mesa',
+	'Música en vivo',
+	'Mate en la playa'
+];
+
+/** Las preguntas del perfil (prompts del Prototipo). */
+export const PREGUNTAS = [
+	'Mi domingo ideal',
+	'Te gano en…',
+	'Un plan que nunca falla',
+	'Me sumo seguro si…',
+	'Mi plan ideal',
+	'Lo más espontáneo que hice',
+	'Lo que más me gusta de Mar del Plata',
+	'Mi talento oculto'
+];
+
+/** Qué busca en Caigo (INTENTS del Prototipo → `intenciones` de la API). */
+export const INTENCIONES: { valor: string; etiqueta: string; corto: string; texto: string }[] = [
+	{
+		valor: 'planes',
+		etiqueta: 'Sumarme a planes',
+		corto: 'Planes',
+		texto: 'Partidos, previas y mesas a las que les falta uno'
+	},
+	{
+		valor: 'gente',
+		etiqueta: 'Conocer gente nueva',
+		corto: 'Gente nueva',
+		texto: 'Personas de a una con ganas de salir'
+	},
+	{
+		valor: 'completar',
+		etiqueta: 'Completar mis planes',
+		corto: 'Organizar',
+		texto: 'Ya tengo el plan, me falta gente'
+	},
+	{
+		valor: 'citas',
+		etiqueta: 'Algo más romántico',
+		corto: 'Citas',
+		texto: 'Citas, citas dobles y ver qué onda'
+	}
+];
+
+/** Zonas de respaldo si la API todavía no las da (GET /v1/publico/zonas). */
+export const ZONAS_FIJAS: Record<string, string[]> = {
+	'Mar del Plata': [
+		'Güemes',
+		'Centro',
+		'La Perla',
+		'Playa Grande',
+		'Punta Mogotes',
+		'Constitución',
+		'Los Troncos',
+		'Chauvín'
+	],
+	'Villa Gesell': ['Centro', 'Norte', 'Sur', 'Mar de las Pampas']
+};
+
+/** Las fechas que se eligen en los filtros de Explorar. */
+export const FECHAS_EXPLORAR: { valor: string; etiqueta: string }[] = [
+	{ valor: 'hoy', etiqueta: 'Hoy' },
+	{ valor: 'manana', etiqueta: 'Mañana' },
+	{ valor: 'finde', etiqueta: 'Este finde' }
+];
+
+/** YYYY-MM-DD de un día en Argentina, `n` días después de `ahora`. */
+function diaAR(ahora: Date, n: number): string {
+	const p = partes(new Date(ahora.getTime() + n * 86400_000));
+	return `${p.anio}-${String(p.mes + 1).padStart(2, '0')}-${String(p.dia).padStart(2, '0')}`;
+}
+
+/**
+ * El rango (RFC 3339, hora de Argentina) de un filtro de fecha de Explorar: hoy, mañana, el finde
+ * (sábado y domingo; si ya es finde, lo que queda) o un día YYYY-MM-DD. Null si no es válido.
+ */
+export function rangoFecha(
+	fecha: string,
+	ahora: Date = new Date()
+): { desde: string; hasta: string; dias: string[] } | null {
+	const rango = (desde: number, cuantos: number) => {
+		const dias = Array.from({ length: cuantos }, (_, i) => diaAR(ahora, desde + i));
+		return {
+			desde: `${dias[0]}T00:00:00-03:00`,
+			hasta: `${diaAR(ahora, desde + cuantos)}T00:00:00-03:00`,
+			dias
+		};
+	};
+	if (fecha === 'hoy') return rango(0, 1);
+	if (fecha === 'manana') return rango(1, 1);
+	if (fecha === 'finde') {
+		const s = partes(ahora).semana;
+		if (s === 0) return rango(0, 1);
+		return rango(6 - s, 2);
+	}
+	const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fecha);
+	if (!m) return null;
+	for (let i = 0; i <= 60; i++) if (diaAR(ahora, i) === fecha) return rango(i, 1);
+	return null;
+}
+
+/** Une las dos últimas palabras con un espacio duro: un título dinámico nunca deja una sola abajo. */
+export function sinViuda(t: string): string {
+	return t.trim().replace(/\s+(\S+)$/, ' $1');
+}

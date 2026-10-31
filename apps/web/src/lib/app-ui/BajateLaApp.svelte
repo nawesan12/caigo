@@ -26,7 +26,7 @@
 		gap: 16px;
 		padding: 16px;
 		border-radius: 24px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		box-shadow: var(--sh-tarjeta-plan);
 	}
 	.cab {
@@ -53,7 +53,7 @@
 	.s {
 		font-size: 13px;
 		line-height: 1.4;
-		color: #5c586b;
+		color: var(--texto-2);
 		text-wrap: pretty;
 	}
 </style>

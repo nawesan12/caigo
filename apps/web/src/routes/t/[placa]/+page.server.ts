@@ -1,4 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
+import { PUBLIC_SITIO } from '$app/env/public';
 import { aIngresar, api, conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
 import type { ResultadoTap, Yo } from '#lib/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -23,7 +24,8 @@ export const load: PageServerLoad = ({ params, url, locals, setHeaders }) => {
 	if (l.picc) q.set('picc_data', l.picc);
 	if (l.cmac) q.set('cmac', l.cmac);
 	return {
-		app: `ar.com.caigo.app://t/${encodeURIComponent(l.placa)}${q.size ? '?' + q : ''}`,
+		/** El enlace universal de esta placa (la misma URL: con la app instalada, la abre el sistema). */
+		universal: `${PUBLIC_SITIO.replace(/\/+$/, '')}/t/${encodeURIComponent(l.placa)}${q.size ? '?' + q : ''}`,
 		conSesion: !!locals.token
 	};
 };

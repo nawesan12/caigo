@@ -126,7 +126,7 @@
 		padding: 7px 11px;
 		border-radius: 13px;
 		background: linear-gradient(180deg, #ffa597, #ff7868 50%, #f2604f);
-		color: #24212d;
+		color: var(--carbon);
 		font:
 			700 15px/1 'Geist',
 			sans-serif;

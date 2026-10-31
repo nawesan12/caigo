@@ -51,14 +51,10 @@
 		bottom: calc(24px + env(safe-area-inset-bottom));
 		height: 70px;
 		border-radius: 35px;
-		background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(244, 240, 255, 0.94));
+		background: var(--c-tabbar);
 		backdrop-filter: blur(16px);
 		-webkit-backdrop-filter: blur(16px);
-		box-shadow:
-			inset 0 1.5px 0 #ffffff,
-			inset 0 -2px 0 rgba(116, 86, 241, 0.08),
-			0 22px 40px -14px rgba(60, 40, 140, 0.45),
-			0 0 0 1px rgba(116, 86, 241, 0.07);
+		box-shadow: var(--sh-tabbar);
 		display: grid;
 		grid-template-columns: repeat(5, 1fr);
 		padding: 0 6px;
@@ -72,7 +68,7 @@
 		gap: 2px;
 		margin: 8px 3px;
 		border-radius: 28px;
-		color: #8a8699;
+		color: var(--c-tab);
 		text-decoration: none;
 		-webkit-tap-highlight-color: transparent;
 	}
@@ -82,15 +78,12 @@
 		white-space: nowrap;
 	}
 	.tab:hover {
-		color: #7456f1;
+		color: var(--c-tab-on);
 	}
 	.tab.on {
-		color: #7456f1;
-		background: linear-gradient(180deg, #f6f3ff, #e6deff);
-		box-shadow:
-			inset 0 1.5px 0 #ffffff,
-			inset 0 -2px 0 rgba(116, 86, 241, 0.14),
-			0 4px 10px -4px rgba(116, 86, 241, 0.35);
+		color: var(--c-tab-on);
+		background: var(--c-tab-pill);
+		box-shadow: var(--sh-tab-pill);
 	}
 	.tab.on span {
 		font-weight: 800;

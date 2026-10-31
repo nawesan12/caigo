@@ -1,33 +1,47 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
+	import { goto } from '$app/navigation';
 	import MapaPlanes from '#lib/app-ui/MapaPlanes.svelte';
 	import { CATEGORIAS, faltanTexto } from '#lib/plan.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
-	import { distancia, TINTES } from '#lib/app.ts';
+	import { distancia, FILTROS_AHORA, sinViuda, TINTES } from '#lib/app.ts';
 	import { pedirUbicacion } from '#lib/app-ui/ubicacion.ts';
 
 	/* Ahora · mapa (Mockups v5, pantalla 03), con MapLibre y teselas de OpenStreetMap. */
 	let { data } = $props();
 
-	const FILTROS = [
-		{ valor: '', etiqueta: 'Próximas 3 h' },
-		{ valor: 'deporte', etiqueta: 'Deporte' },
-		{ valor: 'previa', etiqueta: 'Previa' },
-		{ valor: 'juego', etiqueta: 'Juego' }
-	];
-	let busqueda = $state('');
+	/* "Todos" del mapa se llama "Próximas 3 h", como en el 03. */
+	const FILTROS = FILTROS_AHORA.map((f) => (f.valor ? f : { ...f, etiqueta: 'Próximas 3 h' }));
+	let busqueda = $state(untrack(() => data.q));
 	let elegido = $state('');
 	let centrar = $state(0);
 
-	const visibles = $derived.by(() => {
-		const q = busqueda.trim().toLowerCase();
-		if (!q) return data.planes;
-		return data.planes.filter((p) =>
-			[p.titulo, p.lugarNombre, p.zona].join(' ').toLowerCase().includes(q)
-		);
-	});
+	const visibles = $derived(data.planes);
 	const plan = $derived(visibles.find((p) => p.id === elegido) ?? visibles[0]);
-	const q = (c: string) => (c ? `?categoria=${c}` : '');
+	const q = (c: string, b = data.q) => {
+		// Sólo arma un link: no es estado.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const p = new URLSearchParams();
+		if (c) p.set('categoria', c);
+		if (b.trim().length >= 2) p.set('q', b.trim());
+		const s = p.toString();
+		return s ? `?${s}` : '';
+	};
+	/** El buscador va a la API (con `q`), con una pausa corta entre letras. */
+	let espera: ReturnType<typeof setTimeout> | undefined;
+	function buscar() {
+		clearTimeout(espera);
+		const t = busqueda.trim();
+		if (t.length === 1 || t === data.q) return;
+		espera = setTimeout(
+			() =>
+				goto(`/app/mapa${q(data.categoria, t)}`, {
+					reset: false,
+					replace: true
+				}),
+			300
+		);
+	}
 
 	onMount(() => {
 		if (!data.ubic) pedirUbicacion();
@@ -60,12 +74,15 @@
 			>
 			<input
 				bind:value={busqueda}
+				oninput={buscar}
+				onkeydown={(e) => e.key === 'Enter' && buscar()}
+				enterkeyhint="search"
 				placeholder="Buscá un plan o un lugar"
 				aria-label="Buscar un plan o un lugar"
 			/>
 		</label>
 		<nav class="seg-mapa" aria-label="Vista">
-			<a href="/app{q(data.categoria)}">Lista</a>
+			<a href="/app{q(data.categoria, '')}">Lista</a>
 			<a href="/app/mapa{q(data.categoria)}" aria-current="page">Mapa</a>
 		</nav>
 	</div>
@@ -108,7 +125,7 @@
 				<span class="lav">{CATEGORIAS[plan.categoria]}</span>
 				<span class="osc">{cuandoCorto(plan.empiezaEn)}</span>
 			</div>
-			<span class="ft">{plan.titulo}</span>
+			<span class="ft">{sinViuda(plan.titulo)}</span>
 			<span class="fs"
 				>{[plan.lugarNombre || plan.zona, distancia(plan.distanciaM)]
 					.filter(Boolean)
@@ -133,7 +150,11 @@
 	</a>
 {:else}
 	<div class="flotante vacio">
-		<span class="ft">No hay planes cerca. ¿Armás uno?</span>
+		<span class="ft"
+			>{data.q
+				? 'No encontramos planes así. ¿Armás uno?'
+				: 'No hay planes cerca. ¿Armás uno?'}</span
+		>
 		<a class="gel gel-lima armar" href="/app/crear">Armá un plan</a>
 	</div>
 {/if}
@@ -158,7 +179,7 @@
 		min-width: 0;
 		height: 50px;
 		border-radius: 18px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		display: flex;
 		align-items: center;
 		gap: 10px;
@@ -173,13 +194,13 @@
 		font-size: 15px;
 	}
 	.buscar input::placeholder {
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.seg-mapa {
 		display: flex;
 		padding: 4px;
 		border-radius: 16px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		box-shadow: 0 8px 24px rgba(36, 33, 45, 0.1);
 	}
 	.seg-mapa a {
@@ -187,7 +208,7 @@
 		border-radius: 12px;
 		font-size: 14px;
 		font-weight: 600;
-		color: #5c586b;
+		color: var(--texto-2);
 		text-decoration: none;
 	}
 	.seg-mapa a[aria-current='page'] {
@@ -208,10 +229,10 @@
 		flex: none;
 		padding: 8px 13px;
 		border-radius: 13px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		font-size: 13px;
 		font-weight: 600;
-		color: #24212d;
+		color: var(--carbon);
 		text-decoration: none;
 	}
 	.filtro.on {
@@ -227,7 +248,7 @@
 		width: 46px;
 		height: 46px;
 		border-radius: 16px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		display: grid;
 		place-items: center;
 		box-shadow: 0 8px 20px rgba(36, 33, 45, 0.12);
@@ -240,7 +261,7 @@
 		bottom: calc(100px + env(safe-area-inset-bottom));
 		padding: 12px;
 		border-radius: 26px;
-		background: #ffffff;
+		background: var(--c-tarjeta);
 		display: flex;
 		gap: 12px;
 		align-items: center;
@@ -290,7 +311,7 @@
 		font-weight: 700;
 	}
 	.lav {
-		background: #f0ecff;
+		background: var(--lavanda);
 	}
 	.osc {
 		background: #24212d;
@@ -303,7 +324,7 @@
 	}
 	.fs {
 		font-size: 12px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.fpie {
 		display: flex;

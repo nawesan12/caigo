@@ -84,7 +84,10 @@
 				{/each}
 			</nav>
 			<div class="abajo">
-				<a class="ver" href={PUBLIC_SITIO}>Ver la app como usuario →</a>
+				<a class="ver" href="/datos" aria-current={ruta === '/datos' ? 'page' : undefined}
+					>Tu lugar</a
+				>
+				<a class="ver" href="{PUBLIC_SITIO.replace(/\/+$/, '')}/app">Ver la app como usuario →</a>
 				<form method="POST" action="/salir">
 					<button class="salir">Salir</button>
 				</form>
@@ -321,6 +324,7 @@
 		.abajo {
 			grid-column: 1 / -1;
 			flex-direction: row;
+			flex-wrap: wrap;
 			justify-content: space-between;
 			align-items: center;
 			margin-top: 0;

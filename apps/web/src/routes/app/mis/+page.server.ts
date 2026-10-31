@@ -1,6 +1,8 @@
-import { conSesion } from '#lib/server/api.ts';
+import { fail } from '@sveltejs/kit';
+import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
+import { uuid } from '#lib/server/panel.ts';
 import type { Plan } from '#lib/tipos.ts';
-import type { PageServerLoad } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 
 const CUALES = ['organizo', 'me_sume', 'historial'] as const;
 
@@ -20,6 +22,21 @@ export const load: PageServerLoad = async (event) => {
 	return {
 		cual,
 		cuentas: { organizo: organizo.length, me_sume: meSume.length },
-		planes: cual === 'organizo' ? organizo : cual === 'me_sume' ? meSume : historial
+		planes: cual === 'organizo' ? organizo : cual === 'me_sume' ? meSume : historial,
+		cancelado: event.url.searchParams.get('cancelado') === '1'
 	};
+};
+
+export const actions: Actions = {
+	/** Cancelar un plan que organizo: la API avisa a los que van y devuelve lo pagado. */
+	cancelar: async (event) => {
+		const id = uuid(String((await event.request.formData()).get('id') ?? ''));
+		try {
+			await conSesion(event, 'DELETE', `/v1/planes/${id}`);
+		} catch (e) {
+			if (!(e instanceof ErrorApi)) throw e;
+			return fail(400, { error: mensajeDe(e) });
+		}
+		return { cancelado: id };
+	}
 };

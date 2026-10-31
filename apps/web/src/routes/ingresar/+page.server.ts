@@ -3,6 +3,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { volverSeguro } from '#lib/hosts.ts';
 import { api, ErrorApi, mensajeDe } from '#lib/server/api.ts';
 import { COOKIE_VOLVER, guardarSesion, tokenValido } from '#lib/server/sesion.ts';
+import { mandarOrigen } from '#lib/server/origen.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 const ERRORES: Record<string, string> = {
@@ -44,6 +45,7 @@ export const actions: Actions = {
 			});
 		}
 		guardarSesion(cookies, t);
+		await mandarOrigen(cookies, t);
 		const volver = volverSeguro(cookies.get(COOKIE_VOLVER));
 		cookies.delete(COOKIE_VOLVER, { path: '/' });
 		redirect(303, volver);

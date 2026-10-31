@@ -1,16 +1,22 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { enhance } from '$app/forms';
+	import { replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
 	import { faltanTexto } from '#lib/plan.ts';
 	import { pesosDeCentavos } from '#lib/precios.ts';
 	import type { Validacion } from '#lib/tipos.ts';
+	import type { SubmitFunction } from '$app/forms';
+	import { copiarTexto } from '../../copiar.ts';
 
 	/*
 	 * Un plan del lugar: "Quiénes vienen" + "Check-in en la puerta" (Panel Lugares, vista "plan").
-	 * El código se valida en la API; "Escanear QR" usa BarcodeDetector si el navegador lo tiene.
+	 * El código se valida en la API; "Escanear QR" usa BarcodeDetector si el navegador lo tiene y
+	 * lee tanto el QR de la entrada (TK-xxxx) como el QR de check-in de la app. Copiar link, Editar y
+	 * Cancelar no están dibujados: van con los botones y la tarjeta del mismo panel.
 	 */
 	let { data } = $props();
 
@@ -19,6 +25,32 @@
 	const aCobrar = $derived(data.asistentes.reduce((n, a) => n + (a.saldoCentavos ?? 0), 0));
 	const checkins = $derived(data.asistentes.reduce((n, a) => n + (a.checkin ? a.cantidad : 0), 0));
 	const personas = $derived(data.asistentes.reduce((n, a) => n + a.cantidad, 0));
+
+	const editable = $derived(!p.cancelado && new Date(p.empiezaEn).getTime() > Date.now());
+	onMount(() => {
+		if (data.aviso) {
+			avisar(data.aviso);
+			replaceState(page.url.pathname, {});
+		}
+	});
+	async function copiarLink() {
+		if (!p.link) return;
+		avisar(
+			(await copiarTexto(p.link)) ? 'Link copiado: ' + p.link.replace(/^https?:\/\//, '') : p.link
+		);
+	}
+	const confirmarCancelar = $derived(
+		`¿Cancelar «${p.titulo}»? Les avisamos a todos los que se sumaron` +
+			(p.entradas > 0 ? ' y les devolvemos el 100 % de las entradas.' : '.') +
+			' No se puede deshacer.'
+	);
+	const conAviso: SubmitFunction =
+		() =>
+		async ({ result, update }) => {
+			if (result.type === 'failure') avisar(String(result.data?.error ?? 'No se pudo.'));
+			else if (result.type === 'success' && result.data?.checkin) avisar('Check-in hecho.');
+			await update({ reset: false });
+		};
 
 	const PAGO = {
 		pago: ['Pagó todo', '#C8F36B', '#24212D'],
@@ -92,7 +124,7 @@
 			if (!v) return;
 			cerrarCamara();
 			// El QR de la entrada trae el código (TK-1234), solo o dentro de un link.
-			validarCodigo((/TK-\d{4}/i.exec(v)?.[0] ?? v).toUpperCase());
+			validarCodigo(/TK-\d{4}/i.exec(v)?.[0].toUpperCase() ?? v.trim());
 		}, 300);
 	}
 	onDestroy(cerrarCamara);
@@ -115,6 +147,28 @@
 		</div>
 	</div>
 
+	{#if p.link || editable}
+		<div class="acciones">
+			{#if p.link}
+				<button type="button" class="gel gel-blanco accion" onclick={copiarLink}>Copiar link</button
+				>
+			{/if}
+			{#if editable}
+				<a class="gel gel-blanco accion" href="/plan/{p.id}/editar">Editar plan</a>
+				<form
+					method="POST"
+					action="?/cancelar"
+					use:enhance={(input) => {
+						if (!confirm(confirmarCancelar)) return input.cancel();
+						return conAviso(input);
+					}}
+				>
+					<button class="cancelar">Cancelar plan</button>
+				</form>
+			{/if}
+		</div>
+	{/if}
+
 	<div class="stats">
 		<div class="tarjeta-plana stat">
 			<span class="sl">Confirmados</span><span class="sv">{p.confirmados} de {p.cupo}</span>
@@ -136,7 +190,11 @@
 		<section class="vienen tarjeta-plana" aria-labelledby="vienen">
 			<div class="vienen-cab">
 				<h2 id="vienen">Quiénes vienen</h2>
-				<span>{data.asistentes.length} reservas · {personas} personas</span>
+				<span
+					>{data.asistentes.length}
+					{data.asistentes.length === 1 ? 'reserva' : 'reservas'} · {personas}
+					{personas === 1 ? 'persona' : 'personas'}</span
+				>
 			</div>
 			{#each data.asistentes as a, i (i)}
 				{@const [pl, pbg, pfg] = pagoDe(a.pago)}
@@ -157,6 +215,16 @@
 						<button class="ck" type="button" onclick={() => validarCodigo(a.codigo!)}
 							>Hacer check-in</button
 						>
+					{:else if p.cobro === 'gratis' && !p.cancelado}
+						<form method="POST" action="?/checkin" use:enhance={conAviso}>
+							<input type="hidden" name="usuario" value={a.usuarioId ?? ''} />
+							<button
+								class="ck"
+								disabled={!a.usuarioId}
+								title={a.usuarioId ? undefined : 'Pedile que te muestre el QR de la app'}
+								>Hacer check-in</button
+							>
+						</form>
 					{:else}
 						<span class="ck vacio-ck"></span>
 					{/if}
@@ -168,7 +236,10 @@
 
 		<section class="puerta tarjeta-oscura" aria-labelledby="puerta">
 			<h2 id="puerta">Check-in en la puerta</h2>
-			<p>Pedí el código de la entrada. Al validarlo se desbloquea el beneficio.</p>
+			<p>
+				Pedí el código de la entrada o el QR de check-in de la app. Al validarlo se desbloquea
+				el&nbsp;beneficio.
+			</p>
 			<form
 				method="POST"
 				action="?/validar"
@@ -294,6 +365,28 @@
 	}
 	.badge-completo.badge {
 		box-shadow: 0 3px 0 #94c43a;
+	}
+	.acciones {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 12px;
+	}
+	.accion {
+		height: 46px;
+		padding: 0 20px;
+		border-radius: 16px;
+		font-size: 14px;
+	}
+	.cancelar {
+		padding: 0 8px;
+		font-size: 14px;
+		font-weight: 800;
+		color: #9a2e1f;
+	}
+	.ck:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
 	}
 	.stats {
 		display: grid;

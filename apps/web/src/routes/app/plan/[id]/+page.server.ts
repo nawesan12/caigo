@@ -2,6 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { conSesion, ErrorApi, mensajeDe, quizasConSesion } from '#lib/server/api.ts';
 import { conUbicacion } from '#lib/server/app.ts';
 import { uuid } from '#lib/server/panel.ts';
+import { aGenero, leerPedido, sumarse } from '#lib/server/sumarse.ts';
 import type { Plan } from '#lib/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -17,7 +18,8 @@ export const load: PageServerLoad = async (event) => {
 		return {
 			plan,
 			pago: pago === 'ok' || pago === 'pendiente' || pago === 'error' ? pago : null,
-			publicado: event.url.searchParams.get('publicado') === '1'
+			publicado: event.url.searchParams.get('publicado') === '1',
+			editado: event.url.searchParams.get('editado') === '1'
 		};
 	} catch (e) {
 		if (e instanceof ErrorApi && e.estado === 404) error(404, e.detalle);
@@ -28,32 +30,20 @@ export const load: PageServerLoad = async (event) => {
 export const actions: Actions = {
 	sumarme: async (event) => {
 		const id = uuid(event.params.id);
-		const f = await event.request.formData();
-		const cantidad = Math.min(10, Math.max(1, Number(f.get('cantidad')) || 1));
-		const mensaje = String(f.get('mensaje') ?? '')
-			.trim()
-			.slice(0, 200);
+		const pedido = leerPedido(await event.request.formData());
 		let link: string;
 		try {
-			const plan = await conSesion<Plan>(event, 'GET', `/v1/planes/${id}`);
-			if (plan.lugar && plan.cobro !== 'gratis') {
-				// Entrada o seña de un lugar: Checkout Pro de Mercado Pago (vuelve a /p/<slug>?pago=…).
-				const c = await conSesion<{ link?: string }>(event, 'POST', `/v1/planes/${id}/entradas`, {
-					cuerpo: { cantidad, modo: f.get('modo') === 'sena' ? 'sena' : 'entrada' }
-				});
-				link = c?.link ?? '';
-				if (!link) return { estado: 'aceptada' };
-			} else {
-				const r = await conSesion<{ estado: string }>(event, 'POST', `/v1/planes/${id}/sumarme`, {
-					cuerpo: { cantidad, mensaje }
-				});
-				return { estado: r.estado };
-			}
+			const r = await sumarse(event, id, pedido);
+			if (!r.link) return { estado: r.estado };
+			link = r.link;
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
 			// Sin selfie: a verificarse y de vuelta acá.
 			if (e.codigo === 'falta_selfie')
 				redirect(303, `/app/verificar?volver=${encodeURIComponent(`/app/plan/${id}`)}`);
+			// Plan «Solo mujeres» / «Solo diversidades» y todavía no dijo su género: se pregunta y se
+			// reintenta desde esa pantalla.
+			if (e.codigo === 'falta_genero') redirect(303, aGenero(id, pedido));
 			return fail(e.estado === 400 ? 400 : 409, { error: mensajeDe(e), codigo: e.codigo });
 		}
 		redirect(303, link);
@@ -67,5 +57,16 @@ export const actions: Actions = {
 			return fail(400, { error: mensajeDe(e), codigo: e.codigo });
 		}
 		return { estado: 'ninguno' };
+	},
+	/** El organizador cancela: la API avisa a los que van y a los pendientes, y devuelve lo pagado. */
+	cancelar: async (event) => {
+		const id = uuid(event.params.id);
+		try {
+			await conSesion(event, 'DELETE', `/v1/planes/${id}`);
+		} catch (e) {
+			if (!(e instanceof ErrorApi)) throw e;
+			return fail(400, { error: mensajeDe(e), codigo: e.codigo });
+		}
+		redirect(303, '/app/mis?cancelado=1');
 	}
 };

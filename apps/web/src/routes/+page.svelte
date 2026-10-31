@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { PUBLIC_PANEL } from '$app/env/public';
 	import Seo from '#lib/ui/Seo.svelte';
 	import Pie from '#lib/ui/Pie.svelte';
@@ -10,7 +11,10 @@
 	 * splash (00), los tres slides del onboarding (01a–01c) con sus textos, las tarjetas de "Ahora"
 	 * (02) con los planes de ejemplo del handoff, y el gradiente violeta de "Tu plan ya está en
 	 * Caigo" del panel. Fotos CC0 de StockSnap (static/fotos/CREDITOS.md).
+	 * "¿Quién se prende?" muestra los planes que están pasando (+page.server.ts); si no hay, los de
+	 * ejemplo. La lista de espera se arma con el contador oscuro y el selector de 01b.
 	 */
+	let { data, form } = $props();
 	const EJEMPLOS = [
 		{
 			foto: '/fotos/playa.jpg',
@@ -49,6 +53,11 @@
 			personas: [{ nombre: 'G' }, { nombre: 'F' }, { nombre: 'R' }]
 		}
 	];
+
+	const reales = $derived(data.ahora.length > 0);
+	let ciudad = $state('Mar del Plata');
+	let enviando = $state(false);
+	const espera = $derived(form?.espera);
 </script>
 
 <Seo
@@ -177,13 +186,86 @@
 	<section class="seccion ahora" aria-labelledby="ahora">
 		<div class="ancho">
 			<div class="cabeza">
-				<span class="overline">ASÍ SE VEN LOS PLANES EN CAIGO</span>
+				<span class="overline"
+					>{reales ? 'PASANDO AHORA EN CAIGO' : 'ASÍ SE VEN LOS PLANES EN CAIGO'}</span
+				>
 				<h2 id="ahora" class="titulo-seccion">¿Quién se prende?</h2>
 			</div>
 			<div class="grilla">
-				{#each EJEMPLOS as e (e.titulo)}
-					<TarjetaPlan {...e} href="/app" />
-				{/each}
+				{#if reales}
+					{#each data.ahora as p (p.id)}
+						<TarjetaPlan {...p} href="/app/plan/{p.id}" enlace="/app/plan/{p.id}" />
+					{/each}
+				{:else}
+					{#each EJEMPLOS as e (e.titulo)}
+						<TarjetaPlan {...e} href="/app" />
+					{/each}
+				{/if}
+			</div>
+		</div>
+	</section>
+
+	<!-- Lista de espera de la app: el contador oscuro del detalle (05) y el selector de 01b. -->
+	<section class="seccion espera-sec" aria-labelledby="espera">
+		<div class="ancho">
+			<div class="espera">
+				<div class="espera-txt">
+					<span class="overline lima-txt">LISTA DE ESPERA</span>
+					<h2 id="espera">Te avisamos cuando esté la app.</h2>
+					<p>
+						Mientras tanto, Caigo anda desde la web. Dejanos tu mail y te escribimos una sola vez,
+						cuando esté en las&nbsp;tiendas.
+					</p>
+				</div>
+				{#if espera && 'listo' in espera}
+					<p class="espera-listo" role="status">
+						Listo. Te escribimos a {espera.email} cuando la app esté&nbsp;lista.
+					</p>
+				{:else}
+					<form
+						method="POST"
+						action="?/espera"
+						class="espera-form"
+						use:enhance={() => {
+							enviando = true;
+							return async ({ update }) => {
+								await update({ reset: false });
+								enviando = false;
+							};
+						}}
+					>
+						<label class="sr" for="espera-mail">Tu mail</label>
+						<input
+							id="espera-mail"
+							class="espera-mail"
+							type="email"
+							name="email"
+							required
+							maxlength="200"
+							autocomplete="email"
+							placeholder="tu@mail.com"
+							value={espera?.email ?? ''}
+						/>
+						<fieldset class="selector espera-ciudad">
+							<legend class="sr">Tu ciudad</legend>
+							{#each data.ciudades as c (c)}
+								<label class:on={ciudad === c}
+									><input
+										type="radio"
+										name="ciudad"
+										value={c}
+										bind:group={ciudad}
+										class="sr"
+									/>{c === 'Otra ciudad' ? 'Otra' : c}</label
+								>
+							{/each}
+						</fieldset>
+						{#if espera && 'error' in espera}<p class="espera-error" role="alert">
+								{espera.error}
+							</p>{/if}
+						<button class="gel gel-lima cta espera-cta" disabled={enviando}>Avisame</button>
+					</form>
+				{/if}
 			</div>
 		</div>
 	</section>
@@ -637,7 +719,8 @@
 		background: linear-gradient(180deg, #ede8ff, #f6f3ff);
 		box-shadow: inset 0 2px 4px rgba(116, 86, 241, 0.15);
 	}
-	.selector span {
+	.selector span,
+	.selector label {
 		flex: 1;
 		text-align: center;
 		padding: 12px 0;
@@ -727,6 +810,97 @@
 		gap: 16px;
 	}
 
+	/* ——— Lista de espera ——— */
+	.espera-sec {
+		padding-top: 0;
+	}
+	.espera {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		gap: 32px;
+		align-items: center;
+		padding: 40px;
+		border-radius: 36px;
+		background: var(--grad-oscuro);
+		color: #faf9f6;
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.08),
+			0 40px 80px -40px rgba(36, 33, 45, 0.55);
+	}
+	.espera-txt {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+	.espera h2 {
+		font:
+			800 40px/1.02 'Geist',
+			sans-serif;
+		letter-spacing: -1.4px;
+	}
+	.espera-txt p {
+		font-size: 16px;
+		line-height: 1.5;
+		color: #d3cee2;
+	}
+	.espera-form {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+	.espera-mail {
+		height: 56px;
+		border: 0;
+		border-radius: 18px;
+		padding: 0 18px;
+		background: #faf9f6;
+		box-shadow: var(--sh-input);
+		font: inherit;
+		font-size: 16px;
+		color: #24212d;
+	}
+	.espera-mail:focus-visible {
+		outline: 3px solid #b3a3ff;
+		outline-offset: 2px;
+	}
+	.espera-ciudad {
+		margin: 0;
+		border: 0;
+	}
+	.espera-ciudad label {
+		flex: 1 1 auto;
+		padding: 12px 10px;
+		font-size: 14px;
+		cursor: pointer;
+		text-align: center;
+	}
+	.espera-ciudad label:has(input:focus-visible) {
+		outline: 3px solid #b3a3ff;
+		outline-offset: 2px;
+	}
+	.espera-cta {
+		margin-top: 4px;
+		justify-content: center;
+	}
+	.espera-error {
+		padding: 10px 12px;
+		border-radius: 14px;
+		background: #ffe1db;
+		color: #9a2e1f;
+		font-size: 13px;
+		font-weight: 700;
+		text-align: center;
+	}
+	.espera-listo {
+		padding: 18px 20px;
+		border-radius: 20px;
+		background: #c8f36b;
+		color: #24212d;
+		font-size: 16px;
+		font-weight: 700;
+		line-height: 1.45;
+	}
+
 	/* ——— Para lugares ——— */
 	.lugares {
 		display: grid;
@@ -788,11 +962,13 @@
 		.seccion {
 			padding: 48px 16px;
 		}
-		.lugares {
+		.lugares,
+		.espera {
 			grid-template-columns: 1fr;
 			padding: 28px 22px;
 		}
 		.lugares h2,
+		.espera h2,
 		.titulo-seccion {
 			font-size: 34px;
 		}

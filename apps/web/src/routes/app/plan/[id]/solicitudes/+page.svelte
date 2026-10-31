@@ -3,6 +3,7 @@
 	import { PUBLIC_SITIO } from '$app/env/public';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Avatar from '#lib/app-ui/Avatar.svelte';
+	import Confirmar from '#lib/app-ui/Confirmar.svelte';
 	import Verificado from '#lib/app-ui/Verificado.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
@@ -13,6 +14,10 @@
 	let { data } = $props();
 
 	const p = $derived(data.plan);
+	/** Los que ya están adentro (sin quien organiza). */
+	const adentro = $derived(p.van.filter((v) => !v.organizador));
+	let aSacar = $state<PersonaCorta | null>(null);
+	let sacarAbierta = $state(false);
 	const sub = $derived(`${p.titulo} · ${cuandoCorto(p.empiezaEn)}`);
 	const datoDe = (x: PersonaCorta) => {
 		const a = x.asistencia;
@@ -63,6 +68,7 @@
 				{@const completan = s.cantidad === p.faltan}
 				<form
 					method="POST"
+					action="?/responder"
 					class="sol"
 					class:completan
 					use:enhance={() =>
@@ -135,8 +141,46 @@
 				</button>
 			</div>
 		{/if}
+
+		{#if adentro.length && !p.cancelado}
+			<span class="overline-app">YA VAN</span>
+			{#each adentro as v (v.id)}
+				<div class="sol">
+					<div class="sol-cab">
+						<Avatar nombre={v.nombre} foto={v.foto} tam={44} borde="2px solid #FFFFFF" />
+						<div class="sol-txt">
+							<span class="n"
+								>{primerNombre(v.nombre)}{v.edad ? `, ${v.edad}` : ''}{#if v.verificada}<Verificado
+										tam={15}
+									/>{/if}</span
+							>
+							<span class="d">{datoDe(v)}</span>
+						</div>
+						<button
+							class="sacar"
+							onclick={() => {
+								aSacar = v;
+								sacarAbierta = true;
+							}}>Sacar</button
+						>
+					</div>
+				</div>
+			{/each}
+		{/if}
 	</div>
 </div>
+
+{#if aSacar}
+	<Confirmar
+		bind:abierta={sacarAbierta}
+		titulo="¿Sacás a {primerNombre(aSacar.nombre)}?"
+		texto="Le avisamos que ya no está en el plan y su lugar queda libre para otra persona."
+		boton="Sí, sacar"
+		accion="?/sacar"
+		campos={{ usuario: aSacar.id }}
+		listo="Listo, su lugar quedó libre."
+	/>
+{/if}
 
 <style>
 	.contenido {
@@ -157,8 +201,8 @@
 		border-radius: 16px;
 		display: grid;
 		place-items: center;
-		color: #24212d;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		color: var(--carbon);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 	}
 	.cab-txt {
@@ -173,7 +217,7 @@
 	}
 	.cab-txt .s {
 		font-size: 13px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.contador {
 		display: flex;
@@ -215,11 +259,8 @@
 		gap: 12px;
 		padding: 14px;
 		border-radius: 24px;
-		background: #ffffff;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 2px 0 #e8e3f4,
-			0 12px 24px -12px rgba(80, 60, 160, 0.22);
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-info);
 	}
 	.sol.completan {
 		box-shadow: none;
@@ -238,7 +279,7 @@
 		height: 44px;
 		margin-left: -14px;
 		border-radius: 50%;
-		border: 2px solid #ffffff;
+		border: 2px solid var(--c-tarjeta-lisa);
 		background: #c8f36b;
 		display: grid;
 		place-items: center;
@@ -262,7 +303,7 @@
 	}
 	.d {
 		font-size: 12px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.completan-chip {
 		flex: none;
@@ -276,10 +317,23 @@
 	.msj {
 		padding: 10px 12px;
 		border-radius: 14px;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 		font-size: 14px;
 		line-height: 1.4;
+	}
+	.overline-app {
+		margin-top: 8px;
+		font-size: 13px;
+		font-weight: 800;
+		letter-spacing: 1px;
+		color: var(--texto-2);
+	}
+	.sacar {
+		flex: none;
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--violeta-texto);
 	}
 	.botones {
 		display: grid;
@@ -293,9 +347,9 @@
 		font-size: 15px;
 	}
 	.no {
-		border: 1.5px solid #e4defa;
+		border: 1.5px solid var(--c-borde-chip);
 		font-weight: 700;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.vacio {
 		display: flex;
@@ -338,7 +392,7 @@
 	.vacio p {
 		font-size: 15px;
 		line-height: 1.5;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.cta {
 		align-self: stretch;

@@ -47,7 +47,7 @@
 		height: var(--t);
 		margin-right: -8px;
 		border-radius: 50%;
-		border: 2px solid #ffffff;
+		border: 2px solid var(--c-tarjeta-lisa);
 		display: grid;
 		place-items: center;
 		overflow: hidden;

@@ -8,15 +8,22 @@ type Plus = {
 	planes: { plan: string; producto: string; centavos: number; nombre: string }[];
 };
 
+type Recibidos = { personas: { id: string; foto?: string }[]; bloqueada: boolean };
+
 export const load: PageServerLoad = async (event) => {
 	const vuelta = event.url.searchParams.get('vuelta') === '1';
-	if (!event.locals.token) return { plus: null, vuelta, conSesion: false };
+	if (!event.locals.token) return { plus: null, vuelta, conSesion: false, teSumaron: [] };
 	try {
-		const plus = await conSesion<Plus>(event, 'GET', '/v1/plus');
-		return { plus, vuelta, conSesion: true };
+		const [plus, recibidos] = await Promise.all([
+			conSesion<Plus>(event, 'GET', '/v1/plus'),
+			// La tarjeta "N personas te sumaron" del paywall: si falla, no se muestra.
+			conSesion<Recibidos>(event, 'GET', '/v1/gente/recibidos?modo=gente').catch(() => null)
+		]);
+		const teSumaron = (recibidos?.personas ?? []).map((p) => p.foto ?? '');
+		return { plus, vuelta, conSesion: true, teSumaron };
 	} catch (e) {
 		if (!(e instanceof ErrorApi)) throw e;
-		return { plus: null, vuelta, conSesion: true, error: mensajeDe(e) };
+		return { plus: null, vuelta, conSesion: true, teSumaron: [], error: mensajeDe(e) };
 	}
 };
 

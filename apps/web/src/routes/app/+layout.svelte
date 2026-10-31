@@ -6,7 +6,7 @@
 	 * Caigo desde la web: las pantallas de Mockups v5 a 390 px. En el celular ocupan toda la pantalla;
 	 * en la compu van centradas dentro del marco de teléfono del handoff (radio 48, borde #15131C).
 	 */
-	let { children } = $props();
+	let { children, data } = $props();
 
 	const TABS: Record<string, 'ahora' | 'explorar' | 'mis' | 'perfil'> = {
 		'/app': 'ahora',
@@ -20,10 +20,10 @@
 
 <svelte:head>
 	<meta name="robots" content="noindex" />
-	<meta name="theme-color" content="#FAF9F6" />
+	<meta name="theme-color" content={data.tema === 'oscuro' ? '#201D2B' : '#FAF9F6'} />
 </svelte:head>
 
-<div class="lienzo">
+<div class="lienzo" data-tema={data.tema}>
 	<a class="marca" href="/" aria-label="Caigo, inicio">Caigo</a>
 	<div class="tel">
 		{@render children()}
@@ -35,7 +35,8 @@
 	.lienzo {
 		min-height: 100vh;
 		min-height: 100dvh;
-		background: #faf9f6;
+		background: var(--c-fondo);
+		color: var(--carbon);
 	}
 	.marca {
 		display: none;
@@ -45,9 +46,7 @@
 		height: 100vh;
 		height: 100dvh;
 		overflow: hidden;
-		background:
-			url(/grain.png), radial-gradient(90% 38% at 100% 0%, #ece5ff 0%, rgba(236, 229, 255, 0) 70%),
-			#faf9f6;
+		background: var(--c-fondo-tel);
 		/* Las pantallas son position:absolute dentro del teléfono, como en el handoff. */
 		isolation: isolate;
 	}

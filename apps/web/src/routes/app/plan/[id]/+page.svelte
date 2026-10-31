@@ -5,6 +5,8 @@
 	import Avatar from '#lib/app-ui/Avatar.svelte';
 	import Verificado from '#lib/app-ui/Verificado.svelte';
 	import BajateLaApp from '#lib/app-ui/BajateLaApp.svelte';
+	import Confirmar from '#lib/app-ui/Confirmar.svelte';
+	import Reportar from '#lib/app-ui/Reportar.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { CATEGORIAS, faltanTexto, primerNombre } from '#lib/plan.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
@@ -44,6 +46,15 @@
 	const organiza = $derived(p.lugar ? p.lugar.nombre : primerNombre(p.organizador.nombre));
 
 	let grupo = $state(false);
+	let reportar = $state(false);
+	let salir = $state(false);
+	let cancelar = $state(false);
+	/** Lo que el organizador todavía puede tocar: un plan propio que no empezó ni se canceló. */
+	const editable = $derived(
+		estado === 'organizador' && !p.cancelado && new Date(p.empiezaEn).getTime() > Date.now()
+	);
+	/** Los que se sumaron (sin el organizador ni su grupo). */
+	const otros = $derived(p.van.filter((v) => !v.organizador).length);
 	let cantidad = $state(2);
 	let enviando = $state(false);
 	/** Con seña se elige: pagar todo (como en el Prototipo, lo primero) o señar. */
@@ -88,7 +99,7 @@
 					height="20"
 					viewBox="0 0 24 24"
 					fill="none"
-					stroke="#24212D"
+					stroke="currentColor"
 					stroke-width="2.2"
 					stroke-linecap="round"
 					stroke-linejoin="round"
@@ -99,6 +110,9 @@
 	</div>
 
 	<div class="hoja">
+		{#if data.editado}
+			<p class="aviso ok" role="status">Listo, guardamos los cambios.</p>
+		{/if}
 		{#if data.pago}
 			<p class="aviso {data.pago}" role="status">
 				{data.pago === 'ok'
@@ -152,11 +166,11 @@
 
 		<div class="info">
 			<div class="fila">
-				<Icono nombre="reloj" tam={20} color="#7456F1" trazo={2} />
+				<Icono nombre="reloj" tam={20} color="var(--c-acento)" trazo={2} />
 				<span class="ft">{horario(p.empiezaEn, p.duracionMin)}</span>
 			</div>
 			<div class="fila">
-				<Icono nombre="pin" tam={20} color="#7456F1" trazo={2} />
+				<Icono nombre="pin" tam={20} color="var(--c-acento)" trazo={2} />
 				<div class="fcol">
 					{#if p.direccion}
 						<span class="ft">{p.direccion.texto}</span>
@@ -192,7 +206,7 @@
 			{/if}
 			{#if p.beneficio}
 				<div class="fila">
-					<Icono nombre="regalo" tam={20} color="#7456F1" trazo={2} />
+					<Icono nombre="regalo" tam={20} color="var(--c-acento)" trazo={2} />
 					<span class="ft">Con check-in: {p.beneficio}</span>
 				</div>
 			{/if}
@@ -212,6 +226,26 @@
 				titulo="Verificá tu DNI en la app"
 				texto="Este plan es sólo para personas con DNI verificado. El DNI se verifica desde la app."
 			/>
+		{/if}
+
+		{#if !data.anonimo}
+			<div class="acciones">
+				{#if editable}
+					<div class="fila-acc">
+						{#if !p.lugar}<a href="/app/plan/{p.id}/editar">Editar plan</a><span aria-hidden="true"
+								>·</span
+							>{/if}
+						<button onclick={() => (cancelar = true)}>Cancelar el plan</button>
+					</div>
+				{:else if estado === 'aceptada' && !p.cancelado}
+					<button onclick={() => (salir = true)}>Salir del plan</button>
+				{/if}
+				{#if estado !== 'organizador'}
+					<span class="paso-algo"
+						>¿Pasó algo? <button onclick={() => (reportar = true)}>Reportar</button></span
+					>
+				{/if}
+			</div>
 		{/if}
 	</div>
 </div>
@@ -315,6 +349,27 @@
 	{/if}
 </div>
 
+{#if !data.anonimo}
+	<Reportar bind:abierta={reportar} planId={p.id} />
+	<Confirmar
+		bind:abierta={salir}
+		titulo="¿Salís del plan?"
+		texto={`Le avisamos a ${organiza} y tu lugar queda libre para otra persona.`}
+		boton="Sí, salgo"
+		accion="?/salir"
+		listo="Saliste del plan."
+	/>
+	<Confirmar
+		bind:abierta={cancelar}
+		titulo="¿Cancelás el plan?"
+		texto={otros > 0
+			? `Les avisamos a ${otros === 1 ? 'la persona que va' : `las ${otros} personas que van`} y a los que pidieron sumarse.`
+			: 'Le avisamos a quien haya pedido sumarse. No se puede deshacer.'}
+		boton="Sí, cancelar"
+		accion="?/cancelar"
+	/>
+{/if}
+
 <style>
 	.scroll {
 		padding-bottom: 210px;
@@ -343,15 +398,16 @@
 		width: 44px;
 		height: 44px;
 		border-radius: 16px;
-		background: #faf9f6;
+		background: var(--c-btn-hero);
+		box-shadow: var(--sh-btn-hero);
 		display: grid;
 		place-items: center;
-		color: #24212d;
+		color: var(--carbon);
 	}
 	.hoja {
 		position: relative;
 		border-radius: 32px 32px 0 0;
-		background: #faf9f6;
+		background: var(--c-fondo);
 		padding: 22px 20px 0;
 		display: flex;
 		flex-direction: column;
@@ -369,14 +425,16 @@
 		font-weight: 700;
 	}
 	.chip-off {
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 	}
 	.chip-coral {
+		color: #24212d;
 		background: var(--grad-coral);
 		box-shadow: var(--sh-coral);
 	}
 	.chip-lima {
+		color: #24212d;
 		background: #c8f36b;
 	}
 	h1 {
@@ -388,7 +446,9 @@
 	.contador {
 		padding: 16px;
 		border-radius: 24px;
-		background: url(/grain.png), radial-gradient(120% 90% at 0% 0%, #3d3756 0%, #24212d 62%);
+		background: var(--c-contador);
+		outline: 1px solid var(--c-contador-borde);
+		outline-offset: -1px;
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.08),
 			0 12px 26px -10px rgba(36, 33, 45, 0.55);
@@ -477,24 +537,21 @@
 	}
 	.or {
 		font-size: 13px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.info {
 		display: flex;
 		flex-direction: column;
 		border-radius: 20px;
-		background: #ffffff;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 2px 0 #e8e3f4,
-			0 12px 24px -12px rgba(80, 60, 160, 0.22);
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-info);
 	}
 	.fila {
 		display: flex;
 		gap: 12px;
 		align-items: center;
 		padding: 12px 14px;
-		border-bottom: 1px solid #f0ecff;
+		border-bottom: 1px solid var(--c-linea);
 	}
 	.fila:last-child {
 		border-bottom: 0;
@@ -511,7 +568,7 @@
 	}
 	.fs {
 		font-size: 12px;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.peso {
 		width: 20px;
@@ -524,7 +581,7 @@
 	.desc {
 		font-size: 14px;
 		line-height: 1.5;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.reqs {
 		display: flex;
@@ -534,13 +591,13 @@
 	.rl {
 		font-size: 13px;
 		font-weight: 700;
-		color: #5c586b;
+		color: var(--texto-2);
 		padding: 6px 0;
 	}
 	.req {
 		padding: 6px 10px;
 		border-radius: 11px;
-		border: 1.5px solid #e4defa;
+		border: 1.5px solid var(--c-borde-chip);
 		font-size: 12px;
 		font-weight: 700;
 	}
@@ -556,8 +613,8 @@
 		background: #c8f36b;
 	}
 	.aviso.pendiente {
-		background: #f0ecff;
-		color: #5b43c9;
+		background: var(--lavanda);
+		color: var(--violeta-texto);
 	}
 	.aviso.error {
 		background: #ffe1db;
@@ -571,8 +628,8 @@
 		bottom: 0;
 		z-index: 5;
 		padding: 12px 20px calc(30px + env(safe-area-inset-bottom));
-		background: #ffffff;
-		border-top: 1px solid #ece8f2;
+		background: var(--c-barra);
+		border-top: 1px solid var(--c-borde);
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
@@ -591,15 +648,13 @@
 		border-radius: 20px;
 		text-align: left;
 		font: inherit;
-		color: #24212d;
+		color: var(--carbon);
 		cursor: pointer;
-		background: #ffffff;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 3px 0 #e6e0f3;
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-tarjeta-plana);
 	}
 	.modos button.elegido {
-		background: #f0ecff;
+		background: var(--lavanda);
 		box-shadow:
 			inset 0 0 0 2.5px #7456f1,
 			0 3px 0 #c9bef5;
@@ -612,7 +667,7 @@
 		font-size: 12px;
 		font-weight: 600;
 		line-height: 1.35;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.barra form {
 		display: flex;
@@ -623,7 +678,7 @@
 		display: flex;
 		padding: 4px;
 		border-radius: 15px;
-		background: #f0ecff;
+		background: var(--lavanda);
 	}
 	.seg-solo button {
 		flex: 1;
@@ -632,15 +687,13 @@
 		border-radius: 12px;
 		font-size: 14px;
 		font-weight: 600;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.seg-solo button.on {
-		background: #ffffff;
-		color: #24212d;
+		background: var(--c-seg-on);
+		color: var(--carbon);
 		font-weight: 700;
-		box-shadow:
-			inset 0 1px 0 #ffffff,
-			0 3px 8px -2px rgba(80, 60, 160, 0.25);
+		box-shadow: var(--sh-seg-on);
 	}
 	.cuantos {
 		display: flex;
@@ -649,17 +702,17 @@
 		gap: 14px;
 		font-size: 14px;
 		font-weight: 700;
-		color: #5c586b;
+		color: var(--texto-2);
 	}
 	.cuantos button {
 		width: 36px;
 		height: 36px;
 		border-radius: 12px;
-		background: linear-gradient(180deg, #f8f6ff 0%, #ede8ff 100%);
+		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
 		font-size: 20px;
 		font-weight: 700;
-		color: #24212d;
+		color: var(--carbon);
 	}
 	.cuantos b {
 		min-width: 28px;
@@ -667,13 +720,13 @@
 		font:
 			800 28px/1 'Geist',
 			sans-serif;
-		color: #24212d;
+		color: var(--carbon);
 	}
 	.mensaje {
 		height: 44px;
 		border-radius: 15px;
 		border: 0;
-		background: #f6f4f0;
+		background: var(--c-input-2);
 		padding: 0 14px;
 		font-size: 15px;
 	}
@@ -700,13 +753,13 @@
 		font-weight: 800;
 	}
 	.esperando {
-		color: #5b43c9;
-		background: #ede8ff;
+		color: var(--c-esperando-texto);
+		background: var(--c-esperando);
 		box-shadow: inset 0 2px 4px rgba(116, 86, 241, 0.18);
 	}
 	.adentro {
 		color: #ffffff;
-		background: #24212d;
+		background: var(--c-adentro);
 	}
 	.cancelar {
 		align-items: center;
@@ -714,7 +767,35 @@
 	.cancelar button {
 		font-size: 14px;
 		font-weight: 700;
-		color: #5b43c9;
+		color: var(--violeta-texto);
+	}
+	.acciones {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 14px;
+		padding-top: 4px;
+	}
+	.fila-acc {
+		display: flex;
+		gap: 8px;
+		align-items: center;
+		color: var(--texto-2);
+	}
+	.acciones a,
+	.acciones button {
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--violeta-texto);
+		text-decoration: none;
+	}
+	.paso-algo {
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--texto-2);
+	}
+	.acciones .paso-algo button {
+		font-size: 13px;
 	}
 	.error {
 		padding: 10px 12px;
