@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -117,8 +118,11 @@ fun Perfil(ir: Ir) {
     val c = LocalApp.current
     val p = LocalPaleta.current
     val alcance = rememberCoroutineScope()
+    val avisos = LocalAvisos.current
     val yo by c.yo.collectAsState()
     var opciones by remember { mutableStateOf(false) }
+    var borrando by remember { mutableStateOf(false) }
+    var borrandoAhora by remember { mutableStateOf(false) }
     var intento by remember { mutableStateOf(0) }
     var fallo by remember { mutableStateOf(false) }
     LaunchedEffect(intento) { fallo = c.recargarYo() == null }
@@ -274,6 +278,14 @@ fun Perfil(ir: Ir) {
                     }
                     Icono(I.adelante, 20.dp, p.texto, 2.2f)
                 }
+
+                // Al final, la acción destructiva (con el texto de peligro de «Cancelar el plan»).
+                T(
+                    "Borrar mi cuenta", 15f, 700, C.coral2,
+                    Modifier.align(Alignment.CenterHorizontally).tocable { borrando = true }.padding(horizontal = 18.dp, vertical = 16.dp),
+                )
+                // Que no quede tapado por el botón de Crear de la barra.
+                Spacer(Modifier.height(28.dp))
             }
         }
         BotonIcono(
@@ -292,6 +304,37 @@ fun Perfil(ir: Ir) {
                 MiosFila(I.flecha, "Salir", colorIcono = C.coral2, ultima = true) {
                     opciones = false
                     alcance.launch { c.salir(); ir.intro() }
+                }
+            }
+        }
+        MiosHoja(borrando, { if (!borrandoAhora) borrando = false }, "¿Borrar tu cuenta?") {
+            T(
+                "Se borran tu perfil, tus fotos, tu selfie, tu DNI y tu teléfono, y se cancelan tus planes que no pasaron. Si tenés Caigo Plus, cancelalo en Google Play.",
+                15f, 400, p.texto2, alto = 1.5f,
+            )
+            // Las filas de la hoja de opciones: la destructiva en coral.
+            MiosGrupo {
+                Box(
+                    Modifier.fillMaxWidth().tocable {
+                        if (borrandoAhora) return@tocable
+                        borrandoAhora = true
+                        alcance.launch {
+                            try {
+                                c.borrarCuenta()
+                                borrando = false
+                                ir.intro()
+                            } catch (e: Throwable) {
+                                if (e is kotlinx.coroutines.CancellationException) throw e
+                                avisos.error(mensajeDe(e))
+                            } finally {
+                                borrandoAhora = false
+                            }
+                        }
+                    }.padding(horizontal = 18.dp, vertical = 16.dp),
+                ) { if (borrandoAhora) Puntitos(C.coral2) else T("Borrar mi cuenta", 15f, 700, C.coral2) }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(if (p.oscuro) p.separador else C.lavanda))
+                Box(Modifier.fillMaxWidth().tocable { if (!borrandoAhora) borrando = false }.padding(horizontal = 18.dp, vertical = 16.dp)) {
+                    T("Cancelar", 15f, 700)
                 }
             }
         }
