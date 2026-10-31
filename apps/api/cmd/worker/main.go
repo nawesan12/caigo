@@ -86,25 +86,25 @@ func correr() error {
 func limpiar(ctx context.Context, app *db.Pool) {
 	t := time.NewTicker(time.Hour)
 	defer t.Stop()
+	consultas := []string{
+		`DELETE FROM intentos WHERE desde < now() - interval '2 days'`,
+		`DELETE FROM sesiones WHERE vence_en < now()`,
+		`DELETE FROM mp_estados WHERE vence_en < now() - interval '1 day'`,
+		`DELETE FROM telefono_codigos WHERE vence_en < now() - interval '1 day'`,
+		`DELETE FROM outbox WHERE publicado_en < now() - interval '30 days'`,
+		// Política de privacidad: reportes cerrados, 2 años.
+		`DELETE FROM reportes WHERE estado <> 'abierto' AND creado_en < now() - interval '2 years'`,
+	}
 	for {
-		err := app.EnSistema(ctx, func(tx pgx.Tx) error {
-			for _, q := range []string{
-				`DELETE FROM intentos WHERE desde < now() - interval '2 days'`,
-				`DELETE FROM sesiones WHERE vence_en < now()`,
-				`DELETE FROM mp_estados WHERE vence_en < now() - interval '1 day'`,
-				`DELETE FROM telefono_codigos WHERE vence_en < now() - interval '1 day'`,
-				`DELETE FROM outbox WHERE publicado_en < now() - interval '30 days'`,
-				// Política de privacidad: reportes cerrados, 2 años.
-				`DELETE FROM reportes WHERE estado <> 'abierto' AND creado_en < now() - interval '2 years'`,
-			} {
-				if _, err := tx.Exec(ctx, q); err != nil {
-					return err
-				}
+		// Cada una por separado: si una falla, las demás se hacen igual.
+		for _, q := range consultas {
+			err := app.EnSistema(ctx, func(tx pgx.Tx) error {
+				_, err := tx.Exec(ctx, q)
+				return err
+			})
+			if err != nil && ctx.Err() == nil {
+				slog.Warn("limpieza fallida", "consulta", q, "error", err)
 			}
-			return nil
-		})
-		if err != nil && ctx.Err() == nil {
-			slog.Warn("limpieza fallida", "error", err)
 		}
 		select {
 		case <-ctx.Done():
