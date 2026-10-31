@@ -15,7 +15,7 @@ Hecho (etapas 1 y 2 de la API):
 - Prueba de punta a punta del ciclo del plan (`internal/plataforma/servidor/flujo_test.go`).
 
 ## Lo que sigue
-3. Chat por WebSocket, push (APNs + FCM) con outbox y worker.
+3. ~~Chat por WebSocket, push (APNs + FCM) con outbox y worker.~~ Hecho: `/v1/planes/{id}/mensajes`, `/v1/privados`, `/v1/tiempo-real` (WebSocket, LISTEN/NOTIFY `caigo_tiempo_real`), `/v1/dispositivos`, `cmd/worker`.
 4. Check-in (geo/QR/NFC firmado), ¿Repetimos?, verificación (selfie, DNI) y subida de fotos.
 5. Modos Gente/Citas y Caigo Plus.
 6. Lugares, entradas/señas con Mercado Pago, Caigo Tap y Wallet.

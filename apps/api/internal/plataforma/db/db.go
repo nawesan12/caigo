@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -79,4 +80,40 @@ func (p *Pool) enTx(ctx context.Context, fn func(pgx.Tx) error) (err error) {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// Escuchar hace LISTEN en canal y llama a fn con cada aviso hasta que se cancela el contexto. Si se
+// corta la conexión, vuelve a conectar (con una pausa) sin perder la suscripción.
+func (p *Pool) Escuchar(ctx context.Context, canal string, fn func(payload string)) {
+	for ctx.Err() == nil {
+		err := p.escuchar(ctx, canal, fn)
+		if ctx.Err() != nil {
+			return
+		}
+		_ = err
+		select {
+		case <-ctx.Done():
+		case <-time.After(2 * time.Second):
+		}
+	}
+}
+
+func (p *Pool) escuchar(ctx context.Context, canal string, fn func(payload string)) error {
+	c, err := p.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer c.Release()
+	if _, err := c.Exec(ctx, "LISTEN "+pgx.Identifier{canal}.Sanitize()); err != nil {
+		return err
+	}
+	for {
+		n, err := c.Conn().WaitForNotification(ctx)
+		if err != nil {
+			// La conexión quedó en un estado desconocido: que el pool no la reuse.
+			c.Conn().Close(context.WithoutCancel(ctx))
+			return err
+		}
+		fn(n.Payload)
+	}
 }

@@ -27,6 +27,7 @@ type Verificador interface {
 type Persona struct {
 	ID     string // usuarios.id
 	Clerk  string // user_…
+	Nombre string
 	Equipo bool
 }
 
@@ -76,7 +77,7 @@ func (s *Resolvedor) Resolver(ctx context.Context, token string) (Persona, error
 	}
 	p := Persona{Clerk: sujeto}
 	err = s.App.EnTx(ctx, func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `SELECT id, equipo FROM usuarios WHERE clerk_id = $1 AND baja_en IS NULL`, sujeto).Scan(&p.ID, &p.Equipo)
+		err := tx.QueryRow(ctx, `SELECT id, nombre, equipo FROM usuarios WHERE clerk_id = $1 AND baja_en IS NULL`, sujeto).Scan(&p.ID, &p.Nombre, &p.Equipo)
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
@@ -95,7 +96,7 @@ func (s *Resolvedor) Resolver(ctx context.Context, token string) (Persona, error
 		return tx.QueryRow(ctx, `
 			INSERT INTO usuarios (clerk_id, nombre, fotos) VALUES ($1, $2, coalesce($3, '{}'::text[]))
 			ON CONFLICT (clerk_id) DO UPDATE SET actualizado_en = usuarios.actualizado_en
-			RETURNING id, equipo`, sujeto, nombre, fotos).Scan(&p.ID, &p.Equipo)
+			RETURNING id, nombre, equipo`, sujeto, nombre, fotos).Scan(&p.ID, &p.Nombre, &p.Equipo)
 	})
 	if err != nil {
 		return Persona{}, err

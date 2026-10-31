@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/avisos"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/chat"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/personas"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
@@ -24,6 +26,10 @@ type Dependencias struct {
 	Version string
 	// Reloj (tests). nil: time.Now.
 	Reloj func() time.Time
+	// Hub del tiempo real (main lo arranca con Escuchar). nil: uno sin escuchar (tests).
+	Hub *chat.Hub
+	// Orígenes web que pueden abrir el WebSocket.
+	Origenes []string
 }
 
 // Nuevo arma el handler con todas las rutas.
@@ -58,8 +64,13 @@ func Nuevo(d Dependencias) http.Handler {
 	})
 	if d.App != nil {
 		ses := &sesion.Resolvedor{Clerk: d.Clerk, App: d.App, Log: d.Log}
-		planes.Rutas(mux, &planes.Servicio{App: d.App, Reloj: d.Reloj}, ses.Exigir, nil, d.Log)
+		planes.Rutas(mux, &planes.Servicio{App: d.App, Reloj: d.Reloj}, ses.Exigir, d.Log)
 		personas.Rutas(mux, &personas.Servicio{App: d.App}, ses.Exigir, d.Log)
+		avisos.Rutas(mux, d.App, ses.Exigir, d.Log)
+		if d.Hub == nil {
+			d.Hub = &chat.Hub{Servicio: &chat.Servicio{App: d.App, Reloj: d.Reloj}, Log: d.Log}
+		}
+		chat.Rutas(mux, d.Hub.Servicio, d.Hub, ses, d.Origenes, d.Log)
 	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		problema.Escribir(w, problema.NoEncontrado("Esa ruta no existe."))

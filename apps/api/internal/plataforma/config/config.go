@@ -20,6 +20,10 @@ type Config struct {
 	// pedir tokens (`azp`). Sin clave secreta, apagado.
 	ClerkSecreto, ClerkPublicable string
 	ClerkOrigenes                 []string
+	// Push: APNs (clave .p8 compartida de Vimo, topic de la app) y FCM (cuenta de servicio de
+	// Firebase). Sin configurar, esa plataforma queda apagada.
+	APNsKeyID, APNsTeamID, APNsClave, APNsTopic string
+	FCMCuenta                                   string
 	// Carpeta de archivos subidos (fotos de perfil y de planes, DNI). En el VPS: /opt/caigo/archivos.
 	Archivos string
 }
@@ -40,6 +44,11 @@ func Leer() (Config, error) {
 		ClerkPublicable: os.Getenv("CAIGO_CLERK_PUBLICABLE"),
 		ClerkOrigenes:   lista(valor("CAIGO_CLERK_ORIGENES", "https://caigo.com.ar,https://lugares.caigo.com.ar")),
 		Archivos:        valor("CAIGO_ARCHIVOS", "/app/archivos"),
+		APNsKeyID:       os.Getenv("CAIGO_APNS_KEY_ID"),
+		APNsTeamID:      os.Getenv("CAIGO_APNS_TEAM_ID"),
+		APNsClave:       os.Getenv("CAIGO_APNS_CLAVE"),
+		APNsTopic:       valor("CAIGO_APNS_TOPIC", "ar.com.caigo.app"),
+		FCMCuenta:       os.Getenv("CAIGO_FCM_CUENTA"),
 	}
 	switch c.Entorno {
 	case "desarrollo", "staging", "produccion":
@@ -76,6 +85,15 @@ func (c Config) Exigir(campos ...string) error {
 		return fmt.Errorf("falta configurar: %s", strings.Join(faltan, ", "))
 	}
 	return nil
+}
+
+// Hosts devuelve los hosts de los orígenes (para los patrones del WebSocket).
+func (c Config) Hosts() []string {
+	var out []string
+	for _, o := range c.ClerkOrigenes {
+		out = append(out, strings.TrimPrefix(strings.TrimPrefix(o, "https://"), "http://"))
+	}
+	return out
 }
 
 func lista(v string) []string {

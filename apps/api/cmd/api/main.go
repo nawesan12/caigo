@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/chat"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
@@ -48,7 +49,9 @@ func correr() error {
 	}
 	defer app.Close()
 
-	deps := servidor.Dependencias{App: app, Version: version}
+	hub := &chat.Hub{Servicio: &chat.Servicio{App: app}}
+	go hub.Escuchar(ctx)
+	deps := servidor.Dependencias{App: app, Version: version, Hub: hub, Origenes: cfg.Hosts()}
 	if cfg.ClerkSecreto != "" {
 		c, err := clerk.Nuevo(cfg.ClerkSecreto, cfg.ClerkPublicable, cfg.ClerkOrigenes)
 		if err != nil {
@@ -63,8 +66,9 @@ func correr() error {
 		Handler:           servidor.Nuevo(deps),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       90 * time.Second,
+		// Sin WriteTimeout: cortaría los WebSocket del tiempo real. Cada escritura tiene su propio
+		// tope en el hub y los handlers comunes responden rápido.
+		IdleTimeout: 90 * time.Second,
 	}
 	errs := make(chan error, 1)
 	go func() {

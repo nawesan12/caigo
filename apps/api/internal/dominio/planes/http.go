@@ -11,14 +11,8 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sesion"
 )
 
-// Avisos es lo que el dominio de planes le pide a los avisos (push): quién se sumó, a quién aceptaron.
-type Avisos interface {
-	NuevaSolicitud(r *http.Request, planID, deUsuario string)
-	Aceptada(r *http.Request, planID, usuarioID string)
-}
-
 // Rutas registra los handlers. Las rutas con sesión pasan por con (sesion.Exigir).
-func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler, avisos Avisos, log *slog.Logger) {
+func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler, log *slog.Logger) {
 	h := func(f func(http.ResponseWriter, *http.Request, sesion.Persona)) http.Handler {
 		return con(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			p, _ := sesion.De(r.Context())
@@ -105,9 +99,6 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 			mal(w, err)
 			return
 		}
-		if avisos != nil && estado == "pendiente" {
-			avisos.NuevaSolicitud(r, r.PathValue("id"), p.ID)
-		}
 		respuesta.JSON(w, http.StatusOK, map[string]string{"estado": estado})
 	}))
 	mux.Handle("DELETE /v1/planes/{id}/sumarme", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
@@ -131,13 +122,9 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 			problema.Escribir(w, problema.NoEncontrado("Esa ruta no existe."))
 			return
 		}
-		persona, err := s.Responder(r.Context(), p.ID, r.PathValue("id"), accion == "aceptar")
-		if err != nil {
+		if _, err := s.Responder(r.Context(), p.ID, r.PathValue("id"), accion == "aceptar"); err != nil {
 			mal(w, err)
 			return
-		}
-		if avisos != nil && accion == "aceptar" {
-			avisos.Aceptada(r, "", persona)
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}))

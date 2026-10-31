@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
 
@@ -102,13 +103,18 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 			}
 			estado = "aceptada"
 		}
-		_, err = tx.Exec(ctx, `
+		if _, err = tx.Exec(ctx, `
 			INSERT INTO solicitudes (plan_id, usuario_id, cantidad, mensaje, estado, respondida_en)
 			VALUES ($1, $2, $3, $4, $5, CASE WHEN $5 = 'aceptada' THEN now() END)
 			ON CONFLICT (plan_id, usuario_id) DO UPDATE SET cantidad = excluded.cantidad,
 				mensaje = excluded.mensaje, estado = excluded.estado, respondida_en = excluded.respondida_en,
-				creada_en = now()`, planID, usuarioID, cantidad, mensaje, estado)
-		return err
+				creada_en = now()`, planID, usuarioID, cantidad, mensaje, estado); err != nil {
+			return err
+		}
+		if estado == "aceptada" {
+			return completo(ctx, tx, planID)
+		}
+		return outbox.Publicar(ctx, tx, "solicitud.nueva", map[string]string{"planId": planID, "usuarioId": usuarioID})
 	})
 	return estado, err
 }
@@ -203,8 +209,27 @@ func (s *Servicio) Responder(ctx context.Context, usuarioID, solicitudID string,
 			}
 			nuevo = "aceptada"
 		}
-		_, err = tx.Exec(ctx, `UPDATE solicitudes SET estado = $2, respondida_en = now() WHERE id = $1`, solicitudID, nuevo)
-		return err
+		if _, err = tx.Exec(ctx, `UPDATE solicitudes SET estado = $2, respondida_en = now() WHERE id = $1`, solicitudID, nuevo); err != nil {
+			return err
+		}
+		if !aceptar {
+			return nil
+		}
+		if err := outbox.Publicar(ctx, tx, "solicitud.aceptada", map[string]string{"planId": planID, "usuarioId": persona}); err != nil {
+			return err
+		}
+		return completo(ctx, tx, planID)
 	})
 	return persona, err
+}
+
+// completo deja el mensaje de sistema en el chat cuando el plan se llena.
+func completo(ctx context.Context, tx pgx.Tx, planID string) error {
+	var lleno bool
+	if err := tx.QueryRow(ctx, `SELECT p.total <= (SELECT coalesce(sum(cantidad), 0) FROM solicitudes
+		WHERE plan_id = p.id AND estado = 'aceptada') FROM planes p WHERE p.id = $1`, planID).Scan(&lleno); err != nil || !lleno {
+		return err
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO mensajes (plan_id, texto) VALUES ($1, 'Plan completo. A disfrutar.')`, planID)
+	return err
 }
