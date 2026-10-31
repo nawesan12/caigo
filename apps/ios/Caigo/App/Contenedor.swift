@@ -17,6 +17,14 @@ enum Config {
         return URL(string: s.isEmpty ? "https://api.caigo.com.ar" : s) ?? URL(string: "https://api.caigo.com.ar")!
     }
     static var clerkPublicable: String { (Bundle.main.object(forInfoDictionaryKey: "CaigoClerkPublicable") as? String) ?? "" }
+    /// Corre como App Clip (Caigo Tap).
+    static var esClip: Bool { Bundle.main.bundleIdentifier?.hasSuffix(".Clip") ?? false }
+    /// Grupo de llavero compartido con el App Clip (`$(AppIdentifierPrefix)ar.com.caigo.app`).
+    static var grupoLlavero: String? {
+        let s = (Bundle.main.object(forInfoDictionaryKey: "CaigoGrupoLlavero") as? String) ?? ""
+        // Sin firma, AppIdentifierPrefix queda vacío: no hay grupo.
+        return s.contains(".") && !s.hasPrefix(".") && s.split(separator: ".").first?.count == 10 ? s : nil
+    }
 }
 
 /// Todo lo que comparten las pantallas: API, sesión, tiempo real, ubicación y destinos pendientes
@@ -61,6 +69,12 @@ final class Contenedor {
     init() {
         let caja = CajaToken()
         self.caja = caja
+        Llavero.grupo = Config.grupoLlavero
+        // Si se entró desde el App Clip, la sesión quedó en el App Group: pasa al llavero.
+        if !Config.esClip, Llavero.leer("token") == nil, let s = Traspaso.tomar() {
+            Llavero.guardar(s.token, cuenta: "token")
+            Llavero.guardar(s.usuarioId, cuenta: "usuario")
+        }
         let t = Llavero.leer("token")
         caja.valor = t
         token = t
@@ -111,6 +125,7 @@ final class Contenedor {
         tiempoReal.apagar()
         Llavero.borrar("token")
         Llavero.borrar("usuario")
+        Traspaso.borrar()
         caja.valor = nil
         token = nil
         usuarioId = ""

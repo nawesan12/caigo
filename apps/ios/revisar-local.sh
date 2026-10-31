@@ -9,3 +9,7 @@ MOD=$(cd Nucleo && swift build --show-bin-path)/Modules
 ARCH=$(uname -m)
 find Caigo -name '*.swift' -print0 | xargs -0 swiftc -typecheck -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
   -target "$ARCH-apple-macos14" -swift-version 5 -I "$MOD" -D REVISION_LOCAL "$@"
+# El App Clip: sus archivos y los compartidos con la app (los mismos que project.yml).
+swiftc -typecheck -sdk "$(xcrun --show-sdk-path --sdk macosx)" -target "$ARCH-apple-macos14" -swift-version 5 -I "$MOD" -D REVISION_LOCAL \
+  $(find CaigoClip Caigo/Tema Caigo/Piezas -name '*.swift') Caigo/App/Contenedor.swift Caigo/App/Ir.swift Caigo/App/Push.swift \
+  Caigo/Pantallas/Pagos/PagosComun.swift Caigo/Pantallas/Pagos/Adentro.swift Caigo/Pantallas/Ingreso/IngresoClerk.swift "$@"

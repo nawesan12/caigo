@@ -92,3 +92,27 @@ Mis planes, solicitudes, chat y privados en tiempo real, perfil (con «Borrar mi
 ¿Repetimos?, QR, Plus con StoreKit 2, entradas/pases con Apple Wallet, Caigo Tap con Core NFC y push
 APNs. Falta: App Clip, productos de StoreKit en App Store Connect, Pass Type ID, y todo lo visual
 sin verificar en un iPhone (nunca se corrió en simulador).
+
+## App Clip de Caigo Tap (rama `ios-clip`, 31/10)
+Target `CaigoClip` (`apps/ios/CaigoClip`, bundle `ar.com.caigo.app.Clip`, embebido en la app). Se abre
+con `https://caigo.com.ar/t/<placa>` (NFC o QR; `picc_data`/`cmac` de NTAG 424 se mandan tal cual):
+ingreso con Apple/Google por Clerk si no hay sesión → `POST /v1/sesion?cliente=ios` → `POST /v1/tap` →
+«Adentro» (la misma vista de la app, `Pantallas/Pagos/Adentro.swift`). Si la API dice que no (placa
+inactiva, sin plan, falta verificarse), muestra el `detail` tal cual y un `SKOverlay` para bajar la app.
+Comparte con la app Tema, Piezas, Contenedor, Ir, Push, el ingreso con Clerk (`IngresoClerk.swift`) y
+Nucleo (lista en `project.yml`). Sesión compartida: llavero del grupo `<Team>.ar.com.caigo.app` y,
+además, el App Group `group.ar.com.caigo.app` (el Clip deja la sesión ahí; la app la pasa a su llavero
+al abrir y la borra), que es el camino que Apple documenta para Clip → app.
+
+Lo que hay que crear en el portal de Apple (Team M6935MSNQB) y App Store Connect:
+- App Group `group.ar.com.caigo.app`, habilitado en los dos App IDs.
+- App ID `ar.com.caigo.app.Clip` (explícito) con: App Groups, Associated Domains, Sign in with Apple
+  (agrupado con el primary `ar.com.caigo.app`). La app `ar.com.caigo.app` suma App Groups (ya tiene
+  Associated Domains, Push, NFC Tag Reading y Sign in with Apple).
+- Associated Domains: `appclips:caigo.com.ar` en los dos (la app también lleva `applinks:caigo.com.ar`).
+  El `apple-app-site-association` ya lista `M6935MSNQB.ar.com.caigo.app.Clip` en `appclips`.
+- Perfiles de desarrollo/distribución para los dos bundles (con el App Group).
+- En App Store Connect, al subir la primera versión: la experiencia por defecto del App Clip y una
+  experiencia avanzada para el prefijo `https://caigo.com.ar/t/` (título, subtítulo, foto 3000×2000,
+  acción «Abrir»). Clerk: la conexión de Apple tiene que aceptar también `ar.com.caigo.app.Clip` para
+  el Sign in with Apple nativo (si no, cae al ingreso web).
