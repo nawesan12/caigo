@@ -387,6 +387,8 @@ private struct ContenidoDetalle: View {
                 if deLugar {
                     Cta(texto: "Apoyar el celu en la placa", alto: 56, icono: I.nfc, iconoTrazo: 2.6, iconoTam: 20) { ir.tap(plan: p.id) }
                     Cta(texto: "Mostrar QR de entrada", gel: Gels.blanco, alto: 52, tam: 16, icono: I.qr, iconoTrazo: 2.2, iconoTam: 20) {
+                        // Plan gratis de un lugar: no hay entrada; el QR personal sale de /v1/planes/{id}/qr.
+                        if !p.conEntrada { ir.qrOrganizador(p.id); return }
                         Task {
                             do {
                                 if let e = try await c.api.pases().entradas.first(where: { $0.planId == p.id }) {

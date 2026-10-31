@@ -119,9 +119,9 @@ func planesCantidadInicial(_ somos: Int, _ p: Plan) -> Int {
 /// Política de cancelación de una entrada (contrato §2), dicha para quien compró.
 func planesPolitica(_ cancelacion: String) -> String {
     switch cancelacion {
-    case "mod": return "Hasta 72 h antes te devolvemos la entrada. Después, la seña queda para el lugar. El cargo por servicio no se devuelve."
+    case "mod": return "Hasta 72 h antes te devolvemos la entrada. Después podés cancelar igual para liberar el lugar, pero sin reembolso. El cargo por servicio no se devuelve."
     case "strict": return "El lugar no devuelve entradas de este plan. Si el plan se cancela, te devolvemos todo."
-    default: return "Hasta 24 h antes te devolvemos la entrada. El cargo por servicio no se devuelve."
+    default: return "Hasta 24 h antes te devolvemos la entrada. Después podés cancelar igual para liberar el lugar, pero sin reembolso. El cargo por servicio no se devuelve."
     }
 }
 

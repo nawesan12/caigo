@@ -104,6 +104,8 @@ struct CaigoRaiz: View {
             case "detalle": if let plan { ir.plan(plan) }
             case "checkin": if let plan { ir.checkin(plan) }
             case "repetimos": if let plan { ir.repetimos(plan) }
+            // solicitud.rechazada / solicitud.sacada: de vuelta a Ahora a buscar otro plan.
+            case "ahora": ir.principal(.ahora)
             case "recibidos": ir.recibidos(modo: modo ?? "gente", pestana: 0)
             case "invitaciones": ir.recibidos(modo: "gente", pestana: 1)
             case "pases": ir.pases()

@@ -306,7 +306,8 @@ private let gelQr = Gel(fondo: .liso(C.blanco), sombras: [
     interna(0, 0, C.lima, spread: -3), externa(5, 0, C.limaBase), externa(30, 50, rgba(80, 60, 160, 0.45), spread: -24),
 ])
 
-/// QR del check-in que muestra quien organiza (GET /v1/planes/{id}/qr).
+/// QR del check-in (GET /v1/planes/{id}/qr): el del plan si organizo; si estoy aceptada, mi código
+/// personal, que el lugar escanea en la puerta.
 struct QrOrganizador: View {
     var planId: String
     @Environment(Contenedor.self) private var c
@@ -347,7 +348,8 @@ struct QrOrganizador: View {
                 .gel(30, gelQr)
                 .padding(.horizontal, 28)
                 .padding(.top, 10)
-                T("Mostralo cuando llegue la gente: lo escanean y cuenta su asistencia.", 14, 600, p.texto2, alto: 1.5, alinear: .center)
+                T(plan.map { !$0.esMio } == true ? "Mostralo en la puerta: lo escanean y queda tu check-in."
+                    : "Mostralo cuando llegue la gente: lo escanean y cuenta su asistencia.", 14, 600, p.texto2, alto: 1.5, alinear: .center)
                 Spacer()
                 T("Subí el brillo si está oscuro.", 13, 700, p.oscuro ? C.lima : C.violetaTexto)
                     .padding(.horizontal, 14).padding(.vertical, 10)
