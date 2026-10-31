@@ -85,7 +85,12 @@
 		})
 	);
 	const pct = (n: number) => `${Math.round(n * 100)}%`;
-	const horas = (n: number) => (n ? `${n.toFixed(1).replace('.', ',')} h` : '—');
+	const horas = (n: number) =>
+		!n
+			? '—'
+			: n < 1
+				? `${Math.max(1, Math.round(n * 60))} min`
+				: `${n.toFixed(1).replace('.', ',')} h`;
 	const kpis = $derived.by(() => {
 		const u = sem[sem.length - 1];
 		const a = sem[sem.length - 2];
@@ -105,7 +110,8 @@
 			{
 				l: 'Hasta completarse',
 				v: horas(u.horasHastaCompletar),
-				d: dif(u.horasHastaCompletar, a?.horasHastaCompletar, horas, true)
+				// Sin datos la API manda null (acá 0): no se compara contra eso.
+				d: dif(u.horasHastaCompletar, a?.horasHastaCompletar || undefined, horas, true)
 			},
 			{
 				l: 'Repiten a 30 días',
@@ -264,7 +270,7 @@
 									<div>
 										<span class="t">{pegar(u.nombre || 'Sin nombre')}</span>
 										<span class="s"
-											>{[u.ciudad, u.creado && `alta ${dia(u.creado)}`]
+											>{[u.ciudad, u.creado && `alta\u00a0${dia(u.creado)}`]
 												.filter(Boolean)
 												.join(' · ')}</span
 										>

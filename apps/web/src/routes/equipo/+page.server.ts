@@ -69,12 +69,14 @@ function normalizar(r: unknown): SemanaMetricas[] {
 			horasHastaCompletar: num(
 				s.horasHastaCompletar ?? s.horasCompletar ?? s.horasPromedio ?? s.horas
 			),
-			repeticion30: prop(s.repeticion30 ?? s.repeticion ?? s.repiten),
-			organizadores: num(s.organizadores ?? s.organizadoresActivos),
+			repeticion30: prop(s.repeticion30d ?? s.repeticion30 ?? s.repeticion),
+			organizadores: num(s.organizadoresActivos ?? s.organizadores),
+			// `altas` es el total; el desglose viene en `altasPorOrigen`.
 			altas: Object.fromEntries(
-				Object.entries((s.altas ?? s.altasPorOrigen ?? {}) as Record<string, unknown>).map(
-					([k, v]) => [k, num(v)]
-				)
+				Object.entries((s.altasPorOrigen ?? {}) as Record<string, unknown>).map(([k, v]) => [
+					k,
+					num(v)
+				])
 			)
 		}))
 		.sort((a, b) => a.semana.localeCompare(b.semana))
