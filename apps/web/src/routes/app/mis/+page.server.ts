@@ -23,7 +23,8 @@ export const load: PageServerLoad = async (event) => {
 		cual,
 		cuentas: { organizo: organizo.length, me_sume: meSume.length },
 		planes: cual === 'organizo' ? organizo : cual === 'me_sume' ? meSume : historial,
-		cancelado: event.url.searchParams.get('cancelado') === '1'
+		cancelado: event.url.searchParams.get('cancelado') === '1',
+		salio: event.url.searchParams.get('salio') === '1'
 	};
 };
 

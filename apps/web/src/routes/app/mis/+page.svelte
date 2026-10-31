@@ -22,6 +22,7 @@
 	const otrosDe = (p: Plan) => p.van.filter((v) => !v.organizador).length;
 	onMount(() => {
 		if (data.cancelado) avisar('Cancelaste el plan. Ya les avisamos.');
+		else if (data.salio) avisar('Saliste del plan.');
 	});
 
 	const grupos = $derived(agrupar(data.planes, data.cual === 'historial'));
