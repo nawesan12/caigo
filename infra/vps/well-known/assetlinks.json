@@ -1,10 +1,15 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "ar.com.caigo.app",
-      "sha256_cert_fingerprints": []
+      "sha256_cert_fingerprints": [
+        "57:21:D7:CC:7C:5A:FF:51:96:E3:B8:5E:18:F0:A6:DA:8E:EB:FF:1A:18:F6:DD:5C:BD:F8:0B:D6:D9:73:33:16",
+        "A2:25:D9:45:8C:49:B8:2C:2A:19:75:34:81:38:75:80:17:23:BA:23:08:06:8E:79:E4:77:99:47:B1:D9:E7:4F"
+      ]
     }
   }
 ]

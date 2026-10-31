@@ -545,6 +545,20 @@
 		border-radius: 14px;
 		font-size: 17px;
 	}
+	/* En el celular la tarjeta queda más angosta que en el handoff: se achica el aire para que el
+	   título entre entero. */
+	@media (max-width: 480px) {
+		.mini {
+			left: 14px;
+			right: 14px;
+			gap: 8px;
+			padding: 10px 10px 10px 14px;
+		}
+		.mini-badge {
+			padding: 7px 10px;
+			font-size: 14px;
+		}
+	}
 	.paso-a .paso-txt {
 		margin-top: auto;
 		padding-top: 24px;

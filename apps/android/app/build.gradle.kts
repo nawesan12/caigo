@@ -36,12 +36,26 @@ android {
         buildConfigField("String", "FIREBASE_REMITENTE", cadena(local("caigo.firebase.remitente")))
     }
 
+    // Firma de release: la llave de subida vive fuera del repo (~/Trabajo/vimo/credenciales-android).
+    // Sin esos datos en local.properties, el release sale sin firmar.
+    signingConfigs {
+        if (local("caigo.firma.archivo").isNotEmpty()) {
+            create("subida") {
+                storeFile = file(local("caigo.firma.archivo"))
+                storePassword = local("caigo.firma.clave")
+                keyAlias = local("caigo.firma.alias", "caigo")
+                keyPassword = local("caigo.firma.clave")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             buildConfigField("String", "API", cadena(local("caigo.api.debug", "http://10.0.2.2:4300")))
         }
         release {
             buildConfigField("String", "API", cadena(local("caigo.api.release", "https://api.caigo.com.ar")))
+            signingConfigs.findByName("subida")?.let { signingConfig = it }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -55,6 +69,16 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    // APKs por arquitectura para probar en un teléfono sin bajar 110 MB (Play usa el App Bundle,
+    // que ya separa solo).
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "x86_64")
+            isUniversalApk = false
+        }
     }
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"

@@ -18,7 +18,11 @@ api.caigo.com.ar {
 caigo.com.ar, www.caigo.com.ar, lugares.caigo.com.ar {
 	tls /etc/caddy/certs/caigo.pem /etc/caddy/certs/caigo.key
 	import solo_cloudflare
-	@www host www.caigo.com.ar
+	# www redirige, salvo /.well-known: Android no sigue redirecciones al verificar App Links.
+	@www {
+		host www.caigo.com.ar
+		not path /.well-known/*
+	}
 	redir @www https://caigo.com.ar{uri} permanent
 	encode zstd gzip
 	# Enlaces universales (iOS) y App Links (Android): /p/* y /t/* abren la app si está instalada.

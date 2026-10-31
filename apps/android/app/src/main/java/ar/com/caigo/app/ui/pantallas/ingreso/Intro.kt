@@ -168,23 +168,24 @@ private fun slidePlanes(saltar: () -> Unit, avanzar: () -> Unit) {
                 Row(
                     Modifier.padding(horizontal = 20.dp).fillMaxWidth()
                         .gel(24.dp, Gel(vertical(rgba(255, 255, 255, .97f), rgba(246, 243, 255, .94f)), listOf(interna(1.5f, 0f, C.blanco), externa(22f, 40f, rgba(0, 0, 0, .6f), spread = -14f))))
-                        .padding(start = 20.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
+                        .padding(start = 16.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Row {
+                    // Avatares encimados (9 dp): el grupo mide lo que se ve, así el texto tiene todo el resto.
+                    Box(Modifier.width(30.dp + 21.dp * 2)) {
                         listOf("N" to (C.violeta to C.blanco), "L" to (C.coral to C.carbon), "C" to (C.lima to C.carbon)).forEachIndexed { i, (l, col) ->
-                            Avatar(l, null, 32.dp, Modifier.offset(x = (-9 * i).dp), borde = 2.5.dp, colorBorde = C.blanco, fondo = col, tamTexto = 12f)
+                            Avatar(l, null, 30.dp, Modifier.offset(x = (21 * i).dp), borde = 2.5.dp, colorBorde = C.blanco, fondo = col, tamTexto = 12f)
                         }
                     }
-                    Column(Modifier.weight(1f).offset(x = (-18).dp)) {
-                        T("Previa en La Perla", 14f, 800, C.carbon, unRenglon = true)
+                    Column(Modifier.weight(1f)) {
+                        T("Previa en La Perla", 13f, 800, C.carbon, unRenglon = true)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Box(Modifier.size(7.dp).background(C.coral, CircleShape))
                             T("Ahora · 900 m", 12f, 600, C.texto2, unRenglon = true)
                         }
                     }
-                    BadgeFalta(1, tam = 17f)
+                    BadgeFalta(1, tam = 15f)
                 }
                 Spacer(Modifier.height(e.y(64f)))
                 Column(Modifier.padding(horizontal = 26.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
