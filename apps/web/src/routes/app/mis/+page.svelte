@@ -1,12 +1,28 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { PUBLIC_SITIO } from '$app/env/public';
+	import Confirmar from '#lib/app-ui/Confirmar.svelte';
+	import Reportar from '#lib/app-ui/Reportar.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { agrupar, badgeMio, TINTES } from '#lib/app.ts';
 	import { partes, cuandoCorto } from '#lib/fechas.ts';
 	import type { Plan } from '#lib/tipos.ts';
 
-	/* Mis planes (Mockups v5, 10); vacío, 13b "Todavía no te sumaste a nada". */
+	/*
+	 * Mis planes (Mockups v5, 10); vacío, 13b "Todavía no te sumaste a nada". En los que organizo:
+	 * compartir, editar y cancelar; en el historial, ¿Repetimos? (09b) y Reportar.
+	 */
 	let { data } = $props();
+
+	let aCancelar = $state<Plan | null>(null);
+	let cancelarAbierta = $state(false);
+	let aReportar = $state('');
+	let reportarAbierta = $state(false);
+	const yaEmpezo = (p: Plan) => new Date(p.empiezaEn).getTime() <= Date.now();
+	const otrosDe = (p: Plan) => p.van.filter((v) => !v.organizador).length;
+	onMount(() => {
+		if (data.cancelado) avisar('Cancelaste el plan. Ya les avisamos.');
+	});
 
 	const grupos = $derived(agrupar(data.planes, data.cual === 'historial'));
 	const TABS = $derived([
@@ -46,7 +62,10 @@
 		{#each grupos as g (g.titulo)}
 			<span class="overline-app">{g.titulo}</span>
 			{#each g.planes as p (p.id)}
-				{@const b = badgeMio(p)}
+				{@const b =
+					data.cual === 'historial'
+						? { texto: p.cancelado ? 'Se canceló' : `Fueron ${p.somos}`, completo: false }
+						: badgeMio(p)}
 				<div class="tarjeta">
 					<a class="cuerpo" href="/app/plan/{p.id}">
 						<span class="img" style:background-color={TINTES[p.categoria]}>
@@ -65,7 +84,34 @@
 							</div>
 						</div>
 					</a>
-					{#if p.miEstado === 'organizador' && data.cual !== 'historial'}
+					{#if data.cual === 'historial'}
+						<div class="acciones">
+							<a href="/app/plan/{p.id}/repetimos"
+								>{p.miEstado === 'organizador' ? '¿Repetimos?' : '¿Volverías?'}</a
+							>
+							<span aria-hidden="true">·</span>
+							<button
+								onclick={() => {
+									aReportar = p.id;
+									reportarAbierta = true;
+								}}>Reportar</button
+							>
+						</div>
+					{:else if p.miEstado === 'organizador'}
+						<div class="acciones">
+							<button onclick={() => compartir(p)}>Compartir link</button>
+							{#if !yaEmpezo(p) && !p.lugar}
+								<span aria-hidden="true">·</span>
+								<a href="/app/plan/{p.id}/editar">Editar</a>
+								<span aria-hidden="true">·</span>
+								<button
+									onclick={() => {
+										aCancelar = p;
+										cancelarAbierta = true;
+									}}>Cancelar</button
+								>
+							{/if}
+						</div>
 						{#if p.pendientes}
 							<a class="pedidos" href="/app/plan/{p.id}/solicitudes">
 								<span
@@ -85,8 +131,6 @@
 									aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg
 								>
 							</a>
-						{:else}
-							<button class="compartir" onclick={() => compartir(p)}>Compartir link</button>
 						{/if}
 					{/if}
 				</div>
@@ -123,6 +167,22 @@
 		{/each}
 	</div>
 </div>
+
+<Reportar bind:abierta={reportarAbierta} planId={aReportar} />
+{#if aCancelar}
+	{@const otros = otrosDe(aCancelar)}
+	<Confirmar
+		bind:abierta={cancelarAbierta}
+		titulo="¿Cancelás «{aCancelar.titulo}»?"
+		texto={otros > 0
+			? `Les avisamos a ${otros === 1 ? 'la persona que va' : `las ${otros} personas que van`} y a los que pidieron sumarse.`
+			: 'Le avisamos a quien haya pedido sumarse. No se puede deshacer.'}
+		boton="Sí, cancelar"
+		accion="?/cancelar"
+		campos={{ id: aCancelar.id }}
+		listo="Cancelaste el plan. Ya les avisamos."
+	/>
+{/if}
 
 <style>
 	.contenido {
@@ -207,6 +267,7 @@
 		font:
 			700 18px/1.15 'Geist',
 			sans-serif;
+		text-wrap: balance;
 	}
 	.s {
 		font-size: 12px;
@@ -254,15 +315,22 @@
 	.pedidos:hover {
 		color: #ffffff;
 	}
-	.compartir {
-		display: block;
-		width: 100%;
+	/* Las acciones de cada plan, con el mismo texto que tenía «Compartir link». */
+	.acciones {
+		display: flex;
+		align-items: center;
+		gap: 6px;
 		padding: 0 14px 14px 98px;
-		text-align: left;
+		margin-top: -8px;
+		font-size: 12px;
+		color: var(--texto-2);
+	}
+	.acciones a,
+	.acciones button {
 		font-size: 12px;
 		font-weight: 700;
-		color: #5b43c9;
-		margin-top: -8px;
+		color: var(--violeta-texto);
+		text-decoration: none;
 	}
 	.vacio {
 		display: flex;
