@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { replaceState } from '$app/navigation';
 	import Vacio from '#lib/ui/Vacio.svelte';
+	import { avisar } from '#lib/toast.svelte.ts';
 	import { cuandoCorto, fechaDeHoy } from '#lib/fechas.ts';
 	import { cobroTexto, faltanTexto } from '#lib/plan.ts';
 	import { pesosDeCentavos } from '#lib/precios.ts';
@@ -8,6 +11,12 @@
 	let { data } = $props();
 
 	const hoy = fechaDeHoy();
+	onMount(() => {
+		if (data.aprobado && data.cancelado) {
+			avisar('Plan cancelado. Les avisamos a todos y devolvemos las entradas.');
+			replaceState('/', {});
+		}
+	});
 </script>
 
 <svelte:head><title>Tus planes · Caigo para lugares</title></svelte:head>

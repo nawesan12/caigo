@@ -154,6 +154,7 @@
 					</div>
 					<div class="placa-acc">
 						<a class="probar" href={x.url} target="_blank" rel="noopener">Probar</a>
+						<a class="probar" href="/tap/{x.id}">Imprimir</a>
 						<form
 							method="POST"
 							action="?/baja"
@@ -233,7 +234,12 @@
 					<span class="w-n">{lugar.nombre} · Socio</span>
 					<span class="w-v">0 de {socio.visitas}</span>
 				</div>
-				<span class="w-s">Así arranca en la Wallet. Beneficio: {socio.beneficio || '—'}</span>
+				<span class="w-s"
+					>Así arranca en la Wallet. Beneficio: {(socio.beneficio || '—').replace(
+						/ (?=\S+$)/,
+						'\u00a0'
+					)}</span
+				>
 			</div>
 			<button class="gel gel-violeta guardar">Guardar</button>
 		</form>
@@ -421,6 +427,7 @@
 	.placa-acc {
 		flex: none;
 		display: flex;
+		flex-wrap: wrap;
 		gap: 8px;
 		align-items: center;
 	}
@@ -431,6 +438,7 @@
 		font-size: 13px;
 		font-weight: 800;
 		text-decoration: none;
+		white-space: nowrap;
 	}
 	.probar {
 		color: #5b43c9;

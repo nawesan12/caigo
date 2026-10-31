@@ -35,6 +35,7 @@ export const load: PageServerLoad = async (event) => {
 			confirmados: prox.planes.reduce((n, p) => n + (p.cancelado ? 0 : p.confirmados), 0),
 			checkins
 		},
-		nuevo: event.url.searchParams.get('nuevo') ?? ''
+		nuevo: event.url.searchParams.get('nuevo') ?? '',
+		cancelado: event.url.searchParams.get('cancelado') === '1'
 	};
 };
