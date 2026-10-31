@@ -94,6 +94,30 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		}
 		return ok(w, http.StatusCreated, map[string]string{"id": id})
 	}))
+	mux.Handle("PATCH /v1/lugares/{id}/planes/{plan}", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		var cuerpo json.RawMessage
+		if !respuesta.Leer(w, r, &cuerpo) {
+			return nil
+		}
+		pl, err := s.EditarPlan(r.Context(), p.ID, r.PathValue("id"), r.PathValue("plan"), cuerpo)
+		if err != nil {
+			return err
+		}
+		return ok(w, http.StatusOK, pl)
+	}))
+	mux.Handle("DELETE /v1/lugares/{id}/planes/{plan}", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		if err := s.CancelarPlan(r.Context(), p.ID, r.PathValue("id"), r.PathValue("plan")); err != nil {
+			return err
+		}
+		return listo(w)
+	}))
+	mux.Handle("POST /v1/lugares/{id}/planes/{plan}/checkin/{usuarioId}", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		v, err := s.CheckinPuerta(r.Context(), p.ID, r.PathValue("id"), r.PathValue("plan"), r.PathValue("usuarioId"))
+		if err != nil {
+			return err
+		}
+		return ok(w, http.StatusOK, v)
+	}))
 	mux.Handle("GET /v1/lugares/{id}/planes/{plan}/asistentes", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		as, err := s.Asistentes(r.Context(), p.ID, r.PathValue("id"), r.PathValue("plan"))
 		if err != nil {
@@ -193,6 +217,13 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		}
 		return ok(w, http.StatusOK, c)
 	}))
+	mux.Handle("DELETE /v1/entradas/{id}", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		monto, err := s.CancelarEntrada(r.Context(), p.ID, r.PathValue("id"))
+		if err != nil {
+			return err
+		}
+		return ok(w, http.StatusOK, map[string]int64{"reembolsoCentavos": monto})
+	}))
 	mux.Handle("GET /v1/pases", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		es, err := s.MisEntradas(r.Context(), p.ID)
 		if err != nil {
@@ -218,12 +249,26 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 
 	// Equipo.
 	mux.Handle("GET /v1/equipo/lugares", h(equipo, func(w http.ResponseWriter, r *http.Request, _ sesion.Persona) error {
-		ls, err := s.Pendientes(r.Context())
+		ls, err := s.Todos(r.Context(), r.URL.Query().Get("estado"))
 		if err != nil {
 			return err
 		}
 		return ok(w, http.StatusOK, map[string]any{"lugares": ls})
 	}))
+	for _, accion := range []string{"suspender", "reactivar"} {
+		mux.Handle("POST /v1/equipo/lugares/{id}/"+accion, h(equipo, func(w http.ResponseWriter, r *http.Request, _ sesion.Persona) error {
+			var in struct {
+				Motivo string `json:"motivo"`
+			}
+			if !respuesta.Leer(w, r, &in) {
+				return nil
+			}
+			if err := s.Suspender(r.Context(), r.PathValue("id"), accion == "suspender", in.Motivo); err != nil {
+				return err
+			}
+			return listo(w)
+		}))
+	}
 	mux.Handle("POST /v1/equipo/lugares/{id}", h(equipo, func(w http.ResponseWriter, r *http.Request, _ sesion.Persona) error {
 		var in struct {
 			Aprobar bool   `json:"aprobar"`
@@ -259,6 +304,18 @@ func (s *Servicio) Manejadores() map[string]outbox.Manejador {
 				return nil
 			}
 			return s.ConciliarPago(ctx, d.Usuario, d.Pago)
+		},
+		// Plan cancelado (o pagado tarde): se devuelve la entrada entera. Baja: sólo el precio.
+		"entrada.reembolsar": func(ctx context.Context, ev outbox.Evento) error {
+			// {entradaId, total: true} devuelve todo; {entradaId, centavos} sólo ese monto (baja).
+			var d struct {
+				EntradaID string `json:"entradaId"`
+				Centavos  *int64 `json:"centavos"`
+			}
+			if err := json.Unmarshal(ev.Datos, &d); err != nil || d.EntradaID == "" {
+				return nil
+			}
+			return s.reembolsar(ctx, d.EntradaID, d.Centavos)
 		},
 	}
 }

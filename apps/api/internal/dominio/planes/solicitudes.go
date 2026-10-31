@@ -37,6 +37,7 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var (
 			org, ingreso, cobro, visib    string
+			generoPlan                    string
 			soloVerif, cancelado          bool
 			empieza                       time.Time
 			total                         int16
@@ -46,9 +47,9 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 		// FOR UPDATE: dos personas que se suman al último lugar a la vez no pueden entrar las dos.
 		err := tx.QueryRow(ctx, `
 			SELECT p.organizador_id, p.ingreso, p.solo_verificados, p.cancelado_en IS NOT NULL,
-				p.empieza_en, p.total, p.edad_min, p.edad_max, p.cobro, p.visibilidad
+				p.empieza_en, p.total, p.edad_min, p.edad_max, p.cobro, p.visibilidad, p.genero
 			FROM planes p WHERE p.id = $1 FOR UPDATE`, planID).
-			Scan(&org, &ingreso, &soloVerif, &cancelado, &empieza, &total, &edadMin, &edadMax, &cobro, &visib)
+			Scan(&org, &ingreso, &soloVerif, &cancelado, &empieza, &total, &edadMin, &edadMax, &cobro, &visib, &generoPlan)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("Ese plan no existe.")
 		}
@@ -82,6 +83,9 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 			return problema.Conflicto("solo_mi_gente", "Este plan es sólo para la gente del organizador.")
 		case edad != nil && ((edadMin != nil && *edad < *edadMin) || (edadMax != nil && *edad > *edadMax)):
 			return problema.Conflicto("edad", "Este plan busca otro rango de edad.")
+		}
+		if err := ChequearGenero(ctx, tx, usuarioID, generoPlan); err != nil {
+			return err
 		}
 		var previo string
 		err = tx.QueryRow(ctx, `SELECT estado FROM solicitudes WHERE plan_id = $1 AND usuario_id = $2`, planID, usuarioID).Scan(&previo)
@@ -215,7 +219,7 @@ func (s *Servicio) Responder(ctx context.Context, usuarioID, solicitudID string,
 			return err
 		}
 		if !aceptar {
-			return nil
+			return outbox.Publicar(ctx, tx, "solicitud.rechazada", map[string]string{"planId": planID, "usuarioId": persona})
 		}
 		if err := outbox.Publicar(ctx, tx, "solicitud.aceptada", map[string]string{"planId": planID, "usuarioId": persona}); err != nil {
 			return err
