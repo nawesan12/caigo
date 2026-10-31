@@ -1,5 +1,9 @@
 package ar.com.caigo.app.ui.pantallas.planes
 
+import ar.com.caigo.app.ui.pantallas.mios.MiosHoja
+import androidx.compose.runtime.mutableIntStateOf
+import ar.com.caigo.app.datos.FiltrosFinos
+import kotlinx.coroutines.delay
 import android.Manifest
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -90,21 +94,44 @@ fun Ahora(ir: Ir, modoInicial: String?) {
     var pidio by rememberSaveable { mutableStateOf(false) }
     val (permiso, pedir) = rememberPermiso(Manifest.permission.ACCESS_FINE_LOCATION)
     LaunchedEffect(Unit) { if (yo == null) c.recargarYo() }
+    // El header dice dónde estás de verdad (geocodificación inversa del punto).
+    var dondeEstoy by remember { mutableStateOf<String?>(null) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(permiso) {
         if (!permiso && !pidio) { pidio = true; pedir() }
-        punto = c.ubicacion() ?: (LAT_MDP to LNG_MDP)
+        val real = c.ubicacion()
+        punto = real ?: (LAT_MDP to LNG_MDP)
+        if (real != null) {
+            c.mandarUbicacion()
+            sitioEn(ctx, real.first, real.second)?.let { a ->
+                dondeEstoy = listOfNotNull(a.subLocality, a.locality ?: a.subAdminArea).distinct().joinToString(", ").ifBlank { null }
+            }
+        }
     }
     val conCitas = yo?.intenciones?.contains("citas") == true
     if (modo == "citas" && !conCitas && yo != null) modo = "planes"
-    val planes = rememberCarga(punto, categoria) {
+    // Buscador del mapa (`q`, desde 2 letras) y filtros finos de Plus (como en Explorar).
+    var busqueda by rememberSaveable { mutableStateOf("") }
+    var q by remember { mutableStateOf("") }
+    LaunchedEffect(busqueda) { delay(350); q = busqueda }
+    var verFiltros by remember { mutableStateOf(false) }
+    var verificados by rememberSaveable { mutableStateOf(false) }
+    var faltan by rememberSaveable { mutableStateOf<Int?>(null) }
+    var edad by rememberSaveable { mutableIntStateOf(0) }
+    var gratis by rememberSaveable { mutableStateOf(false) }
+    val plus = rememberCarga { runCatching { c.api.plus().estado }.getOrNull() }
+    val conPlus = plus.dato?.activo == true
+    val (edadDesde, edadHasta) = rangosEdad[edad].second
+    val finos = if (conPlus) FiltrosFinos(verificados, faltan, edadDesde, edadHasta, gratis) else FiltrosFinos()
+    val planes = rememberCarga(punto, categoria, q, finos) {
         val (la, ln) = punto ?: return@rememberCarga null
-        c.api.ahora(la, ln, categoria).planes
+        c.api.ahora(la, ln, categoria, q, finos).planes
     }
     val invitaciones = rememberCarga { runCatching { c.api.invitaciones() }.getOrDefault(Invitaciones()) }
     val arriba = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     if (modo == "planes" && mapa) {
-        MapaAhora(ir, planes.dato.orEmpty(), punto, categoria, { categoria = it }, onLista = { mapa = false })
+        MapaAhora(ir, planes.dato.orEmpty(), punto, categoria, { categoria = it }, busqueda, { busqueda = it }, onLista = { mapa = false })
         return
     }
 
@@ -117,7 +144,7 @@ fun Ahora(ir: Ir, modoInicial: String?) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Icono(I.pin, 16.dp, if (p.oscuro) C.lima else C.violeta, 2.2f)
-                    val lugar = listOf(yo?.zona.orEmpty(), yo?.ciudad.orEmpty()).filter { it.isNotBlank() }.joinToString(", ").ifBlank { "Mar del Plata" }
+                    val lugar = dondeEstoy ?: listOf(yo?.zona.orEmpty(), yo?.ciudad.orEmpty()).filter { it.isNotBlank() }.joinToString(", ").ifBlank { "Mar del Plata" }
                     T(lugar, 14f, 600, if (p.oscuro) C.apagado2 else C.texto2, unRenglon = true)
                 }
                 if (p.oscuro) {
@@ -154,11 +181,27 @@ fun Ahora(ir: Ir, modoInicial: String?) {
                             colorOff = p.texto,
                         )
                     }
+                    // Filtros finos (Plus): el mismo chip, prendido si hay alguno puesto.
+                    item {
+                        Chip(
+                            "Filtros", finos.alguno, { verFiltros = true },
+                            gelOn = if (p.oscuro) Gels.limaChico else Gels.oscuroSel,
+                            gelOff = if (p.oscuro) Gels.chipOscuro else Gels.chipClaro,
+                            colorOn = if (p.oscuro) C.carbon else C.blancoCalido,
+                            colorOff = p.texto,
+                        )
+                    }
                 }
             }
         }
         if (modo == "planes") {
             ListaAhora(ir, planes.dato, planes.cargando, planes.error, invitaciones.dato, Modifier.padding(top = arriba + 182.dp), { mapa = true }, { planes.recargar() })
+        }
+        MiosHoja(verFiltros, { verFiltros = false }, "Filtros") {
+            Filtros(
+                conPlus, { verFiltros = false; ir.plus("perfil") }, null, null,
+                verificados, { verificados = it }, faltan, { faltan = it }, edad, { edad = it }, gratis, { gratis = it },
+            )
         }
     }
 }
@@ -239,7 +282,8 @@ private fun VacioAhora(ir: Ir, modifier: Modifier) {
             Image(painterResource(R.drawable.caigo_icon), null, Modifier.size(170.dp).rotate(-10f))
         }
         T("No hay planes cerca. ¿Armás uno?", 30f, 700, p.texto, alto = 1.08f, espaciado = px(-.6f, 30f), alinear = TextAlign.Center)
-        T("Domingo a la siesta, la costa duerme. Si publicás algo ahora, sos lo primero que ven.", 15f, 400, p.texto2, alto = 1.5f, alinear = TextAlign.Center)
+        val ahora = java.time.ZonedDateTime.now(ar.com.caigo.app.ui.piezas.ZonaAR)
+        T(ar.com.caigo.app.logica.Vacio.frase(ahora.dayOfWeek.value, ahora.hour), 15f, 400, p.texto2, alto = 1.5f, alinear = TextAlign.Center)
         Column(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Cta("Armá un plan", { ir.crear() }, Modifier.fillMaxWidth(), alto = 58.dp, tam = 16f)
             T("Ver lo que hay mañana", 14f, 700, C.violetaTexto, modifier = Modifier.tocable { ir.principal(Pestana.Explorar) })

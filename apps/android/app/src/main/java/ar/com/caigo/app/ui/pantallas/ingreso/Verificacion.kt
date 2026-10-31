@@ -1,5 +1,11 @@
 package ar.com.caigo.app.ui.pantallas.ingreso
 
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import kotlinx.coroutines.launch
+import ar.com.caigo.app.ui.pantallas.mios.MiosHoja
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,6 +86,42 @@ fun Verificacion(ir: Ir) {
     val estado = rememberCarga { c.api.verificacion() }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { estado.recargar() }
     val v = estado.dato
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val avisos = ar.com.caigo.app.ui.piezas.LocalAvisos.current
+    val alcance = androidx.compose.runtime.rememberCoroutineScope()
+    var contacto by remember { mutableStateOf(c.yo.value?.contactoConfianza ?: c.sesion.contacto) }
+    var editandoContacto by remember { mutableStateOf(false) }
+    var verBloqueos by remember { mutableStateOf(false) }
+    var compartiendo by remember { mutableStateOf(false) }
+
+    /** «Compartir mi plan en vivo»: el plan de hoy en el que estás, con el link para tu contacto. */
+    fun compartirEnVivo() {
+        if (compartiendo) return
+        compartiendo = true
+        alcance.launch {
+            try {
+                val ahora = java.time.ZonedDateTime.now(ar.com.caigo.app.ui.piezas.ZonaAR)
+                val plan = c.api.mios("me_sume").planes
+                    .filter { it.miEstado == "aceptada" && !it.cancelado }
+                    .filter { p ->
+                        val t = ar.com.caigo.app.ui.piezas.Fecha.parse(p.empiezaEn) ?: return@filter false
+                        t.plusMinutes(p.duracionMin.toLong()).isAfter(ahora) && t.toLocalDate() <= ahora.toLocalDate().plusDays(1)
+                    }
+                    .minByOrNull { it.empiezaEn }
+                if (plan == null) {
+                    avisos.error("Cuando estés en un plan de hoy, lo compartís desde acá.")
+                } else {
+                    val link = c.api.enVivo(plan.id).link
+                    ar.com.caigo.app.ui.piezas.compartirWhatsApp(ctx, "Estoy en «${plan.titulo}». Seguilo en vivo hasta que termine: $link")
+                }
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                avisos.error(ar.com.caigo.app.datos.mensajeDe(e))
+            } finally {
+                compartiendo = false
+            }
+        }
+    }
 
     Pantalla { arriba, abajo ->
         Column(
@@ -118,14 +160,84 @@ fun Verificacion(ir: Ir) {
             }
             T("Herramientas para salir tranqui", 20f, 700, C.carbon, modifier = Modifier.padding(top = 4.dp))
             Column(Modifier.fillMaxWidth().gel(22.dp, Gels.neutra)) {
-                herramienta(I.pin, C.violeta, "Compartir mi plan en vivo", "Tu contacto ve dónde estás hasta que termina", true)
-                herramienta(I.usuario, C.violeta, "Contacto de confianza", null, true)
-                herramienta(I.bloqueo, C.coral2, "Bloqueos y reportes", "Los revisa una persona del equipo, no un bot", false)
+                herramienta(I.pin, C.violeta, "Compartir mi plan en vivo", "Tu contacto ve dónde estás hasta que termina", true) { compartirEnVivo() }
+                herramienta(I.usuario, C.violeta, "Contacto de confianza", contacto.ifBlank { "Sumá a alguien que sepa dónde estás" }, true) { editandoContacto = true }
+                herramienta(I.bloqueo, C.coral2, "Bloqueos y reportes", "Los revisa una persona del equipo, no un bot", false) { verBloqueos = true }
             }
             T(
                 "Nunca mostramos tu DNI ni tu dirección. Solo el badge.", 12f, 400, C.texto2, alto = 1.5f,
                 alinear = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
             )
+        }
+        HojaContacto(editandoContacto, contacto, { editandoContacto = false }) { contacto = it }
+        HojaBloqueos(verBloqueos) { verBloqueos = false }
+    }
+}
+
+/** Contacto de confianza (PATCH /v1/yo `contactoConfianza`): un teléfono o un mail. Con las piezas de editar perfil. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.HojaContacto(abierta: Boolean, actual: String, cerrar: () -> Unit, alGuardar: (String) -> Unit) {
+    val c = LocalApp.current
+    val avisos = ar.com.caigo.app.ui.piezas.LocalAvisos.current
+    val alcance = androidx.compose.runtime.rememberCoroutineScope()
+    var texto by remember(abierta) { mutableStateOf(actual) }
+    var guardando by remember { mutableStateOf(false) }
+    MiosHoja(abierta, { if (!guardando) cerrar() }, "Contacto de confianza") {
+        T("Alguien que reciba tu plan en vivo cuando lo compartas. Un teléfono o un mail.", 15f, 400, C.texto2, alto = 1.5f)
+        ar.com.caigo.app.ui.pantallas.mios.MiosCampo(texto, { texto = it }, placeholder = "Mamá · 223 444 1290", maximo = 80)
+        ar.com.caigo.app.ui.piezas.Cta("Guardar", {
+            alcance.launch {
+                guardando = true
+                try {
+                    val t = texto.trim()
+                    c.api.actualizarYo(ar.com.caigo.app.datos.CambiosPerfil(contactoConfianza = t))
+                    c.sesion.guardarContacto(t)
+                    alGuardar(t)
+                    avisos.ok(if (t.isBlank()) "Sacamos tu contacto de confianza." else "Listo. Guardamos tu contacto de confianza.")
+                    cerrar()
+                } catch (e: Throwable) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    avisos.error(ar.com.caigo.app.datos.mensajeDe(e))
+                } finally {
+                    guardando = false
+                }
+            }
+        }, Modifier.fillMaxWidth(), cargando = guardando)
+    }
+}
+
+/** Bloqueos (GET /v1/bloqueos, DELETE /v1/bloqueos/{id}), con las filas de la tarjeta de opciones. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.HojaBloqueos(abierta: Boolean, cerrar: () -> Unit) {
+    val c = LocalApp.current
+    val avisos = ar.com.caigo.app.ui.piezas.LocalAvisos.current
+    val alcance = androidx.compose.runtime.rememberCoroutineScope()
+    val lista = ar.com.caigo.app.ui.piezas.rememberCarga(abierta) { if (abierta) c.api.bloqueos().bloqueos else emptyList() }
+    MiosHoja(abierta, cerrar, "Gente que bloqueaste") {
+        val l = lista.dato
+        when {
+            l == null && lista.error != null -> T(lista.error.orEmpty(), 15f, 500, C.texto2, alto = 1.5f)
+            l == null -> Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) { Puntitos() }
+            l.isEmpty() -> T("No bloqueaste a nadie. Si alguien te incomoda, lo bloqueás o lo reportás desde su perfil o el chat.", 15f, 400, C.texto2, alto = 1.5f)
+            else -> ar.com.caigo.app.ui.pantallas.mios.MiosGrupo {
+                l.forEachIndexed { i, b ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        ar.com.caigo.app.ui.piezas.Avatar(b.nombre, b.foto, 36.dp, borde = 0.dp, tamTexto = 14f)
+                        T(b.nombre, 15f, 700, C.carbon, Modifier.weight(1f), unRenglon = true)
+                        T("Desbloquear", 14f, 700, C.violeta, Modifier.tocable {
+                            alcance.launch {
+                                runCatching { c.api.desbloquear(b.id) }
+                                    .onSuccess { avisos.ok("Desbloqueaste a ${b.nombre}."); lista.recargar() }
+                                    .onFailure { avisos.error(ar.com.caigo.app.datos.mensajeDe(it)) }
+                            }
+                        })
+                    }
+                    if (i < l.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(C.lavanda))
+                }
+            }
         }
     }
 }
@@ -149,10 +261,10 @@ private fun fila(hecho: Boolean, n: Int, titulo: String, sub: String, primera: B
 }
 
 @Composable
-private fun herramienta(icono: String, color: Color, titulo: String, sub: String?, borde: Boolean) {
+private fun herramienta(icono: String, color: Color, titulo: String, sub: String?, borde: Boolean, onClick: () -> Unit) {
     Column {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            Modifier.fillMaxWidth().tocable(onClick).padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {

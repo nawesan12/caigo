@@ -1,5 +1,6 @@
 package ar.com.caigo.app.ui.pantallas.planes
 
+import ar.com.caigo.app.ui.tema.LocalPaleta
 import android.os.Bundle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -92,6 +93,8 @@ internal fun MapaAhora(
     punto: Pair<Double, Double>?,
     categoria: String?,
     onCategoria: (String?) -> Unit,
+    busqueda: String,
+    onBusqueda: (String) -> Unit,
     onLista: () -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -99,12 +102,17 @@ internal fun MapaAhora(
     val densidad = LocalDensity.current
     val arriba = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val abajo = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    var busqueda by remember { mutableStateOf("") }
+    val pal = LocalPaleta.current
+    val oscuro = pal.oscuro
+    // Mapa oscuro en modo oscuro (14a) y los controles flotantes con las piezas oscuras.
+    val fondoFlotante = if (oscuro) vertical(C.oscuro4, C.oscuro4) else blanco
+    val textoFlotante = if (oscuro) C.blancoCalido else C.carbon
     var elegido by remember { mutableStateOf<String?>(null) }
     var mapa by remember { mutableStateOf<MapLibreMap?>(null) }
     val posiciones = remember { mutableStateMapOf<String, Offset>() }
     var yoEnPantalla by remember { mutableStateOf<Offset?>(null) }
-    val visibles = planes.filter { busqueda.isBlank() || it.titulo.contains(busqueda, true) || it.lugarNombre.contains(busqueda, true) || it.lugar?.nombre?.contains(busqueda, true) == true }
+    // La búsqueda la hace la API (`q`: título, zona o lugar).
+    val visibles = planes
     if (elegido == null || visibles.none { it.id == elegido }) elegido = visibles.firstOrNull()?.id
 
     fun reproyectar() {
@@ -126,7 +134,7 @@ internal fun MapaAhora(
                 m.uiSettings.isLogoEnabled = false
                 m.uiSettings.isCompassEnabled = false
                 m.uiSettings.isRotateGesturesEnabled = false
-                m.setStyle(BuildConfig.MAPA_ESTILO) {
+                m.setStyle(if (oscuro) BuildConfig.MAPA_ESTILO_OSCURO else BuildConfig.MAPA_ESTILO) {
                     m.cameraPosition = CameraPosition.Builder().target(LatLng(punto?.first ?: LAT_MDP, punto?.second ?: LNG_MDP)).zoom(13.5).build()
                     mapa = m
                 }
@@ -154,7 +162,7 @@ internal fun MapaAhora(
     }
     LaunchedEffect(mapa, visibles.map { it.id }, punto) { reproyectar() }
 
-    Box(Modifier.fillMaxSize().background(Color(0xFFF2EFE9))) {
+    Box(Modifier.fillMaxSize().background(if (oscuro) C.grafito else Color(0xFFF2EFE9))) {
         AndroidView({ vista }, Modifier.fillMaxSize())
 
         // Mi ubicación: punto violeta con halo.
@@ -182,17 +190,17 @@ internal fun MapaAhora(
         Column(Modifier.zIndex(5f).padding(top = arriba + 8.dp, start = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
-                    Modifier.weight(1f).height(50.dp).gel(18.dp, blanco, sombraFlotante).padding(horizontal = 16.dp),
+                    Modifier.weight(1f).height(50.dp).gel(18.dp, fondoFlotante, sombraFlotante).padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Icono(I.lupaChica, 18.dp, C.carbon, 2.2f)
+                    Icono(I.lupaChica, 18.dp, if (oscuro) C.lima else C.carbon, 2.2f)
                     Box(Modifier.weight(1f)) {
-                        if (busqueda.isEmpty()) T("Buscá un plan o un lugar", 15f, 400, C.texto2, unRenglon = true)
-                        BasicTextField(busqueda, { busqueda = it }, singleLine = true, textStyle = estilo(15f, 500, C.carbon), cursorBrush = SolidColor(C.violeta), modifier = Modifier.fillMaxWidth())
+                        if (busqueda.isEmpty()) T("Buscá un plan o un lugar", 15f, 400, if (oscuro) C.apagado2 else C.texto2, unRenglon = true)
+                        BasicTextField(busqueda, { onBusqueda(it.take(60)) }, singleLine = true, textStyle = estilo(15f, 500, textoFlotante), cursorBrush = SolidColor(C.violeta), modifier = Modifier.fillMaxWidth())
                     }
                 }
-                Row(Modifier.gel(16.dp, blanco, sombraFlotante).padding(4.dp)) {
-                    Box(Modifier.height(42.dp).tocable(onLista).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) { T("Lista", 14f, 600, C.texto2) }
+                Row(Modifier.gel(16.dp, fondoFlotante, sombraFlotante).padding(4.dp)) {
+                    Box(Modifier.height(42.dp).tocable(onLista).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) { T("Lista", 14f, 600, if (oscuro) C.apagado2 else C.texto2) }
                     Box(Modifier.height(42.dp).gel(12.dp, Gels.oscuroSel).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) { T("Mapa", 14f, 700, C.blancoCalido) }
                 }
             }
@@ -201,9 +209,16 @@ internal fun MapaAhora(
                 items(filtros) { (k, l) ->
                     val on = k == categoria
                     Box(
-                        Modifier.toque { onCategoria(k) }.gel(13.dp, if (on) Gels.violeta.copy(sombras = Gels.violeta.sombras.map { if (!it.inset && it.blur == 0f) it.copy(y = 4f) else if (!it.inset) it.copy(y = 16f, blur = 26f) else it }) else Gel(blanco, emptyList()))
-                            .padding(horizontal = 13.dp, vertical = 8.dp),
-                    ) { T(l, 13f, if (on) 700 else 600, if (on) C.blanco else C.carbon, unRenglon = true) }
+                        Modifier.toque { onCategoria(k) }.gel(
+                            13.dp,
+                            when {
+                                on && oscuro -> Gels.limaChico
+                                on -> Gels.violeta.copy(sombras = Gels.violeta.sombras.map { if (!it.inset && it.blur == 0f) it.copy(y = 4f) else if (!it.inset) it.copy(y = 16f, blur = 26f) else it })
+                                oscuro -> Gels.chipOscuro
+                                else -> Gel(blanco, emptyList())
+                            },
+                        ).padding(horizontal = 13.dp, vertical = 8.dp),
+                    ) { T(l, 13f, if (on) 700 else 600, if (on) (if (oscuro) C.carbon else C.blanco) else textoFlotante, unRenglon = true) }
                 }
             }
         }
@@ -214,9 +229,9 @@ internal fun MapaAhora(
             Modifier.zIndex(5f).align(Alignment.BottomEnd).padding(end = 16.dp, bottom = abajo + if (seleccionado != null) 262.dp else 130.dp)
                 .size(46.dp).toque {
                     punto?.let { (la, ln) -> mapa?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(la, ln), 14.0)) }
-                }.gel(16.dp, blanco, listOf(externa(8f, 20f, rgba(36, 33, 45, .12f)))),
+                }.gel(16.dp, fondoFlotante, listOf(externa(8f, 20f, rgba(36, 33, 45, .12f)))),
             contentAlignment = Alignment.Center,
-        ) { Icono(I.ubicacion, 20.dp, C.violeta, 2.2f) }
+        ) { Icono(I.ubicacion, 20.dp, if (oscuro) C.lima else C.violeta, 2.2f) }
 
         // Tarjeta flotante del plan elegido.
         if (seleccionado != null) TarjetaFlotante(seleccionado, ir, Modifier.zIndex(5f).align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = abajo + 118.dp))
@@ -256,9 +271,10 @@ private fun Modifier.layoutCentrado(): Modifier = this.then(
 
 @Composable
 private fun TarjetaFlotante(p: Plan, ir: Ir, modifier: Modifier) {
+    val pal = LocalPaleta.current
     Row(
         modifier.fillMaxWidth().toque(alBajar = 0.dp) { ir.plan(p.id) }
-            .gel(26.dp, blanco, listOf(externa(16f, 40f, rgba(36, 33, 45, .18f)))).padding(12.dp),
+            .gel(26.dp, if (pal.oscuro) Gels.tarjetaOscura else Gel(blanco, listOf(externa(16f, 40f, rgba(36, 33, 45, .18f))))).padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
         Foto(p.foto.ifBlank { p.lugar?.foto }, Modifier.size(96.dp, 120.dp).clip(RoundedCornerShape(18.dp)), colorDeCategoria(p.categoria))
@@ -267,8 +283,8 @@ private fun TarjetaFlotante(p: Plan, ir: Ir, modifier: Modifier) {
                 Box(Modifier.background(C.lavanda, RoundedCornerShape(9.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) { T(nombreCategoria(p.categoria), 11f, 700, C.carbon, unRenglon = true) }
                 Box(Modifier.background(C.carbon, RoundedCornerShape(9.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) { T(Fecha.cuando(p.empiezaEn), 11f, 700, C.blancoCalido, unRenglon = true) }
             }
-            T(p.titulo, 18f, 700, C.carbon, alto = 1.15f, maxRenglones = 2)
-            T(lugarYDistancia(p), 12f, 400, C.texto2, unRenglon = true)
+            T(p.titulo, 18f, 700, pal.texto, alto = 1.15f, maxRenglones = 2)
+            T(lugarYDistancia(p), 12f, 400, pal.texto2, unRenglon = true)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { BadgeFalta(p.faltan, tam = 16f) }
                 if (p.miEstado == "ninguno" && !Cupo.completo(p.faltan)) {

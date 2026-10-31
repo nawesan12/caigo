@@ -1,5 +1,12 @@
 package ar.com.caigo.app.ui.pantallas.planes
 
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import ar.com.caigo.app.R
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -71,16 +78,24 @@ import ar.com.caigo.app.ui.tema.vertical
 import java.time.LocalDate
 import java.time.ZonedDateTime
 
-private fun pexels(id: Long) = "https://images.pexels.com/photos/$id/pexels-photo-$id.jpeg?auto=compress&cs=tinysrgb&w=600"
-
-/** Las categorías con foto de Explorar (las del prototipo, con sus mismas fotos de referencia). */
+/**
+ * Las categorías con foto de Explorar: «Todos» y las 8 del brief (06a). Las fotos son CC0 de StockSnap
+ * y van en la app (res/drawable-nodpi/explorar_*.jpg; fuentes en apps/android/FUENTES.md).
+ */
 private val tilesExplorar = listOf(
-    null to ("Todos" to pexels(19116858)),
-    "deporte" to ("Deporte" to pexels(27572834)),
-    "juego" to ("Juego" to pexels(8551084)),
-    "previa" to ("Previa" to pexels(6760903)),
-    "salida" to ("Salida" to pexels(2962035)),
+    null to ("Todos" to R.drawable.explorar_todos),
+    "deporte" to ("Deporte" to R.drawable.explorar_deporte),
+    "juego" to ("Juego" to R.drawable.explorar_juego),
+    "previa" to ("Previa" to R.drawable.explorar_previa),
+    "salida" to ("Salida" to R.drawable.explorar_salida),
+    "cita_doble" to ("Cita doble" to R.drawable.explorar_cita_doble),
+    "cultura" to ("Cultura" to R.drawable.explorar_cultura),
+    "gastronomia" to ("Gastronomía" to R.drawable.explorar_gastronomia),
+    "otro" to ("Otro" to R.drawable.explorar_otro),
 )
+
+/** Distancia (radio, básico): de lo que hay cerca a todo. */
+private val radiosExplorar = listOf(null to "Cualquiera", 2000 to "2 km", 5000 to "5 km", 10000 to "10 km")
 
 private val gelTarjetaFila = Gel(vertical(C.blanco, C.blanco), listOf(interna(1f, 0f, C.blanco), externa(2f, 0f, C.borde2), externa(12f, 24f, rgba(80, 60, 160, .22f), spread = -12f)))
 
@@ -98,6 +113,11 @@ fun Explorar(ir: Ir) {
     var edad by rememberSaveable { mutableIntStateOf(0) }
     var gratis by rememberSaveable { mutableStateOf(false) }
     var ciudad by rememberSaveable { mutableStateOf<String?>(null) }
+    var zona by rememberSaveable { mutableStateOf<String?>(null) }
+    var radio by rememberSaveable { mutableStateOf<Int?>(null) }
+    var q by remember { mutableStateOf("") }
+    LaunchedEffect(busqueda) { delay(350); q = busqueda }
+    val zonas = rememberCarga(ciudad) { runCatching { c.api.zonas(ciudad ?: c.yo.value?.ciudad?.ifBlank { null } ?: "Mar del Plata").zonas }.getOrDefault(emptyList()) }
     var filtros by rememberSaveable { mutableStateOf(false) }
     var todos by rememberSaveable { mutableStateOf(false) }
     val hoy = LocalDate.now(ZonaAR)
@@ -106,12 +126,17 @@ fun Explorar(ir: Ir) {
     val conPlus = plus.dato?.activo == true
     val (edadDesde, edadHasta) = rangosEdad[edad].second
     val finos = if (conPlus) FiltrosFinos(verificados, faltan, edadDesde, edadHasta, gratis) else FiltrosFinos()
-    val semana = rememberCarga(categoria, ciudad, finos) {
+    val semana = rememberCarga(categoria, ciudad, finos, zona, radio, q) {
         val desde = ZonedDateTime.now(ZonaAR)
         val hasta = hoy.plusDays(6).atStartOfDay(ZonaAR).plusDays(1)
-        c.api.explorar(desde = Fecha.iso(desde), hasta = Fecha.iso(hasta), categoria = categoria, ciudad = ciudad, finos = finos).planes
+        // Con radio hace falta el punto: el último conocido, o el que da el GPS ahora.
+        val punto = c.ubicacionConocida ?: c.ubicacion()
+        c.api.explorar(
+            desde = Fecha.iso(desde), hasta = Fecha.iso(hasta), categoria = categoria, ciudad = ciudad,
+            lat = punto?.first, lng = punto?.second, finos = finos, q = q, zona = zona, radio = radio.takeIf { punto != null },
+        ).planes
     }
-    val planes = semana.dato.orEmpty().filter { busqueda.isBlank() || it.titulo.contains(busqueda.trim(), true) || it.lugarNombre.contains(busqueda.trim(), true) }
+    val planes = semana.dato.orEmpty()
     val delDia = planes.filter { Fecha.parse(it.empiezaEn)?.toLocalDate() == hoy.plusDays(dia.toLong()) }
     val recurrente = planes.firstOrNull { it.recurrente }
 
@@ -139,15 +164,35 @@ fun Explorar(ir: Ir) {
                     }
                 }
                 if (filtros) Filtros(
-                    conPlus, { ir.plus("perfil") }, ciudad, { ciudad = it },
+                    conPlus, { ir.plus("perfil") }, ciudad, { ciudad = it; zona = null },
                     verificados, { verificados = it }, faltan, { faltan = it }, edad, { edad = it }, gratis, { gratis = it },
-                )
+                ) {
+                    // Zona (contrato §5) y distancia (`radio`): básicos, para todos. Con las filas de chips del panel.
+                    val zs = zonas.dato.orEmpty()
+                    if (zs.isNotEmpty()) {
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(C.lavanda))
+                        Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            T("Zona", 14f, 700, C.carbon, Modifier.padding(horizontal = 16.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = 16.dp)) {
+                                item { Chip("Todas", zona == null, { zona = null }, tam = 13f, padH = 12.dp, padV = 8.dp, radio = 13.dp) }
+                                items(zs) { z -> Chip(z, zona == z, { zona = if (zona == z) null else z }, tam = 13f, padH = 12.dp, padV = 8.dp, radio = 13.dp) }
+                            }
+                        }
+                    }
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(C.lavanda))
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        T("Distancia", 14f, 700, C.carbon)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            radiosExplorar.forEach { (r, l) -> Chip(l, radio == r, { radio = r }, tam = 13f, padH = 12.dp, padV = 8.dp, radio = 13.dp) }
+                        }
+                    }
+                }
             }
         }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(end = 20.dp, top = 6.dp, bottom = 14.dp, start = 4.dp)) {
                 items(tilesExplorar) { (k, v) ->
-                    val (l, foto) = v
+                    val (l, recurso) = v
                     val on = k == categoria
                     Box(
                         Modifier.size(96.dp, 112.dp).tocable { categoria = k }
@@ -155,7 +200,7 @@ fun Explorar(ir: Ir) {
                             .gel(if (on) 20.dp else 24.dp, null, listOf(externa(12f, 22f, rgba(36, 33, 45, .45f), spread = -10f)))
                             .clip(RoundedCornerShape(if (on) 20.dp else 24.dp)),
                     ) {
-                        Foto(foto, Modifier.fillMaxSize())
+                        Image(painterResource(recurso), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(.4f to rgba(32, 29, 43, 0f), 1f to rgba(32, 29, 43, .85f))))
                         T(l, 15f, 700, C.blanco, modifier = Modifier.align(Alignment.BottomStart).padding(10.dp))
                     }
@@ -209,7 +254,7 @@ fun Explorar(ir: Ir) {
 }
 
 /** Edad de quien organiza (filtro fino): etiqueta y rango para la API. */
-private val rangosEdad = listOf(
+internal val rangosEdad = listOf(
     "Todas" to (null to null),
     "18–30" to (18 to 30),
     "31–45" to (31 to 45),
@@ -221,12 +266,13 @@ private val rangosEdad = listOf(
  * organiza y sólo gratis) con el chip «Plus» del prototipo. Sin Plus, tocarlos abre el paywall.
  */
 @Composable
-private fun Filtros(
-    conPlus: Boolean, alPaywall: () -> Unit, ciudad: String?, onCiudad: (String?) -> Unit,
+internal fun Filtros(
+    conPlus: Boolean, alPaywall: () -> Unit, ciudad: String?, onCiudad: ((String?) -> Unit)?,
     verificados: Boolean, onVerificados: (Boolean) -> Unit,
     faltan: Int?, onFaltan: (Int?) -> Unit,
     edad: Int, onEdad: (Int) -> Unit,
     gratis: Boolean, onGratis: (Boolean) -> Unit,
+    zonas: (@Composable () -> Unit)? = null,
 ) {
     @Composable
     fun Separador() = Box(Modifier.fillMaxWidth().height(1.dp).background(C.lavanda))
@@ -257,12 +303,15 @@ private fun Filtros(
         }
 
     Column(Modifier.fillMaxWidth().gel(22.dp, Gels.neutra)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(null to "Todas", "Mar del Plata" to "Mar del Plata", "Villa Gesell" to "Villa Gesell").forEach { (k, l) ->
-                Chip(l, ciudad == k, { onCiudad(k) }, tam = 13f, padH = 12.dp, padV = 8.dp, radio = 13.dp)
+        if (onCiudad != null) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(null to "Todas", "Mar del Plata" to "Mar del Plata", "Villa Gesell" to "Villa Gesell").forEach { (k, l) ->
+                    Chip(l, ciudad == k, { onCiudad(k) }, tam = 13f, padH = 12.dp, padV = 8.dp, radio = 13.dp)
+                }
             }
+            if (zonas != null) zonas()
+            Separador()
         }
-        Separador()
         FilaInterruptor("Solo verificados", verificados, onVerificados)
         Separador()
         FilaChips("Que falten al menos", listOf("Cualquiera", "1", "2", "3"), faltan ?: 0) { onFaltan(it.takeIf { n -> n > 0 }) }

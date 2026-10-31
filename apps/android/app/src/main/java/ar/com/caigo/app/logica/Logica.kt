@@ -168,3 +168,23 @@ object Mazo {
     fun alfaMeGusta(dx: Float): Float = (dx / 90f).coerceIn(0f, 1f)
     fun alfaPaso(dx: Float): Float = (-dx / 90f).coerceIn(0f, 1f)
 }
+
+/** 13a · La bajada del vacío de Ahora según el día y la hora (antes era siempre «Domingo a la siesta…»). */
+object Vacio {
+    private val dias = listOf("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
+
+    /** [dia]: 1 = lunes … 7 = domingo (java.time.DayOfWeek.value); [hora]: 0–23. */
+    fun frase(dia: Int, hora: Int): String {
+        val nombre = dias[(dia - 1).coerceIn(0, 6)]
+        val finde = dia >= 6
+        return when (hora) {
+            in 0..5 -> "A esta hora la costa duerme. Si publicás algo para mañana, sos lo primero que ven."
+            in 6..11 -> if (finde) "$nombre a la mañana, todavía nadie arrancó. Si publicás algo ahora, sos lo primero que ven."
+            else "La mañana viene tranqui. Si publicás algo para la salida del laburo, sos lo primero que ven."
+            in 12..17 -> if (finde) "$nombre a la siesta, la costa duerme. Si publicás algo ahora, sos lo primero que ven."
+            else "Todo el mundo está laburando. Si publicás algo para la tarde, sos lo primero que ven."
+            else -> if (dia == 5 || dia == 6) "$nombre a la noche y nadie armó nada todavía. Si publicás algo ahora, sos lo primero que ven."
+            else "Todavía nadie armó nada para esta noche. Si publicás algo ahora, sos lo primero que ven."
+        }
+    }
+}
