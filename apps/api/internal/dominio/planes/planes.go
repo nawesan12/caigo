@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
@@ -105,8 +106,10 @@ type Plan struct {
 	CostoCentavos    *int32    `json:"costoCentavos,omitempty"`
 	Foto             string    `json:"foto"`
 	Cancelado        bool      `json:"cancelado"`
-	Organizador      Persona   `json:"organizador"`
-	Van              []Persona `json:"van"`
+	// Destacado con Caigo Plus: va primero en Ahora y Explorar.
+	Destacado   bool      `json:"destacado"`
+	Organizador Persona   `json:"organizador"`
+	Van         []Persona `json:"van"`
 	// Estado de quien mira: ninguno | pendiente | aceptada | rechazada | cancelada | organizador.
 	MiEstado   string `json:"miEstado"`
 	MiCantidad int16  `json:"miCantidad,omitempty"`
@@ -374,7 +377,8 @@ const columnas = `
 	CASE WHEN p.organizador_id = $1 THEN
 		(SELECT count(*) FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'pendiente') ELSE 0 END,
 	l.id, coalesce(l.slug, ''), coalesce(l.nombre, ''), coalesce(l.zona, ''), coalesce(l.foto, ''),
-	p.cobro, p.precio_centavos, p.sena_pct, p.incluye, p.cancelacion, p.beneficio, p.acepta_grupos`
+	p.cobro, p.precio_centavos, p.sena_pct, p.incluye, p.cancelacion, p.beneficio, p.acepta_grupos,
+	p.destacado_en IS NOT NULL`
 
 const desde = `
 	FROM planes p
@@ -409,7 +413,7 @@ func escanear(row pgx.Row) (Plan, error) {
 		&p.Organizador.Verificada, &p.Organizador.Asistencia.Fue, &p.Organizador.Asistencia.De,
 		&p.MiEstado, &p.MiCantidad, &p.Pendientes,
 		&lugarID, &lugar.Slug, &lugar.Nombre, &lugar.Zona, &lugar.Foto,
-		&p.Cobro, &p.PrecioCentavos, &p.SenaPct, &p.Incluye, &p.Cancelacion, &p.Beneficio, &p.AceptaGrupos)
+		&p.Cobro, &p.PrecioCentavos, &p.SenaPct, &p.Incluye, &p.Cancelacion, &p.Beneficio, &p.AceptaGrupos, &p.Destacado)
 	if lugarID != nil {
 		lugar.ID = *lugarID
 		p.Lugar = &lugar
@@ -529,13 +533,22 @@ type Filtro struct {
 	Lat, Lng *float64
 	RadioKm  float64
 	// Rango de fechas (Explorar). Vacío en Ahora.
-	Desde, Hasta    time.Time
-	Categoria       string
-	Ciudad          string
+	Desde, Hasta time.Time
+	Categoria    string
+	Ciudad       string
+	Limite       int
+	// Filtros finos (Caigo Plus): sólo verificados, que falten al menos N, edad de quien
+	// organiza y sólo gratis.
 	SoloVerificados bool
-	// Que falten al menos N.
-	FaltanMin int
-	Limite    int
+	FaltanMin       int
+	EdadDesde       int
+	EdadHasta       int
+	SoloGratis      bool
+}
+
+// finos: si pide algún filtro de Plus.
+func (f Filtro) finos() bool {
+	return f.SoloVerificados || f.FaltanMin > 0 || f.EdadDesde > 0 || f.EdadHasta > 0 || f.SoloGratis
 }
 
 // Ahora: los planes de las próximas 3 horas cerca, del más cercano al más lejano.
@@ -550,7 +563,12 @@ func (s *Servicio) Ahora(ctx context.Context, usuarioID string, f Filtro) ([]Pla
 		return nil, err
 	}
 	if f.Lat != nil && f.Lng != nil {
-		sort.SliceStable(ps, func(i, j int) bool { return *ps[i].DistanciaM < *ps[j].DistanciaM })
+		sort.SliceStable(ps, func(i, j int) bool {
+			if ps[i].Destacado != ps[j].Destacado {
+				return ps[i].Destacado
+			}
+			return *ps[i].DistanciaM < *ps[j].DistanciaM
+		})
 	}
 	return ps, nil
 }
@@ -606,10 +624,28 @@ func (s *Servicio) listar(ctx context.Context, usuarioID string, f Filtro) ([]Pl
 	if f.FaltanMin > 0 {
 		where = append(where, "p.total - coalesce(c.sumados, 0) >= "+arg(f.FaltanMin))
 	}
+	if f.EdadDesde > 0 {
+		where = append(where, "o.edad >= "+arg(f.EdadDesde))
+	}
+	if f.EdadHasta > 0 {
+		where = append(where, "o.edad <= "+arg(f.EdadHasta))
+	}
+	if f.SoloGratis {
+		where = append(where, "p.cobro = 'gratis' AND coalesce(p.costo_centavos, 0) = 0")
+	}
 	q := `SELECT ` + columnas + desde + ` WHERE ` + strings.Join(where, " AND ") +
-		` ORDER BY p.empieza_en LIMIT ` + arg(f.Limite)
+		` ORDER BY p.destacado_en IS NOT NULL DESC, p.empieza_en LIMIT ` + arg(f.Limite)
 	var ps []Plan
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		if f.finos() {
+			e, err := plus.Leer(ctx, tx, usuarioID, s.ahora())
+			if err != nil {
+				return err
+			}
+			if !e.Activo {
+				return problema.SoloPlus("Los filtros finos son de Caigo Plus.")
+			}
+		}
 		rows, err := tx.Query(ctx, q, args...)
 		if err != nil {
 			return err
@@ -713,6 +749,47 @@ func (s *Servicio) Cancelar(ctx context.Context, usuarioID, planID string) error
 		}
 		return nil
 	})
+}
+
+// Destacar: con Plus, un plan propio por semana va primero en Ahora y Explorar hasta que pasa.
+func (s *Servicio) Destacar(ctx context.Context, usuarioID, planID string) (Plan, error) {
+	if !esUUID(planID) {
+		return Plan{}, problema.NoEncontrado("Ese plan no existe.")
+	}
+	t := s.ahora()
+	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		e, err := plus.Leer(ctx, tx, usuarioID, t)
+		if err != nil {
+			return err
+		}
+		if !e.Activo {
+			return problema.SoloPlus("Destacar un plan es de Caigo Plus.")
+		}
+		var empieza time.Time
+		var cancelado, destacado bool
+		err = tx.QueryRow(ctx, `SELECT empieza_en, cancelado_en IS NOT NULL, destacado_en IS NOT NULL FROM planes
+			WHERE id = $1 AND organizador_id = $2`, planID, usuarioID).Scan(&empieza, &cancelado, &destacado)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return problema.NoEncontrado("Ese plan no es tuyo.")
+		} else if err != nil {
+			return err
+		}
+		switch {
+		case destacado:
+			return nil
+		case cancelado || empieza.Before(t):
+			return problema.Conflicto("plan_pasado", "Ese plan ya pasó o está cancelado.")
+		case e.DestacarDesde != nil:
+			return problema.Conflicto("destacado_usado", "Ya destacaste un plan esta semana. Podés destacar otro el "+
+				plus.EnArgentina(*e.DestacarDesde).Format("02/01")+".")
+		}
+		_, err = tx.Exec(ctx, `UPDATE planes SET destacado_en = $3 WHERE id = $1 AND organizador_id = $2`, planID, usuarioID, t)
+		return err
+	})
+	if err != nil {
+		return Plan{}, err
+	}
+	return s.Ver(ctx, usuarioID, planID, nil)
 }
 
 var reUUID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)

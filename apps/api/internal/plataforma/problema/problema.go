@@ -55,6 +55,12 @@ func SinSesion() *Problema {
 func SinPermiso(detalle string) *Problema {
 	return nuevo(http.StatusForbidden, "sin_permiso", "No tenés permiso", detalle)
 }
+
+// SoloPlus: algo que necesita Caigo Plus (la app muestra el paywall).
+func SoloPlus(detalle string) *Problema {
+	return nuevo(http.StatusForbidden, "plus", "Es de Caigo Plus", detalle)
+}
+
 func Conflicto(codigo, detalle string) *Problema {
 	return nuevo(http.StatusConflict, codigo, "No se pudo completar", detalle)
 }

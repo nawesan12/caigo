@@ -231,6 +231,15 @@ func TestLugarDePuntaAPunta(t *testing.T) {
 	}
 	// Sin Wallet configurada, el pase avisa que no está disponible.
 	e.pedir(martina, "GET", "/v1/pases/entradas/"+pases.Entradas[0].ID+"/apple", nil, http.StatusUnprocessableEntity, nil)
+
+	// En un plan con seña también se puede pagar todo: $8.000 + $600, sin saldo en el lugar.
+	fede := e.persona("Fede")
+	e.verificar(fede, false)
+	e.pedir(fede, "POST", "/v1/planes/"+creado.ID+"/entradas", map[string]any{"cantidad": 1, "modo": "cualquiera"}, http.StatusBadRequest, nil)
+	e.pedir(fede, "POST", "/v1/planes/"+creado.ID+"/entradas", map[string]any{"cantidad": 1, "modo": "entrada"}, http.StatusOK, &c)
+	if c.TotalCentavos != 860000 || c.CargoCentavos != 60000 || c.SaldoCentavos != 0 || mp.total != 8600 {
+		t.Fatalf("pagar todo: %+v total %v", c, mp.total)
+	}
 }
 
 func TestPKPassFirmado(t *testing.T) {

@@ -67,6 +67,14 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 		}
 		respuesta.JSON(w, http.StatusOK, map[string]any{"planes": ps})
 	}))
+	mux.Handle("POST /v1/planes/{id}/destacar", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
+		plan, err := s.Destacar(r.Context(), p.ID, r.PathValue("id"))
+		if err != nil {
+			mal(w, err)
+			return
+		}
+		respuesta.JSON(w, http.StatusOK, plan)
+	}))
 	mux.Handle("GET /v1/planes/{id}", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
 		var punto *[2]float64
 		if f, err := filtro(r); err == nil && f.Lat != nil && f.Lng != nil {
@@ -216,7 +224,8 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 	})
 }
 
-// filtro lee ?lat&lng&radio&categoria&ciudad&desde&hasta&verificados&faltan.
+// filtro lee ?lat&lng&radio&categoria&ciudad&desde&hasta y los finos (Plus):
+// verificados, faltan, edadDesde, edadHasta y gratis.
 func filtro(r *http.Request) (Filtro, error) {
 	q := r.URL.Query()
 	var f Filtro
@@ -243,6 +252,16 @@ func filtro(r *http.Request) (Filtro, error) {
 	} else if radio != nil {
 		f.RadioKm = min(max(*radio, 1), 100)
 	}
+	for k, dst := range map[string]*int{"edadDesde": &f.EdadDesde, "edadHasta": &f.EdadHasta} {
+		if v := q.Get(k); v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 18 || n > 99 {
+				return f, problema.Invalido(k + " tiene que ser una edad entre 18 y 99.")
+			}
+			*dst = n
+		}
+	}
+	f.SoloGratis = q.Get("gratis") == "1"
 	f.Categoria = q.Get("categoria")
 	if _, ok := Categorias[f.Categoria]; f.Categoria != "" && !ok {
 		return f, problema.Invalido("Esa categoría no existe.")

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -109,7 +110,9 @@ func (s *Servicio) Mazo(ctx context.Context, usuarioID, modo string) ([]Tarjeta,
 				AND NOT EXISTS (SELECT 1 FROM intereses i WHERE i.usuario_id = $1 AND i.otro_id = u.id AND i.modo = $3
 					AND (i.accion <> 'paso' OR i.creado_en > $4))
 				AND ($3 = 'citas' OR NOT EXISTS (SELECT 1 FROM mi_gente g WHERE g.usuario_id = $1 AND g.otro_id = u.id))
-			ORDER BY cardinality(ARRAY(SELECT unnest(u.intereses) INTERSECT SELECT unnest(yo.intereses))) DESC,
+			ORDER BY EXISTS (SELECT 1 FROM intereses e WHERE e.usuario_id = u.id AND e.otro_id = $1 AND e.modo = $3
+					AND e.accion = 'encanta') DESC,
+				cardinality(ARRAY(SELECT unnest(u.intereses) INTERSECT SELECT unnest(yo.intereses))) DESC,
 				u.actualizado_en DESC
 			LIMIT 30`, usuarioID, ciudad, modo, s.ahora().Add(-olvidoPaso))
 		if err != nil {
@@ -210,6 +213,12 @@ func (s *Servicio) Reaccionar(ctx context.Context, usuarioID, otroID, modo, acci
 		}
 		var previa string
 		_ = tx.QueryRow(ctx, `SELECT accion FROM intereses WHERE usuario_id = $1 AND otro_id::text = $2 AND modo = $3`, usuarioID, otroID, modo).Scan(&previa)
+		if accion == "encanta" && previa != "encanta" && r.Plus.EncantasHoy >= r.Plus.LimiteEncantas {
+			if r.Plus.Activo {
+				return problema.Conflicto("limite_encanta", fmt.Sprintf("Ya usaste los %d me encanta de hoy.", plus.EncantasPlus))
+			}
+			return problema.Conflicto("limite_encanta", fmt.Sprintf("Ya usaste tu me encanta de hoy. Con Plus tenés %d por día.", plus.EncantasPlus))
+		}
 		if _, err := tx.Exec(ctx, `INSERT INTO intereses (usuario_id, otro_id, modo, accion) VALUES ($1, $2, $3, $4)
 			ON CONFLICT (usuario_id, otro_id, modo) DO UPDATE SET accion = excluded.accion, creado_en = now(), descartado_en = NULL`,
 			usuarioID, otroID, modo, accion); err != nil {
@@ -220,6 +229,9 @@ func (s *Servicio) Reaccionar(ctx context.Context, usuarioID, otroID, modo, acci
 		}
 		if previa == "" || previa == "paso" {
 			r.Plus.SumadasHoy++
+		}
+		if accion == "encanta" && previa != "encanta" {
+			r.Plus.EncantasHoy++
 		}
 		if modo == "gente" {
 			if _, err := tx.Exec(ctx, `INSERT INTO mi_gente (usuario_id, otro_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, usuarioID, otroID); err != nil {
@@ -267,7 +279,7 @@ func (s *Servicio) Recibidos(ctx context.Context, usuarioID, modo string) ([]Rec
 				AND NOT EXISTS (SELECT 1 FROM intereses y WHERE y.usuario_id = $1 AND y.otro_id = u.id AND y.modo = $2)
 				AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $1 AND b.bloqueado_id = u.id)
 					OR (b.usuario_id = u.id AND b.bloqueado_id = $1))
-			ORDER BY i.creado_en DESC LIMIT 100`, usuarioID, modo)
+			ORDER BY i.accion = 'encanta' DESC, i.creado_en DESC LIMIT 100`, usuarioID, modo)
 		if err != nil {
 			return err
 		}

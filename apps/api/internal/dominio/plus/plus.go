@@ -17,6 +17,15 @@ import (
 // LimiteDiario de sumadas sin Plus.
 const LimiteDiario = 3
 
+// "Me encanta" por día en Citas: 1 sin Plus, 5 con Plus (también cuentan como sumadas).
+const (
+	EncantasGratis = 1
+	EncantasPlus   = 5
+)
+
+// SemanaDestacado: con Plus se destaca un plan por semana.
+const SemanaDestacado = 7 * 24 * time.Hour
+
 // Planes de Plus (precios en centavos). Los ids de producto son los mismos en App Store y Play.
 var Planes = map[string]struct {
 	Producto string
@@ -46,6 +55,9 @@ var argentina = func() *time.Location {
 	return l
 }()
 
+// EnArgentina pasa una hora a la de Argentina.
+func EnArgentina(t time.Time) time.Time { return t.In(argentina) }
+
 // Medianoche de hoy y de mañana en Argentina.
 func Dia(t time.Time) (desde, hasta time.Time) {
 	a := t.In(argentina)
@@ -64,6 +76,11 @@ type Estado struct {
 	SumadasHoy int       `json:"sumadasHoy"`
 	Limite     int       `json:"limite"`
 	ReiniciaEn time.Time `json:"reiniciaEn"`
+	// "Me encanta" de hoy y cuántos hay por día.
+	EncantasHoy    int `json:"encantasHoy"`
+	LimiteEncantas int `json:"limiteEncantas"`
+	// Cuándo puede destacar otro plan (vacío: ya puede, si tiene Plus).
+	DestacarDesde *time.Time `json:"destacarDesde,omitempty"`
 }
 
 // Leer devuelve el estado dentro de una transacción ya abierta (con la persona fijada).
@@ -79,8 +96,20 @@ func Leer(ctx context.Context, tx pgx.Tx, usuarioID string, ahora time.Time) (Es
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return e, err
 	}
-	err = tx.QueryRow(ctx, `SELECT count(*) FROM intereses WHERE usuario_id = $1 AND accion <> 'paso'
-		AND creado_en >= $2`, usuarioID, desde).Scan(&e.SumadasHoy)
+	e.LimiteEncantas = EncantasGratis
+	if e.Activo {
+		e.LimiteEncantas = EncantasPlus
+	}
+	var ultimo *time.Time
+	err = tx.QueryRow(ctx, `SELECT
+			(SELECT count(*) FROM intereses WHERE usuario_id = $1 AND accion <> 'paso' AND creado_en >= $2),
+			(SELECT count(*) FROM intereses WHERE usuario_id = $1 AND accion = 'encanta' AND creado_en >= $2),
+			(SELECT max(destacado_en) FROM planes WHERE organizador_id = $1 AND destacado_en IS NOT NULL)`,
+		usuarioID, desde).Scan(&e.SumadasHoy, &e.EncantasHoy, &ultimo)
+	if ultimo != nil && ultimo.Add(SemanaDestacado).After(ahora) {
+		d := ultimo.Add(SemanaDestacado)
+		e.DestacarDesde = &d
+	}
 	return e, err
 }
 

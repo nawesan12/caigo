@@ -53,6 +53,7 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | GET | `/v1/planes/mios` | sesión | dominio/planes |
 | DELETE | `/v1/planes/{id}` | sesión | dominio/planes |
 | GET | `/v1/planes/{id}` | sesión | dominio/planes |
+| POST | `/v1/planes/{id}/destacar` | sesión | dominio/planes |
 | POST | `/v1/planes/{id}/checkin` | sesión | dominio/planes |
 | POST | `/v1/planes/{id}/en-vivo` | sesión | dominio/planes |
 | POST | `/v1/planes/{id}/entradas` | sesión | dominio/lugares |
@@ -95,3 +96,16 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | POST | `/v1/webhooks/mercadopago` | pública | integraciones/mercadopago |
 | GET | `/v1/yo` | sesión | dominio/personas |
 | PATCH | `/v1/yo` | sesión | dominio/personas |
+
+## Caigo Plus: lo que suma (31/10)
+- `GET /v1/plus` → `estado` suma `encantasHoy`, `limiteEncantas` (1 sin Plus, 5 con Plus) y
+  `destacarDesde` (vacío: puede destacar ya, si tiene Plus).
+- «Me encanta» en Citas (`accion: encanta`): pasado el límite, 409 `limite_encanta`. Quien lo recibe
+  ve primero a quien se lo dio, en el mazo y en «Les interesás».
+- `POST /v1/planes/{id}/destacar` (Plus, uno por semana, plan propio que no pasó): el plan sale con
+  `destacado: true` y va primero en Ahora y Explorar. Sin Plus: 403 `plus`; ya usado: 409 `destacado_usado`.
+- Filtros finos de Ahora/Explorar (Plus): `verificados=1`, `faltan=N`, `edadDesde`,
+  `edadHasta` (edad de quien organiza) y `gratis=1`. Sin Plus: 403 `plus`. Los básicos (`categoria`,
+  `ciudad`, `desde`, `hasta`, `lat`, `lng`, `radio`) son para todos.
+- `POST /v1/planes/{id}/entradas` acepta `modo`: `entrada` (pagar todo) o `sena` (sólo si el plan
+  tiene seña). Vacío: lo que diga el plan.

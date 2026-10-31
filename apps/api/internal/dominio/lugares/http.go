@@ -181,12 +181,13 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 	// La persona.
 	mux.Handle("POST /v1/planes/{id}/entradas", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		var in struct {
-			Cantidad int16 `json:"cantidad"`
+			Cantidad int16  `json:"cantidad"`
+			Modo     string `json:"modo"`
 		}
 		if !respuesta.Leer(w, r, &in) {
 			return nil
 		}
-		c, err := s.Comprar(r.Context(), p.ID, r.PathValue("id"), in.Cantidad)
+		c, err := s.Comprar(r.Context(), p.ID, r.PathValue("id"), in.Cantidad, in.Modo)
 		if err != nil {
 			return err
 		}

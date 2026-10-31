@@ -205,3 +205,76 @@ func TestPlusConMercadoPago(t *testing.T) {
 		t.Fatalf("plus: %+v", est)
 	}
 }
+
+func TestPlusMeEncantaDestacadoYFiltros(t *testing.T) {
+	e := nuevoEntorno(t)
+	ciudad := ciudadUnica()
+	yo, a, b := e.persona("Juli"), e.persona("Tomi"), e.persona("Rama")
+	for _, p := range []persona{yo, a, b} {
+		e.perfilCompleto(p, ciudad, "citas")
+	}
+	conPlus := func(p persona) {
+		e.sistema(`INSERT INTO suscripciones (usuario_id, origen, externo, plan, estado, vence_en) VALUES ($1, 'apple', $2, 'mes', 'activa', now() + interval '30 days')`, p.id, p.id)
+	}
+	// Sin Plus: un "me encanta" por día; repetirlo sobre la misma persona no cuenta.
+	e.pedir(yo, "POST", "/v1/gente/"+a.id+"/reaccion", map[string]string{"modo": "citas", "accion": "encanta"}, http.StatusOK, nil)
+	e.pedir(yo, "POST", "/v1/gente/"+a.id+"/reaccion", map[string]string{"modo": "citas", "accion": "encanta"}, http.StatusOK, nil)
+	e.pedir(yo, "POST", "/v1/gente/"+b.id+"/reaccion", map[string]string{"modo": "citas", "accion": "encanta"}, http.StatusConflict, nil)
+	e.pedir(yo, "POST", "/v1/gente/"+b.id+"/reaccion", map[string]string{"modo": "citas", "accion": "interesa"}, http.StatusOK, nil)
+	// Quien recibió el "me encanta" ve primero a quien se lo dio.
+	var mazo struct{ Personas []struct{ ID string } }
+	e.pedir(a, "GET", "/v1/gente/mazo?modo=citas", nil, http.StatusOK, &mazo)
+	if len(mazo.Personas) != 2 || mazo.Personas[0].ID != yo.id {
+		t.Fatalf("mazo de quien recibió el me encanta: %+v", mazo)
+	}
+	var est struct {
+		Estado struct {
+			EncantasHoy, LimiteEncantas int
+			DestacarDesde               *time.Time
+		}
+	}
+	e.pedir(yo, "GET", "/v1/plus", nil, http.StatusOK, &est)
+	if est.Estado.EncantasHoy != 1 || est.Estado.LimiteEncantas != 1 {
+		t.Fatalf("plus sin pagar: %+v", est)
+	}
+
+	// Planes: el destacado va primero. Sin Plus no se destaca ni se usan los filtros finos.
+	crear := func(p persona, en time.Duration) string {
+		var pl plan
+		e.pedir(p, "POST", "/v1/planes", map[string]any{
+			"categoria": "previa", "empiezaEn": time.Now().Add(en), "ciudad": ciudad,
+			"zona": "Centro", "lat": -37.99, "lng": -57.55, "somos": 2, "faltan": 2, "ingreso": "libre",
+		}, http.StatusCreated, &pl)
+		return pl.ID
+	}
+	primero, segundo := crear(a, time.Hour), crear(yo, 2*time.Hour)
+	e.pedir(yo, "POST", "/v1/planes/"+segundo+"/destacar", nil, http.StatusForbidden, nil)
+	e.pedir(yo, "GET", "/v1/planes/explorar?ciudad="+strings.ReplaceAll(ciudad, " ", "+")+"&verificados=1", nil, http.StatusForbidden, nil)
+	e.pedir(yo, "GET", "/v1/planes/explorar?ciudad="+strings.ReplaceAll(ciudad, " ", "+")+"&edadDesde=25", nil, http.StatusForbidden, nil)
+	conPlus(yo)
+	e.pedir(yo, "POST", "/v1/planes/"+primero+"/destacar", nil, http.StatusNotFound, nil)
+	var d struct{ Destacado bool }
+	e.pedir(yo, "POST", "/v1/planes/"+segundo+"/destacar", nil, http.StatusOK, &d)
+	if !d.Destacado {
+		t.Fatal("no quedó destacado")
+	}
+	// Uno por semana.
+	tercero := crear(yo, 3*time.Hour)
+	e.pedir(yo, "POST", "/v1/planes/"+tercero+"/destacar", nil, http.StatusConflict, nil)
+	var lista struct{ Planes []struct{ ID string } }
+	e.pedir(b, "GET", "/v1/planes/explorar?ciudad="+strings.ReplaceAll(ciudad, " ", "+"), nil, http.StatusOK, &lista)
+	if len(lista.Planes) != 3 || lista.Planes[0].ID != segundo || lista.Planes[1].ID != primero {
+		t.Fatalf("explorar con destacado: %+v", lista)
+	}
+	e.pedir(yo, "GET", "/v1/plus", nil, http.StatusOK, &est)
+	if est.Estado.LimiteEncantas != plus.EncantasPlus || est.Estado.DestacarDesde == nil {
+		t.Fatalf("plus pago: %+v", est)
+	}
+	// Con Plus, los filtros finos andan.
+	e.pedir(yo, "GET", "/v1/planes/explorar?ciudad="+strings.ReplaceAll(ciudad, " ", "+")+"&gratis=1&faltan=2", nil, http.StatusOK, &lista)
+	if len(lista.Planes) != 3 {
+		t.Fatalf("filtros finos: %+v", lista)
+	}
+	// Y hay 5 "me encanta" por día.
+	e.pedir(yo, "POST", "/v1/gente/"+b.id+"/reaccion", map[string]string{"modo": "citas", "accion": "encanta"}, http.StatusOK, nil)
+}

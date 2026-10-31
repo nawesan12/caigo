@@ -300,11 +300,15 @@ func nuevoCodigo() string {
 	return fmt.Sprintf("TK-%04d", 1000+n.Int64())
 }
 
-// Comprar reserva entradas de un plan de lugar y devuelve el link de pago. modo: entrada | sena
-// (el que permita el plan). El monto sale de la base, nunca del cliente.
-func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantidad int16) (Compra, error) {
+// Comprar reserva entradas de un plan de lugar y devuelve el link de pago. modo: entrada (pagar
+// todo) | sena (sólo si el plan tiene seña; vacío = lo que diga el plan). El monto sale de la
+// base, nunca del cliente.
+func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantidad int16, modo string) (Compra, error) {
 	if cantidad < 1 || cantidad > 10 {
 		return Compra{}, problema.Invalido("Podés comprar de 1 a 10 entradas.")
+	}
+	if modo != "" && modo != "entrada" && modo != "sena" {
+		return Compra{}, problema.Invalido("El modo es entrada o sena.")
 	}
 	var c Compra
 	var lugarID, titulo, ref, lugarNombre, slug string
@@ -362,6 +366,15 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 		if ya {
 			return problema.Conflicto("ya_esta", "Ya tenés tu lugar en este plan.")
 		}
+		switch {
+		case modo == "sena" && cobro != "sena":
+			return problema.Conflicto("sin_sena", "Este plan no se puede señar.")
+		case modo == "":
+			modo = "entrada"
+			if cobro == "sena" {
+				modo = "sena"
+			}
+		}
 		if cobro == "gratis" {
 			// Gratis: queda adentro al toque.
 			_, err := tx.Exec(ctx, `INSERT INTO solicitudes (plan_id, usuario_id, cantidad, estado, respondida_en)
@@ -372,7 +385,7 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 		q := int64(cantidad)
 		cargo := planes.Cargo(precio)
 		lugarPP := precio
-		if cobro == "sena" {
+		if modo == "sena" {
 			// Seña: el % del precio, redondeado a $100 (como el panel).
 			lugarPP = int64(math.Round(float64(precio)*float64(*senaPct)/100/10000)) * 10000
 		}
@@ -380,10 +393,6 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 		c.TotalCentavos = (lugarPP + cargo) * q
 		c.SaldoCentavos = (precio - lugarPP) * q
 		ref = "CAI" + strings.ToUpper(azar4()+azar4()+azar4())
-		modo := "entrada"
-		if cobro == "sena" {
-			modo = "sena"
-		}
 		// El código puede chocar (4 dígitos): se reintenta.
 		for i := 0; ; i++ {
 			err := tx.QueryRow(ctx, `INSERT INTO entradas (codigo, plan_id, usuario_id, cantidad, modo, lugar_centavos, cargo_centavos,
@@ -405,7 +414,7 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 		return Compra{}, err
 	}
 	concepto := "Entrada"
-	if cobro == "sena" {
+	if modo == "sena" {
 		concepto = "Seña"
 	}
 	vuelta := strings.TrimRight(s.Sitio, "/") + "/p/" + slug
