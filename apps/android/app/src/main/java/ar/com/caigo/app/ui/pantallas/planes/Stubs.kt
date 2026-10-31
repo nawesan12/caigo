@@ -4,9 +4,6 @@ import androidx.compose.runtime.Composable
 import ar.com.caigo.app.ui.Ir
 
 @Composable
-fun Ahora(ir: Ir, modo: String?) { }
-
-@Composable
 fun Explorar(ir: Ir) { }
 
 @Composable
