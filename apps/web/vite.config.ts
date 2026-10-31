@@ -13,6 +13,8 @@ export default defineConfig({
 			adapter: adapter({ precompress: true })
 		})
 	],
+	// El WASM de resvg (imágenes OG) se importa con ?inline como cualquier otro recurso.
+	assetsInclude: ['**/*.wasm'],
 	// lugares.localhost también tiene que llegar al servidor de desarrollo.
 	server: { allowedHosts: ['localhost', 'lugares.localhost'] },
 	test: {
