@@ -4,15 +4,6 @@ import androidx.compose.runtime.Composable
 import ar.com.caigo.app.ui.Ir
 
 @Composable
-fun Explorar(ir: Ir) { }
-
-@Composable
-fun Crear(ir: Ir) { }
-
-@Composable
-fun Publicado(ir: Ir, id: String) { }
-
-@Composable
 fun PerfilPersona(ir: Ir, id: String, desde: String) { }
 
 @Composable
