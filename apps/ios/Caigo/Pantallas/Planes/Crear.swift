@@ -1,8 +1,11 @@
 import SwiftUI
 import MapKit
+import PhotosUI
 import Nucleo
 
 private let horasCrear = ["20:30", "21:30", "22:30"]
+/// Cuánto dura (minutos): las mismas piezas que las horas de 06a.
+private let duracionesCrear: [(Int, String)] = [(60, "1 h"), (120, "2 h"), (180, "3 h"), (300, "5 h")]
 private let nivelesCrear = ["Recién aprendo", "Me defiendo", "Canto falta envido"]
 private let edadMin: Double = 18
 private let edadMax: Double = 60
@@ -36,6 +39,15 @@ private final class Borrador {
     var verificados = true
     var ocultar = true
     var costo: Int?
+    var descripcion = ""
+    var duracion = 120
+    var foto = ""
+    var subiendoFoto = false
+    /// Ciudad que salió de la geocodificación (o del perfil); si no hay, se deduce de la latitud.
+    var ciudadElegida = ""
+    /// Editando: los que ya van no se pueden sacar del contador (el cupo no baja de ahí).
+    var somosMin = 1
+    var editando = false
 
     func empieza() -> Date {
         let cal = Fecha.calendario
@@ -51,12 +63,18 @@ private final class Borrador {
         return t
     }
 
-    var ciudad: String { lat > -37.6 ? "Villa Gesell" : "Mar del Plata" }
+    var ciudad: String { !ciudadElegida.isEmpty ? ciudadElegida : (lat > -37.6 ? "Villa Gesell" : "Mar del Plata") }
+    /// Lo que va después de «en» en el título por defecto: la zona, o la ciudad.
+    var dondeCorto: String { zona.isEmpty ? ciudad : zona }
     var nombreCategoria: String { Categorias.nombre(categoria) }
 }
 
-/// 06a–06c · Crear plan en tres pasos (menos de 30 s).
+/// 06a–06c · Crear plan en tres pasos (menos de 30 s). Con `editar`, los mismos pasos cargados con
+/// el plan y «Guardar cambios» (PATCH /v1/planes/{id}, contrato §2).
 struct Crear: View {
+    var editar: String?
+    init() {}
+    init(editar: String) { self.editar = editar }
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var pal
@@ -65,6 +83,10 @@ struct Crear: View {
     @State private var eligiendoLugar = false
     @State private var editandoCosto = false
     @State private var publicando = false
+    /// El plan como estaba (editando) y la fecha tal como quedó al cargarlo.
+    @State private var original: Plan?
+    @State private var empiezaCargada: Date?
+    @State private var errorCarga: String?
 
     var body: some View {
         Pantalla {
@@ -82,10 +104,15 @@ struct Crear: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: paso == 2 ? 16 : 20) {
-                        switch paso {
-                        case 0: Paso1(b: b, alLugar: { eligiendoLugar = true })
-                        case 1: Paso2(b: b)
-                        default: Paso3(b: b, alCosto: { editandoCosto = true })
+                        if editar != nil && original == nil {
+                            if let errorCarga { T(errorCarga, 16, 600, pal.texto, alinear: .center).frame(maxWidth: .infinity).padding(.top, 60) }
+                            else { Puntitos(color: pal.acento).frame(maxWidth: .infinity).padding(.top, 80) }
+                        } else {
+                            switch paso {
+                            case 0: Paso1(b: b, editando: editar != nil, alLugar: { eligiendoLugar = true })
+                            case 1: Paso2(b: b)
+                            default: Paso3(b: b, alCosto: { editandoCosto = true }, alFoto: subirFoto)
+                            }
                         }
                     }
                     .padding(.horizontal, 20).padding(.top, 6).padding(.bottom, 130)
@@ -101,9 +128,11 @@ struct Crear: View {
                     LinearGradient(stops: Fondo.paradas((0, pal.fondo.opacity(0)), (0.35, pal.fondo)), startPoint: .top, endPoint: .bottom)
                         .frame(height: 120)
                         .allowsHitTesting(false)
-                    Cta(texto: paso < 2 ? "Siguiente" : "Publicar plan", gel: paso < 2 ? Gels.violeta : Gels.limaChico, alto: 58,
-                        color: paso < 2 ? C.blanco : C.carbon, icono: paso == 2 ? I.mas : nil, iconoTrazo: 4, iconoTam: 18, cargando: publicando) {
-                        if paso < 2 { withAnimation { paso += 1 } } else { publicar() }
+                    Cta(texto: paso < 2 ? "Siguiente" : (editar != nil ? "Guardar cambios" : "Publicar plan"),
+                        gel: paso < 2 ? Gels.violeta : Gels.limaChico, alto: 58,
+                        color: paso < 2 ? C.blanco : C.carbon, icono: paso == 2 && editar == nil ? I.mas : nil, iconoTrazo: 4, iconoTam: 18,
+                        habilitado: !(editar != nil && original == nil) && !b.subiendoFoto, cargando: publicando) {
+                        if paso < 2 { withAnimation { paso += 1 } } else if editar != nil { guardar() } else { publicar() }
                     }
                     .padding(.horizontal, 20).padding(.bottom, 14)
                 }
@@ -113,8 +142,137 @@ struct Crear: View {
             if editandoCosto { EditarCosto(b: b) { withAnimation { editandoCosto = false } } }
         }
         .task {
-            if b.zona.isEmpty { b.zona = c.yo?.zona ?? "" }
-            if let (la, ln) = await c.ubicacion() { b.lat = la; b.lng = ln }
+            if let editar { await cargar(editar); return }
+            if c.yo == nil { await c.recargarYo() }
+            // Sin ubicación: la zona y la ciudad del perfil (y el centro de esa ciudad).
+            let y = c.yo
+            if b.zona.isEmpty { b.zona = y?.zona ?? "" }
+            if b.ciudadElegida.isEmpty { b.ciudadElegida = y?.ciudad ?? "" }
+            if b.ciudadElegida == "Villa Gesell" { b.lat = latGesell; b.lng = lngGesell }
+            if let (la, ln) = await c.ubicacion() {
+                b.lat = la; b.lng = ln
+                // Con ubicación: la zona y la ciudad de donde está (geocodificación inversa).
+                if let (zona, ciudad) = await crearZonaDe(lat: la, lng: ln) {
+                    if !zona.isEmpty && b.lugar.isEmpty && b.direccion.isEmpty { b.zona = zona }
+                    if !ciudad.isEmpty { b.ciudadElegida = ciudad }
+                }
+            }
+        }
+    }
+
+    /// Editar: carga el plan en el borrador.
+    private func cargar(_ id: String) async {
+        do {
+            let p = try await c.api.plan(id)
+            b.titulo = p.titulo
+            b.categoria = p.categoria
+            b.descripcion = p.descripcion
+            b.duracion = p.duracionMin
+            b.foto = p.foto
+            b.repite = p.recurrente
+            b.lugar = p.lugarNombre
+            b.direccion = p.direccion?.texto ?? ""
+            b.zona = p.zona
+            b.ciudadElegida = p.ciudad
+            b.lat = p.direccion.map { $0.lat != 0 ? $0.lat : p.lat } ?? p.lat
+            b.lng = p.direccion.map { $0.lng != 0 ? $0.lng : p.lng } ?? p.lng
+            b.somos = max(1, p.somos)
+            b.somosMin = max(1, p.somos)
+            b.editando = true
+            b.faltan = max(0, p.total - p.somos)
+            b.edadDesde = Double(p.edadMin ?? Int(edadMin))
+            b.edadHasta = Double(min(p.edadMax ?? Int(edadMax), Int(edadMax)))
+            b.genero = p.genero
+            b.nivel = p.nivel
+            b.ingreso = p.ingreso
+            b.visibilidad = ["publico", "mi_gente", "link"].firstIndex(of: p.visibilidad) ?? 0
+            b.verificados = p.soloVerificados
+            b.ocultar = p.ocultarDireccion
+            b.costo = p.costoCentavos
+            if let t = Fecha.parse(p.empiezaEn) {
+                let cal = Fecha.calendario
+                let k = cal.dateComponents([.hour, .minute], from: t)
+                b.h = k.hour ?? 21
+                b.m = k.minute ?? 30
+                b.horaOtra = true
+                let d = Fecha.diasEntre(Date(), t)
+                if d <= 0 { b.cuando = 1 } else { b.cuando = 2; b.dia = min(d, 6) }
+            }
+            empiezaCargada = b.empieza()
+            original = p
+        } catch {
+            errorCarga = mensajeDe(error)
+        }
+    }
+
+    /// Manda sólo lo que cambió. La fecha viaja si se tocó el día o la hora.
+    private func guardar() {
+        guard let o = original, let id = editar else { return }
+        if b.lugar.isEmpty && b.direccion.isEmpty {
+            c.avisos.error("Marcá dónde es el plan.")
+            withAnimation { eligiendoLugar = true }
+            return
+        }
+        var k = CambiosPlan()
+        func cambio<T: Equatable>(_ nuevo: T, _ viejo: T) -> T? { nuevo == viejo ? nil : nuevo }
+        let titulo = b.titulo.trimmingCharacters(in: .whitespaces)
+        if !titulo.isEmpty { k.titulo = cambio(titulo, o.titulo) }
+        k.descripcion = cambio(b.descripcion.trimmingCharacters(in: .whitespacesAndNewlines), o.descripcion)
+        k.duracionMin = cambio(b.duracion, o.duracionMin)
+        if let cargada = empiezaCargada, abs(b.empieza().timeIntervalSince(cargada)) > 59 { k.empiezaEn = Fecha.iso(b.empieza()) }
+        k.total = cambio(b.somos + b.faltan, o.total)
+        k.ingreso = cambio(b.ingreso, o.ingreso)
+        k.visibilidad = cambio(["publico", "mi_gente", "link"][b.visibilidad], o.visibilidad)
+        k.soloVerificados = cambio(b.verificados, o.soloVerificados)
+        k.ocultarDireccion = cambio(b.ocultar, o.ocultarDireccion)
+        // Sin límite de edad: el rango entero (la API no borra con null).
+        let dMin = Int(b.edadDesde.rounded()), dMax = Int(b.edadHasta.rounded())
+        let nuevoMin: Int? = dMin > Int(edadMin) ? dMin : nil
+        let nuevoMax: Int? = dMax < Int(edadMax) ? dMax : nil
+        if nuevoMin != o.edadMin { k.edadMin = nuevoMin ?? Int(edadMin) }
+        if nuevoMax != o.edadMax { k.edadMax = nuevoMax ?? 120 }
+        k.genero = cambio(b.genero, o.genero)
+        k.nivel = cambio(b.nivel, o.nivel)
+        if b.costo != o.costoCentavos { k.costoCentavos = b.costo ?? 0 }
+        k.foto = cambio(b.foto, o.foto)
+        let lugar = b.lugar.trimmingCharacters(in: .whitespaces)
+        let dir = b.direccion.trimmingCharacters(in: .whitespaces)
+        let zona = b.zona.trimmingCharacters(in: .whitespaces)
+        let lat0 = o.direccion.map { $0.lat != 0 ? $0.lat : o.lat } ?? o.lat
+        let lng0 = o.direccion.map { $0.lng != 0 ? $0.lng : o.lng } ?? o.lng
+        if lugar != o.lugarNombre || dir != (o.direccion?.texto ?? "") || zona != o.zona
+            || abs(b.lat - lat0) > 0.00001 || abs(b.lng - lng0) > 0.00001 {
+            k.lugarNombre = lugar; k.direccion = dir; k.zona = zona; k.lat = b.lat; k.lng = b.lng
+        }
+        Task {
+            publicando = true
+            defer { publicando = false }
+            do {
+                _ = try await c.api.editarPlan(id, k)
+                Sistema.vibrar()
+                c.avisos.ok(k.empiezaEn != nil || k.lat != nil ? "Listo. Les avisamos del cambio a los que van." : "Listo, guardamos los cambios.")
+                ir.atras()
+            } catch let e as ErrorApi {
+                // 409 cupo_menor: el detalle dice cuántos van.
+                c.avisos.error(e.problema.issues.first?.message ?? e.detalle)
+            } catch {
+                c.avisos.error(error)
+            }
+        }
+    }
+
+    private func subirFoto(_ item: PhotosPickerItem) {
+        b.subiendoFoto = true
+        Task {
+            do {
+                guard let d = try await item.loadTransferable(type: Data.self), let jpeg = miosJpeg(d) else {
+                    throw ErrorApi(estado: 0, problema: Problema(detail: "No pudimos leer esa foto. Probá con otra."))
+                }
+                b.foto = try await c.api.subir(tipo: "foto", jpeg: jpeg).url
+            } catch {
+                c.avisos.error(error)
+            }
+            b.subiendoFoto = false
         }
     }
 
@@ -130,7 +288,7 @@ struct Crear: View {
             var n = PlanNuevo(categoria: b.categoria, empiezaEn: Fecha.iso(b.empieza()), ciudad: b.ciudad, lat: b.lat, lng: b.lng,
                               somos: b.somos, faltan: b.faltan)
             let titulo = b.titulo.trimmingCharacters(in: .whitespaces)
-            n.titulo = titulo.isEmpty ? "\(b.nombreCategoria) en \(b.zona.isEmpty ? "Güemes" : b.zona)" : titulo
+            n.titulo = titulo.isEmpty ? "\(b.nombreCategoria) en \(b.dondeCorto)" : titulo
             n.recurrente = b.repite
             n.zona = b.zona.trimmingCharacters(in: .whitespaces)
             n.lugarNombre = b.lugar.trimmingCharacters(in: .whitespaces)
@@ -144,6 +302,9 @@ struct Crear: View {
             n.genero = b.genero
             n.nivel = b.nivel
             n.costoCentavos = b.costo
+            n.descripcion = b.descripcion.trimmingCharacters(in: .whitespacesAndNewlines)
+            n.duracionMin = b.duracion
+            n.foto = b.foto
             do {
                 let p = try await c.api.crearPlan(n)
                 Sistema.vibrar()
@@ -155,6 +316,16 @@ struct Crear: View {
             }
         }
     }
+}
+
+/// Centro de Villa Gesell (si el perfil dice esa ciudad y no hay ubicación).
+private let latGesell = -37.2639
+private let lngGesell = -56.9730
+
+/// Zona (barrio) y ciudad de un punto, con la geocodificación inversa de Apple.
+func crearZonaDe(lat: Double, lng: Double) async -> (String, String)? {
+    guard let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lng)).first else { return nil }
+    return (pm.subLocality ?? "", pm.locality ?? "")
 }
 
 /// Campo del alta (58, radio 18, borde violeta).
@@ -180,17 +351,22 @@ private func limitado(_ b: Binding<String>, _ n: Int) -> Binding<String> {
 
 private struct Paso1: View {
     @Bindable var b: Borrador
+    var editando = false
     var alLugar: () -> Void
     @Environment(\.paleta) private var pal
 
     var body: some View {
-        T("¿Qué hacemos?", 32, 700, pal.texto, alto: 1.05, espaciado: -0.8)
-        CampoCrear(texto: limitado($b.titulo, 80), pista: "\(b.nombreCategoria) en \(b.zona.isEmpty ? "Güemes" : b.zona)")
-        PlanesFlujo(espacio: 8, renglon: 8) {
-            ForEach(Categorias.paraCrear, id: \.0) { k, l in
-                Chip(texto: l, on: b.categoria == k, gelOn: planesVioletaChico, gelOff: Gels.chipClaro, padH: 13, radio: 13) { b.categoria = k }
+        T(editando ? "Editá tu plan" : "¿Qué hacemos?", 32, 700, pal.texto, alto: 1.05, espaciado: -0.8)
+        CampoCrear(texto: limitado($b.titulo, 80), pista: "\(b.nombreCategoria) en \(b.dondeCorto)")
+        // La categoría no se cambia después de publicar (no está entre lo que se edita).
+        if !editando {
+            PlanesFlujo(espacio: 8, renglon: 8) {
+                ForEach(Categorias.paraCrear, id: \.0) { k, l in
+                    Chip(texto: l, on: b.categoria == k, gelOn: planesVioletaChico, gelOff: Gels.chipClaro, padH: 13, radio: 13) { b.categoria = k }
+                }
             }
         }
+        CampoLargo(texto: limitado($b.descripcion, 500), pista: "Contá un poco más (opcional)")
         VStack(alignment: .leading, spacing: 10) {
             T("¿Cuándo?", 15, 700, pal.texto)
             Segmentado(opciones: ["Ahora", "Hoy", "Otro día"], seleccion: $b.cuando, alto: 46)
@@ -220,6 +396,14 @@ private struct Paso1: View {
                     }
                 }
             }
+            // Cuánto dura: con las mismas piezas que las horas.
+            HStack(spacing: 8) {
+                T("Dura", 14, 700, pal.texto2).padding(.trailing, 2)
+                ForEach(duracionesCrear, id: \.0) { m, l in
+                    ChipHora(texto: l, on: b.duracion == m) { b.duracion = m }
+                }
+            }
+            .padding(.top, 2)
         }
         VStack(alignment: .leading, spacing: 10) {
             T("¿Dónde?", 15, 700, pal.texto)
@@ -240,15 +424,40 @@ private struct Paso1: View {
             }
             .buttonStyle(EstiloPlano())
         }
-        HStack {
-            VStack(alignment: .leading, spacing: 0) {
-                T("Se repite cada semana", 15, 700, pal.texto)
-                T("Ideal para el truco de los jueves", 12, 400, pal.texto2)
+        if !editando {
+            HStack {
+                VStack(alignment: .leading, spacing: 0) {
+                    T("Se repite cada semana", 15, 700, pal.texto)
+                    T("Ideal para el truco de los jueves", 12, 400, pal.texto2)
+                }
+                Spacer()
+                Interruptor(on: $b.repite)
             }
-            Spacer()
-            Interruptor(on: $b.repite)
+            .padding(.horizontal, 2).padding(.vertical, 4)
         }
-        .padding(.horizontal, 2).padding(.vertical, 4)
+    }
+}
+
+/// Descripción: el campo del alta en varios renglones.
+private struct CampoLargo: View {
+    @Binding var texto: String
+    var pista: String
+    @Environment(\.paleta) private var pal
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            if texto.isEmpty { T(pista, 15, 400, C.apagado).allowsHitTesting(false) }
+            TextField("", text: $texto, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(Geist.fuente(15, 500))
+                .foregroundStyle(pal.texto)
+                .tint(C.violeta)
+                .lineLimit(3...6)
+        }
+        .padding(.horizontal, 18).padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(pal.oscuro ? C.oscuro3 : C.blanco))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .strokeBorder(pal.oscuro ? Color(hex: 0x3A3550) : Color(hex: 0xECE8F2), lineWidth: 1.5))
     }
 }
 
@@ -314,7 +523,7 @@ private struct Paso2: View {
         HStack(spacing: 10) {
             VStack(spacing: 8) {
                 T("Somos", 13, 700, pal.texto2)
-                Stepper(valor: "\(b.somos)", menos: { b.somos = max(1, b.somos - 1) }, mas: { b.somos = min(60 - b.faltan, b.somos + 1) }, tam: 48)
+                Stepper(valor: "\(b.somos)", menos: { b.somos = max(b.somosMin, b.somos - 1) }, mas: { if !b.editando { b.somos = min(60 - b.faltan, b.somos + 1) } }, tam: 48)
             }
             .frame(maxWidth: .infinity)
             .padding(14)
@@ -322,7 +531,7 @@ private struct Paso2: View {
             .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(pal.oscuro ? Color(hex: 0x3A3550) : Color(hex: 0xECE8F2), lineWidth: 1.5))
             VStack(spacing: 8) {
                 T("Faltan", 13, 700, C.coral)
-                Stepper(valor: "\(b.faltan)", menos: { b.faltan = max(1, b.faltan - 1) }, mas: { b.faltan = min(60 - b.somos, b.faltan + 1) },
+                Stepper(valor: "\(b.faltan)", menos: { b.faltan = max(b.editando ? 0 : 1, b.faltan - 1) }, mas: { b.faltan = min(60 - b.somos, b.faltan + 1) },
                         oscuro: true, color: C.coral, tam: 48)
             }
             .frame(maxWidth: .infinity)
@@ -407,6 +616,8 @@ private struct RangoEdad: View {
 private struct Paso3: View {
     @Bindable var b: Borrador
     var alCosto: () -> Void
+    var alFoto: (PhotosPickerItem) -> Void
+    @State private var eleccion: PhotosPickerItem?
     @Environment(\.paleta) private var pal
 
     var body: some View {
@@ -462,6 +673,55 @@ private struct Paso3: View {
         }
         .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(pal.oscuro ? C.oscuro3 : C.blanco))
         .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(pal.oscuro ? Color(hex: 0x3A3550) : Color(hex: 0xECE8F2), lineWidth: 1.5))
+        foto
+    }
+
+    /// Foto del plan (opcional): la celda punteada de las fotos del perfil, a lo ancho.
+    private var foto: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .lastTextBaseline) {
+                T("Foto del plan", 14, 700, pal.texto)
+                Spacer()
+                T("Opcional", 13, 400, pal.texto2)
+            }
+            Color.clear.frame(height: 150)
+                .overlay {
+                    if b.foto.isEmpty {
+                        PhotosPicker(selection: $eleccion, matching: .images) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 20, style: .continuous).fill(pal.superficie)
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .strokeBorder(Color(hex: 0xB9ACF5), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                                if b.subiendoFoto {
+                                    Puntitos(color: C.violeta)
+                                } else {
+                                    VStack(spacing: 6) {
+                                        Icono(I.mas, 26, C.violeta, trazo: 3)
+                                        T("Sin foto, usamos una de la categoría", 12, 600, pal.texto2, alinear: .center)
+                                    }
+                                }
+                            }
+                        }
+                        .disabled(b.subiendoFoto)
+                        .accessibilityLabel("Sumar foto del plan")
+                    } else {
+                        Foto(url: b.foto).clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                            .overlay(alignment: .topTrailing) {
+                                Button { b.foto = "" } label: {
+                                    Icono(I.cruz, 14, C.blanco, trazo: 3).frame(width: 28, height: 28).background(Circle().fill(C.carbon))
+                                }
+                                .buttonStyle(EstiloPlano())
+                                .padding(8)
+                                .accessibilityLabel("Sacar foto")
+                            }
+                    }
+                }
+        }
+        .onChange(of: eleccion) { _, item in
+            guard let item else { return }
+            eleccion = nil
+            alFoto(item)
+        }
     }
 
     private func filaInterruptor(_ t: String, _ v: Binding<Bool>) -> some View {
@@ -524,6 +784,7 @@ private struct ElegirLugar: View {
     @State private var lugar = ""
     @State private var direccion = ""
     @State private var zona = ""
+    @State private var ciudad = ""
     @State private var buscar = ""
     @State private var resultados: [MKMapItem] = []
     @State private var camara: MapCameraPosition = .automatic
@@ -574,7 +835,15 @@ private struct ElegirLugar: View {
                 b.lugar = lugar.trimmingCharacters(in: .whitespaces)
                 b.direccion = direccion.trimmingCharacters(in: .whitespaces)
                 b.zona = zona.trimmingCharacters(in: .whitespaces)
+                if !ciudad.isEmpty { b.ciudadElegida = ciudad }
+                let (la, ln, sinZona) = (centro.latitude, centro.longitude, b.zona.isEmpty)
                 cerrar()
+                // Moviendo el mapa a mano no hay zona: la saca la geocodificación inversa.
+                Task {
+                    guard let (z, ci) = await crearZonaDe(lat: la, lng: ln) else { return }
+                    if sinZona && b.zona.isEmpty { b.zona = String(z.prefix(60)) }
+                    if !ci.isEmpty { b.ciudadElegida = ci }
+                }
             }
         }
         .onAppear {
@@ -599,6 +868,7 @@ private struct ElegirLugar: View {
         lugar = String((r.name ?? "").prefix(80))
         direccion = String(planesDireccion(pm).prefix(160))
         zona = String((pm.subLocality ?? pm.locality ?? "").prefix(60))
+        ciudad = pm.locality ?? ""
         centro = pm.coordinate
         withAnimation { camara = .region(MKCoordinateRegion(center: pm.coordinate, latitudinalMeters: 600, longitudinalMeters: 600)) }
         buscar = ""

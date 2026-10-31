@@ -12,6 +12,9 @@ struct VistaSolicitudes: View {
     @State private var error: String?
     @State private var respondidas: Set<String> = []
     @State private var ocupado: String?
+    /// Los que ya van (aceptados): el organizador puede sacarlos (contrato §2).
+    @State private var van: [Solicitud] = []
+    @State private var sacando: Solicitud?
 
     var body: some View {
         Pantalla {
@@ -21,6 +24,15 @@ struct VistaSolicitudes: View {
                     .padding(.horizontal, 16).padding(.top, 6)
                 contenido.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            HojaConfirmar(abierta: sacando != nil, titulo: "¿Sacar a \(miosPrimer(sacando?.persona.nombre ?? "")) del plan?",
+                          cuerpo: "Le avisamos que ya no está en el plan y su lugar vuelve a quedar libre.",
+                          accion: "Sacar del plan", cerrar: { sacando = nil }) {
+                guard let s = sacando else { return }
+                try await c.api.sacarPersona(plan: planId, usuario: s.persona.id)
+                c.avisos.ok("Listo, \(miosPrimer(s.persona.nombre)) ya no está en el plan.")
+                withAnimation { van.removeAll { $0.id == s.id } }
+                if let pl = try? await c.api.plan(planId) { plan = pl }
+            }
         }
         .task { await cargar() }
     }
@@ -29,7 +41,7 @@ struct VistaSolicitudes: View {
     private var contenido: some View {
         if let pl = plan, let todas = sols {
             let lista = todas.filter { !respondidas.contains($0.id) }
-            if lista.isEmpty {
+            if lista.isEmpty && van.isEmpty {
                 MiosVacioSolicitudes(pl: pl) { Sistema.compartir(miosLinkCompartir(pl)) }
             } else {
                 // La primera solicitud que alcanza para llenar el cupo va destacada ("Completan").
@@ -42,6 +54,7 @@ struct VistaSolicitudes: View {
                                              aceptar: { responder(s, true) }, rechazar: { responder(s, false) },
                                              verPersona: { ir.persona(s.persona.id, desde: "solicitud") })
                         }
+                        if !van.isEmpty { yaVan(pl) }
                     }
                     .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 24)
                 }
@@ -62,6 +75,7 @@ struct VistaSolicitudes: View {
             let (pl, s) = try await (a, b)
             plan = pl
             sols = s.solicitudes.filter { $0.estado == "pendiente" }
+            van = s.solicitudes.filter { $0.estado == "aceptada" }
             error = nil
         } catch {
             self.error = mensajeDe(error)
@@ -73,13 +87,49 @@ struct VistaSolicitudes: View {
         Task {
             do {
                 try await c.api.responder(solicitud: s.id, aceptar: aceptar)
-                withAnimation { _ = respondidas.insert(s.id) }
+                withAnimation {
+                    _ = respondidas.insert(s.id)
+                    if aceptar { var a = s; a.estado = "aceptada"; van.append(a) }
+                }
                 if aceptar { c.avisos.ok("\(miosPrimer(s.persona.nombre)) ya está adentro.") }
                 if let pl = try? await c.api.plan(planId) { plan = pl }
             } catch {
                 c.avisos.error(error)
             }
             ocupado = nil
+        }
+    }
+
+    /// «Ya van»: los aceptados, con «Sacar» (antes de que empiece el plan).
+    private func yaVan(_ pl: Plan) -> some View {
+        let empezo = Fecha.parse(pl.empiezaEn).map { Date() > $0 } ?? false
+        return VStack(alignment: .leading, spacing: 10) {
+            MiosSeccion(texto: "Ya van · \(van.reduce(0) { $0 + $1.cantidad })").padding(.top, 10)
+            ForEach(van) { s in
+                let per = s.persona
+                HStack(spacing: 12) {
+                    Avatar(nombre: per.nombre, foto: per.foto, tam: 44, borde: 0, tamTexto: 17)
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 6) {
+                            T(s.cantidad > 1 ? "\(miosPrimer(per.nombre)) · somos \(s.cantidad)" : miosPrimer(per.nombre), 15, 700, unRenglon: true)
+                            if per.verificada { MiosVerificado(tam: 15) }
+                        }
+                        T(miosAsistencia(per.asistencia), 12, 400, p.texto2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture { ir.persona(per.id, desde: "solicitud") }
+                    if !empezo && !pl.cancelado {
+                        Button { withAnimation { sacando = s } } label: {
+                            T("Sacar", 14, 700, C.coral2, unRenglon: true).padding(.horizontal, 12).padding(.vertical, 8)
+                        }
+                        .buttonStyle(EstiloPlano())
+                        .accessibilityLabel("Sacar a \(miosPrimer(per.nombre)) del plan")
+                    }
+                }
+                .padding(12)
+                .gel(20, miosGelTarjeta(p))
+            }
         }
     }
 

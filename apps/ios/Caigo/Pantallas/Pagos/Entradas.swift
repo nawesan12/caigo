@@ -28,6 +28,7 @@ struct Checkout: View {
     @State private var pagando = false
     @State private var compra: Compra?
     @State private var revisando = false
+    @State private var preguntarGenero = false
 
     var body: some View {
         Pantalla {
@@ -41,6 +42,10 @@ struct Checkout: View {
                     Spacer()
                 }
                 .padding(.horizontal, 20).padding(.top, 8)
+            }
+            // Plan «Solo mujeres / Solo diversidades» sin género cargado: se pregunta y se reintenta.
+            HojaGenero(abierta: preguntarGenero, cerrar: { preguntarGenero = false }) {
+                if let plan { Task { await pagar(plan) } }
             }
         }
         .environment(\.paleta, .clara)
@@ -90,6 +95,7 @@ struct Checkout: View {
                 ir.atras()
             }
         } catch let e as ErrorApi {
+            if e.codigo == "falta_genero" { preguntarGenero = true; return }
             c.avisos.error(e.detalle)
             if e.codigo == "falta_selfie" { ir.selfie(volver: true) }
             if e.codigo == "falta_dni" { ir.dni(plan: plan.id) }
@@ -260,6 +266,8 @@ struct VistaEntrada: View {
     @Environment(\.paleta) private var p
     @State private var entrada: EntradaMia?
     @State private var foto: String?
+    @State private var cancelacion = ""
+    @State private var cancelando = false
     @State private var cargando = true
     @State private var error: String?
 
@@ -285,6 +293,12 @@ struct VistaEntrada: View {
                             PagosBotonWallet { try await c.api.pkpassEntrada(e.id) }
                         }
                         Cta(texto: "Ver el plan", gel: Gels.violeta, radio: 22, color: C.blanco) { ir.plan(e.planId) }
+                        if !e.validada {
+                            Button { cancelando = true } label: {
+                                T("Cancelar mi entrada", 15, 700, C.coral2).padding(.horizontal, 18).padding(.vertical, 12)
+                            }
+                            .buttonStyle(EstiloPlano())
+                        }
                     }
                     .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 40)
                 }
@@ -300,12 +314,25 @@ struct VistaEntrada: View {
                 }
                 .padding(.horizontal, 20).padding(.top, 8)
             }
+            // Cancelar según la política del plan (contrato §2): flex, mod o strict.
+            HojaConfirmar(abierta: cancelando, titulo: cancelacion == "strict" ? "Tu entrada no tiene reembolso" : "¿Cancelar tu entrada?", cuerpo: planesPolitica(cancelacion),
+                          accion: cancelacion == "strict" ? nil : "Cancelar mi entrada", cerrar: { cancelando = false }) {
+                do {
+                    let r = try await c.api.cancelarEntrada(entradaId)
+                    c.avisos.ok(r.reembolsoCentavos > 0 ? "Listo. Te devolvemos \(Plata.pesos(r.reembolsoCentavos)) por Mercado Pago."
+                                                         : "Listo, cancelaste tu entrada.")
+                    ir.atras()
+                } catch let x as ErrorApi where x.codigo == "sin_reembolso" && x.problema.detail.isEmpty {
+                    throw ErrorApi(estado: x.estado, problema: Problema(detail: "El lugar no devuelve entradas de este plan."))
+                }
+            }
         }
         .environment(\.paleta, .clara)
         .task {
             do { entrada = try await c.api.pases().entradas.first { $0.id == entradaId } } catch { self.error = mensajeDe(error) }
             cargando = false
-            if !planId.isEmpty { foto = try? await c.api.plan(planId).foto }
+            let id = planId.isEmpty ? (entrada?.planId ?? "") : planId
+            if !id.isEmpty, let pl = try? await c.api.plan(id) { foto = pl.foto; cancelacion = pl.cancelacion }
         }
     }
 

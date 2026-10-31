@@ -84,7 +84,10 @@ struct PlanesChipPlus: View {
 /// Sumarse a un plan desde la tarjeta o el detalle. Los errores de verificación llevan a la selfie o
 /// al DNI (y vuelven); el resto se muestra tal cual en el toast. Devuelve el estado nuevo.
 @MainActor
-func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensaje: String = "") async -> String? {
+/// Con `faltaGenero`, el 422 `falta_genero` no se muestra: se llama para preguntarlo y reintentar.
+/// Sin él (la tarjeta de una lista), se abre el detalle, que tiene la hoja.
+func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensaje: String = "",
+                   faltaGenero: (() -> Void)? = nil) async -> String? {
     do {
         let e = try await c.api.sumarme(plan.id, cantidad: cantidad, mensaje: mensaje).estado
         let quien = plan.organizador.nombre.isEmpty ? "quien organiza" : plan.organizador.nombre
@@ -92,6 +95,10 @@ func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensa
         Sistema.vibrar()
         return e
     } catch let e as ErrorApi {
+        if e.codigo == "falta_genero" {
+            if let faltaGenero { faltaGenero() } else { ir.plan(plan.id) }
+            return nil
+        }
         c.avisos.error(e.detalle)
         if e.codigo == "falta_selfie" { ir.selfie(volver: true) }
         if e.codigo == "falta_dni" { ir.dni(plan: plan.id) }
@@ -99,6 +106,22 @@ func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensa
     } catch {
         c.avisos.error(error)
         return nil
+    }
+}
+
+/// Cantidad con la que se suma por defecto: la del 01b («Voy solo / Somos 2 / Somos 4»), acotada a
+/// lo que acepta el plan.
+func planesCantidadInicial(_ somos: Int, _ p: Plan) -> Int {
+    guard p.aceptaGrupos, p.faltan > 1 else { return 1 }
+    return max(1, min(somos, p.faltan, 10))
+}
+
+/// Política de cancelación de una entrada (contrato §2), dicha para quien compró.
+func planesPolitica(_ cancelacion: String) -> String {
+    switch cancelacion {
+    case "mod": return "Hasta 72 h antes te devolvemos la entrada. Después, la seña queda para el lugar. El cargo por servicio no se devuelve."
+    case "strict": return "El lugar no devuelve entradas de este plan. Si el plan se cancela, te devolvemos todo."
+    default: return "Hasta 24 h antes te devolvemos la entrada. El cargo por servicio no se devuelve."
     }
 }
 
@@ -127,7 +150,7 @@ struct AccionTarjeta: View {
                 if esDeLugar(plan) { ir.plan(plan.id); return }
                 Task {
                     enviando = true
-                    if let e = await planesSumarse(c, ir, plan, cantidad: 1) { alCambiar(e) }
+                    if let e = await planesSumarse(c, ir, plan, cantidad: planesCantidadInicial(c.somos, plan)) { alCambiar(e) }
                     enviando = false
                 }
             } label: {

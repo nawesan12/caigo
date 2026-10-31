@@ -19,6 +19,11 @@ private func enVentanaDeCheckin(_ p: Plan) -> Bool {
     return ahora > t.addingTimeInterval(-30 * 60) && ahora < t.addingTimeInterval(Double(p.duracionMin) * 60)
 }
 
+private func empezo(_ p: Plan) -> Bool {
+    guard let t = Fecha.parse(p.empiezaEn) else { return false }
+    return Date() > t
+}
+
 private func yaPaso(_ p: Plan) -> Bool {
     guard let t = Fecha.parse(p.empiezaEn) else { return false }
     return Date() > t.addingTimeInterval(Double(p.duracionMin) * 60)
@@ -95,6 +100,9 @@ private struct ContenidoDetalle: View {
     @State private var opciones = false
     @State private var reportando = false
     @State private var sena = false
+    @State private var preguntarGenero = false
+    @State private var cancelandoPlan = false
+    @State private var cancelandoEntrada = false
 
     private var deLugar: Bool { esDeLugar(p) }
     private var link: String { "https://caigo.com.ar/p/\(p.slug)" }
@@ -180,8 +188,55 @@ private struct ContenidoDetalle: View {
                     }
                 }
             }
+            HojaConfirmar(abierta: cancelandoPlan, titulo: "¿Cancelar el plan?",
+                          cuerpo: cuerpoCancelarPlan, accion: "Cancelar el plan", cerrar: { cancelandoPlan = false }) {
+                try await c.api.cancelarPlan(p.id)
+                c.avisos.ok("Cancelaste el plan. Le avisamos a la gente.")
+                recargar()
+            }
+            HojaConfirmar(abierta: cancelandoEntrada, titulo: p.cancelacion == "strict" ? "Tu entrada no tiene reembolso" : "¿Cancelar tu entrada?",
+                          cuerpo: planesPolitica(p.cancelacion), accion: p.cancelacion == "strict" ? nil : "Cancelar mi entrada", cerrar: { cancelandoEntrada = false }) {
+                try await cancelarMiEntrada()
+            }
+            HojaGenero(abierta: preguntarGenero, cerrar: { preguntarGenero = false }) { sumarme() }
         }
-        .onAppear { sena = UserDefaults.standard.string(forKey: claveModoCheckout(p.id)) == "sena" && p.cobro == "sena" }
+        .onAppear {
+            sena = UserDefaults.standard.string(forKey: claveModoCheckout(p.id)) == "sena" && p.cobro == "sena"
+            // 01b: con cuántos se suma por defecto.
+            let n = planesCantidadInicial(c.somos, p)
+            if n > 1 { grupo = 1; cantidad = max(2, n) }
+        }
+    }
+
+    private var cuerpoCancelarPlan: String {
+        let base = "Les avisamos a quienes se sumaron o pidieron sumarse. No tiene vuelta."
+        return p.lugar != nil ? base + " A quienes pagaron entrada les devolvemos todo, cargo incluido." : base
+    }
+
+    private func sumarme() {
+        let n = grupo == 1 && p.aceptaGrupos && p.faltan > 1 ? cantidad : 1
+        Task {
+            enviando = true
+            if await planesSumarse(c, ir, p, cantidad: n, mensaje: mensaje.trimmingCharacters(in: .whitespaces),
+                                   faltaGenero: { preguntarGenero = true }) != nil { recargar() }
+            enviando = false
+        }
+    }
+
+    /// DELETE /v1/entradas/{id}: devuelve según la política (flex, mod) o 409 `sin_reembolso`.
+    private func cancelarMiEntrada() async throws {
+        guard let e = try await c.api.pases().entradas.first(where: { $0.planId == p.id }) else {
+            throw ErrorApi(estado: 0, problema: Problema(detail: "No encontramos tu entrada. Probá en un ratito."))
+        }
+        do {
+            let r = try await c.api.cancelarEntrada(e.id)
+            c.avisos.ok(r.reembolsoCentavos > 0 ? "Listo. Te devolvemos \(Plata.pesos(r.reembolsoCentavos)) por Mercado Pago."
+                                                 : "Listo, cancelaste tu entrada.")
+            recargar()
+        } catch let x as ErrorApi where x.codigo == "sin_reembolso" {
+            throw ErrorApi(estado: x.estado, problema: Problema(detail: x.problema.detail.isEmpty
+                ? "El lugar no devuelve entradas de este plan." : x.problema.detail))
+        }
     }
 
     /// Botón claro sobre la foto del detalle (#FAF9F6 en claro; gradiente grafito en oscuro).
@@ -389,11 +444,7 @@ private struct ContenidoDetalle: View {
                 ir.checkout(p.id, cantidad: n)
                 return
             }
-            Task {
-                enviando = true
-                if await planesSumarse(c, ir, p, cantidad: n, mensaje: mensaje.trimmingCharacters(in: .whitespaces)) != nil { recargar() }
-                enviando = false
-            }
+            sumarme()
         }
     }
 
@@ -423,16 +474,15 @@ private struct ContenidoDetalle: View {
                 }
             })
         }
+        if p.esMio && vivo && !empezo(p) && p.lugar == nil {
+            f.append(Opcion(texto: "Editar el plan") { ir.editarPlan(p.id) })
+        }
         if p.esMio && vivo {
-            f.append(Opcion(texto: "Cancelar el plan") {
-                Task {
-                    do {
-                        try await c.api.cancelarPlan(p.id)
-                        c.avisos.ok("Cancelaste el plan. Le avisamos a la gente.")
-                        recargar()
-                    } catch { c.avisos.error(error) }
-                }
-            })
+            f.append(Opcion(texto: p.somos > 1 ? "Gente del plan" : "Solicitudes") { ir.solicitudes(p.id) })
+            f.append(Opcion(texto: "Cancelar el plan") { withAnimation { cancelandoPlan = true } })
+        }
+        if !p.esMio && p.adentro && deLugar && vivo {
+            f.append(Opcion(texto: "Cancelar mi entrada") { withAnimation { cancelandoEntrada = true } })
         }
         if !p.esMio && (p.adentro || p.miEstado == "pendiente") && !deLugar {
             f.append(Opcion(texto: "Bajarme del plan") {
