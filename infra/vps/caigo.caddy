@@ -21,5 +21,19 @@ caigo.com.ar, www.caigo.com.ar, lugares.caigo.com.ar {
 	@www host www.caigo.com.ar
 	redir @www https://caigo.com.ar{uri} permanent
 	encode zstd gzip
-	reverse_proxy 127.0.0.1:3500
+	# Enlaces universales (iOS) y App Links (Android): /p/* y /t/* abren la app si está instalada.
+	handle /.well-known/apple-app-site-association {
+		header Content-Type application/json
+		root * /opt/caigo/well-known
+		rewrite * /apple-app-site-association
+		file_server
+	}
+	handle /.well-known/assetlinks.json {
+		root * /opt/caigo/well-known
+		rewrite * /assetlinks.json
+		file_server
+	}
+	handle {
+		reverse_proxy 127.0.0.1:3500
+	}
 }
