@@ -1,0 +1,23 @@
+# Caigo (compose en /opt/caigo). Lo lleva la sesión de Caigo. Temporal: caigo.com.ar y lugares
+# muestran "muy pronto" hasta que la web (127.0.0.1:3500) esté arriba; entonces se usa
+# infra/vps/caigo.caddy del repo. Cert de origen de Cloudflare (caigo.com.ar y *.caigo.com.ar).
+
+api.caigo.com.ar {
+	tls /etc/caddy/certs/caigo.pem /etc/caddy/certs/caigo.key
+	import solo_cloudflare
+	encode zstd gzip
+	request_body {
+		max_size 10MB
+	}
+	reverse_proxy 127.0.0.1:4300
+}
+
+caigo.com.ar, www.caigo.com.ar, lugares.caigo.com.ar {
+	tls /etc/caddy/certs/caigo.pem /etc/caddy/certs/caigo.key
+	import solo_cloudflare
+	@www host www.caigo.com.ar
+	redir @www https://caigo.com.ar{uri} permanent
+	encode zstd gzip
+	root * /opt/caigo/proximamente
+	file_server
+}
