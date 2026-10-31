@@ -28,7 +28,7 @@
 		if (plan.cobro === 'gratis' || !plan.precioCentavos) return null;
 		const d = desglose(plan.cobro, plan.precioCentavos / 100, plan.senaPct ?? 0);
 		return plan.cobro === 'sena'
-			? { monto: pesos(d.paga), detalle: `Seña · resto ${pesos(d.resto)} en el lugar` }
+			? { monto: pesos(d.paga), detalle: `Seña · resto ${pesos(d.resto)} en el\u00a0lugar` }
 			: { monto: pesos(d.paga), detalle: 'Entrada con servicio incluido' };
 	});
 	const cta = $derived(

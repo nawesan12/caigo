@@ -303,15 +303,14 @@
 		}
 		nav {
 			grid-column: 1 / -1;
-			flex-direction: row;
-			overflow-x: auto;
-			margin: 0 -16px;
-			padding: 0 16px 2px;
-			scrollbar-width: none;
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 4px;
 		}
 		nav a {
 			padding: 10px 12px;
 			font-size: 14px;
+			gap: 10px;
 		}
 		.abajo {
 			grid-column: 1 / -1;
