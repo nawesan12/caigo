@@ -44,6 +44,7 @@ struct CaigoRaiz: View {
         case .telefono: Telefono()
         case .selfie: Selfie(volver: false)
         case .intenciones: Intenciones(editar: false)
+        case .completarPerfil: EditarPerfil(completar: true)
         case let .principal(p, m): Principal(inicial: p, modo: m)
         }
     }

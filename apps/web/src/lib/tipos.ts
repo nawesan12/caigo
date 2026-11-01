@@ -326,6 +326,8 @@ export type SemanaMetricas = {
 export type Prompt = { p: string; r: string };
 export type Genero = '' | 'mujer' | 'varon' | 'no_binario';
 export type YoCompleto = Yo & {
+	/** Lo que le falta al perfil (GET /v1/yo): edad, ciudad, zona, bio, fotos, intereses. */
+	faltan?: string[];
 	bio: string;
 	trabajo: string;
 	intenciones: string[];

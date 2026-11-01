@@ -155,7 +155,7 @@ struct Intenciones: View {
                     let soloGente = (elegidas.contains("gente") || elegidas.contains("citas")) && !elegidas.contains("planes") && !elegidas.contains("completar")
                     let modo = !soloGente ? "planes" : (elegidas.contains("citas") && !elegidas.contains("gente") ? "citas" : "gente")
                     c.avisos.ok(soloGente ? "Listo. Arrancamos mostrándote gente cerca." : "Listo. Arrancamos con los planes de las próximas horas.")
-                    ir.principal(.ahora, modo: modo)
+                    if c.yo?.faltan.isEmpty == false { ir.alta(.completarPerfil) } else { ir.principal(.ahora, modo: modo) }
                 }
             } catch {
                 c.avisos.error(ingresoMensaje(error))

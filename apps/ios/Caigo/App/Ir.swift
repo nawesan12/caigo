@@ -14,6 +14,7 @@ enum Base: Hashable {
     case telefono
     case selfie
     case intenciones
+    case completarPerfil
     case principal(Pestana, modo: String?)
 }
 

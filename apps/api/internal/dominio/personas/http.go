@@ -24,6 +24,7 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 	mux.Handle("GET /v1/yo", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		yo, err := s.Yo(r.Context(), p.ID)
 		if err == nil {
+			yo.Faltan = Faltantes(yo)
 			respuesta.JSON(w, http.StatusOK, yo)
 		}
 		return err
@@ -35,6 +36,7 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 		}
 		yo, err := s.Actualizar(r.Context(), p.ID, c, time.Now())
 		if err == nil {
+			yo.Faltan = Faltantes(yo)
 			respuesta.JSON(w, http.StatusOK, yo)
 		}
 		return err

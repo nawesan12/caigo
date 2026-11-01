@@ -257,6 +257,8 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
     public var contactoConfianza = ""
     /// Sus próximos planes que quien mira puede ver (GET /v1/personas/{id}).
     public var proximos: [ProximoPlan] = []
+    /// Lo que le falta al perfil propio (GET /v1/yo): edad, ciudad, zona, bio, fotos, intereses.
+    public var faltan: [String] = []
 
     public init(id: String = "", nombre: String = "") { self.id = id; self.nombre = nombre }
 
@@ -269,7 +271,7 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
         miGente = c.v("miGente", 0); enMiGente = c.v("enMiGente", false); compartidos = c.v("compartidos", 0)
         equipo = c.v("equipo", false); telefono = c.v("telefono", "")
         genero = c.v("genero", ""); diversidad = c.v("diversidad", false); avisos = c.v("avisos", AjustesAvisos())
-        contactoConfianza = c.v("contactoConfianza", ""); proximos = c.v("proximos", [])
+        contactoConfianza = c.v("contactoConfianza", ""); proximos = c.v("proximos", []); faltan = c.v("faltan", [])
     }
 
     /// Le falta algo del alta (nombre, teléfono o selfie).

@@ -61,6 +61,12 @@ export const load: LayoutServerLoad = async (event) => {
 		const volver = event.url.pathname + event.url.search;
 		redirect(303, `/app/intereses?volver=${encodeURIComponent(volver)}`);
 	}
+	// Y antes de usar la app, el perfil completo (personas.Faltantes en la API): sin perfiles vacíos.
+	const faltan = (yo as Yo & { faltan?: string[] }).faltan ?? [];
+	if (faltan.length && !AL_PASO.has(ruta) && ruta !== '/app/perfil/editar') {
+		const volver = event.url.pathname + event.url.search;
+		redirect(303, `/app/perfil/editar?completar&volver=${encodeURIComponent(volver)}`);
+	}
 	event.setHeaders({ 'cache-control': 'private, no-store' });
 	return { yo, verif, anonimo: false, tema, ubic: leerUbicacion(event.cookies.get(COOKIE_UBIC)) };
 };

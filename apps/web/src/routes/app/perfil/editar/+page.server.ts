@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
 import type { Prompt, YoCompleto } from '#lib/tipos.ts';
-import type { Actions } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 
 const texto = (v: unknown, n: number) =>
 	String(v ?? '')
@@ -11,6 +11,8 @@ const texto = (v: unknown, n: number) =>
 /** Una foto subida por /app/perfil/foto (la URL pública de /v1/archivos/<id>). */
 const esFoto = (u: unknown): u is string =>
 	typeof u === 'string' && /^https?:\/\/[^\s]+\/v1\/archivos\/[0-9a-f-]{36}$/i.test(u);
+
+export const load: PageServerLoad = ({ url }) => ({ completar: url.searchParams.has('completar') });
 
 export const actions: Actions = {
 	default: async (event) => {
@@ -33,6 +35,10 @@ export const actions: Actions = {
 			.filter(Boolean)
 			.slice(0, 12);
 		const ciudad = d.ciudad === 'Villa Gesell' ? 'Villa Gesell' : 'Mar del Plata';
+		const nacimiento =
+			typeof d.nacimiento === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.nacimiento)
+				? d.nacimiento
+				: undefined;
 		try {
 			await conSesion(event, 'PATCH', '/v1/yo', {
 				cuerpo: {
@@ -43,13 +49,23 @@ export const actions: Actions = {
 					trabajo: texto(d.trabajo, 60),
 					fotos,
 					prompts,
-					intereses
+					intereses,
+					...(nacimiento ? { nacimiento } : {})
 				}
 			});
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
 			return fail(400, { error: mensajeDe(e) });
 		}
-		redirect(303, '/app/perfil');
+		// Desde «Completá tu perfil» se sigue a donde iba.
+		const volver = event.url.searchParams.get('volver');
+		redirect(
+			303,
+			event.url.searchParams.has('completar')
+				? volver?.startsWith('/app')
+					? volver
+					: '/app'
+				: '/app/perfil'
+		);
 	}
 };

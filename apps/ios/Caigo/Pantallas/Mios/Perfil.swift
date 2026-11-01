@@ -419,6 +419,8 @@ struct MiGente: View {
 
 /// Editar perfil: fotos, nombre, bio, trabajo, zona, preguntas e intereses (PATCH /v1/yo).
 struct EditarPerfil: View {
+    /// Al final del alta: «Completá tu perfil», sin volver y con los mínimos de la API.
+    var completar = false
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var p
@@ -442,7 +444,13 @@ struct EditarPerfil: View {
                 Puntitos(color: p.acento)
             } else {
                 VStack(spacing: 0) {
-                    Encabezado(titulo: "Editar perfil") { ir.atras() }.padding(.horizontal, 16).padding(.top, 6)
+                    if completar {
+                        IngresoTitulo(titulo: "Completá tu perfil",
+                                      bajada: "Así la gente sabe con quién sale. Mínimo 2 fotos, unas líneas sobre vos y 3 cosas que te copen.")
+                            .padding(.horizontal, 20).padding(.top, 14)
+                    } else {
+                        Encabezado(titulo: "Editar perfil") { ir.atras() }.padding(.horizontal, 16).padding(.top, 6)
+                    }
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 22) {
                             seccionFotos
@@ -457,7 +465,13 @@ struct EditarPerfil: View {
                         .padding(.horizontal, 20).padding(.vertical, 18)
                     }
                     .scrollDismissesKeyboard(.interactively)
-                    Cta(texto: "Guardar", habilitado: !nombre.trimmingCharacters(in: .whitespaces).isEmpty && !subiendo, cargando: guardando) { guardar() }
+                    if completar && !faltan.isEmpty {
+                        T("Falta: \(faltan.joined(separator: ", ")).", 13, 600, C.texto2).multilineTextAlignment(.center)
+                            .padding(.horizontal, 20).padding(.top, 6)
+                    }
+                    Cta(texto: completar ? "Listo, entrar" : "Guardar",
+                        habilitado: !nombre.trimmingCharacters(in: .whitespaces).isEmpty && !subiendo && (!completar || faltan.isEmpty),
+                        cargando: guardando) { guardar() }
                         .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
                 }
             }
@@ -474,6 +488,16 @@ struct EditarPerfil: View {
             eleccion = nil
             subir(item)
         }
+    }
+
+    /// Los mínimos que faltan (los mismos de personas.Faltantes en la API).
+    private var faltan: [String] {
+        var f: [String] = []
+        if zona.trimmingCharacters(in: .whitespaces).isEmpty { f.append("tu zona") }
+        if bio.trimmingCharacters(in: .whitespacesAndNewlines).count < 30 { f.append("contar algo sobre vos (30 letras o más)") }
+        if fotos.count < 2 { f.append("2 fotos") }
+        if gustos.count < 3 { f.append("3 cosas que te copen") }
+        return f
     }
 
     private func etiquetado<V: View>(_ etiqueta: String, @ViewBuilder _ campo: () -> V) -> some View {
@@ -589,8 +613,13 @@ struct EditarPerfil: View {
                 cambios.prompts = prompts.filter { !$0.r.trimmingCharacters(in: .whitespaces).isEmpty }
                     .map { Prompt(p: $0.p, r: $0.r.trimmingCharacters(in: .whitespacesAndNewlines)) }
                 c.yo = try await c.api.actualizarYo(cambios)
-                c.avisos.ok("Listo, actualizamos tu perfil.")
-                ir.atras()
+                if completar {
+                    c.avisos.ok("¡Listo! Ya podés sumarte a planes.")
+                    ir.principal(.ahora, modo: nil)
+                } else {
+                    c.avisos.ok("Listo, actualizamos tu perfil.")
+                    ir.atras()
+                }
             } catch {
                 c.avisos.error(error)
             }

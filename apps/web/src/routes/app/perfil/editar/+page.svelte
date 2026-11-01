@@ -14,6 +14,13 @@
 	 */
 	let { data, form } = $props();
 
+	// Con ?completar (perfil incompleto, lo manda el layout): se piden los mínimos de la API
+	// (personas.Faltantes) y no se sale sin completarlos.
+	const completar = untrack(() => data.completar as boolean);
+	const MIN_BIO = 30;
+	const MIN_FOTOS = 2;
+	const MIN_INTERESES = 3;
+
 	const yo = untrack(() => data.yo as YoCompleto);
 	let f = $state({
 		nombre: yo.nombre ?? '',
@@ -23,12 +30,23 @@
 		trabajo: yo.trabajo ?? '',
 		fotos: [...(yo.fotos ?? [])],
 		prompts: [...(yo.prompts ?? [])] as Prompt[],
-		intereses: [...(yo.intereses ?? [])]
+		intereses: [...(yo.intereses ?? [])],
+		nacimiento: ''
 	});
+	const tieneEdad = !!yo.edad;
 	let nuevo = $state('');
 	let subiendo = $state(false);
 	let enviando = $state(false);
 
+	const faltan = $derived(
+		[
+			!tieneEdad && !/^\d{4}-\d{2}-\d{2}$/.test(f.nacimiento) && 'tu fecha de nacimiento',
+			!f.zona.trim() && 'tu zona',
+			f.bio.trim().length < MIN_BIO && `contar algo sobre vos (${MIN_BIO} letras o más)`,
+			f.fotos.length < MIN_FOTOS && `${MIN_FOTOS} fotos`,
+			f.intereses.length < MIN_INTERESES && `${MIN_INTERESES} cosas que te copen`
+		].filter(Boolean) as string[]
+	);
 	const sugeridos = $derived([...new Set([...INTERESES_SUGERIDOS, ...f.intereses])]);
 	const libres = $derived(PREGUNTAS.filter((p) => !f.prompts.some((x) => x.p === p)));
 
@@ -78,7 +96,17 @@
 
 <div class="scroll">
 	<div class="contenido">
-		<CabeceraVolver volver="/app/perfil" titulo="Editar perfil" etiqueta="Volver al perfil" />
+		{#if completar}
+			<header class="completar">
+				<h1>Completá tu perfil</h1>
+				<p>
+					Así la gente sabe con quién sale. Es una sola vez: con esto ya podés sumarte a planes y
+					aparecer en Gente.
+				</p>
+			</header>
+		{:else}
+			<CabeceraVolver volver="/app/perfil" titulo="Editar perfil" etiqueta="Volver al perfil" />
+		{/if}
 
 		<section class="tarjeta-plana bloque">
 			<span class="rotulo">Fotos</span>
@@ -111,13 +139,25 @@
 					</label>
 				{/if}
 			</div>
-			<span class="ayuda">La primera es la que ve la gente. Hasta 6&nbsp;fotos.</span>
+			<span class="ayuda"
+				>La primera es la que ve la gente. Mínimo {MIN_FOTOS}, hasta 6&nbsp;fotos.</span
+			>
 		</section>
 
 		<section class="tarjeta-plana bloque">
 			<label class="campo"
 				><span>Nombre</span><input class="input" bind:value={f.nombre} maxlength="40" /></label
 			>
+			{#if !tieneEdad}
+				<label class="campo"
+					><span>Fecha de nacimiento</span><input
+						class="input"
+						type="date"
+						bind:value={f.nacimiento}
+						max={new Date(Date.now() - 18 * 365.25 * 864e5).toISOString().slice(0, 10)}
+					/><span class="ayuda">No aparece en tu perfil: sólo tu edad.</span></label
+				>
+			{/if}
 			<div class="campo">
 				<span>Ciudad</span>
 				<div class="chips">
@@ -236,12 +276,37 @@
 			}}
 		>
 			<input type="hidden" name="datos" value={JSON.stringify(f)} />
-			<button class="gel gel-violeta guardar" disabled={enviando || subiendo}>Guardar</button>
+			{#if completar && faltan.length}
+				<p class="ayuda falta">Falta: {faltan.join(', ')}.</p>
+			{/if}
+			<button
+				class="gel gel-violeta guardar"
+				disabled={enviando || subiendo || (completar && faltan.length > 0)}
+				>{completar ? 'Listo, entrar' : 'Guardar'}</button
+			>
 		</form>
 	</div>
 </div>
 
 <style>
+	.completar h1 {
+		font-size: 28px;
+		font-weight: 800;
+		letter-spacing: -0.02em;
+		margin: 0 0 6px;
+	}
+	.completar p {
+		margin: 0;
+		color: var(--texto-2, #6b6478);
+		font-size: 15px;
+		line-height: 1.4;
+		text-wrap: pretty;
+	}
+	.falta {
+		text-align: center;
+		margin: 0 0 8px;
+		text-wrap: pretty;
+	}
 	.contenido {
 		padding: calc(20px + env(safe-area-inset-top)) 20px 40px;
 		display: flex;

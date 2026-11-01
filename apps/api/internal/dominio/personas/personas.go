@@ -63,6 +63,40 @@ type Perfil struct {
 	Avisos            *Avisos `json:"avisos,omitempty"`
 	// Próximos planes de la persona que quien mira puede ver (perfil ajeno).
 	Proximos []Proximo `json:"proximos,omitempty"`
+	// Sólo en /v1/yo: lo que le falta al perfil para estar completo (ver Faltantes). Vacío: completo.
+	Faltan []string `json:"faltan,omitempty"`
+}
+
+// Lo mínimo para que un perfil no quede vacío (Nahuel, 1/11). Las apps piden completarlo antes de
+// seguir: «edad» (fecha de nacimiento), «ciudad», «zona», «bio», «fotos» e «intereses».
+const (
+	MinBio       = 30
+	MinFotos     = 2
+	MinIntereses = 3
+)
+
+// Faltantes devuelve qué le falta al perfil propio, en el orden en que se pide.
+func Faltantes(p Perfil) []string {
+	out := []string{}
+	if p.Edad == nil {
+		out = append(out, "edad")
+	}
+	if strings.TrimSpace(p.Ciudad) == "" {
+		out = append(out, "ciudad")
+	}
+	if strings.TrimSpace(p.Zona) == "" {
+		out = append(out, "zona")
+	}
+	if len([]rune(strings.TrimSpace(p.Bio))) < MinBio {
+		out = append(out, "bio")
+	}
+	if len(p.Fotos) < MinFotos {
+		out = append(out, "fotos")
+	}
+	if len(p.Intereses) < MinIntereses {
+		out = append(out, "intereses")
+	}
+	return out
 }
 
 // Avisos que la persona puede apagar.

@@ -12,6 +12,8 @@ func ingresoRutaDeAlta(_ c: Contenedor) async throws -> Base {
     if v.telefono.isEmpty { return .telefono }
     if !v.selfie { return .selfie }
     if yo.intenciones.isEmpty { return .intenciones }
+    // Sin perfiles vacíos: bio, fotos e intereses mínimos (personas.Faltantes en la API).
+    if !yo.faltan.isEmpty { return .completarPerfil }
     return .principal(.ahora, modo: nil)
 }
 
