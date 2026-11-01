@@ -102,3 +102,17 @@ def builds(app_id):
 
 if __name__ == '__main__' and sys.argv[1] in ('grupos', 'grupo_equipo', 'builds'):
     globals()[sys.argv[1]](*sys.argv[2:])
+
+def invitar(app_id, email):
+    """Reenvía por mail la invitación de TestFlight de la app a un tester ya cargado."""
+    t = [x for g in api('GET', f'/v1/apps/{app_id}/betaGroups')['data']
+         for x in api('GET', f"/v1/betaGroups/{g['id']}/betaTesters")['data'] if x['attributes'].get('email') == email]
+    if not t:
+        sys.exit(f'{email} no es tester')
+    api('POST', '/v1/betaTesterInvitations', {'data': {'type': 'betaTesterInvitations',
+        'relationships': {'app': {'data': {'type': 'apps', 'id': app_id}},
+                          'betaTester': {'data': {'type': 'betaTesters', 'id': t[0]['id']}}}}})
+    print('invitación enviada a', email, '(tester', t[0]['id'] + ')', t[0]['attributes'].get('inviteType'), t[0]['attributes'].get('state'))
+
+if __name__ == '__main__' and sys.argv[1] == 'invitar':
+    invitar(*sys.argv[2:])
