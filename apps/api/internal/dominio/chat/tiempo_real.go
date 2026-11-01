@@ -17,7 +17,7 @@ const Canal = "caigo_tiempo_real"
 
 // Evento que viaja por el WebSocket.
 type Evento struct {
-	Tipo    string   `json:"tipo"` // mensaje | privado | escribiendo
+	Tipo    string   `json:"tipo"` // mensaje | privado | escribiendo | plan (cambió el plan o sus solicitudes)
 	Mensaje *Mensaje `json:"mensaje,omitempty"`
 	Privado *Privado `json:"privado,omitempty"`
 	PlanID  string   `json:"planId,omitempty"`
@@ -103,8 +103,15 @@ func (h *Hub) Escuchar(ctx context.Context) {
 		var n struct {
 			Tipo string `json:"tipo"`
 			ID   int64  `json:"id"`
+			Plan string `json:"plan"`
 		}
 		if json.Unmarshal([]byte(payload), &n) != nil {
+			return
+		}
+		if n.Tipo == "plan" {
+			if err := h.avisarPlan(ctx, n.Plan); err != nil {
+				h.log().Warn("tiempo real: no se pudo avisar el plan", "plan", n.Plan, "error", err)
+			}
 			return
 		}
 		if err := h.repartir(ctx, n.Tipo, n.ID); err != nil {
@@ -140,6 +147,23 @@ func (h *Hub) repartir(ctx context.Context, tipo string, id int64) error {
 			h.mandar(p.AID, Evento{Tipo: "privado", Privado: &p})
 		}
 		return nil
+	})
+}
+
+// avisarPlan: cambió el plan o alguna de sus solicitudes (00016). Le llega al organizador y a todos
+// los que pidieron sumarse (pendientes, aceptados o rechazados), que recargan lo que estén viendo.
+func (h *Hub) avisarPlan(ctx context.Context, planID string) error {
+	return h.Servicio.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT organizador_id FROM planes WHERE id = $1
+			UNION SELECT usuario_id FROM solicitudes WHERE plan_id = $1`, planID)
+		if err != nil {
+			return err
+		}
+		ids, err := pgx.CollectRows(rows, pgx.RowTo[string])
+		for _, u := range ids {
+			h.mandar(u, Evento{Tipo: "plan", PlanID: planID})
+		}
+		return err
 	})
 }
 

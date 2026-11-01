@@ -1,4 +1,13 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
+	import { escucharVivo } from '#lib/vivo.ts';
+
+	// En vivo: un privado o un mensaje de plan nuevo actualiza la lista.
+	onMount(() =>
+		escucharVivo((e) => {
+			if (e.tipo === 'privado' || e.tipo === 'mensaje') invalidateAll();
+		})
+	);
 	import { onMount } from 'svelte';
 	import { invalidate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';

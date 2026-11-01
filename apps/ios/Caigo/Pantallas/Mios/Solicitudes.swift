@@ -9,6 +9,7 @@ struct VistaSolicitudes: View {
     @Environment(\.paleta) private var p
     @State private var plan: Plan?
     @State private var sols: [Solicitud]?
+    @State private var oyente: UUID?
     @State private var error: String?
     @State private var respondidas: Set<String> = []
     @State private var ocupado: String?
@@ -35,6 +36,18 @@ struct VistaSolicitudes: View {
             }
         }
         .task { await cargar() }
+        // En vivo: llega un pedido nuevo o alguien sale, y la lista se actualiza sola.
+        .onAppear {
+            if oyente == nil {
+                oyente = c.tiempoReal.escuchar { e in
+                    if e.tipo == "plan", e.planId == planId { Task { await cargar() } }
+                }
+            }
+        }
+        .onDisappear {
+            if let o = oyente { c.tiempoReal.dejar(o) }
+            oyente = nil
+        }
     }
 
     @ViewBuilder

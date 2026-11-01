@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
+	import { escucharVivo } from '#lib/vivo.ts';
 	import { enhance } from '$app/forms';
 	import { PUBLIC_SITIO } from '$app/env/public';
 	import Icono from '#lib/ui/Icono.svelte';
@@ -14,6 +17,13 @@
 	let { data } = $props();
 
 	const p = $derived(data.plan);
+
+	// En vivo: si cambia el plan o sus solicitudes (aceptan, rechazan, alguien se suma o sale), se recarga.
+	onMount(() =>
+		escucharVivo((e) => {
+			if (e.tipo === 'plan' && e.planId === p.id) invalidateAll();
+		})
+	);
 	/** Los que ya están adentro (sin quien organiza). */
 	const adentro = $derived(p.van.filter((v) => !v.organizador));
 	let aSacar = $state<PersonaCorta | null>(null);

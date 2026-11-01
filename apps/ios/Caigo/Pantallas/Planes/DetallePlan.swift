@@ -45,6 +45,7 @@ struct DetallePlan: View {
     @State private var plan: Plan?
     @State private var error: String?
     @State private var vuelta = 0
+    @State private var oyente: UUID?
 
     var body: some View {
         Group {
@@ -82,7 +83,19 @@ struct DetallePlan: View {
             }
         }
         // Al volver de Mercado Pago, de la verificación o del chat, se refresca.
-        .onAppear { if plan != nil { vuelta += 1 } }
+        .onAppear {
+            if plan != nil { vuelta += 1 }
+            // En vivo: si cambia el plan o sus solicitudes (te aceptan, alguien se suma), se recarga.
+            if oyente == nil {
+                oyente = c.tiempoReal.escuchar { e in
+                    if e.tipo == "plan", e.planId == (planId ?? id) { vuelta += 1 }
+                }
+            }
+        }
+        .onDisappear {
+            if let o = oyente { c.tiempoReal.dejar(o) }
+            oyente = nil
+        }
         .onChange(of: fase) { _, f in if f == .active && plan != nil { vuelta += 1 } }
     }
 }

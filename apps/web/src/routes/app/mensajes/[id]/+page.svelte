@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick, untrack } from 'svelte';
+	import { escucharVivo } from '#lib/vivo.ts';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Avatar from '#lib/app-ui/Avatar.svelte';
@@ -100,10 +101,17 @@
 
 	onMount(() => {
 		bajar();
+		// En vivo: cada privado nuevo llega por /app/vivo; la consulta cada 30 s queda de respaldo.
+		const dejar = escucharVivo((e) => {
+			if (e.tipo === 'privado') traer();
+		});
 		const t = setInterval(() => {
 			if (document.visibilityState === 'visible') traer();
-		}, 4000);
-		return () => clearInterval(t);
+		}, 30000);
+		return () => {
+			clearInterval(t);
+			dejar();
+		};
 	});
 </script>
 

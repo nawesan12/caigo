@@ -9,6 +9,7 @@
 	import { cuandoCorto } from '#lib/fechas.ts';
 	import { primerNombre } from '#lib/plan.ts';
 	import { TINTES } from '#lib/app.ts';
+	import { escucharVivo } from '#lib/vivo.ts';
 	import type { Mensaje } from '#lib/tipos.ts';
 
 	/*
@@ -93,10 +94,22 @@
 
 	onMount(() => {
 		bajar();
+		// En vivo: cada mensaje nuevo del plan llega por /app/vivo. La consulta cada 30 s queda de
+		// respaldo por si la conexión se corta.
+		const dejar = escucharVivo((e) => {
+			if (
+				(e.tipo === 'mensaje' && e.mensaje?.planId === p.id) ||
+				(e.tipo === 'plan' && e.planId === p.id)
+			)
+				traer();
+		});
 		const t = setInterval(() => {
 			if (document.visibilityState === 'visible') traer();
-		}, 4000);
-		return () => clearInterval(t);
+		}, 30000);
+		return () => {
+			clearInterval(t);
+			dejar();
+		};
 	});
 </script>
 
