@@ -32,7 +32,7 @@ export const actions: Actions = {
 			if (!(e instanceof ErrorApi)) throw e;
 			return fail(400, { error: mensajeDe(e) });
 		}
-		redirect(303, link);
+		redirect(303, link, { external: true });
 	},
 	desconectar: async (event) => {
 		const { lugar } = await misLugares(event);

@@ -44,6 +44,6 @@ export const actions: Actions = {
 			if (!(e instanceof ErrorApi)) throw e;
 			return fail(400, { error: mensajeDe(e), plan });
 		}
-		redirect(303, link);
+		redirect(303, link, { external: true });
 	}
 };

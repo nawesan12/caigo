@@ -46,7 +46,7 @@ export const actions: Actions = {
 			if (e.codigo === 'falta_genero') redirect(303, aGenero(id, pedido));
 			return fail(e.estado === 400 ? 400 : 409, { error: mensajeDe(e), codigo: e.codigo });
 		}
-		redirect(303, link);
+		redirect(303, link, { external: true });
 	},
 	salir: async (event) => {
 		const id = uuid(event.params.id);

@@ -49,6 +49,6 @@ export const actions: Actions = {
 			// solo_mujeres / solo_diversidades: el plan no es para esta persona.
 			return fail(409, { error: mensajeDe(e), codigo: e.codigo, plan: id });
 		}
-		redirect(303, link);
+		redirect(303, link, { external: true });
 	}
 };

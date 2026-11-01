@@ -41,7 +41,7 @@ export const actions: Actions = {
 						cuerpo: { cantidad: 1 }
 					}
 				);
-				if (c?.link) redirect(303, c.link);
+				if (c?.link) redirect(303, c.link, { external: true });
 				return { estado: 'aceptada' };
 			}
 			const r = await conSesion<{ estado: string }>(
