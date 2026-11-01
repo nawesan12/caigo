@@ -69,6 +69,14 @@ func TestChatDelPlan(t *testing.T) {
 	if cs.Conversaciones[0].SinLeer != 0 {
 		t.Fatal("leer el hilo no marcó los privados como leídos")
 	}
+	// Si Lu bloquea a Nico, la conversación desaparece de la bandeja de los dos.
+	e.pedir(lu, "PUT", "/v1/bloqueos/"+nico.id, nil, http.StatusNoContent, nil)
+	for _, p := range []persona{nico, lu} {
+		e.pedir(p, "GET", "/v1/privados", nil, http.StatusOK, &cs)
+		if len(cs.Conversaciones) != 0 {
+			t.Fatalf("bandeja con un bloqueo: %+v", cs)
+		}
+	}
 }
 
 func TestTiempoReal(t *testing.T) {

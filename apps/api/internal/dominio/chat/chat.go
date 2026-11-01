@@ -198,6 +198,9 @@ func (s *Servicio) Conversaciones(ctx context.Context, usuarioID string) ([]Conv
 				(SELECT count(*) FROM privados z WHERE z.de_id = otro AND z.a_id = $1 AND z.leido_en IS NULL)
 			FROM (SELECT *, CASE WHEN de_id = $1 THEN a_id ELSE de_id END AS otro FROM privados) p
 			JOIN usuarios u ON u.id = p.otro
+			-- Sin bloqueos en ningún sentido ni cuentas dadas de baja.
+			WHERE u.baja_en IS NULL AND NOT EXISTS (SELECT 1 FROM bloqueos b
+				WHERE (b.usuario_id = $1 AND b.bloqueado_id = p.otro) OR (b.usuario_id = p.otro AND b.bloqueado_id = $1))
 			ORDER BY otro, p.id DESC`, usuarioID)
 		if err != nil {
 			return err
