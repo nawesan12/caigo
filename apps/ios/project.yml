@@ -74,6 +74,7 @@ targets:
         CFBundleDevelopmentRegion: es-AR
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundlePackageType: APPL
         CaigoAPI: $(CAIGO_API)
         CaigoClerkPublicable: $(CAIGO_CLERK_PUBLICABLE)
         CaigoGrupoLlavero: $(AppIdentifierPrefix)ar.com.caigo.app
@@ -147,6 +148,7 @@ targets:
         CFBundleDevelopmentRegion: es-AR
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundlePackageType: APPL
         CaigoAPI: $(CAIGO_API)
         CaigoClerkPublicable: $(CAIGO_CLERK_PUBLICABLE)
         CaigoGrupoLlavero: $(AppIdentifierPrefix)ar.com.caigo.app
