@@ -30,6 +30,26 @@ jobs:
           mkdir -p "$RUNNER_TEMP/asc"
           printf '%s' "$ASC_KEY_P8" | base64 --decode > "$RUNNER_TEMP/asc/clave.p8"
           printf 'CAIGO_CLERK_PUBLICABLE = %s\n' "$CLERK_PUBLICABLE" > Config/Secretos.xcconfig
+      - name: Certificado de distribución y perfiles de App Store
+        env:
+          P12: ${{ secrets.CAIGO_DIST_P12 }}
+          P12_CLAVE: ${{ secrets.CAIGO_DIST_P12_CLAVE }}
+          PERFIL_APP: ${{ secrets.CAIGO_PERFIL_APP }}
+          PERFIL_CLIP: ${{ secrets.CAIGO_PERFIL_CLIP }}
+        run: |
+          LLAVERO="$RUNNER_TEMP/firma.keychain-db"
+          CLAVE_LLAVERO=$(openssl rand -hex 16)
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security create-keychain -p "$CLAVE_LLAVERO" "$LLAVERO"
+          security set-keychain-settings -lut 3600 "$LLAVERO"
+          security unlock-keychain -p "$CLAVE_LLAVERO" "$LLAVERO"
+          security import "$RUNNER_TEMP/dist.p12" -P "$P12_CLAVE" -A -t cert -f pkcs12 -k "$LLAVERO"
+          security set-key-partition-list -S apple-tool:,apple: -k "$CLAVE_LLAVERO" "$LLAVERO" >/dev/null
+          security list-keychains -d user -s "$LLAVERO" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/dist.p12"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          printf '%s' "$PERFIL_APP" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/caigo-app.mobileprovision
+          printf '%s' "$PERFIL_CLIP" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/caigo-clip.mobileprovision
       - run: xcodegen generate
       - name: Archive firmado
         env:
@@ -40,10 +60,6 @@ jobs:
           xcodebuild -project Caigo.xcodeproj -scheme Caigo -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Caigo.xcarchive" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} \
-            CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Distribution" DEVELOPMENT_TEAM=M6935MSNQB \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/asc/clave.p8" \
-            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             archive | tee archive.log | xcbeautify --renderer github-actions
       - name: Subir a TestFlight
         env:
@@ -58,17 +74,23 @@ jobs:
             <key>method</key><string>app-store-connect</string>
             <key>destination</key><string>upload</string>
             <key>teamID</key><string>M6935MSNQB</string>
-            <key>signingStyle</key><string>automatic</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key><dict>
+              <key>ar.com.caigo.app</key><string>Caigo App Store</string>
+              <key>ar.com.caigo.app.Clip</key><string>Caigo Clip App Store</string>
+            </dict>
             <key>uploadSymbols</key><true/>
           </dict></plist>
           EOF
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Caigo.xcarchive" \
             -exportPath "$RUNNER_TEMP/exportado" -exportOptionsPlist "$RUNNER_TEMP/exportar.plist" \
-            -allowProvisioningUpdates \
             -authenticationKeyPath "$RUNNER_TEMP/asc/clave.p8" \
             -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             | tee exportar.log | xcbeautify --renderer github-actions
       - if: failure()
         run: grep -hE 'error:|Error|No profiles|provisioning' archive.log exportar.log 2>/dev/null | sort -u | head -80
       - if: always()
-        run: rm -rf "$RUNNER_TEMP/asc"
+        run: |
+          rm -rf "$RUNNER_TEMP/asc" ~/Library/MobileDevice/Provisioning\ Profiles/caigo-*.mobileprovision
+          security delete-keychain "$RUNNER_TEMP/firma.keychain-db" 2>/dev/null || true
