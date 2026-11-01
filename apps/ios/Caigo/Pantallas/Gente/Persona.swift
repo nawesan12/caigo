@@ -123,11 +123,15 @@ struct PerfilPersona: View {
             LinearGradient(stops: Fondo.paradas((0, rgba(32, 29, 43, 0.5)), (0.2, rgba(32, 29, 43, 0)), (0.55, rgba(32, 29, 43, 0)),
                                                  (1, rgba(32, 29, 43, 0.9))), startPoint: .top, endPoint: .bottom)
             // Tocar a la izquierda o a la derecha cambia de foto.
-            HStack(spacing: 0) {
-                Color.clear.contentShape(Rectangle()).onTapGesture { foto = max(0, foto - 1) }
-                    .frame(maxWidth: .infinity).layoutPriority(0.4)
-                Color.clear.contentShape(Rectangle()).onTapGesture { foto = min(max(p.fotos.count - 1, 0), foto + 1) }
-                    .frame(maxWidth: .infinity).layoutPriority(0.6)
+            // 40 % izquierda (atrás) y 60 % derecha (adelante). Con layoutPriority y anchos infinitos la
+            // derecha se quedaba con todo y no se podía volver.
+            GeometryReader { g in
+                HStack(spacing: 0) {
+                    Color.clear.contentShape(Rectangle()).onTapGesture { foto = max(0, foto - 1) }
+                        .frame(width: g.size.width * 0.4)
+                    Color.clear.contentShape(Rectangle()).onTapGesture { foto = min(max(p.fotos.count - 1, 0), foto + 1) }
+                        .frame(width: g.size.width * 0.6)
+                }
             }
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
