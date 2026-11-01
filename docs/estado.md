@@ -41,8 +41,10 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
 5. SMS real: elegir proveedor (hoy simulado).
 6. Fotos de Explorar «Cita doble» y «Cultura» en iOS (faltan) y Android (no encajan). Web (rama
    `pendientes`, sin desplegar): «Pedir placas» con pedido real (migración 00015, `/equipo` › Placas),
-   menú del chat de /app (ver/reportar/salir o cancelar) y mapa oscuro con OpenFreeMap dark. La web no
-   tiene chats privados: el menú de privados (ver perfil/reportar/bloquear) queda para cuando existan.
+   menú del chat de /app (ver/reportar/salir o cancelar) y mapa oscuro con OpenFreeMap dark. Chats
+   privados en la web (rama `privados`, sin desplegar): `/app/mensajes` (bandeja), `/app/mensajes/<id>`
+   (sondeo cada 4 s, menú ver perfil/reportar/bloquear), `/app/persona/<id>`, `/app/perfil/gente` y el
+   acceso con no leídos en Mis planes; `/app/mensajes?privado=<id>` abre el chat de un aviso.
 7. Probar en dispositivos reales: nada de iOS se vio corriendo; Android sólo ingreso, permisos, Ahora
    y filtros.
 

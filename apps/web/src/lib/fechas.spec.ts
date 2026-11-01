@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { aRFC3339, cuandoCorto, cuandoLargo, diasParaElegir, esHoy, fechaDeHoy } from './fechas.ts';
+import {
+	aRFC3339,
+	cuandoCorto,
+	cuandoLargo,
+	diasParaElegir,
+	esHoy,
+	fechaDeHoy,
+	hace
+} from './fechas.ts';
 
 // Martes 28 de octubre de 2026, 15:00 en Argentina.
 const AHORA = new Date('2026-10-28T18:00:00Z');
@@ -26,5 +34,13 @@ describe('fechas en hora de Argentina', () => {
 		expect(d.map((x) => x.etiqueta)).toEqual(['Hoy', 'Mañana', 'Vie 30', 'Sáb 31', 'Dom 1']);
 		expect(d[0].valor).toBe('2026-10-28');
 		expect(aRFC3339('2026-10-31', '19:30')).toBe('2026-10-31T19:30:00-03:00');
+	});
+	it('hace cuánto llegó un mensaje (bandeja de Mensajes)', () => {
+		expect(hace('2026-10-28T17:59:40Z', AHORA)).toBe('recién');
+		expect(hace('2026-10-28T17:55:00Z', AHORA)).toBe('hace 5 min');
+		expect(hace('2026-10-28T14:00:00Z', AHORA)).toBe('hace 4 h');
+		// 23:00 del 27 en Argentina: ayer, aunque sean menos de 24 h.
+		expect(hace('2026-10-28T02:00:00Z', AHORA)).toBe('ayer');
+		expect(hace('2026-10-25T18:00:00Z', AHORA)).toBe('hace 3 días');
 	});
 });

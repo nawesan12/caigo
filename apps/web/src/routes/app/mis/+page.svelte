@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { PUBLIC_SITIO } from '$app/env/public';
+	import Icono from '#lib/ui/Icono.svelte';
 	import Confirmar from '#lib/app-ui/Confirmar.svelte';
 	import Reportar from '#lib/app-ui/Reportar.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
@@ -10,7 +11,9 @@
 
 	/*
 	 * Mis planes (Mockups v5, 10); vacío, 13b "Todavía no te sumaste a nada". En los que organizo:
-	 * compartir, editar y cancelar; en el historial, ¿Repetimos? (09b) y Reportar.
+	 * compartir, editar y cancelar; en el historial, ¿Repetimos? (09b) y Reportar. Al lado del
+	 * título, el acceso a Mensajes (los privados) con el contador coral de no leídos: el handoff no
+	 * lo dibuja, va con el botón de ícono de las cabeceras (la rueda del perfil).
 	 */
 	let { data } = $props();
 
@@ -52,7 +55,21 @@
 
 <div class="scroll">
 	<div class="contenido">
-		<h1>Mis planes</h1>
+		<div class="titulo">
+			<h1>Mis planes</h1>
+			<a
+				class="mensajes"
+				href="/app/mensajes"
+				aria-label={data.mensajes
+					? `Mensajes, ${data.mensajes === 1 ? '1 sin leer' : `${data.mensajes} sin leer`}`
+					: 'Mensajes'}
+			>
+				<Icono nombre="enviar" tam={20} trazo={2} />
+				{#if data.mensajes}<span class="cuenta" aria-hidden="true"
+						>{data.mensajes > 99 ? '99+' : data.mensajes}</span
+					>{/if}
+			</a>
+		</div>
 		<nav class="seg3" aria-label="Qué planes ver">
 			{#each TABS as t (t.k)}
 				<a href="/app/mis?cual={t.k}" aria-current={data.cual === t.k ? 'page' : undefined}>{t.l}</a
@@ -192,11 +209,45 @@
 		flex-direction: column;
 		gap: 16px;
 	}
+	.titulo {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+	}
 	h1 {
 		font:
 			800 40px/1 'Geist',
 			sans-serif;
 		letter-spacing: -1.4px;
+	}
+	.mensajes {
+		position: relative;
+		flex: none;
+		width: 44px;
+		height: 44px;
+		border-radius: 16px;
+		display: grid;
+		place-items: center;
+		color: var(--carbon);
+		background: var(--grad-off);
+		box-shadow: var(--sh-icono);
+	}
+	.mensajes .cuenta {
+		position: absolute;
+		top: -6px;
+		right: -6px;
+		min-width: 22px;
+		height: 22px;
+		padding: 0 6px;
+		border-radius: 11px;
+		border: 2px solid var(--c-fondo);
+		display: grid;
+		place-items: center;
+		background: var(--coral);
+		color: #24212d;
+		font-size: 11px;
+		font-weight: 800;
 	}
 	.seg3 {
 		display: flex;

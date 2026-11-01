@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icono from '#lib/ui/Icono.svelte';
 	import Avatar from '#lib/app-ui/Avatar.svelte';
 	import Verificado from '#lib/app-ui/Verificado.svelte';
 	import BajateLaApp from '#lib/app-ui/BajateLaApp.svelte';
@@ -99,7 +100,7 @@
 			</div>
 		{/if}
 
-		<div class="gente">
+		<a class="gente" href="/app/perfil/gente" aria-label="Mi gente">
 			<div class="g-txt">
 				<span class="rot">Mi gente · {yo.miGente}</span>
 				{#if data.gente.length}
@@ -113,7 +114,8 @@
 					<span class="sd">Después de un plan, sumá a quien volverías a&nbsp;ver.</span>
 				{/if}
 			</div>
-		</div>
+			<Icono nombre="flecha" tam={20} trazo={2.2} />
+		</a>
 
 		{#if data.compartidos.length}
 			<div class="bloque">
@@ -286,6 +288,8 @@
 		border-radius: 22px;
 		background: var(--c-tarjeta);
 		box-shadow: var(--sh-tarjeta-plan);
+		color: inherit;
+		text-decoration: none;
 	}
 	.g-txt {
 		display: flex;

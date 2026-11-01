@@ -101,4 +101,15 @@ export function aRFC3339(dia: string, hora: string): string {
 	return `${dia}T${hora}:00-03:00`;
 }
 
+/** Cuándo llegó un mensaje, como en las apps (Fecha.hace): "recién", "hace 5 min", "ayer". */
+export function hace(f: Date | string, ahora: Date = new Date()): string {
+	const min = Math.floor((ahora.getTime() - new Date(f).getTime()) / 60_000);
+	const dias = diasEntre(f, ahora);
+	if (min < 1) return 'recién';
+	if (min < 60) return `hace ${min} min`;
+	if (dias === 0) return `hace ${Math.floor(min / 60)} h`;
+	if (dias === 1) return 'ayer';
+	return `hace ${dias} días`;
+}
+
 export { ZONA };
