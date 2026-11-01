@@ -228,3 +228,9 @@ Lo que hay que crear en el portal de Apple (Team M6935MSNQB) y App Store Connect
   de la página y parecía que no pasaba nada).
 - /opt/caigo/api.conf había quedado de root (carga de MP): se devolvió a deploy; los deploy fallaban.
 
+- Perfiles completos: `/v1/yo` trae `faltan` (personas.Faltantes: edad, ciudad, zona, bio ≥ 30, 2 fotos, 3 intereses);
+  la web (layout de /app → /app/perfil/editar?completar) y el iPhone (Base .completarPerfil) piden completarlo. Android no.
+- Tiempo real de los planes (00016): trigger en solicitudes y planes → NOTIFY `{tipo:"plan", plan}` → Hub.avisarPlan al
+  organizador y a quienes pidieron sumarse. La web tiene tiempo real por `/app/vivo` (SSE que reenvía el WebSocket de la
+  API con la sesión de la cookie; `lib/vivo.ts`): detalle, solicitudes, chat y mensajes. iOS: DetallePlan y Solicitudes.
+- SvelteKit 3: toda redirección a MP / links de la API lleva `{ external: true }` (si no, falla en silencio).
