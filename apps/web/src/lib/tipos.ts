@@ -366,3 +366,44 @@ export type EdicionPlanLugar = {
 	beneficio: string;
 	quien: 'cualquiera' | 'verificados' | 'mujeres';
 };
+
+/** Un privado entre dos personas (GET/POST /v1/privados/{id}). */
+export type Privado = {
+	id: number;
+	deId: string;
+	aId: string;
+	texto: string;
+	creadoEn: string;
+	leidoEn?: string;
+};
+
+/** GET /v1/privados: el último privado con cada persona, la más reciente primero. */
+export type Conversacion = {
+	con: { id: string; nombre: string; foto?: string };
+	ultimo: Privado;
+	sinLeer: number;
+};
+
+/** GET /v1/personas/{id}: el perfil de otra persona (sin lo privado). */
+export type PerfilPersona = {
+	id: string;
+	nombre: string;
+	edad?: number;
+	zona: string;
+	ciudad: string;
+	bio: string;
+	trabajo: string;
+	intereses: string[];
+	prompts: Prompt[];
+	fotos: string[];
+	verificada: boolean;
+	asistencia: { fue: number; de: number };
+	planes: number;
+	organizados: number;
+	enMiGente?: boolean;
+	compartidos?: number;
+	proximos?: { id: string; titulo: string; categoria: string; empiezaEn: string; foto?: string }[];
+};
+
+/** GET /v1/gente: la gente que sumé (el mismo perfil que /v1/personas/{id}). */
+export type DeMiGente = PerfilPersona;

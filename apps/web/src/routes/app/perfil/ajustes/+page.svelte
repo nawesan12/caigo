@@ -63,6 +63,14 @@
 				>
 				<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
 			</a>
+			<a class="fila" href="/app/mensajes">
+				<Icono nombre="enviar" tam={20} color="var(--c-acento)" trazo={2} />
+				<span class="ft"
+					><b>Mensajes privados</b><span>Con tu gente y con quien compartiste un&nbsp;plan</span
+					></span
+				>
+				<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
+			</a>
 		</div>
 
 		<h2>Qué buscás en Caigo</h2>
