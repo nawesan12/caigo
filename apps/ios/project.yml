@@ -122,8 +122,6 @@ targets:
           - appclips:caigo.com.ar
         com.apple.security.application-groups:
           - group.ar.com.caigo.app
-        keychain-access-groups:
-          - $(AppIdentifierPrefix)ar.com.caigo.app
         com.apple.developer.applesignin:
           - Default
     settings:
