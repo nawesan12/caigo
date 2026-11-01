@@ -1,17 +1,25 @@
 # Estado
 
-## Cómo retomar (actualizado 31/10/2026, noche)
-**Todo está en `main`** (sin ramas ni worktrees abiertos). Producción: API 92c1383 y web 60985da en el
-VPS (`/opt/caigo`); iOS y Android en main, compilados en GitHub Actions (CI verde: api, web,
-android, ios).
+## Cómo retomar (actualizado 31/10/2026, cierre del día)
+**Todo está en `main`** (sin ramas ni worktrees abiertos). Producción: API 52cca06 y web en el VPS
+(`/opt/caigo`). iOS en **TestFlight** (1.0.0 build 5; Nahuel la instaló y la vio bien). Android en
+main, compilado en GitHub (sin APK nuevo publicado). CI verde: api, web, android, ios.
+
+**Próximo paso acordado:** una revisión con Nahuel de la app en el iPhone (TestFlight) y de la web.
 
 **Reglas de Nahuel para trabajar:**
-- Compilar Android e iOS sólo en GitHub (CI), nunca en la compu (está muy cargada). No armar APK ni
-  builds para instalar salvo que lo pida.
+- Android e iOS se compilan SÓLO en GitHub (CI y workflow `testflight`), nunca en la Mac ni con
+  simulador. No armar APK salvo que lo pida. No repetir pruebas pesadas que ya pasaron.
 - Todo a main; desplegar con `infra/vps/desplegar-api.sh [--migrar]` (hace pg_dump antes de migrar)
   y `infra/vps/desplegar-web.sh`.
 - UI fiel al handoff, sin renglones viudos, copy rioplatense. No crear cuentas externas sin su ok
   (ya autorizó «configurá vos todo» para Apple, MP y Firebase).
+- Coordinar Xcode/TestFlight y cuentas compartidas (Clerk, Firebase grupo-vimo, correo) con la sesión
+  de Tu Local Web.
+
+**Web (31/10, en producción):** además de todo lo de la auditoría: chats privados (`/app/mensajes`,
+perfil de persona, Mi gente), menú del chat del plan (ver, reportar, salir/cancelar), mapa oscuro,
+pedido de placas Caigo Tap desde el panel (+ pestaña «Placas» en /equipo).
 
 **SEO y OG (31/10, en producción):** imágenes OG dinámicas por plan (`/p/<slug>/og.png`) y fijas
 (`/og/<nombre>.png`) con satori + resvg en WASM (sin binarios nativos), JSON-LD (Event por plan,
