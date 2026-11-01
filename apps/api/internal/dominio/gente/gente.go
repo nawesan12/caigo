@@ -104,7 +104,8 @@ func (s *Servicio) Mazo(ctx context.Context, usuarioID, modo string) ([]Tarjeta,
 			LEFT JOIN LATERAL app.asistencia(u.id) rep ON true
 			WHERE u.id <> $1 AND u.baja_en IS NULL AND u.suspendido_en IS NULL AND u.selfie_en IS NOT NULL
 				AND cardinality(u.fotos) > 0
-				AND ($2 = '' OR lower(u.ciudad) = lower($2))
+				-- Sin ciudad cargada (el alta de la web no la pide) también aparece.
+				AND ($2 = '' OR u.ciudad = '' OR lower(u.ciudad) = lower($2))
 				AND u.intenciones && CASE WHEN $3 = 'citas' THEN ARRAY['citas'] ELSE ARRAY['gente', 'planes', 'completar'] END
 				AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $1 AND b.bloqueado_id = u.id)
 					OR (b.usuario_id = u.id AND b.bloqueado_id = $1))

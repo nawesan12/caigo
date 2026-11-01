@@ -251,7 +251,7 @@
 </div>
 
 <div class="barra">
-	{#if form?.error && form?.codigo !== 'falta_dni'}<p class="error" role="alert">
+	{#if form?.error}<p class="error" role="alert">
 			{form.error}
 		</p>{/if}
 	{#if p.cancelado}
