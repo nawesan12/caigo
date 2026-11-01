@@ -32,10 +32,13 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
 `docs/semilla.md`.
 
 **Pendiente (en orden):**
-1. Mercado Pago: app «Caigo» creada (1737058147653670, webhook configurado), faltan las credenciales
-   de producción: Nahuel tiene que verificar su identidad (QR) en el panel de MP. Después cargar
-   `CAIGO_MP_APP_ID`, `CAIGO_MP_SECRETO`, `CAIGO_MP_TOKEN`, `CAIGO_MP_SECRETO_WEBHOOK` en
-   `/opt/caigo/api.conf` y reiniciar api y worker.
+1. ~~Mercado Pago.~~ Hecho (1/11, desde la sesión de TengoLibre): app «Caigo» 1737058147653670 con
+   credenciales de producción activas, PKCE en «Sí», vuelta https://lugares.caigo.com.ar/mercadopago/vuelta
+   y webhook https://api.caigo.com.ar/v1/webhooks/mercadopago. Las 4 `CAIGO_MP_*` están cargadas en
+   `/opt/caigo/api.conf` (copia previa: `api.conf.antes-mp`; sólo ahí, no hay CREDENCIALES.md local),
+   con api y worker reiniciados; el token responde con la cuenta 1137276568. Falta: probar una entrada
+   real, y migrar de Preferencias (MP la discontinúa) a la API de Orders, como en
+   tengolibre `apps/api/internal/integraciones/mercadopago/ordenes.go`, sumando «Order (Mercado Pago)» al webhook.
 2. Firebase: hecho (31/10). Caigo en el proyecto común `grupo-vimo`; `local.properties` con appId,
    remitente, proyecto y clave (sale de ~/Trabajo/vimo/firebase/google-services.json); servidor con
    `/opt/caigo/claves/fcm.json` (cuenta fcm-caigo@grupo-vimo) y el worker en `fcm=true`. Ojo: los
