@@ -112,8 +112,9 @@ struct Ahora: View {
     private var contenido: some View {
         ZStack(alignment: .top) {
             if modoActual != "planes" {
+                // Sin el renglón de ubicación y logo (ver encabezado): el mazo sube y gana lugar.
                 MazoGente(modo: modoActual)
-                    .padding(.top, 68)
+                    .padding(.top, 24)
             }
             VStack(alignment: .leading, spacing: 14) {
                 encabezado
@@ -126,6 +127,8 @@ struct Ahora: View {
 
     private var encabezado: some View {
         VStack(alignment: .leading, spacing: 14) {
+            // En Gente y Citas la ubicación y el logo se sacan: le roban lugar a la tarjeta (Nahuel, 1/11).
+            if modoActual == "planes" {
             HStack(spacing: 4) {
                 Icono(I.pin, 16, p.oscuro ? C.lima : C.violeta, trazo: 2.2)
                 let delPerfil = [c.yo?.zona ?? "", c.yo?.ciudad ?? ""].filter { !$0.isEmpty }.joined(separator: ", ")
@@ -144,6 +147,7 @@ struct Ahora: View {
                     }
                     .accessibilityLabel("Te sumaron y te invitan")
                 }
+            }
             }
             HStack {
                 T(modoActual == "gente" ? "Gente" : (modoActual == "citas" ? "Citas" : "Ahora"), 40, 800, p.texto,
