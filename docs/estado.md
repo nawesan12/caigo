@@ -219,3 +219,12 @@ Lo que hay que crear en el portal de Apple (Team M6935MSNQB) y App Store Connect
   experiencia avanzada para el prefijo `https://caigo.com.ar/t/` (título, subtítulo, foto 3000×2000,
   acción «Abrir»). Clerk: la conexión de Apple tiene que aceptar también `ar.com.caigo.app.Clip` para
   el Sign in with Apple nativo (si no, cae al ingreso web).
+
+## 1/11 (sesión de Tu Local Web, a pedido de Nahuel)
+- Gente: el mazo filtraba por ciudad y el alta de la web no la pide, así que quien se anotaba por la web no
+  aparecía para nadie. Ahora entra también quien no tiene ciudad. **Pendiente:** que el alta web pida ciudad
+  (y edad, que tampoco pide y hace que los rangos de edad de los planes no se apliquen).
+- Detalle del plan (web): el aviso de «falta_dni» ahora sale también junto al botón (antes quedaba en el medio
+  de la página y parecía que no pasaba nada).
+- /opt/caigo/api.conf había quedado de root (carga de MP): se devolvió a deploy; los deploy fallaban.
+
