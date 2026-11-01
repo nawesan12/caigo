@@ -36,8 +36,15 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
 3. Play Console (cuenta «Grupo Vimo»): Nahuel tiene que verificar un Android y su teléfono. Después:
    app `ar.com.caigo.app`, suscripciones plus_semana/mes/temporada, cuenta de servicio, Pub/Sub y
    huella de Play App Signing en assetlinks.json. Cuenta personal: prueba cerrada 12 testers × 14 días.
-4. App Store: subir un build (necesita Xcode o CI con firma) para las experiencias del App Clip y las
-   capturas de revisión de las suscripciones.
+4. iPhone en TestFlight (31/10): build 5 (1.0.0) VALID. Se compila y sube SÓLO desde GitHub
+   (workflow `testflight`, a mano: `gh workflow run testflight`; el build = número de corrida), nunca
+   en la Mac ni con simulador (pedido de Nahuel). Firma manual en Release con el certificado de
+   distribución 93F3KP32L3 y los perfiles «Caigo App Store» / «Caigo Clip App Store» (archivos en
+   ~/Trabajo/vimo/credenciales-apple/caigo-distribucion/, 600; secretos del repo CAIGO_DIST_P12,
+   CAIGO_DIST_P12_CLAVE, CAIGO_PERFIL_APP, CAIGO_PERFIL_CLIP, ASC_KEY_*, CAIGO_CLERK_PUBLICABLE).
+   Grupo interno de TestFlight «Equipo» con Nahuel. Si se agregan capacidades, hay que regenerar los
+   perfiles (script de la API de ASC: scratchpad asc.py → conviene pasarlo al repo). Falta: experiencias
+   del App Clip y capturas de revisión de las suscripciones en App Store Connect.
 5. SMS real: elegir proveedor (hoy simulado).
 6. Fotos de Explorar «Cita doble» y «Cultura» en iOS (faltan) y Android (no encajan). Web (rama
    `pendientes`, sin desplegar): «Pedir placas» con pedido real (migración 00015, `/equipo` › Placas),
