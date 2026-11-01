@@ -51,17 +51,13 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
    ~/Trabajo/vimo/credenciales-apple/caigo-distribucion/, 600; secretos del repo CAIGO_DIST_P12,
    CAIGO_DIST_P12_CLAVE, CAIGO_PERFIL_APP, CAIGO_PERFIL_CLIP, ASC_KEY_*, CAIGO_CLERK_PUBLICABLE).
    Grupo interno de TestFlight «Equipo» con Nahuel. Si se agregan capacidades, hay que regenerar los
-   perfiles (script de la API de ASC: scratchpad asc.py → conviene pasarlo al repo). Falta: experiencias
+   perfiles con `infra/apple/asc.py` (ver infra/apple/README.md). Falta: experiencias
    del App Clip y capturas de revisión de las suscripciones en App Store Connect.
 5. SMS real: elegir proveedor (hoy simulado).
-6. Fotos de Explorar «Cita doble» y «Cultura» en iOS (faltan) y Android (no encajan). Web (rama
-   `pendientes`, sin desplegar): «Pedir placas» con pedido real (migración 00015, `/equipo` › Placas),
-   menú del chat de /app (ver/reportar/salir o cancelar) y mapa oscuro con OpenFreeMap dark. Chats
-   privados en la web (rama `privados`, sin desplegar): `/app/mensajes` (bandeja), `/app/mensajes/<id>`
-   (sondeo cada 4 s, menú ver perfil/reportar/bloquear), `/app/persona/<id>`, `/app/perfil/gente` y el
-   acceso con no leídos en Mis planes; `/app/mensajes?privado=<id>` abre el chat de un aviso.
-7. Probar en dispositivos reales: nada de iOS se vio corriendo; Android sólo ingreso, permisos, Ahora
-   y filtros.
+6. Revisión con Nahuel de la app en el iPhone (TestFlight) y de la web: lo que salga, se arregla y
+   se sube un build nuevo con `gh workflow run testflight`.
+7. Probar en dispositivos reales lo que no se probó: Android en un teléfono (falta APK nuevo desde CI
+   con Firebase y firma como secretos), Wallet, NFC con placa, pagos reales de MP, avisos push reales.
 
 
 ## 31/10/2026 — arranque
