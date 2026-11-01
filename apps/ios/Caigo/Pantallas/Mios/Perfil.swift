@@ -445,9 +445,13 @@ struct EditarPerfil: View {
             } else {
                 VStack(spacing: 0) {
                     if completar {
-                        IngresoTitulo(titulo: "Completá tu perfil",
-                                      bajada: "Así la gente sabe con quién sale. Mínimo 2 fotos, unas líneas sobre vos y 3 cosas que te copen.")
-                            .padding(.horizontal, 20).padding(.top, 14)
+                        // Con los colores de la paleta (IngresoTitulo es para el alta, que va sobre fondo claro).
+                        VStack(alignment: .leading, spacing: 10) {
+                            T("Completá tu perfil", 34, 700, p.texto, alto: 1.05, espaciado: -0.8)
+                            T("Así la gente sabe con quién sale. Mínimo 2 fotos, unas líneas sobre vos y 3 cosas que te copen.", 15, 400, p.texto2, alto: 1.5)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20).padding(.top, 14)
                     } else {
                         Encabezado(titulo: "Editar perfil") { ir.atras() }.padding(.horizontal, 16).padding(.top, 6)
                     }
@@ -466,7 +470,7 @@ struct EditarPerfil: View {
                     }
                     .scrollDismissesKeyboard(.interactively)
                     if completar && !faltan.isEmpty {
-                        T("Falta: \(faltan.joined(separator: ", ")).", 13, 600, C.texto2).multilineTextAlignment(.center)
+                        T("Falta: \(faltan.joined(separator: ", ")).", 13, 600, p.texto2).multilineTextAlignment(.center)
                             .padding(.horizontal, 20).padding(.top, 6)
                     }
                     Cta(texto: completar ? "Listo, entrar" : "Guardar",
