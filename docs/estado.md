@@ -60,8 +60,10 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
    (quedaron READY_TO_SUBMIT). Build 11 subida.
 5. ~~SMS real~~ (7/11): el código del teléfono sale por mail a la casilla verificada de Clerk con el
    SMTP propio (`CAIGO_SMTP`, `CAIGO_SMTP_USUARIO`, `CAIGO_SMTP_CLAVE`, `CAIGO_CORREO_DE`; ver docs/api.md).
-   Desplegado el 7/11 (2200d3d). Falta: cargar esas variables en `/opt/caigo/api.conf` con la casilla
-   hola@caigo.com.ar del Stalwart y reiniciar api; mientras tanto, simulado.
+   Desplegado el 7/11 (2200d3d) y andando: casilla `sistema@caigo.com.ar` en el Stalwart (miembro del grupo
+   hola@, como sistema@ de las otras apps), variables en `/opt/caigo/api.conf` (copia previa
+   `api.conf.antes-smtp`). Al cambiar api.conf: `docker compose up -d --force-recreate api worker` (restart no
+   relee el archivo).
 6. Revisión con Nahuel de la app en el iPhone (TestFlight) y de la web: lo que salga, se arregla y
    se sube un build nuevo con `gh workflow run testflight`.
 7. Probar en dispositivos reales lo que no se probó: Android en un teléfono (falta APK nuevo desde CI
