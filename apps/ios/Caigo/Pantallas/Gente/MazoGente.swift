@@ -94,7 +94,7 @@ struct MazoGente: View {
                         Icono(I.estrella, 13, .clear, trazo: 0, relleno: C.violetaTexto)
                         T("\(GenteEncantas.quedan(e?.encantasHoy ?? 0, e?.limiteEncantas ?? 1))", 12, 800, C.violetaTexto, unRenglon: true)
                     } else {
-                        T(e?.activo == true ? "Plus · sin límite" : "\(sumadas) sumadas hoy", 12, 800, C.violetaTexto, unRenglon: true)
+                        T(e?.activo == true ? "Plus · sin límite" : "\(sumadas) \(sumadas == 1 ? "sumada" : "sumadas") hoy", 12, 800, C.violetaTexto, unRenglon: true)
                     }
                 }
                 .padding(.horizontal, 11).padding(.vertical, 8)

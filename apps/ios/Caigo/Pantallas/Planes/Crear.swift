@@ -362,7 +362,8 @@ private struct Paso1: View {
         if !editando {
             PlanesFlujo(espacio: 8, renglon: 8) {
                 ForEach(Categorias.paraCrear, id: \.0) { k, l in
-                    Chip(texto: l, on: b.categoria == k, gelOn: planesVioletaChico, gelOff: Gels.chipClaro, padH: 13, radio: 13) { b.categoria = k }
+                    // En oscuro, el chip apagado es el oscuro (el claro quedaba como una pastilla blanca suelta).
+                    Chip(texto: l, on: b.categoria == k, gelOn: planesVioletaChico, gelOff: pal.oscuro ? Gels.chipOscuro : Gels.chipClaro, colorOff: pal.texto, padH: 13, radio: 13) { b.categoria = k }
                 }
             }
         }
@@ -377,7 +378,7 @@ private struct Paso1: View {
                     HStack(spacing: 6) {
                         ForEach(1...6, id: \.self) { i in
                             let d = Fecha.calendario.date(byAdding: .day, value: i, to: Date())!
-                            Chip(texto: "\(Fecha.diaCorto(d)) \(Fecha.calendario.component(.day, from: d))", on: b.dia == i, tam: 12, padH: 4, radio: 12) { b.dia = i }
+                            Chip(texto: "\(Fecha.diaCorto(d)) \(Fecha.calendario.component(.day, from: d))", on: b.dia == i, gelOff: pal.oscuro ? Gels.chipOscuro : Gels.off, colorOff: pal.texto, tam: 12, padH: 4, radio: 12) { b.dia = i }
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -468,11 +469,12 @@ private struct ChipHora: View {
     @Environment(\.paleta) private var pal
     var body: some View {
         Button(action: accion) {
-            T(texto, 14, on ? 700 : 600, on ? C.blancoCalido : pal.texto, unRenglon: true)
+            T(texto, 14, on ? 700 : 600, on ? (pal.oscuro ? C.carbon : C.blancoCalido) : pal.texto, unRenglon: true)
                 .padding(.horizontal, 13).padding(.vertical, 9)
                 .background {
+                    // En oscuro, el carbón del elegido no se distinguía del fondo: va lima, como los filtros de Ahora.
                     if on {
-                        Color.clear.gel(13, Gels.oscuroSel)
+                        Color.clear.gel(13, pal.oscuro ? Gels.limaChico : Gels.oscuroSel)
                     } else {
                         RoundedRectangle(cornerRadius: 13, style: .continuous).fill(pal.oscuro ? C.oscuro3 : C.blanco)
                             .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(pal.oscuro ? Color(hex: 0x3A3550) : Color(hex: 0xECE8F2), lineWidth: 1.5))

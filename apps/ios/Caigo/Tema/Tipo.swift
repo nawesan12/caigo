@@ -20,7 +20,9 @@ enum Geist {
 
 /// Sin renglones viudos (regla de Nahuel): el último espacio pasa a ser no separable, así la última
 /// palabra nunca queda sola en el renglón de abajo. Sólo en textos de 3 palabras o más.
-func sinViudas(_ s: String) -> String {
+func sinViudas(_ texto: String) -> String {
+    // El « · » de los separadores queda pegado a lo anterior: ningún renglón arranca con el punto medio.
+    let s = texto.replacingOccurrences(of: " · ", with: "\u{00A0}· ")
     guard s.count > 12, let r = s.range(of: " ", options: .backwards), s[r.upperBound...].count <= 14 else { return s }
     let palabras = s.split(separator: " ").count
     guard palabras >= 3, !s[r.upperBound...].contains("\n") else { return s }

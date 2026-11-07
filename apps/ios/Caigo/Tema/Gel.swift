@@ -207,11 +207,11 @@ enum Gels {
         grano: true)
 
     /// Tab bar flotante.
-    static let tabBar = Gel(fondo: .vertical(Color.white.opacity(0.97), Color(hex: 0xF4F0FF, alfa: 0.94)), sombras: [
+    static let tabBar = Gel(fondo: .vertical(Color.white, Color(hex: 0xF4F0FF)), sombras: [
         interna(1.5, 0, C.blanco), interna(-2, 0, rgba(116, 86, 241, 0.08)),
         externa(22, 40, rgba(60, 40, 140, 0.45), spread: -14), externa(0, 0, rgba(116, 86, 241, 0.07), spread: 1),
     ])
-    static let tabBarOscura = Gel(fondo: .vertical(rgba(58, 52, 80, 0.96), rgba(38, 35, 52, 0.96)), sombras: [
+    static let tabBarOscura = Gel(fondo: .vertical(rgba(58, 52, 80, 1), rgba(38, 35, 52, 1)), sombras: [
         interna(1, 0, rgba(255, 255, 255, 0.12)), externa(18, 36, rgba(0, 0, 0, 0.7), spread: -10),
     ])
     static let tabPill = Gel(fondo: .vertical(C.tinte5, Color(hex: 0xE6DEFF)), sombras: [
