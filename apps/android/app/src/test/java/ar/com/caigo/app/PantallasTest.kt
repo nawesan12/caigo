@@ -57,6 +57,8 @@ import ar.com.caigo.app.tema.LocalPaleta
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.allowHardware
+import coil3.request.crossfade
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonElement
@@ -144,7 +146,13 @@ class PantallasTest {
         // La sesión se guarda cifrada con Tink; sin Android Keystore (Robolectric) Tink guarda la llave en claro.
         runCatching { runBlocking { c.sesion.guardar("cs_prueba", "u1") } }
         c.yo.value = dato<Perfil>("/v1/yo")
-        SingletonImageLoader.setUnsafe(ImageLoader.Builder(app).components { add(OkHttpNetworkFetcherFactory(callFactory = { c.http })) }.build())
+        // En la app lo marca Principal al contestarse el pedido de avisos; Ahora lo espera para pedir la ubicación.
+        c.avisosResueltos.value = true
+        // Sin bitmaps de hardware (Robolectric no los dibuja) y sin fundido: la foto tiene que estar en la captura.
+        SingletonImageLoader.setUnsafe(
+            ImageLoader.Builder(app).components { add(OkHttpNetworkFetcherFactory(callFactory = { c.http })) }
+                .allowHardware(false).crossfade(false).build(),
+        )
         preparar(c)
         return c
     }
