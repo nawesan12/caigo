@@ -1,0 +1,101 @@
+# Compila Caigo para Android en GitHub (espejo de nawesan12/caigo apps/android, lo empuja publicar.sh): en la Mac no se compila.
+# Corre los tests (incluidas las capturas de PantallasTest en claro y oscuro) y sube el artifact «capturas»
+# para compararlas con las de iOS (las revisa Nahuel en la galería).
+name: Android
+
+on:
+  pull_request:
+    paths-ignore: ['**.md']
+  push:
+    branches: ['**']
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v5
+      # Firebase (push) y la llave de subida, desde los secretos del repo. Sin secretos compila igual: sin push y
+      # sin firmar.
+      - name: Configuración
+        env:
+          CAIGO_FIREBASE_APP_ID: ${{ secrets.CAIGO_FIREBASE_APP_ID }}
+          CAIGO_FIREBASE_API_KEY: ${{ secrets.CAIGO_FIREBASE_API_KEY }}
+          CAIGO_FIREBASE_PROYECTO: ${{ secrets.CAIGO_FIREBASE_PROYECTO }}
+          CAIGO_FIREBASE_REMITENTE: ${{ secrets.CAIGO_FIREBASE_REMITENTE }}
+          CAIGO_FIRMA_JKS: ${{ secrets.CAIGO_FIRMA_JKS }}
+          CAIGO_FIRMA_CLAVE: ${{ secrets.CAIGO_FIRMA_CLAVE }}
+          CAIGO_FIRMA_ALIAS: ${{ secrets.CAIGO_FIRMA_ALIAS }}
+          CAIGO_CLERK_PUBLICABLE: ${{ secrets.CAIGO_CLERK_PUBLICABLE }}
+        run: |
+          : > local.properties
+          [ -n "$CAIGO_CLERK_PUBLICABLE" ] && printf 'caigo.clerk.publicable=%s\n' "$CAIGO_CLERK_PUBLICABLE" >> local.properties
+          if [ -n "$CAIGO_FIREBASE_APP_ID" ]; then
+            printf 'caigo.firebase.appId=%s\ncaigo.firebase.apiKey=%s\ncaigo.firebase.proyecto=%s\ncaigo.firebase.remitente=%s\n' \
+              "$CAIGO_FIREBASE_APP_ID" "$CAIGO_FIREBASE_API_KEY" "$CAIGO_FIREBASE_PROYECTO" "$CAIGO_FIREBASE_REMITENTE" >> local.properties
+          fi
+          if [ -n "$CAIGO_FIRMA_JKS" ]; then
+            echo "$CAIGO_FIRMA_JKS" | base64 -d > "$RUNNER_TEMP/subida.jks"
+            printf 'caigo.firma.archivo=%s\ncaigo.firma.clave=%s\n' "$RUNNER_TEMP/subida.jks" "$CAIGO_FIRMA_CLAVE" >> local.properties
+            printf 'caigo.firma.alias=%s\n' "${CAIGO_FIRMA_ALIAS:-caigo}" >> local.properties
+          fi
+      - name: Compilar y probar
+        run: ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest -Proborazzi.test.record=true
+      - name: Capturas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas
+          path: app/build/capturas
+          if-no-files-found: ignore
+      # Las mismas capturas en JPG de 540 px de ancho (unos 15 MB): las baja la galería de revisión.
+      - name: Galería
+        if: always()
+        run: |
+          [ -d app/build/capturas ] || exit 0
+          python3 -m pip install -q pillow
+          python3 - <<'PY'
+          import glob, os
+          from PIL import Image
+          os.makedirs('galeria', exist_ok=True)
+          for f in glob.glob('app/build/capturas/**/*.png', recursive=True):
+              im = Image.open(f).convert('RGB')
+              im.thumbnail((540, 4000))
+              im.save('galeria/' + os.path.basename(f)[:-4] + '.jpg', quality=78, optimize=True)
+          PY
+      - name: Subir la galería
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: galeria
+          path: galeria
+          if-no-files-found: ignore
+      # A mano (workflow_dispatch): el paquete firmado para Play (prueba interna).
+      - name: Paquete para Play
+        if: github.event_name == 'workflow_dispatch'
+        run: ./gradlew --no-daemon :app:bundleRelease
+      - name: Subir el paquete
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: play
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: ignore
+      - name: Reportes de tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tests
+          path: app/build/reports/tests
+          if-no-files-found: ignore

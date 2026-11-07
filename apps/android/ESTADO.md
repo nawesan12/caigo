@@ -4,10 +4,10 @@ Objetivo (Nahuel): Android **idéntica** al iPhone (`apps/ios`), completa. Nada 
 Reglas del clon: `CLON.md`; método de la repasada: `PASADA.md`.
 
 ## Cómo se trabaja
-- Compila sólo GitHub, con el CI del repo (`.github/workflows/ci.yml`, job `android`):
-  - corre `herramientas/paridad.sh`, `assembleDebug` y `testDebugUnitTest`;
-  - sube el artifact `galeria` (JPG de 540 px, vive 3 días: la cuenta tiene poco espacio de artifacts).
-- El repo público `grupovimo/caigo-android` (espejo, como TLW y Corredor) quedó sin crear: hace falta el ok de Nahuel.
+- Compila sólo GitHub, en el espejo público `grupovimo/caigo-android` (`.github/workflows/android.yml`, con los
+  secretos `CAIGO_*`): `~/Trabajo/vimo/caigo-android/publicar.sh "mensaje"` corre `herramientas/paridad.sh`, copia
+  `apps/android`, commitea en los dos repos y empuja. Sube los artifacts `galeria` (JPG de 540 px) y, a mano
+  (Run workflow), `play` con el paquete firmado. El CI de nawesan12/caigo también compila y prueba, sin galería.
 - `apps/pruebas/respuestas.json`: la API simulada, compartida con iOS.
   - Android la usa en `PantallasTest` (78 pantallas × claro/oscuro), por el gancho `Api.interceptorPrueba`.
   - iOS la usa en `CaigoTests/PantallasTests.swift`, por `Contenedor.prueba`.
@@ -47,5 +47,4 @@ En las capturas no salen las fotos de la red (Coil en Robolectric); en la app s�
    - la huella de Play en `assetlinks.json`.
 
    Después, la prueba interna.
-2. El ok de Nahuel para el espejo `grupovimo/caigo-android`.
-3. La revisión de Nahuel con la galería: https://claude.ai/artifact/EjWR71aqgtGqHvGGRHBWZX
+2. La revisión de Nahuel con la galería: https://claude.ai/artifact/EjWR71aqgtGqHvGGRHBWZX
