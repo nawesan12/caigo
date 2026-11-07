@@ -76,7 +76,9 @@ fun px(espaciado: Float, tam: Float): TextUnit = (espaciado / tam).em
  * Sin renglones viudos (regla de Nahuel): el último espacio pasa a ser no separable, así la última
  * palabra nunca queda sola en el renglón de abajo. Sólo en textos de 3 palabras o más (como el iPhone).
  */
-fun sinViudas(s: String): String {
+fun sinViudas(texto: String): String {
+    // El « · » de los separadores queda pegado a lo anterior: ningún renglón arranca con el punto medio.
+    val s = texto.replace(" · ", "\u00A0· ")
     val i = s.lastIndexOf(' ')
     if (s.length <= 12 || i < 0 || s.length - i - 1 > 14) return s
     if (s.split(' ').count { it.isNotEmpty() } < 3 || s.substring(i + 1).contains('\n')) return s

@@ -297,7 +297,8 @@ class PantallasTest {
     @Test fun verificacionPendiente() = montar("VerificacionPendiente",
         contenedor(mapOf("/v1/verificacion" to """{"telefono": "+5492235550142", "selfie": true, "dni": "ninguna"}"""))) { Verificacion(it) }
     @Test fun dni() = montar("Dni") { Dni(it, null) }
-    @Test fun elegirGenero() = montar("ElegirGenero", espera = 500) { ElegirGenero("mujer", false, {}, {}) }
+    // Suelta, como las demás piezas: con el margen de la pantalla (pegada al borde parecía rota).
+    @Test fun elegirGenero() = montar("ElegirGenero", espera = 500) { Piezas { ElegirGenero("mujer", false, {}, {}) } }
     @Test fun hojaGenero() {
         val c = contenedor()
         montar("HojaGenero", c) {
@@ -322,8 +323,12 @@ class PantallasTest {
     @Test fun solicitudesVacio() = montar("SolicitudesVacio") { Solicitudes(it, "p1") }
     @Test fun miosVacioSolicitudes() = montar("MiosVacioSolicitudes", espera = 500) { MiosVacioSolicitudes(plan("p2")) {} }
     @Test fun chat() = montar("Chat") { Chat(it, "p1") }
-    @Test fun miosVistaHilo() = montar("MiosVistaHilo", espera = 500) { MiosVistaHilo(emptyList(), true, null, null, Modifier.fillMaxSize()) }
-    @Test fun miosEntrada() = montar("MiosEntrada", espera = 500) { MiosEntrada(0.dp, {}, { true }) }
+    // `MiosHilo()` de iOS arranca sin cargar (los puntitos); cargado y vacío quedaba la pantalla en blanco.
+    @Test fun miosVistaHilo() = montar("MiosVistaHilo", espera = 500) { MiosVistaHilo(emptyList(), false, null, null, Modifier.fillMaxSize()) }
+    // Abajo, donde va en el chat (arriba de todo parecía una pantalla a medio cargar).
+    @Test fun miosEntrada() = montar("MiosEntrada", espera = 500) {
+        Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.BottomCenter) { MiosEntrada(0.dp, {}, { true }) }
+    }
     @Test fun privados() = montar("Privados") { Privados(it) }
     @Test fun privado() = montar("Privado") { Privado(it, "u3", "Lucía") }
     @Test fun checkin() = montar("Checkin") { Checkin(it, "p1") }

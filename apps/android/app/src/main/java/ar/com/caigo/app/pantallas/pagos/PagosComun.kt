@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -180,7 +181,8 @@ internal fun PagosEncabezado(titulo: String, modifier: Modifier = Modifier, icon
 /** Código QR con módulos nítidos (carbón sobre transparente). */
 @Composable
 internal fun PagosCodigoQr(texto: String, modifier: Modifier = Modifier) {
-    CodigoQr(texto, modifier.semantics { contentDescription = "Código QR $texto" })
+    // Cuadrado como el `scaledToFit` de iOS: con sólo un alto, el Canvas quedaba de ancho cero y el QR no salía.
+    CodigoQr(texto, modifier.aspectRatio(1f, matchHeightConstraintsFirst = true).semantics { contentDescription = "Código QR $texto" })
 }
 
 // MARK: - Google Wallet (Apple Wallet en el iPhone)

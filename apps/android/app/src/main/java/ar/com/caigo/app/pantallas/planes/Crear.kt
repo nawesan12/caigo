@@ -516,7 +516,9 @@ private fun Paso1(b: Borrador, editando: Boolean, alLugar: () -> Unit) {
     // La categoría no se cambia después de publicar (no está entre lo que se edita).
     if (!editando) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Categorias.paraCrear.forEach { (k, l) ->
-            Chip(l, b.categoria == k, { b.categoria = k }, gelOn = planesVioletaChico, gelOff = Gels.chipClaro, padH = 13.dp, radio = 13.dp)
+            // En oscuro, el chip apagado es el oscuro (el claro quedaba como una pastilla blanca suelta).
+            Chip(l, b.categoria == k, { b.categoria = k }, gelOn = planesVioletaChico, gelOff = if (pal.oscuro) Gels.chipOscuro else Gels.chipClaro,
+                colorOff = pal.texto, padH = 13.dp, radio = 13.dp)
         }
     }
     CampoLargo(b.descripcion, { b.descripcion = it.take(500) }, "Contá un poco más (opcional)")
@@ -529,7 +531,10 @@ private fun Paso1(b: Borrador, editando: Boolean, alLugar: () -> Unit) {
             if (b.cuando == 2) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 (1..6).forEach { i ->
                     val d = ZonedDateTime.now(ZonaAR).plusDays(i.toLong())
-                    Chip("${Fecha.diaCorto(d)} ${d.dayOfMonth}", b.dia == i, { b.dia = i }, Modifier.weight(1f), tam = 12f, padH = 4.dp, radio = 12.dp)
+                    Chip(
+                        "${Fecha.diaCorto(d)} ${d.dayOfMonth}", b.dia == i, { b.dia = i }, Modifier.weight(1f),
+                        gelOff = if (pal.oscuro) Gels.chipOscuro else Gels.off, colorOff = pal.texto, tam = 12f, padH = 4.dp, radio = 12.dp,
+                    )
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -596,12 +601,13 @@ private fun ChipHora(texto: String, on: Boolean, accion: () -> Unit) {
     Box(
         Modifier.toque(onClick = accion)
             .then(
-                if (on) Modifier.gel(13.dp, Gels.oscuroSel)
+                // En oscuro, el carbón del elegido no se distinguía del fondo: va lima, como los filtros de Ahora.
+                if (on) Modifier.gel(13.dp, if (pal.oscuro) Gels.limaChico else Gels.oscuroSel)
                 else Modifier.background(if (pal.oscuro) C.oscuro3 else C.blanco, RoundedCornerShape(13.dp))
                     .border(1.5.dp, if (pal.oscuro) bordeSuaveOscuro else bordeSuave, RoundedCornerShape(13.dp)),
             )
             .padding(horizontal = 13.dp, vertical = 9.dp),
-    ) { T(texto, 14f, if (on) 700 else 600, if (on) C.blancoCalido else pal.texto, unRenglon = true) }
+    ) { T(texto, 14f, if (on) 700 else 600, if (on) (if (pal.oscuro) C.carbon else C.blancoCalido) else pal.texto, unRenglon = true) }
 }
 
 /** Stepper − N + de 06b. */

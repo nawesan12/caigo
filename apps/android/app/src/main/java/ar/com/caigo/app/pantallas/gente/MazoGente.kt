@@ -208,7 +208,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
                     Icono(I.estrella, 13.dp, Color.Transparent, 0f, relleno = C.violetaTexto)
                     T("${GenteEncantas.quedan(e?.encantasHoy ?: 0, e?.limiteEncantas ?: 1)}", 12f, 800, C.violetaTexto, unRenglon = true)
                 } else {
-                    T(if (e?.activo == true) "Plus · sin límite" else "$sumadas sumadas hoy", 12f, 800, C.violetaTexto, unRenglon = true)
+                    T(if (e?.activo == true) "Plus · sin límite" else "$sumadas ${if (sumadas == 1) "sumada" else "sumadas"} hoy", 12f, 800, C.violetaTexto, unRenglon = true)
                 }
             }
         }

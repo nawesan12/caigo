@@ -308,9 +308,10 @@ object Gels {
         grano = true,
     )
 
-    /** Tab bar flotante. */
+    /** Tab bar flotante. Opaca: sin el desenfoque del vidrio de iOS, lo que pasaba por abajo se leía encima de las
+     *  etiquetas (títulos superpuestos en la galería). */
     val tabBar = Gel(
-        vertical(Color(0xF7FFFFFF), Color(0xF0F4F0FF)),
+        vertical(Color(0xFFFFFFFF), Color(0xFFF4F0FF)),
         listOf(
             interna(1.5f, 0f, C.blanco),
             interna(-2f, 0f, rgba(116, 86, 241, .08f)),
@@ -319,7 +320,7 @@ object Gels {
         ),
     )
     val tabBarOscura = Gel(
-        vertical(rgba(58, 52, 80, .96f), rgba(38, 35, 52, .96f)),
+        vertical(rgba(58, 52, 80, 1f), rgba(38, 35, 52, 1f)),
         listOf(interna(1f, 0f, rgba(255, 255, 255, .12f)), externa(18f, 36f, rgba(0, 0, 0, .7f), spread = -10f)),
     )
     val tabPill = Gel(
