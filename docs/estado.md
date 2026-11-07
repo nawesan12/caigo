@@ -54,11 +54,14 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
    ~/Trabajo/vimo/credenciales-apple/caigo-distribucion/, 600; secretos del repo CAIGO_DIST_P12,
    CAIGO_DIST_P12_CLAVE, CAIGO_PERFIL_APP, CAIGO_PERFIL_CLIP, ASC_KEY_*, CAIGO_CLERK_PUBLICABLE).
    Grupo interno de TestFlight «Equipo» con Nahuel. Si se agregan capacidades, hay que regenerar los
-   perfiles con `infra/apple/asc.py` (ver infra/apple/README.md). Falta: experiencias
-   del App Clip y capturas de revisión de las suscripciones en App Store Connect.
+   perfiles con `infra/apple/asc.py` (ver infra/apple/README.md). Hecho el 7/11 en App Store Connect: experiencia
+   predeterminada del App Clip (versión 1.0, «Abrir», cabecera 1800×1200 con ingreso_previa.jpg) y avanzada para
+   `https://caigo.com.ar/t` (Caigo Tap); las 3 suscripciones con nota y captura de revisión, grupo «Caigo Plus»
+   (quedaron READY_TO_SUBMIT). Build 11 subida.
 5. ~~SMS real~~ (7/11): el código del teléfono sale por mail a la casilla verificada de Clerk con el
    SMTP propio (`CAIGO_SMTP`, `CAIGO_SMTP_USUARIO`, `CAIGO_SMTP_CLAVE`, `CAIGO_CORREO_DE`; ver docs/api.md).
-   Falta: cargar esas variables en `/opt/caigo` y desplegar (lo hace Nahuel). Sin SMTP, simulado.
+   Desplegado el 7/11 (2200d3d). Falta: cargar esas variables en `/opt/caigo/api.conf` con la casilla
+   hola@caigo.com.ar del Stalwart y reiniciar api; mientras tanto, simulado.
 6. Revisión con Nahuel de la app en el iPhone (TestFlight) y de la web: lo que salga, se arregla y
    se sube un build nuevo con `gh workflow run testflight`.
 7. Probar en dispositivos reales lo que no se probó: Android en un teléfono (falta APK nuevo desde CI
@@ -150,8 +153,8 @@ teselas oscuras.
   semana gratis) y `plus_semana` (1 semana, US$ 0,99). Sólo Argentina: Apple cobra en USD ahí (se
   calculó con el dólar tarjeta del 31/10, $2.028). Avisos del servidor (producción y sandbox) →
   https://api.caigo.com.ar/v1/webhooks/apple; la API trata igual las compras de sandbox (TestFlight).
-- Falta: experiencias del App Clip (piden un build con el Clip subido), capturas de pantalla para
-  revisión de cada suscripción y la ficha de la app (textos en docs/tiendas.md).
+- Hecho (7/11): experiencias del App Clip y capturas de revisión de las suscripciones. La ficha de la app ya
+  está cargada (tiendas/asc/cargar.py).
 
 ## Clerk de producción (aviso de la sesión de Tu Local Web, 31/10)
 - Instancia compartida `clerk.grupovimo.com.ar` (app «Grupo Vimo»), Google y Apple activos, Access
