@@ -74,16 +74,12 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		if !respuesta.Leer(w, r, &in) {
 			return nil
 		}
-		codigo, err := s.PedirCodigo(r.Context(), p.ID, in.Telefono)
-		if err != nil {
-			return err
+		// Con correo: {"via":"mail","destino":"n•••@gmail.com"}; simulado: {"codigoDePrueba":"…"}.
+		envio, err := s.PedirCodigo(r.Context(), p.ID, p.Clerk, in.Telefono)
+		if err == nil {
+			respuesta.JSON(w, http.StatusOK, envio)
 		}
-		out := map[string]string{}
-		if codigo != "" {
-			out["codigoDePrueba"] = codigo // sólo con SMS simulado
-		}
-		respuesta.JSON(w, http.StatusOK, out)
-		return nil
+		return err
 	}))
 	mux.Handle("POST /v1/verificacion/telefono/confirmar", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		var in struct {

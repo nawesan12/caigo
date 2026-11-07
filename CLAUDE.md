@@ -13,7 +13,7 @@ Conocé gente."). Mar del Plata y Villa Gesell. Cuarta app de Grupo Vimo.
   en `internal/plataforma/db` (test). Errores en problem+json (`internal/plataforma/problema`).
 - `apps/web`: SvelteKit (landing, `/p/<slug>`, panel de lugares en `lugares.`, backoffice `/equipo`).
 - `apps/ios` (Swift, iOS 17) y `apps/android` (Kotlin + Compose, minSdk 26). Nunca Expo.
-- Login: Clerk (la app única de Grupo Vimo). SMS simulado hasta que haya proveedor.
+- Login: Clerk (la app única de Grupo Vimo). El código del teléfono va por mail (SMTP propio), no SMS.
 - Producción: VPS compartido (`/opt/caigo`, api 127.0.0.1:4300, web 3500). Registro común en
   `/opt/VPS.md`. No tocar archivos de las otras apps; avisar antes de tocar Caddy o Docker.
 

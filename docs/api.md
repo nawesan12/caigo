@@ -232,3 +232,18 @@ hora por IP).
   `lugarId, lugarNombre, lugarCiudad, lugarDireccion, lugarTelefono, lugarInstagram, pidioNombre`.
 - `POST /v1/equipo/pedidos-placas/{id}/atendido` `{nota}` → 204 (la nota le llega al lugar como `respuesta`);
   404 si no existe o ya se atendió.
+
+## Código del teléfono por mail (7/11)
+No hay proveedor de SMS: el código de 6 dígitos de `POST /v1/verificacion/telefono {telefono}` llega
+por mail a la casilla verificada de la cuenta en Clerk (la principal si está verificada; si no, la
+primera verificada). Se lee con la Backend API de Clerk por el `clerk_id` de la sesión.
+- Con SMTP (`CAIGO_SMTP`): `200 {"via":"mail","destino":"n•••@gmail.com"}` (casilla enmascarada).
+- Sin SMTP (desarrollo, tests): simulado como antes, `200 {"codigoDePrueba":"123456"}`.
+- Sin mail verificado: `422` problem+json `code: sin_mail` («Tu cuenta no tiene un mail verificado…»).
+- Si el mail no sale: `500` y el código se borra (se puede pedir otro sin esperar los 30 s).
+- El código vence en 10 minutos y acepta 5 intentos (`/confirmar`, igual que antes).
+
+Variables: `CAIGO_SMTP` (host:puerto; 465 con TLS, otro con STARTTLS), `CAIGO_SMTP_USUARIO`,
+`CAIGO_SMTP_CLAVE`, `CAIGO_CORREO_DE` (por defecto `Caigo <hola@caigo.com.ar>`). Sin usuario no
+autentica (Mailpit en desarrollo: `CAIGO_SMTP=127.0.0.1:1025`). Fuera de desarrollo sin SMTP
+completo, la API arranca igual y avisa en el log.

@@ -2,8 +2,10 @@ package servidor_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -11,7 +13,50 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/servidor"
 )
+
+// Con correo, el código del teléfono va al mail verificado de la cuenta y no vuelve en la respuesta.
+func TestCodigoDelTelefonoPorMail(t *testing.T) {
+	buzon := &correo.Memoria{}
+	e := nuevoEntornoAjustado(t, func(d *servidor.Dependencias) { d.Correo = buzon })
+	mar := e.persona("Martina")
+	var envio struct{ Via, Destino, CodigoDePrueba string }
+	e.pedir(mar, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": "223 555 7788"}, http.StatusOK, &envio)
+	if envio.Via != "mail" || envio.Destino != "M•••@caigo.test" || envio.CodigoDePrueba != "" {
+		t.Fatalf("respuesta: %+v", envio)
+	}
+	mails := buzon.Para("Martina@caigo.test")
+	if len(mails) != 1 {
+		t.Fatalf("mails: %d", buzon.Cantidad())
+	}
+	codigo := regexp.MustCompile(`[0-9]{6}`).FindString(mails[0].Asunto)
+	if codigo == "" || !strings.Contains(mails[0].HTML, codigo) || !strings.Contains(mails[0].Texto, "Vence en 10 minutos.") {
+		t.Fatalf("mail: %+v", mails[0])
+	}
+	e.pedir(mar, "POST", "/v1/verificacion/telefono/confirmar", map[string]string{"codigo": codigo}, http.StatusNoContent, nil)
+
+	// Sin mail verificado: problem+json claro y no se manda nada.
+	sin := e.persona("Sinmail")
+	for sub, u := range e.clerk.Usuarios {
+		if u.Nombre == "Sinmail" {
+			u.Verificado = false
+			e.clerk.Usuarios[sub] = u
+		}
+	}
+	e.pedir(sin, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": "223 555 7789"}, http.StatusUnprocessableEntity, nil)
+	if buzon.Cantidad() != 1 {
+		t.Fatalf("mandó %d mails", buzon.Cantidad())
+	}
+
+	// Si el mail no sale, se puede volver a pedir enseguida.
+	buzon.Fallar = errors.New("smtp caído")
+	otra := e.persona("Otra")
+	e.pedir(otra, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": "223 555 7790"}, http.StatusInternalServerError, nil)
+	buzon.Fallar = nil
+	e.pedir(otra, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": "223 555 7790"}, http.StatusOK, nil)
+}
 
 // Una "foto" mínima: alcanza con la firma de JPEG.
 var jpeg = append([]byte{0xFF, 0xD8, 0xFF, 0xE0}, make([]byte, 64)...)

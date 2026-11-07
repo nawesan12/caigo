@@ -43,6 +43,10 @@ type Config struct {
 	Archivos string
 	// Versión mínima de las apps: versionCode de Android y build de iOS (0: cualquiera).
 	MinAndroid, MinIos int
+	// Correo (el código de verificación del teléfono): el SMTP propio del VPS con usuario y TLS.
+	// Sin SMTP el código no sale: queda en el log y la API lo devuelve (codigoDePrueba). En
+	// desarrollo, con CAIGO_SMTP=127.0.0.1:1025, va a un Mailpit.
+	SMTP, SMTPUsuario, SMTPClave, CorreoDe string
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -81,6 +85,10 @@ func Leer() (Config, error) {
 		WalletClave:        os.Getenv("CAIGO_WALLET_CLAVE"),
 		GoogleWalletEmisor: os.Getenv("CAIGO_GOOGLE_WALLET_EMISOR"),
 		APIPublica:         valor("CAIGO_API_PUBLICA", "https://api.caigo.com.ar"),
+		SMTP:               os.Getenv("CAIGO_SMTP"),
+		SMTPUsuario:        os.Getenv("CAIGO_SMTP_USUARIO"),
+		SMTPClave:          os.Getenv("CAIGO_SMTP_CLAVE"),
+		CorreoDe:           valor("CAIGO_CORREO_DE", "Caigo <hola@caigo.com.ar>"),
 	}
 	var err error
 	if c.MinAndroid, err = entero("CAIGO_MIN_ANDROID"); err != nil {
@@ -128,6 +136,9 @@ func (c Config) Exigir(campos ...string) error {
 	}
 	return nil
 }
+
+// CorreoReal dice si hay por dónde mandar mails de verdad (SMTP con usuario y clave).
+func (c Config) CorreoReal() bool { return c.SMTP != "" && c.SMTPUsuario != "" && c.SMTPClave != "" }
 
 // Hosts devuelve los hosts de los orígenes (para los patrones del WebSocket).
 func (c Config) Hosts() []string {

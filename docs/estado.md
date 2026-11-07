@@ -56,7 +56,9 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
    Grupo interno de TestFlight «Equipo» con Nahuel. Si se agregan capacidades, hay que regenerar los
    perfiles con `infra/apple/asc.py` (ver infra/apple/README.md). Falta: experiencias
    del App Clip y capturas de revisión de las suscripciones en App Store Connect.
-5. SMS real: elegir proveedor (hoy simulado).
+5. ~~SMS real~~ (7/11): el código del teléfono sale por mail a la casilla verificada de Clerk con el
+   SMTP propio (`CAIGO_SMTP`, `CAIGO_SMTP_USUARIO`, `CAIGO_SMTP_CLAVE`, `CAIGO_CORREO_DE`; ver docs/api.md).
+   Falta: cargar esas variables en `/opt/caigo` y desplegar (lo hace Nahuel). Sin SMTP, simulado.
 6. Revisión con Nahuel de la app en el iPhone (TestFlight) y de la web: lo que salga, se arregla y
    se sube un build nuevo con `gh workflow run testflight`.
 7. Probar en dispositivos reales lo que no se probó: Android en un teléfono (falta APK nuevo desde CI
@@ -79,7 +81,7 @@ Hecho (etapas 1 y 2 de la API):
 
 ## Lo que sigue
 3. ~~Chat por WebSocket, push (APNs + FCM) con outbox y worker.~~ Hecho: `/v1/planes/{id}/mensajes`, `/v1/privados`, `/v1/tiempo-real` (WebSocket, LISTEN/NOTIFY `caigo_tiempo_real`), `/v1/dispositivos`, `cmd/worker`.
-4. ~~Check-in, ¿Repetimos?, verificación y fotos.~~ Hecho: `/v1/archivos` (cuerpo crudo, ?tipo=foto|selfie|dni; fotos públicas, el resto sólo dueño y equipo), `/v1/verificacion` (teléfono con SMS simulado que devuelve `codigoDePrueba`, selfie, DNI), `/v1/equipo/dni` y `/v1/equipo/reportes` (suspender), `/v1/planes/{id}/qr|checkin|repetimos|en-vivo`, `/v1/publico/vivo/{token}`. `caigoctl equipo user_…` da de alta al equipo.
+4. ~~Check-in, ¿Repetimos?, verificación y fotos.~~ Hecho: `/v1/archivos` (cuerpo crudo, ?tipo=foto|selfie|dni; fotos públicas, el resto sólo dueño y equipo), `/v1/verificacion` (teléfono con código por mail, simulado sin SMTP con `codigoDePrueba`, selfie, DNI), `/v1/equipo/dni` y `/v1/equipo/reportes` (suspender), `/v1/planes/{id}/qr|checkin|repetimos|en-vivo`, `/v1/publico/vivo/{token}`. `caigoctl equipo user_…` da de alta al equipo.
 5. ~~Modos Gente/Citas y Caigo Plus.~~ Hecho: `/v1/gente/mazo|{id}/reaccion|recibidos`, `/v1/planes/{id}/invitar`, `/v1/invitaciones`, `/v1/plus` (+ `/apple` con JWS de StoreKit 2 verificado contra Apple Root CA G3, `/google` con la Play Developer API, `/mercadopago` con preapproval), webhooks `/v1/webhooks/apple|google|mercadopago`. Productos en las tiendas: `plus_semana`, `plus_mes`, `plus_temporada`; la app pone appAccountToken (iOS) / obfuscatedAccountId (Android) = id de la persona en Caigo.
 6. ~~Lugares, entradas/señas, Caigo Tap y Wallet.~~ Hecho: `/v1/lugares` (alta pendiente, edición, pase de socio), `/v1/equipo/lugares` (aprobar), `/v1/lugares/{id}/planes|asistentes|validar|cobros|placas|mercadopago`, `/v1/mercadopago/vuelta` (OAuth con PKCE), `/v1/planes/{id}/entradas` (Checkout Pro con `marketplace_fee` = cargo 7,5 % redondeado a $100), pagos por webhook → outbox `mp.pago` → worker, `/v1/pases` (entradas y socios), `/v1/tap` (placa común con URL firmada o NTAG 424 con SUN verificado por AES-CMAC), `/v1/pases/entradas|socios/.../apple|google` (.pkpass firmado con PKCS#7 + WWDR G4; link de Google Wallet con JWT), web service de PassKit en `/v1/wallet/v1/...` y aviso de pases cambiados por APNs con el certificado del pase.
 7. ~~Web.~~ Hecho en la rama `web`: `apps/web` (SvelteKit 3 + adapter-node, Geist, bun). Un solo
@@ -130,7 +132,7 @@ Web publicada (31/10) en https://caigo.com.ar y https://lugares.caigo.com.ar: co
 Auditoría en docs/auditoria.md y contrato en docs/contrato-faltantes.md. En producción: API (92c1383)
 y web (60985da). iOS en main (compila en CI, sin probar en un iPhone). Android en la rama `android`
 sin mergear: Nahuel pidió no compilar Android todavía (al mergear corre el CI de Android).
-Pendiente: SMS real (proveedor), Firebase común `grupo-vimo` para Caigo (lo registra la sesión de Tu
+Pendiente: Firebase común `grupo-vimo` para Caigo (lo registra la sesión de Tu
 Local Web; el proyecto caigo-5d3b6 queda sin usar), credenciales de producción de la app de MP «Caigo»
 (1737058147653670, falta la verificación de Nahuel), Play Console (verificaciones de la cuenta).
 Web sin hacer: «Pedir placas» (mailto), menú reportar/bloquear en el chat web, mapa oscuro con

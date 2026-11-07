@@ -19,6 +19,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/cifrado"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/google"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/servidor"
@@ -84,6 +85,13 @@ func correr() error {
 		deps.Wallet.Google = &wallet.Google{Cuenta: cuentaPlay, Emisor: cfg.GoogleWalletEmisor, Origenes: []string{cfg.Sitio}}
 	}
 	deps.Panel = cfg.Panel
+	// El código del teléfono sale por mail (no hay proveedor de SMS). Sin SMTP, simulado.
+	if cfg.SMTP != "" {
+		deps.Correo = correo.Elegir(cfg.SMTP, cfg.SMTPUsuario, cfg.SMTPClave, cfg.CorreoDe)
+	}
+	if !cfg.Desarrollo() && !cfg.CorreoReal() {
+		slog.Warn("sin SMTP (CAIGO_SMTP, CAIGO_SMTP_USUARIO, CAIGO_SMTP_CLAVE): el código del teléfono vuelve en la respuesta")
+	}
 	if cfg.ClaveCifrado != "" {
 		if deps.Cifra, err = cifrado.Nuevo(cfg.ClaveCifrado); err != nil {
 			return err

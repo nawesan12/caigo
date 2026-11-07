@@ -1,4 +1,4 @@
-// Package confianza: las capas de verificación (teléfono por SMS, selfie con prueba de vida, DNI
+// Package confianza: las capas de verificación (teléfono con un código que llega por mail, selfie con prueba de vida, DNI
 // revisado por el equipo), los archivos subidos y la moderación. La prueba de vida y la lectura
 // del PDF417 del DNI pasan en el teléfono (Vision / ML Kit); acá se guarda lo que manda y el
 // equipo revisa a mano.
@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/big"
 	"regexp"
 	"strings"
@@ -20,16 +21,26 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
-	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sms"
 )
+
+// Casillas lee a la persona en Clerk (de ahí sale su mail verificado).
+type Casillas interface {
+	Usuario(ctx context.Context, id string) (clerk.Usuario, error)
+}
 
 // Servicio de confianza.
 type Servicio struct {
 	App   *db.Pool
 	Disco archivos.Disco
-	SMS   sms.Enviador
+	// Correo por donde sale el código del teléfono (no hay proveedor de SMS: va al mail verificado
+	// de la cuenta en Clerk). nil: simulado, el código queda en el log y vuelve en la respuesta.
+	Correo   correo.Correo
+	Casillas Casillas
+	Log      *slog.Logger
 	// URL pública de la API, para armar la URL de las fotos.
 	APIPublica string
 	Reloj      func() time.Time
@@ -110,11 +121,37 @@ func hashCodigo(usuarioID, codigo string) []byte {
 	return h[:]
 }
 
-// PedirCodigo manda el código por SMS. Devuelve el código sólo si el SMS es simulado.
-func (s *Servicio) PedirCodigo(ctx context.Context, usuarioID, telefono string) (string, error) {
+// Envio dice por dónde salió el código. Via "mail" con Destino (la casilla enmascarada); simulado,
+// sólo CodigoDePrueba.
+type Envio struct {
+	Via            string `json:"via,omitempty"`
+	Destino        string `json:"destino,omitempty"`
+	CodigoDePrueba string `json:"codigoDePrueba,omitempty"`
+}
+
+var errSinMail = problema.NoProcesable("sin_mail",
+	"Tu cuenta no tiene un mail verificado. Verificá tu mail en tu cuenta y probá de nuevo.")
+
+// PedirCodigo guarda el teléfono con un código nuevo y lo manda por mail a la casilla verificada de
+// la cuenta (clerkID: user_…). Sin correo, simulado: el código vuelve en CodigoDePrueba.
+func (s *Servicio) PedirCodigo(ctx context.Context, usuarioID, clerkID, telefono string) (Envio, error) {
 	telefono = normalizarTelefono(telefono)
 	if !reTelefono.MatchString(telefono) {
-		return "", problema.Invalido("Ese número no parece un celular.")
+		return Envio{}, problema.Invalido("Ese número no parece un celular.")
+	}
+	// La casilla se busca antes de guardar el código: sin mail no se gasta la espera de 30 s.
+	var email string
+	if s.Correo != nil {
+		if s.Casillas == nil || clerkID == "" {
+			return Envio{}, errSinMail
+		}
+		u, err := s.Casillas.Usuario(ctx, clerkID)
+		if err != nil {
+			return Envio{}, err
+		}
+		if email = u.Email; email == "" {
+			return Envio{}, errSinMail
+		}
 	}
 	n, _ := rand.Int(rand.Reader, big.NewInt(1000000))
 	codigo := fmt.Sprintf("%06d", n.Int64())
@@ -140,15 +177,26 @@ func (s *Servicio) PedirCodigo(ctx context.Context, usuarioID, telefono string) 
 		return err
 	})
 	if err != nil {
-		return "", err
+		return Envio{}, err
 	}
-	if err := s.SMS.Enviar(ctx, telefono, "Tu código de Caigo es "+codigo+". No se lo pases a nadie."); err != nil {
-		return "", err
+	if s.Correo == nil {
+		l := s.Log
+		if l == nil {
+			l = slog.Default()
+		}
+		// Sin el número completo en el log: alcanza con los últimos dígitos para encontrarlo.
+		l.Info("código de teléfono simulado (sin SMTP)", "telefono", "…"+telefono[len(telefono)-4:], "codigo", codigo)
+		return Envio{CodigoDePrueba: codigo}, nil
 	}
-	if s.SMS.Simulado() {
-		return codigo, nil
+	if err := s.Correo.Enviar(ctx, mensajeCodigo(email, codigo)); err != nil {
+		// No salió: se borra el código para que pueda pedir otro enseguida.
+		_ = s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, `DELETE FROM telefono_codigos WHERE usuario_id = $1`, usuarioID)
+			return err
+		})
+		return Envio{}, fmt.Errorf("confianza: mandar el código: %w", err)
 	}
-	return "", nil
+	return Envio{Via: "mail", Destino: enmascarar(email)}, nil
 }
 
 // ConfirmarCodigo verifica el código y deja el teléfono verificado. 5 intentos por código.

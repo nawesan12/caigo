@@ -21,12 +21,12 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/cifrado"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/limite"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sesion"
-	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sms"
 )
 
 // Dependencias del servidor. App puede ser nil en tests que no tocan la base (y entonces sólo
@@ -56,6 +56,8 @@ type Dependencias struct {
 	Wallet *wallet.Servicio
 	// Versión mínima de las apps (versionCode de Android, build de iOS). 0: cualquiera.
 	MinAndroid, MinIos int
+	// Correo del código de verificación del teléfono. nil: simulado (vuelve en codigoDePrueba).
+	Correo correo.Correo
 }
 
 // Nuevo arma el handler con todas las rutas.
@@ -94,8 +96,8 @@ func Nuevo(d Dependencias) http.Handler {
 		pls := &planes.Servicio{App: d.App, Reloj: d.Reloj, Firma: firma.Firmador{Clave: []byte(d.Secreto)}, Sitio: d.Sitio}
 		planes.Rutas(mux, pls, ses.Exigir, d.Log)
 		equipo.Rutas(mux, &equipo.Servicio{App: d.App, Publicador: pls, Reloj: d.Reloj}, ses, d.Log)
-		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos}, SMS: sms.Simulado{Log: d.Log},
-			APIPublica: d.APIPublica, Reloj: d.Reloj}, ses, d.Log)
+		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos}, Correo: d.Correo, Casillas: d.Clerk,
+			Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj}, ses, d.Log)
 		personas.Rutas(mux, &personas.Servicio{App: d.App}, ses.Exigir, d.Log)
 		avisos.Rutas(mux, d.App, ses.Exigir, d.Log)
 		if d.Hub == nil {
