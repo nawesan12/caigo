@@ -20,7 +20,7 @@
     </queries>
 
     <application
-        android:name=".App"
+        android:name=".app.App"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -37,7 +37,7 @@
         <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_aviso" />
 
         <activity
-            android:name=".MainActivity"
+            android:name=".app.MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
@@ -84,7 +84,7 @@
             </intent-filter>
         </activity>
 
-        <service android:name=".push.ServicioPush" android:exported="false">
+        <service android:name=".app.ServicioPush" android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
