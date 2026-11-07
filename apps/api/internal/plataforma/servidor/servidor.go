@@ -120,7 +120,9 @@ func Nuevo(d Dependencias) http.Handler {
 		wallet.Rutas(mux, d.Wallet, ses.Exigir, d.Log)
 		mercadopago.Webhook(mux, d.Tiendas.MP, map[string]mercadopago.Manejador{
 			"subscription_preapproval": ps.AvisoMP(d.Tiendas),
-			"payment":                  ls.AvisoPago,
+			// Entradas: las de preferencias (y los pagos de las órdenes) avisan payment; las órdenes, order.
+			"payment": ls.AvisoPago,
+			"order":   ls.AvisoOrden,
 		}, d.Log)
 	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {

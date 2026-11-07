@@ -4,10 +4,13 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +18,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -30,7 +34,7 @@ import (
 // tokenDelLugar es lo que devuelve el OAuth falso (no es una credencial).
 const tokenDelLugar = "token-del-lugar-de-prueba"
 
-// mpFalso: OAuth, preferencias y pagos de Mercado Pago, en memoria.
+// mpFalso: OAuth, órdenes (API de Orders) y pagos de Mercado Pago, en memoria.
 type mpFalso struct {
 	*httptest.Server
 	ref     string
@@ -38,38 +42,82 @@ type mpFalso struct {
 	fee     float64
 	estado  string
 	usuario int64
-	// Reembolsos pedidos: el cuerpo tal cual ("" = el pago entero).
+	// Órdenes creadas (ord-1, ord-2…) y el estado de su transacción al leerlas.
+	ordenes     int
+	estadoOrden string
+	// Reembolsos pedidos: el cuerpo tal cual ("" = todo). Los de pagos (preferencias) y los de órdenes.
 	reembolsos []string
+	// Lo último que se mandó a crear.
+	orden map[string]any
 }
 
+// firmaMP arma el x-signature de un aviso de Mercado Pago (para hacerse pasar por él).
+func firmaMP(secreto, requestID, dataID string, ts int64) string {
+	m := hmac.New(sha256.New, []byte(secreto))
+	fmt.Fprintf(m, "id:%s;request-id:%s;ts:%d;", strings.ToLower(dataID), requestID, ts)
+	return fmt.Sprintf("ts=%d,v1=%s", ts, hex.EncodeToString(m.Sum(nil)))
+}
+
+// ultimaOrden es el id de la última orden creada.
+func (m *mpFalso) ultimaOrden() string { return fmt.Sprintf("ord-%d", m.ordenes) }
+
 func nuevoMP(t *testing.T) *mpFalso {
-	m := &mpFalso{estado: "approved", usuario: time.Now().UnixNano() % 1e12}
+	m := &mpFalso{estado: "approved", estadoOrden: "processed", usuario: time.Now().UnixNano() % 1e12}
 	m.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ") == tokenDelLugar
 		switch {
 		case r.URL.Path == "/oauth/token":
 			fmt.Fprintf(w, `{"access_token":%q,"refresh_token":"renovar","expires_in":15552000,"user_id":%d}`, tokenDelLugar, m.usuario)
-		case r.URL.Path == "/checkout/preferences":
-			if strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ") != tokenDelLugar {
+		case r.URL.Path == "/v1/orders" && r.Method == http.MethodPost:
+			if !conToken || r.Header.Get("X-Idempotency-Key") == "" {
 				w.WriteHeader(401)
 				return
 			}
 			var in struct {
-				ExternalReference string  `json:"external_reference"`
-				MarketplaceFee    float64 `json:"marketplace_fee"`
-				Items             []struct {
-					UnitPrice float64 `json:"unit_price"`
-				} `json:"items"`
+				ExternalReference string `json:"external_reference"`
+				MarketplaceFee    string `json:"marketplace_fee"`
+				TotalAmount       string `json:"total_amount"`
 			}
-			_ = json.NewDecoder(r.Body).Decode(&in)
-			m.ref, m.fee, m.total = in.ExternalReference, in.MarketplaceFee, in.Items[0].UnitPrice
-			_, _ = w.Write([]byte(`{"id":"pref-1","init_point":"https://mp.test/checkout"}`))
-		case r.URL.Path == "/v1/payments/99/refunds" && r.Method == http.MethodPost:
-			if strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ") != tokenDelLugar || r.Header.Get("X-Idempotency-Key") == "" {
+			b, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(b, &in)
+			m.orden = map[string]any{}
+			_ = json.Unmarshal(b, &m.orden)
+			m.ref = in.ExternalReference
+			m.fee, _ = strconv.ParseFloat(in.MarketplaceFee, 64)
+			m.total, _ = strconv.ParseFloat(in.TotalAmount, 64)
+			m.ordenes++
+			w.WriteHeader(201)
+			fmt.Fprintf(w, `{"id":%q,"status":"created","checkout_url":"https://mp.test/checkout?order_id=%s"}`, m.ultimaOrden(), m.ultimaOrden())
+		case strings.HasPrefix(r.URL.Path, "/v1/orders/ord-") && strings.HasSuffix(r.URL.Path, "/refund") && r.Method == http.MethodPost:
+			if !conToken || r.Header.Get("X-Idempotency-Key") == "" {
 				w.WriteHeader(401)
 				return
 			}
 			b, _ := io.ReadAll(r.Body)
 			m.reembolsos = append(m.reembolsos, string(b))
+			w.WriteHeader(201)
+			_, _ = w.Write([]byte(`{"status":"refunded"}`))
+		case strings.HasPrefix(r.URL.Path, "/v1/orders/ord-") && r.Method == http.MethodGet:
+			if !conToken {
+				w.WriteHeader(401)
+				return
+			}
+			id := strings.TrimPrefix(r.URL.Path, "/v1/orders/")
+			n, _ := strconv.Atoi(strings.TrimPrefix(id, "ord-"))
+			if n < 1 || n > m.ordenes {
+				w.WriteHeader(404)
+				return
+			}
+			fmt.Fprintf(w, `{"id":%q,"status":"processed","external_reference":%q,"total_amount":"%.2f","transactions":{"payments":[
+				{"id":"tx-%d","amount":"%.2f","attempt_number":1,"status":%q,"reference":{"id":"99"}}]}}`,
+				id, m.ref, m.total, n, m.total, m.estadoOrden)
+		case r.URL.Path == "/v1/payments/99/refunds" && r.Method == http.MethodPost:
+			if !conToken || r.Header.Get("X-Idempotency-Key") == "" {
+				w.WriteHeader(401)
+				return
+			}
+			b, _ := io.ReadAll(r.Body)
+			m.reembolsos = append(m.reembolsos, "pago:"+string(b))
 			w.WriteHeader(201)
 			_, _ = w.Write([]byte(`{"id":1,"status":"approved"}`))
 		case r.URL.Path == "/v1/payments/99":
@@ -157,13 +205,40 @@ func TestLugarDePuntaAPunta(t *testing.T) {
 	if c.TotalCentavos != 600000 || c.CargoCentavos != 120000 || c.SaldoCentavos != 1120000 || mp.fee != 1200 || mp.total != 6000 {
 		t.Fatalf("compra: %+v fee %v total %v", c, mp.fee, mp.total)
 	}
+	// La URL de pago es el checkout_url de la orden (Checkout Pro por la API de Orders), y la orden vence
+	// con la reserva.
+	if c.Link != "https://mp.test/checkout?order_id="+mp.ultimaOrden() || mp.orden["expiration_time"] != "PT30M" ||
+		mp.orden["type"] != "online" || mp.orden["processing_mode"] != "manual" {
+		t.Fatalf("orden: link %q %+v", c.Link, mp.orden)
+	}
 
-	// Llega el pago (lo concilia el worker): Martina queda adentro con su código.
+	// Llega el aviso de la orden (type order): se encola y lo concilia el worker. Martina queda
+	// adentro con su código.
+	orden := mp.ultimaOrden()
+	aviso := fmt.Sprintf(`{"type":"order","action":"order.processed","user_id":"%d","data":{"id":%q}}`, mp.usuario, orden)
+	ts := time.Now().UnixMilli()
+	r := httptest.NewRequest("POST", "/v1/webhooks/mercadopago?data.id="+orden, strings.NewReader(aviso))
+	r.Header.Set("x-signature", firmaMP("wh", "req-o", orden, ts))
+	r.Header.Set("x-request-id", "req-o")
+	w := httptest.NewRecorder()
+	e.h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("aviso de la orden: %d %s", w.Code, w.Body)
+	}
+	evs := e.eventos("mp.orden", fmt.Sprint(mp.usuario))
+	if len(evs) != 1 || !strings.Contains(string(evs[0].Datos), orden) {
+		t.Fatalf("mp.orden: %+v", evs)
+	}
 	ls := &lugares.Servicio{App: e.app, MP: cfg, Cifra: cifra}
 	for range 2 { // idempotente
-		if err := ls.ConciliarPago(context.Background(), mp.usuario, 99); err != nil {
+		if err := ls.Manejadores()["mp.orden"](context.Background(), evs[len(evs)-1]); err != nil {
 			t.Fatal(err)
 		}
+	}
+	var tx string
+	e.valor(`SELECT mp_orden || '/' || mp_transaccion || '/' || mp_pago FROM entradas WHERE referencia = $1`, &tx, mp.ref)
+	if tx != orden+"/tx-1/99" {
+		t.Fatalf("entrada conciliada: %q", tx)
 	}
 	var pases struct {
 		Entradas []struct{ ID, Codigo, Estado string }
@@ -249,7 +324,7 @@ func TestLugarDePuntaAPunta(t *testing.T) {
 	e.verificar(fede, false)
 	e.pedir(fede, "POST", "/v1/planes/"+creado.ID+"/entradas", map[string]any{"cantidad": 1, "modo": "cualquiera"}, http.StatusBadRequest, nil)
 	e.pedir(fede, "POST", "/v1/planes/"+creado.ID+"/entradas", map[string]any{"cantidad": 1, "modo": "entrada"}, http.StatusOK, &c)
-	if c.TotalCentavos != 860000 || c.CargoCentavos != 60000 || c.SaldoCentavos != 0 || mp.total != 8600 {
+	if c.TotalCentavos != 860000 || c.CargoCentavos != 60000 || c.SaldoCentavos != 0 || mp.total != 8600 || mp.fee != 600 {
 		t.Fatalf("pagar todo: %+v total %v", c, mp.total)
 	}
 }

@@ -336,6 +336,18 @@ func (s *Servicio) AvisoPago(r *http.Request, a mercadopago.Aviso) error {
 	})
 }
 
+// AvisoOrden encola una orden de Mercado Pago (evento «Order (Mercado Pago)», type order) para que el
+// worker la concilie (con reintentos).
+func (s *Servicio) AvisoOrden(r *http.Request, a mercadopago.Aviso) error {
+	id := a.ID()
+	if id == "" || len(id) > 64 || a.Usuario() == 0 {
+		return nil
+	}
+	return s.App.EnSistema(r.Context(), func(tx pgx.Tx) error {
+		return outbox.Publicar(r.Context(), tx, "mp.orden", map[string]any{"usuario": a.Usuario(), "orden": id})
+	})
+}
+
 // Manejadores del outbox para el worker.
 func (s *Servicio) Manejadores() map[string]outbox.Manejador {
 	return map[string]outbox.Manejador{
@@ -345,6 +357,16 @@ func (s *Servicio) Manejadores() map[string]outbox.Manejador {
 				return nil
 			}
 			return s.ConciliarPago(ctx, d.Usuario, d.Pago)
+		},
+		"mp.orden": func(ctx context.Context, ev outbox.Evento) error {
+			var d struct {
+				Usuario int64  `json:"usuario"`
+				Orden   string `json:"orden"`
+			}
+			if err := json.Unmarshal(ev.Datos, &d); err != nil || d.Orden == "" {
+				return nil
+			}
+			return s.ConciliarOrden(ctx, d.Usuario, d.Orden)
 		},
 		// Plan cancelado (o pagado tarde): se devuelve la entrada entera. Baja: sólo el precio.
 		"entrada.reembolsar": func(ctx context.Context, ev outbox.Evento) error {

@@ -14,19 +14,6 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
 
-// Reembolsador devuelve pagos de Mercado Pago (mercadopago.Config; en los tests, el mismo contra un
-// servidor falso). centavos nil: el pago entero.
-type Reembolsador interface {
-	Reembolsar(ctx context.Context, token string, pagoID int64, centavos *int64, idem string) error
-}
-
-func (s *Servicio) reembolsador() Reembolsador {
-	if s.Reembolsos != nil {
-		return s.Reembolsos
-	}
-	return s.MP
-}
-
 // EditarPlan cambia un plan del lugar que no empezó (PATCH: lo que no viene queda igual). Si ya hay
 // entradas pagas, no se puede tocar el cobro ni el precio. Si cambia el horario, avisa a los que van.
 func (s *Servicio) EditarPlan(ctx context.Context, usuarioID, lugarID, planID string, cuerpo []byte) (PlanDelLugar, error) {
@@ -224,12 +211,13 @@ func cerrarEntrada(ctx context.Context, tx pgx.Tx, entradaID, planID, usuarioID,
 func (s *Servicio) reembolsar(ctx context.Context, entradaID string, centavos *int64) error {
 	var estado, lugarID, planID, usuarioID string
 	var pago *int64
+	var orden, transaccion *string
 	var total int64
 	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `SELECT e.estado, p.lugar_id::text, e.plan_id::text, e.usuario_id::text, e.mp_pago,
-				e.lugar_centavos + e.cargo_centavos
+				e.mp_orden, e.mp_transaccion, e.lugar_centavos + e.cargo_centavos
 			FROM entradas e JOIN planes p ON p.id = e.plan_id WHERE e.id::text = $1`, entradaID).
-			Scan(&estado, &lugarID, &planID, &usuarioID, &pago, &total)
+			Scan(&estado, &lugarID, &planID, &usuarioID, &pago, &orden, &transaccion, &total)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
@@ -237,7 +225,7 @@ func (s *Servicio) reembolsar(ctx context.Context, entradaID string, centavos *i
 	if err != nil || estado != "pagada" {
 		return err
 	}
-	if pago == nil {
+	if pago == nil && orden == nil {
 		return errors.New("lugares: entrada pagada sin pago de Mercado Pago")
 	}
 	token, err := s.tokenDe(ctx, lugarID)
@@ -249,7 +237,29 @@ func (s *Servicio) reembolsar(ctx context.Context, entradaID string, centavos *i
 	if centavos != nil {
 		devuelto = *centavos
 	}
-	if err := s.reembolsador().Reembolsar(ctx, token, *pago, centavos, idem); err != nil {
+	if orden != nil {
+		// Cobrada con la API de Orders: se devuelve la orden (la parcial, por su transacción).
+		t := ""
+		if transaccion != nil {
+			t = *transaccion
+		}
+		if centavos != nil && t == "" {
+			o, err := s.MP.LeerOrden(ctx, token, *orden)
+			if err != nil {
+				return err
+			}
+			r, ok := o.Relevante()
+			if !ok {
+				return errors.New("lugares: la orden no tiene pago para devolver")
+			}
+			t = r.ID
+		}
+		err = s.MP.DevolverOrden(ctx, token, *orden, t, centavos, idem)
+	} else {
+		// Cobrada con una preferencia (antes de Orders).
+		err = s.MP.Reembolsar(ctx, token, *pago, centavos, idem)
+	}
+	if err != nil {
 		return err
 	}
 	return s.App.EnSistema(ctx, func(tx pgx.Tx) error {

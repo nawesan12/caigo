@@ -128,6 +128,22 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | PATCH | `/v1/yo` | sesión | dominio/personas |
 | PUT | `/v1/yo/ubicacion` | sesión | dominio/personas |
 
+## Entradas con la API de Orders de Mercado Pago (7/11)
+- `POST /v1/planes/{id}/entradas` responde igual que antes (`{entradaId, link, totalCentavos, cargoCentavos,
+  saldoCentavos}`); `link` ahora es el `checkout_url` de una orden de Checkout Pro (`POST /v1/orders`, `type
+  online`, `processing_mode manual`, con el token del lugar, `marketplace_fee` = cargo, vence a los 30 min:
+  `PT30M`, idempotencia `orden:<referencia>`), en vez del `init_point` de una preferencia. Las apps no cambian.
+- `POST /v1/webhooks/mercadopago` (misma firma `x-signature`) reparte por `type`: `order` (evento «Order
+  (Mercado Pago)») → outbox `mp.orden` → el worker lee `GET /v1/orders/{id}` y aplica la transacción que
+  cuenta (`processed` paga, `refunded`/`charged_back` devuelve, `canceled`/`expired` anula; `failed` deja la
+  compra esperando); `payment` → `mp.pago` sigue para las entradas creadas con preferencias (y concilia por
+  `external_reference` también los pagos de las órdenes); `subscription_preapproval` es Plus (preapproval, sin
+  cambios: Orders no cubre suscripciones).
+- Devoluciones: entrada con `mp_orden` → `POST /v1/orders/{id}/refund` (total sin cuerpo; parcial con
+  `{transactions: [{id, amount}]}`); entradas viejas → `POST /v1/payments/{id}/refunds`.
+- Un «approved» sólo paga una entrada `pendiente`: una ya devuelta o cancelada no se reabre con un aviso viejo.
+- Migración 00017: `entradas.mp_orden`, `entradas.mp_transaccion`.
+
 ## Caigo Plus: lo que suma (31/10)
 - `GET /v1/plus` → `estado` suma `encantasHoy`, `limiteEncantas` (1 sin Plus, 5 con Plus) y
   `destacarDesde` (vacío: puede destacar ya, si tiene Plus).

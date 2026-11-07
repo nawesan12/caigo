@@ -36,9 +36,13 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
    credenciales de producción activas, PKCE en «Sí», vuelta https://lugares.caigo.com.ar/mercadopago/vuelta
    y webhook https://api.caigo.com.ar/v1/webhooks/mercadopago. Las 4 `CAIGO_MP_*` están cargadas en
    `/opt/caigo/api.conf` (copia previa: `api.conf.antes-mp`; sólo ahí, no hay CREDENCIALES.md local),
-   con api y worker reiniciados; el token responde con la cuenta 1137276568. Falta: probar una entrada
-   real, y migrar de Preferencias (MP la discontinúa) a la API de Orders, como en
-   tengolibre `apps/api/internal/integraciones/mercadopago/ordenes.go`, sumando «Order (Mercado Pago)» al webhook.
+   con api y worker reiniciados; el token responde con la cuenta 1137276568. Migrado a la API de Orders
+   (7/11, sin desplegar): las entradas y señas se cobran con `POST /v1/orders` (Checkout Pro, `marketplace_fee`
+   = cargo) y el webhook entiende `type: order` además de `payment` (entradas viejas con preferencia) y del
+   preapproval de Plus (sin cambios). Migración 00017 (`entradas.mp_orden`, `mp_transaccion`): pg_dump antes.
+   Las apps no cambian (`link` sigue siendo la URL de pago). Falta: desplegar; tildar el evento «Order (Mercado
+   Pago)» en los webhooks de la app «Caigo» en el panel de MP; y probar una entrada real (pago, aviso → entrada
+   pagada con `mp_orden`/`mp_transaccion`, el cargo acreditado a Caigo, y una devolución parcial y una total).
 2. Firebase: hecho (31/10). Caigo en el proyecto común `grupo-vimo`; `local.properties` con appId,
    remitente, proyecto y clave (sale de ~/Trabajo/vimo/firebase/google-services.json); servidor con
    `/opt/caigo/claves/fcm.json` (cuenta fcm-caigo@grupo-vimo) y el worker en `fcm=true`. Ojo: los

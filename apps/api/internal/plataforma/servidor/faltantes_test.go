@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -216,10 +217,10 @@ func TestReembolsosYCancelaciones(t *testing.T) {
 			"cancelacion": politica}, http.StatusCreated, &c)
 		return c.ID
 	}
-	// Compra 1 entrada y la paga (el worker concilia el pago 99 con la última preferencia).
+	// Compra 1 entrada y la paga (el worker concilia la última orden).
 	comprar := func(planID string) string {
 		e.pedir(martina, "POST", "/v1/planes/"+planID+"/entradas", map[string]int{"cantidad": 1}, http.StatusOK, nil)
-		if err := ls.ConciliarPago(context.Background(), mp.usuario, 99); err != nil {
+		if err := ls.ConciliarOrden(context.Background(), mp.usuario, mp.ultimaOrden()); err != nil {
 			t.Fatal(err)
 		}
 		var id string
@@ -230,10 +231,13 @@ func TestReembolsosYCancelaciones(t *testing.T) {
 
 	// flex, a 48 h: devuelve lo del lugar ($8.000), no el cargo.
 	flex := comprar(crear("flex", 48*time.Hour))
+	ordenFlex := mp.ultimaOrden()
 	var r reembolso
 	e.pedir(e.persona("Otra"), "DELETE", "/v1/entradas/"+flex, nil, http.StatusNotFound, nil)
 	e.pedir(martina, "DELETE", "/v1/entradas/"+flex, nil, http.StatusOK, &r)
-	if r.ReembolsoCentavos != 800000 || len(mp.reembolsos) != 1 || mp.reembolsos[0] != `{"amount":8000}` {
+	// Devolución parcial de la orden, por su transacción.
+	if r.ReembolsoCentavos != 800000 || len(mp.reembolsos) != 1 ||
+		mp.reembolsos[0] != `{"transactions":[{"amount":"8000.00","id":"tx-`+strings.TrimPrefix(ordenFlex, "ord-")+`"}]}` {
 		t.Fatalf("flex: %+v %q", r, mp.reembolsos)
 	}
 	var estado string
@@ -242,6 +246,14 @@ func TestReembolsosYCancelaciones(t *testing.T) {
 		t.Fatalf("estado flex: %q", estado)
 	}
 	e.pedir(martina, "DELETE", "/v1/entradas/"+flex, nil, http.StatusConflict, nil)
+	// Un aviso viejo de la orden (que en Mercado Pago sigue cobrada, devuelta en parte) no la reabre.
+	if err := ls.ConciliarOrden(context.Background(), mp.usuario, ordenFlex); err != nil {
+		t.Fatal(err)
+	}
+	e.valor(`SELECT estado FROM entradas WHERE id = $1`, &estado, flex)
+	if estado != "reembolsada" {
+		t.Fatalf("estado flex tras el aviso: %q", estado)
+	}
 
 	// mod, a 48 h (< 72 h): no se devuelve nada, pero libera el lugar.
 	modPlan := crear("mod", 48*time.Hour)

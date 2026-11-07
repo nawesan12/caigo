@@ -34,8 +34,6 @@ type Servicio struct {
 	// Sitio público (caigo.com.ar), panel (lugares.caigo.com.ar) y API pública.
 	Sitio, Panel, APIPublica string
 	Reloj                    func() time.Time
-	// Reembolsos de Mercado Pago. nil: los de MP.
-	Reembolsos Reembolsador
 }
 
 func (s *Servicio) ahora() time.Time {

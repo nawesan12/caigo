@@ -16,6 +16,7 @@ import (
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
+	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
@@ -330,7 +331,7 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 		err := tx.QueryRow(ctx, `SELECT p.lugar_id, p.titulo, p.slug, p.cobro, p.precio_centavos, p.sena_pct, p.total,
 				p.cancelado_en IS NOT NULL, p.empieza_en, p.solo_verificados, p.acepta_grupos, coalesce(l.nombre, ''), p.genero,
 				coalesce((SELECT sum(cantidad) FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'aceptada'), 0)::integer
-					-- Las compras sin pagar reservan su lugar mientras vale la preferencia (30 min).
+					-- Las compras sin pagar reservan su lugar mientras vale la orden (30 min).
 					+ coalesce((SELECT sum(cantidad) FROM entradas y WHERE y.plan_id = p.id AND y.estado = 'pendiente'
 						AND y.usuario_id <> $2 AND y.creada_en > now() - interval '30 minutes'), 0)::integer
 			FROM planes p LEFT JOIN lugares l ON l.id = p.lugar_id WHERE p.id::text = $1 FOR UPDATE OF p`, planID, usuarioID).
@@ -424,35 +425,28 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 	if modo == "sena" {
 		concepto = "Seña"
 	}
+	// Checkout Pro por la API de Orders (Preferencias se discontinúa). El aviso llega al webhook de
+	// la aplicación como type "order"; la orden vence con la reserva (30 min).
 	vuelta := strings.TrimRight(s.Sitio, "/") + "/p/" + slug
-	pref := map[string]any{
-		"items": []map[string]any{{
-			"title": recortar(concepto+" · "+titulo, 120), "quantity": 1, "currency_id": "ARS",
-			"unit_price": float64(c.TotalCentavos) / 100,
-		}},
-		"external_reference": ref,
-		// El cargo por servicio es la comisión de Caigo: Mercado Pago se lo deja a la plataforma.
-		"marketplace_fee":      float64(c.CargoCentavos) / 100,
-		"back_urls":            map[string]string{"success": vuelta + "?pago=ok", "pending": vuelta + "?pago=pendiente", "failure": vuelta + "?pago=error"},
-		"auto_return":          "approved",
-		"statement_descriptor": recortar("CAIGO "+lugarNombre, 22),
-		"notification_url":     strings.TrimRight(s.APIPublica, "/") + "/v1/webhooks/mercadopago",
-		"expires":              true,
-		"expiration_date_to":   s.ahora().Add(30 * time.Minute).Format("2006-01-02T15:04:05.000-07:00"),
+	o := mercadopago.NuevaOrden(ref, recortar(concepto+" · "+titulo, 120), c.TotalCentavos)
+	// El cargo por servicio es la comisión de Caigo: Mercado Pago se lo deja a la plataforma.
+	o.MarketplaceFee = mercadopago.Importe(c.CargoCentavos)
+	o.ExpirationTime = mercadopago.Duracion(30 * time.Minute)
+	o.Config = &mercadopago.ConfigOrden{
+		Online:        &mercadopago.ConfigOnline{SuccessURL: vuelta + "?pago=ok", PendingURL: vuelta + "?pago=pendiente", FailureURL: vuelta + "?pago=error"},
+		StatementDesc: recortar("CAIGO "+lugarNombre, 22),
 	}
-	var r struct {
-		ID        string `json:"id"`
-		InitPoint string `json:"init_point"`
+	// auto_return sólo con un sitio https que no sea local.
+	if strings.HasPrefix(s.Sitio, "https://") && !strings.Contains(s.Sitio, "localhost") {
+		o.Config.Online.AutoReturn = "approved"
 	}
-	if err := s.MP.JSON(ctx, http.MethodPost, "/checkout/preferences", token, ref, pref, &r); err != nil {
+	creada, err := s.MP.CrearOrden(ctx, token, "orden:"+ref, o)
+	if err != nil {
 		return Compra{}, err
 	}
-	if r.InitPoint == "" {
-		return Compra{}, errors.New("lugares: la preferencia no trajo init_point")
-	}
-	c.Link = r.InitPoint
+	c.Link = creada.CheckoutURL
 	err = s.App.EnSistema(ctx, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `UPDATE entradas SET mp_preferencia = $2 WHERE id = $1`, c.EntradaID, r.ID)
+		_, err := tx.Exec(ctx, `UPDATE entradas SET mp_orden = $2 WHERE id = $1`, c.EntradaID, creada.ID)
 		return err
 	})
 	return c, err
@@ -466,21 +460,35 @@ func recortar(s string, n int) string {
 	return string(r[:n])
 }
 
-// ConciliarPago lee el pago (con el token del lugar dueño de la cuenta) y aplica su estado a la
-// entrada. Idempotente: lo llama el worker por cada aviso de Mercado Pago.
-func (s *Servicio) ConciliarPago(ctx context.Context, mpUsuario int64, pagoID int64) error {
+// tokenDeCuenta: el lugar dueño de la cuenta de Mercado Pago que cobró y su token. ok es false si la
+// cuenta no es de un lugar (Plus, o un lugar que se desconectó).
+func (s *Servicio) tokenDeCuenta(ctx context.Context, mpUsuario int64) (token string, ok bool, err error) {
 	var lugarID string
-	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+	err = s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `SELECT lugar_id FROM mp_conexiones WHERE mp_usuario = $1`, mpUsuario).Scan(&lugarID)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil // de otra cuenta (Plus) o de un lugar que se desconectó
+		return "", false, nil
 	}
 	if err != nil {
-		return err
+		return "", false, err
 	}
-	token, err := s.tokenDe(ctx, lugarID)
-	if err != nil {
+	token, err = s.tokenDe(ctx, lugarID)
+	return token, err == nil, err
+}
+
+// noExiste: Mercado Pago no conoce el recurso, y reintentar no lo arregla.
+func noExiste(err error) bool {
+	var emp *mercadopago.ErrorMP
+	return errors.As(err, &emp) && (emp.Estado == http.StatusNotFound || emp.Estado == http.StatusBadRequest)
+}
+
+// ConciliarPago lee el pago (con el token del lugar dueño de la cuenta) y aplica su estado a la
+// entrada. Idempotente: lo llama el worker por cada aviso de tipo payment (las entradas que se
+// cobraron con preferencias, y los pagos de las órdenes, que también se avisan así).
+func (s *Servicio) ConciliarPago(ctx context.Context, mpUsuario int64, pagoID int64) error {
+	token, ok, err := s.tokenDeCuenta(ctx, mpUsuario)
+	if err != nil || !ok {
 		return err
 	}
 	var p struct {
@@ -490,33 +498,107 @@ func (s *Servicio) ConciliarPago(ctx context.Context, mpUsuario int64, pagoID in
 		TransactionAmount float64 `json:"transaction_amount"`
 	}
 	if err := s.MP.JSON(ctx, http.MethodGet, "/v1/payments/"+strconv.FormatInt(pagoID, 10), token, "", nil, &p); err != nil {
+		if noExiste(err) {
+			return nil
+		}
 		return err
 	}
-	return s.aplicar(ctx, p.ExternalReference, p.ID, p.Status, int64(p.TransactionAmount*100+0.5))
+	return s.aplicar(ctx, observado{Ref: p.ExternalReference, Pago: p.ID, Estado: p.Status, Pagado: int64(math.Round(p.TransactionAmount * 100))})
 }
 
-func (s *Servicio) aplicar(ctx context.Context, ref string, pagoID int64, estado string, pagado int64) error {
+// ConciliarOrden lee la orden (con el token del lugar) y aplica su transacción relevante a la entrada.
+// Idempotente: lo llama el worker por cada aviso de tipo order.
+func (s *Servicio) ConciliarOrden(ctx context.Context, mpUsuario int64, ordenID string) error {
+	token, ok, err := s.tokenDeCuenta(ctx, mpUsuario)
+	if err != nil || !ok {
+		return err
+	}
+	o, err := s.MP.LeerOrden(ctx, token, ordenID)
+	if noExiste(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return s.aplicar(ctx, deOrden(o))
+}
+
+// observado es lo que Mercado Pago dice de un cobro, venga de un pago o de una orden. Estado va en
+// el idioma de la API de Payments (approved, refunded, cancelled…).
+type observado struct {
+	Ref, Estado        string
+	Pago               int64
+	Orden, Transaccion string
+	Pagado             int64
+}
+
+// deOrden traduce una orden al idioma de los pagos.
+func deOrden(o mercadopago.OrdenLeida) observado {
+	ob := observado{Ref: o.ExternalReference, Orden: o.ID}
+	t, ok := o.Relevante()
+	if !ok {
+		// Sin intentos de pago: esperando, o vencida/cancelada.
+		if o.Status == "canceled" || o.Status == "expired" {
+			ob.Estado = "cancelled"
+		}
+		return ob
+	}
+	ob.Transaccion, ob.Pago = t.ID, t.IDPago()
+	ob.Pagado = mercadopago.LeerCentavos(t.Amount)
+	switch t.Status {
+	case "processed":
+		ob.Estado = "approved"
+	case "refunded", "charged_back":
+		ob.Estado = t.Status
+	case "canceled", "expired":
+		ob.Estado = "cancelled"
+	}
+	// failed, processing, action_required…: la entrada sigue esperando (y la reserva vence sola).
+	return ob
+}
+
+func (s *Servicio) aplicar(ctx context.Context, ob observado) error {
+	if ob.Ref == "" || ob.Estado == "" {
+		return nil
+	}
+	var pago *int64
+	if ob.Pago != 0 {
+		pago = &ob.Pago
+	}
+	var transaccion *string
+	if ob.Transaccion != "" {
+		transaccion = &ob.Transaccion
+	}
 	return s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		var id, planID, usuarioID, actual string
+		var orden *string
 		var cantidad int16
 		var total int64
-		err := tx.QueryRow(ctx, `SELECT id, plan_id, usuario_id, estado, cantidad, lugar_centavos + cargo_centavos
-			FROM entradas WHERE referencia = $1 FOR UPDATE`, ref).Scan(&id, &planID, &usuarioID, &actual, &cantidad, &total)
+		err := tx.QueryRow(ctx, `SELECT id, plan_id, usuario_id, estado, cantidad, lugar_centavos + cargo_centavos, mp_orden
+			FROM entradas WHERE referencia = $1 FOR UPDATE`, ob.Ref).Scan(&id, &planID, &usuarioID, &actual, &cantidad, &total, &orden)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		switch estado {
+		// Un aviso de una orden que no es la de la entrada no se aplica.
+		if ob.Orden != "" && (orden == nil || *orden != ob.Orden) {
+			return nil
+		}
+		switch ob.Estado {
 		case "approved":
-			if actual == "pagada" {
+			// Sólo una entrada que espera el pago: una ya pagada, cancelada o devuelta no vuelve atrás
+			// (un pago devuelto en parte sigue «approved» en Mercado Pago).
+			if actual != "pendiente" {
 				return nil
 			}
-			if pagado < total {
-				return fmt.Errorf("lugares: pago %d de %d por menos de lo debido", pagoID, total)
+			if ob.Pagado < total {
+				return fmt.Errorf("lugares: cobro %s/%d de %d por menos de lo debido", ob.Orden, ob.Pago, total)
 			}
-			if _, err := tx.Exec(ctx, `UPDATE entradas SET estado = 'pagada', mp_pago = $2, pagada_en = now(), actualizada_en = now() WHERE id = $1`, id, pagoID); err != nil {
+			if _, err := tx.Exec(ctx, `UPDATE entradas SET estado = 'pagada', mp_pago = coalesce($2, mp_pago),
+					mp_transaccion = coalesce($3, mp_transaccion), pagada_en = now(), actualizada_en = now() WHERE id = $1`,
+				id, pago, transaccion); err != nil {
 				return err
 			}
 			var cancelado bool
@@ -541,7 +623,9 @@ func (s *Servicio) aplicar(ctx context.Context, ref string, pagoID int64, estado
 			if actual == "pagada" {
 				nuevo = "reembolsada"
 			}
-			if _, err := tx.Exec(ctx, `UPDATE entradas SET estado = $2, mp_pago = $3, actualizada_en = now() WHERE id = $1`, id, nuevo, pagoID); err != nil {
+			if _, err := tx.Exec(ctx, `UPDATE entradas SET estado = $2, mp_pago = coalesce($3, mp_pago),
+					mp_transaccion = coalesce($4, mp_transaccion), actualizada_en = now() WHERE id = $1`,
+				id, nuevo, pago, transaccion); err != nil {
 				return err
 			}
 			if err := wallet.Actualizado(ctx, tx, "e-"+id); err != nil {

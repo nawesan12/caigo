@@ -285,7 +285,8 @@ func TestBajaDeCuenta(t *testing.T) {
 	var devuelto int64
 	e.valor(`SELECT estado FROM entradas WHERE id = $1`, &estado, entrada)
 	e.valor(`SELECT reembolso_centavos FROM entradas WHERE id = $1`, &devuelto, entrada)
-	if estado != "reembolsada" || devuelto != 800000 || len(mp.reembolsos) != 1 || mp.reembolsos[0] != `{"amount":8000}` {
+	if estado != "reembolsada" || devuelto != 800000 || len(mp.reembolsos) != 1 || mp.reembolsos[0] != `{"transactions":[{"amount":"8000.00","id":"tx-1"}]}` {
+		// Pagada por el aviso payment (sin transacción guardada): la devolución la busca en la orden.
 		t.Fatalf("reembolso de la baja: %q %d %q", estado, devuelto, mp.reembolsos)
 	}
 	// Las sesiones mueren, la selfie se borra, su plan se cancela y deja el lugar en el de Nico.
