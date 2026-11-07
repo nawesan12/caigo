@@ -95,42 +95,42 @@ class Pdf417DniTest {
 }
 
 class MazoTest {
-    private fun r(e: Mazo.Estado, vararg a: Mazo.Accion) = a.fold(e) { x, y -> Mazo.reducir(x, y) }
+    private fun r(e: FisicaMazo.Estado, vararg a: FisicaMazo.Accion) = a.fold(e) { x, y -> FisicaMazo.reducir(x, y) }
 
     @Test fun pasaElUmbralYVuela() {
-        val e = r(Mazo.Estado(), Mazo.Accion.Empieza, Mazo.Accion.Mueve(140f, 10f), Mazo.Accion.Suelta)
+        val e = r(FisicaMazo.Estado(), FisicaMazo.Accion.Empieza, FisicaMazo.Accion.Mueve(140f, 10f), FisicaMazo.Accion.Suelta)
         assertEquals(1, e.vuela)
-        assertEquals(Mazo.SALIDA to -30f, Mazo.desplazamiento(e))
-        val sig = Mazo.reducir(e, Mazo.Accion.Siguiente)
+        assertEquals(FisicaMazo.SALIDA to -30f, FisicaMazo.desplazamiento(e))
+        val sig = FisicaMazo.reducir(e, FisicaMazo.Accion.Siguiente)
         assertEquals(1, sig.indice)
         assertEquals(0, sig.vuela)
         assertEquals(0f, sig.dx)
     }
 
     @Test fun noLlegaYVuelve() {
-        val e = r(Mazo.Estado(), Mazo.Accion.Empieza, Mazo.Accion.Mueve(-90f, 0f), Mazo.Accion.Suelta)
+        val e = r(FisicaMazo.Estado(), FisicaMazo.Accion.Empieza, FisicaMazo.Accion.Mueve(-90f, 0f), FisicaMazo.Accion.Suelta)
         assertEquals(0, e.vuela)
         assertEquals(0f, e.dx)
     }
 
     @Test fun izquierdaEsPaso() {
-        val e = r(Mazo.Estado(), Mazo.Accion.Empieza, Mazo.Accion.Mueve(-101f, 0f), Mazo.Accion.Suelta)
+        val e = r(FisicaMazo.Estado(), FisicaMazo.Accion.Empieza, FisicaMazo.Accion.Mueve(-101f, 0f), FisicaMazo.Accion.Suelta)
         assertEquals(-1, e.vuela)
     }
 
     @Test fun fisicas() {
-        assertEquals(10f, Mazo.rotacion(160f), 0.001f)
-        assertEquals(.93f, Mazo.escalaSiguiente(0f), 0.001f)
-        assertEquals(1f, Mazo.escalaSiguiente(200f), 0.001f)
-        assertEquals(1f, Mazo.alfaMeGusta(120f), 0.001f)
-        assertEquals(0f, Mazo.alfaPaso(120f), 0.001f)
-        assertTrue(Mazo.alfaSiguiente(70f) in .55f..1f)
+        assertEquals(10f, FisicaMazo.rotacion(160f), 0.001f)
+        assertEquals(.93f, FisicaMazo.escalaSiguiente(0f), 0.001f)
+        assertEquals(1f, FisicaMazo.escalaSiguiente(200f), 0.001f)
+        assertEquals(1f, FisicaMazo.alfaMeGusta(120f), 0.001f)
+        assertEquals(0f, FisicaMazo.alfaPaso(120f), 0.001f)
+        assertTrue(FisicaMazo.alfaSiguiente(70f) in .55f..1f)
     }
 
     @Test fun fotos() {
-        val e = r(Mazo.Estado(), Mazo.Accion.Foto(1, 3), Mazo.Accion.Foto(1, 3), Mazo.Accion.Foto(1, 3))
+        val e = r(FisicaMazo.Estado(), FisicaMazo.Accion.Foto(1, 3), FisicaMazo.Accion.Foto(1, 3), FisicaMazo.Accion.Foto(1, 3))
         assertEquals(2, e.foto)
-        assertEquals(0, r(e, Mazo.Accion.Foto(-5, 3)).foto)
+        assertEquals(0, r(e, FisicaMazo.Accion.Foto(-5, 3)).foto)
     }
 }
 

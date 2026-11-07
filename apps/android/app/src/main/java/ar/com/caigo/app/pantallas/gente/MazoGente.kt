@@ -64,6 +64,7 @@ import ar.com.caigo.app.nucleo.Plan
 import ar.com.caigo.app.nucleo.Tarjeta
 import ar.com.caigo.app.nucleo.mensajeDe
 import ar.com.caigo.app.nucleo.Encantas
+import ar.com.caigo.app.nucleo.FisicaMazo
 import ar.com.caigo.app.nucleo.Mazo
 import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.app.altoTabBar
@@ -120,7 +121,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
     val mazo = rememberCarga(modo) { c.api.mazo(modo).personas }
     val recibidos = rememberCarga(modo) { runCatching { c.api.recibidos(modo) }.getOrNull() }
     val plus = rememberCarga { runCatching { c.api.plus().estado }.getOrNull() }
-    var estado by remember(modo) { mutableStateOf(Mazo.Estado()) }
+    var estado by remember(modo) { mutableStateOf(FisicaMazo.Estado()) }
     var sumados by remember { mutableIntStateOf(0) }
     var invitando by remember { mutableStateOf<Tarjeta?>(null) }
     val dx = remember(modo) { Animatable(0f) }
@@ -146,10 +147,10 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
                 }
             }
             // La carta vuela ya; la API responde mientras tanto.
-            estado = Mazo.reducir(estado, Mazo.Accion.Vuela(lado))
+            estado = FisicaMazo.reducir(estado, FisicaMazo.Accion.Vuela(lado))
             val r = runCatching { c.api.reaccionar(t.id, modo, accion) }
             launch { dy.animateTo(dy.value - 40f, tween(260, easing = FastOutSlowInEasing)) }
-            dx.animateTo(lado * Mazo.SALIDA, tween(260, easing = FastOutSlowInEasing))
+            dx.animateTo(lado * FisicaMazo.SALIDA, tween(260, easing = FastOutSlowInEasing))
             r.onSuccess { res ->
                 plus.dato = res.plus
                 if (lado > 0) {
@@ -163,7 +164,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
                         },
                     )
                 }
-                estado = Mazo.reducir(estado, Mazo.Accion.Siguiente)
+                estado = FisicaMazo.reducir(estado, FisicaMazo.Accion.Siguiente)
                 dx.snapTo(0f); dy.snapTo(0f)
             }.onFailure { e ->
                 estado = estado.copy(vuela = 0)
@@ -227,17 +228,17 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
                 mazo.dato == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     if (mazo.error != null) T(mazo.error!!, 15f, 500, LocalPaleta.current.texto2, alinear = TextAlign.Center) else Puntitos()
                 }
-                arriba == null -> MazoVacio(sumados) { mazo.recargar(); estado = Mazo.Estado() }
+                arriba == null -> MazoVacio(sumados) { mazo.recargar(); estado = FisicaMazo.Estado() }
                 else -> {
-                    val k = Mazo.fuerza(dx.value)
+                    val k = FisicaMazo.fuerza(dx.value)
                     if (siguiente != null) {
                         Box(
                             Modifier.fillMaxSize()
                                 .graphicsLayer {
-                                    val s = Mazo.escalaSiguiente(dx.value)
+                                    val s = FisicaMazo.escalaSiguiente(dx.value)
                                     scaleX = s; scaleY = s
                                     translationY = 16f * (1f - k) * density
-                                    alpha = Mazo.alfaSiguiente(dx.value)
+                                    alpha = FisicaMazo.alfaSiguiente(dx.value)
                                 }
                                 .clip(RoundedCornerShape(34.dp)).background(C.oscuro2),
                         ) {
@@ -252,7 +253,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
                             .pointerInput(arriba.id) {
                                 awaitEachGesture {
                                     val inicio = awaitFirstDown()
-                                    estado = Mazo.reducir(estado, Mazo.Accion.Empieza)
+                                    estado = FisicaMazo.reducir(estado, FisicaMazo.Accion.Empieza)
                                     var tx = 0f
                                     var ty = 0f
                                     while (true) {
@@ -264,17 +265,17 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
                                         ch.consume()
                                         if (!ch.pressed) break
                                         alcance.launch { dx.snapTo(tx); dy.snapTo(ty) }
-                                        estado = Mazo.reducir(estado, Mazo.Accion.Mueve(tx, ty))
+                                        estado = FisicaMazo.reducir(estado, FisicaMazo.Accion.Mueve(tx, ty))
                                     }
-                                    estado = Mazo.reducir(estado, Mazo.Accion.Mueve(tx, ty))
+                                    estado = FisicaMazo.reducir(estado, FisicaMazo.Accion.Mueve(tx, ty))
                                     if (kotlin.math.abs(tx) < 6 && kotlin.math.abs(ty) < 6) {
                                         // Toque: abajo abre el perfil, arriba cambia de foto.
                                         estado = estado.copy(arrastrando = false)
                                         val ancho = size.width
                                         if (inicio.position.y > size.height * .58f) ir.persona(arriba.id, if (esCitas) "citas" else "gente")
-                                        else estado = Mazo.reducir(estado, Mazo.Accion.Foto(if (inicio.position.x < ancho / 2) -1 else 1, arriba.fotos.size))
+                                        else estado = FisicaMazo.reducir(estado, FisicaMazo.Accion.Foto(if (inicio.position.x < ancho / 2) -1 else 1, arriba.fotos.size))
                                     } else {
-                                        val sale = Mazo.reducir(estado, Mazo.Accion.Suelta)
+                                        val sale = FisicaMazo.reducir(estado, FisicaMazo.Accion.Suelta)
                                         if (sale.vuela != 0) {
                                             estado = estado.copy(arrastrando = false)
                                             reaccionar(if (sale.vuela < 0) "paso" else if (esCitas) "interesa" else "prendo")
@@ -288,7 +289,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
                             .graphicsLayer {
                                 translationX = dx.value * density
                                 translationY = dy.value * density
-                                rotationZ = Mazo.rotacion(dx.value)
+                                rotationZ = FisicaMazo.rotacion(dx.value)
                             },
                         tinte = dx.value,
                         alto = alto,
@@ -300,7 +301,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
 
         // Botones: pasar, sumar / me interesa y el tercero (invitar a un plan / me encanta).
         if (arriba != null) {
-            val k = Mazo.fuerza(dx.value)
+            val k = FisicaMazo.fuerza(dx.value)
             val escMeGusta by animateFloatAsState(1f + .15f * (if (dx.value > 0) k else 0f), tween(150), label = "mg")
             val escPaso by animateFloatAsState(1f + .18f * (if (dx.value < 0) k else 0f), tween(150), label = "ps")
             Row(
@@ -360,7 +361,7 @@ private fun CartaPersona(t: Tarjeta, esCitas: Boolean, foto: Int, modifier: Modi
             ),
         )
         // Tinte lima (me prendo) o coral (paso) según el lado del arrastre.
-        val k = Mazo.fuerza(tinte)
+        val k = FisicaMazo.fuerza(tinte)
         if (k > 0f) {
             val col = if (tinte > 0) C.lima else C.coral
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(.35f to col.copy(alpha = 0f), 1f to col.copy(alpha = .4f * k))))
@@ -372,8 +373,8 @@ private fun CartaPersona(t: Tarjeta, esCitas: Boolean, foto: Int, modifier: Modi
             }
         }
         // Sellos ME PRENDO / ME INTERESA y PASO.
-        Sello(if (esCitas) "ME INTERESA" else "ME PRENDO", C.lima, -12f, Mazo.alfaMeGusta(tinte), Modifier.padding(top = 44.dp, start = 22.dp))
-        Sello("PASO", C.coral, 12f, Mazo.alfaPaso(tinte), Modifier.align(Alignment.TopEnd).padding(top = 44.dp, end = 22.dp))
+        Sello(if (esCitas) "ME INTERESA" else "ME PRENDO", C.lima, -12f, FisicaMazo.alfaMeGusta(tinte), Modifier.padding(top = 44.dp, start = 22.dp))
+        Sello("PASO", C.coral, 12f, FisicaMazo.alfaPaso(tinte), Modifier.align(Alignment.TopEnd).padding(top = 44.dp, end = 22.dp))
 
         Column(Modifier.align(Alignment.BottomStart).padding(start = 20.dp, end = 16.dp, bottom = 22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

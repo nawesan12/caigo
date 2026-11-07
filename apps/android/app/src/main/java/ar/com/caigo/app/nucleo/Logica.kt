@@ -116,7 +116,7 @@ object Pdf417Dni {
  * El mazo arrastrable de Gente / Citas, con las físicas del prototipo: rotación dx/16°, salida a
  * ±520 px, umbral de 100 px, tinte lima/coral según el lado y la carta de abajo de .93 a 1.
  */
-object Mazo {
+object FisicaMazo {
     const val UMBRAL = 100f
     const val SALIDA = 520f
 
