@@ -148,10 +148,12 @@ class PantallasTest {
         c.yo.value = dato<Perfil>("/v1/yo")
         // En la app lo marca Principal al contestarse el pedido de avisos; Ahora lo espera para pedir la ubicación.
         c.avisosResueltos.value = true
-        // Sin bitmaps de hardware (Robolectric no los dibuja) y sin fundido: la foto tiene que estar en la captura.
+        // Sin bitmaps de hardware (Robolectric no los dibuja), sin fundido y sin cambiar de hilo: la foto tiene que estar en la captura.
         SingletonImageLoader.setUnsafe(
             ImageLoader.Builder(app).components { add(OkHttpNetworkFetcherFactory(callFactory = { c.http })) }
-                .allowHardware(false).crossfade(false).build(),
+                .allowHardware(false).crossfade(false)
+                // Todo en el mismo hilo: con el reloj quieto, la foto llega antes de la captura.
+                .coroutineContext(kotlinx.coroutines.Dispatchers.Unconfined).build(),
         )
         preparar(c)
         return c
