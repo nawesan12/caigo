@@ -60,31 +60,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
       # paridad.txt (las pantallas de iOS) y la API simulada (apps/pruebas/respuestas.json), frescos.
       - run: herramientas/paridad.sh
-      # Los tests incluyen PantallasTest: cada pantalla en claro y oscuro (Roborazzi) a app/build/capturas.
+      # Los tests incluyen PantallasTest. La galería de capturas la sube el espejo grupovimo/caigo-android.
       - run: ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest -Proborazzi.test.record=true
-      # Las capturas en JPG de 540 px de ancho para revisarlas (los PNG grandes no se suben: hay poco espacio).
-      - name: Galería
-        if: always()
-        run: |
-          [ -d app/build/capturas ] || exit 0
-          python3 -m pip install -q pillow
-          python3 - <<'PY'
-          import glob, os
-          from PIL import Image
-          os.makedirs('galeria', exist_ok=True)
-          for f in glob.glob('app/build/capturas/**/*.png', recursive=True):
-              im = Image.open(f).convert('RGB')
-              im.thumbnail((540, 4000))
-              im.save('galeria/' + os.path.basename(f)[:-4] + '.jpg', quality=78, optimize=True)
-          PY
-      - name: Subir la galería
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: galeria
-          path: apps/android/galeria
-          retention-days: 3
-          if-no-files-found: ignore
       - name: Reportes de tests
         if: failure()
         uses: actions/upload-artifact@v4
