@@ -1,5 +1,6 @@
 package ar.com.caigo.app.pantallas.mios
 
+import ar.com.caigo.app.piezas.asistencia
 import ar.com.caigo.app.pantallas.pagos.Adentro
 
 import androidx.compose.animation.AnimatedVisibility
@@ -44,6 +45,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -121,7 +124,7 @@ internal fun miosAsistencia(a: Asist, extra: String? = null): String {
 /** Badge de verificado: el sello violeta con el check blanco del mockup 11. */
 @Composable
 internal fun MiosVerificado(tam: Dp = 22.dp) {
-    Box(Modifier.size(tam), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(tam).semantics { contentDescription = "Verificada" }, contentAlignment = Alignment.Center) {
         Icono(I.verificado, tam, Color.Transparent, 0f, relleno = C.violeta)
         Icono(I.checkChico, tam, C.blanco, 2.6f)
     }
@@ -146,7 +149,7 @@ internal fun MiosVacio(titulo: String, cuerpo: String, cta: String, onCta: () ->
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(start = 54.dp), verticalAlignment = Alignment.CenterVertically) {
             repeat(2) { i ->
                 Box(
                     Modifier.offset(x = (-18 * i).dp).size(76.dp).background(LocalPaleta.current.superficie, CircleShape)
@@ -160,7 +163,7 @@ internal fun MiosVacio(titulo: String, cuerpo: String, cta: String, onCta: () ->
             }
             Box(
                 Modifier.offset(x = (-36).dp).size(84.dp)
-                    .gel(42.dp, radial(.32f, .26f, 0f, 0f, 0f to Color(0xFFF2FFC8), .4f to C.lima, 1f to Color(0xFFA6D640), circulo = true),
+                    .gel(42.dp, radial(.32f, .26f, .9f, .9f, 0f to Color(0xFFF2FFC8), .4f to C.lima, 1f to Color(0xFFA6D640)),
                         listOf(interna(-4f, 8f, rgba(110, 150, 20, .3f)), externa(12f, 22f, rgba(140, 190, 40, .6f), spread = -8f)))
                     .border(4.dp, LocalPaleta.current.fondo, CircleShape),
                 contentAlignment = Alignment.Center,
@@ -190,7 +193,8 @@ internal fun MiosCampo(
     var foco by remember { mutableStateOf(false) }
     BasicTextField(
         valor,
-        { if (it.length <= maximo) onValor(it) },
+        // Como iOS: lo que pasa del máximo se recorta (también al pegar).
+        { onValor(if (it.length > maximo) it.take(maximo) else it) },
         modifier
             .fillMaxWidth()
             .heightIn(min = if (renglones > 1) 96.dp else 60.dp)
@@ -205,7 +209,7 @@ internal fun MiosCampo(
         keyboardOptions = KeyboardOptions(capitalization = mayusculas),
         decorationBox = { campo ->
             Box(Modifier.padding(horizontal = 18.dp, vertical = 18.dp), contentAlignment = if (renglones == 1) Alignment.CenterStart else Alignment.TopStart) {
-                if (valor.isEmpty()) T(placeholder, 16f, 500, C.inactivo)
+                if (valor.isEmpty()) T(placeholder, 16f, 500, C.inactivo, unRenglon = renglones == 1)
                 campo()
             }
         },

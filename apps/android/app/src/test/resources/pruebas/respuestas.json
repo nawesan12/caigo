@@ -1,0 +1,4212 @@
+{
+ "_leeme": "Respuestas de la API simulada, compartidas por iOS (CaigoTests/PantallasTests.swift) y Android (app/src/test PantallasTest.kt). Clave: «MÉTODO ruta» o sólo la ruta para GET; la query no se mira. Lo que no está: GET → 404, lo demás → 200 con {}. Las fotos van a fotos.prueba: Android las sirve con las imágenes de la app (res/drawable-nodpi). Cada prueba puede pisar o quitar rutas. Lo genera a mano quien lo edita: mantener las formas de Nucleo/Modelos.swift y nucleo/Modelos.kt.",
+ "/v1/yo": {
+  "id": "u1",
+  "nombre": "Martina",
+  "edad": 29,
+  "zona": "Güemes",
+  "ciudad": "Mar del Plata",
+  "bio": "Diseñadora, corro por la costa y siempre me sumo a una previa.",
+  "trabajo": "Diseñadora UX",
+  "intereses": [
+   "Pádel",
+   "Previas",
+   "Mate en la playa",
+   "Música en vivo",
+   "Running"
+  ],
+  "intenciones": [
+   "planes",
+   "gente",
+   "citas"
+  ],
+  "prompts": [
+   {
+    "p": "Mi domingo ideal",
+    "r": "Mate en Playa Varese y feria en Plaza Mitre."
+   },
+   {
+    "p": "Te gano en…",
+    "r": "Truco, siempre."
+   }
+  ],
+  "fotos": [
+   "https://fotos.prueba/ingreso_previa.jpg",
+   "https://fotos.prueba/ingreso_amigos.jpg"
+  ],
+  "selfie": true,
+  "verificada": true,
+  "asistencia": {
+   "fue": 11,
+   "de": 12
+  },
+  "planes": 12,
+  "organizados": 3,
+  "miGente": 8,
+  "enMiGente": false,
+  "compartidos": 2,
+  "equipo": false,
+  "telefono": "+5492235550142",
+  "genero": "mujer",
+  "diversidad": false,
+  "avisos": {
+   "planesCerca": true,
+   "tuGente": true
+  },
+  "contactoConfianza": "+5492235550199",
+  "proximos": [],
+  "faltan": []
+ },
+ "PATCH /v1/yo": {
+  "id": "u1",
+  "nombre": "Martina",
+  "edad": 29,
+  "zona": "Güemes",
+  "ciudad": "Mar del Plata",
+  "bio": "Diseñadora, corro por la costa y siempre me sumo a una previa.",
+  "trabajo": "Diseñadora UX",
+  "intereses": [
+   "Pádel",
+   "Previas",
+   "Mate en la playa",
+   "Música en vivo",
+   "Running"
+  ],
+  "intenciones": [
+   "planes",
+   "gente",
+   "citas"
+  ],
+  "prompts": [
+   {
+    "p": "Mi domingo ideal",
+    "r": "Mate en Playa Varese y feria en Plaza Mitre."
+   },
+   {
+    "p": "Te gano en…",
+    "r": "Truco, siempre."
+   }
+  ],
+  "fotos": [
+   "https://fotos.prueba/ingreso_previa.jpg",
+   "https://fotos.prueba/ingreso_amigos.jpg"
+  ],
+  "selfie": true,
+  "verificada": true,
+  "asistencia": {
+   "fue": 11,
+   "de": 12
+  },
+  "planes": 12,
+  "organizados": 3,
+  "miGente": 8,
+  "enMiGente": false,
+  "compartidos": 2,
+  "equipo": false,
+  "telefono": "+5492235550142",
+  "genero": "mujer",
+  "diversidad": false,
+  "avisos": {
+   "planesCerca": true,
+   "tuGente": true
+  },
+  "contactoConfianza": "+5492235550199",
+  "proximos": [],
+  "faltan": []
+ },
+ "/v1/version": {
+  "version": "1.0.0",
+  "minIos": 0,
+  "minAndroid": 0
+ },
+ "/v1/verificacion": {
+  "telefono": "+5492235550142",
+  "selfie": true,
+  "dni": "aprobada",
+  "dniMotivo": ""
+ },
+ "/v1/personas/u2": {
+  "id": "u2",
+  "nombre": "Tomás",
+  "edad": 31,
+  "zona": "Playa Grande",
+  "ciudad": "Mar del Plata",
+  "bio": "Organizo el fútbol de los sábados hace tres años.",
+  "trabajo": "Contador",
+  "intereses": [
+   "Fútbol 5",
+   "Asado",
+   "Truco"
+  ],
+  "intenciones": [
+   "planes",
+   "gente"
+  ],
+  "prompts": [
+   {
+    "p": "Me sumo seguro si…",
+    "r": "Hay asado después del partido."
+   }
+  ],
+  "fotos": [
+   "https://fotos.prueba/ingreso_amigos.jpg"
+  ],
+  "selfie": true,
+  "verificada": true,
+  "asistencia": {
+   "fue": 18,
+   "de": 19
+  },
+  "planes": 19,
+  "organizados": 9,
+  "miGente": 5,
+  "enMiGente": true,
+  "compartidos": 5,
+  "equipo": false,
+  "proximos": [
+   {
+    "id": "p1",
+    "titulo": "Fútbol 5 en Playa Grande",
+    "categoria": "deporte",
+    "empiezaEn": "2026-11-08T22:00:00Z",
+    "foto": "https://fotos.prueba/explorar_deporte.jpg",
+    "faltan": 3
+   }
+  ]
+ },
+ "/v1/personas/u3": {
+  "id": "u3",
+  "nombre": "Lucía",
+  "edad": 27,
+  "zona": "La Perla",
+  "ciudad": "Mar del Plata",
+  "bio": "Surfeo cuando hay olas y cuando no, también.",
+  "trabajo": "Profe de educación física",
+  "intereses": [
+   "Surf",
+   "Running",
+   "Asado"
+  ],
+  "intenciones": [
+   "planes",
+   "gente"
+  ],
+  "prompts": [
+   {
+    "p": "Un plan que nunca falla",
+    "r": "Surf a la mañana y medialunas en la rambla."
+   }
+  ],
+  "fotos": [
+   "https://fotos.prueba/ingreso_fogon.jpg",
+   "https://fotos.prueba/explorar_deporte.jpg"
+  ],
+  "selfie": true,
+  "verificada": true,
+  "asistencia": {
+   "fue": 7,
+   "de": 7
+  },
+  "planes": 7,
+  "organizados": 1,
+  "miGente": 5,
+  "enMiGente": true,
+  "compartidos": 3,
+  "equipo": false,
+  "proximos": [
+   {
+    "id": "p5",
+    "titulo": "Surf al amanecer en Biología",
+    "categoria": "deporte",
+    "empiezaEn": "2026-11-10T09:30:00Z",
+    "foto": "https://fotos.prueba/explorar_deporte.jpg",
+    "faltan": 3
+   },
+   {
+    "id": "p3",
+    "titulo": "Jazz en vivo en El Faro",
+    "categoria": "salida",
+    "empiezaEn": "2026-11-12T23:30:00Z",
+    "foto": "https://fotos.prueba/explorar_salida.jpg",
+    "faltan": 16
+   }
+  ]
+ },
+ "/v1/personas/u4": {
+  "id": "u4",
+  "nombre": "Facu",
+  "edad": 33,
+  "zona": "Centro",
+  "ciudad": "Mar del Plata",
+  "bio": "Truco, mate y charla larga.",
+  "trabajo": "Programador",
+  "intereses": [
+   "Truco",
+   "Juegos de mesa",
+   "Cine"
+  ],
+  "intenciones": [
+   "planes",
+   "gente"
+  ],
+  "prompts": [],
+  "fotos": [],
+  "selfie": true,
+  "verificada": true,
+  "asistencia": {
+   "fue": 9,
+   "de": 11
+  },
+  "planes": 11,
+  "organizados": 1,
+  "miGente": 5,
+  "enMiGente": true,
+  "compartidos": 0,
+  "equipo": false
+ },
+ "/v1/personas/u5": {
+  "id": "u5",
+  "nombre": "Sofi",
+  "edad": 26,
+  "zona": "Los Troncos",
+  "ciudad": "Mar del Plata",
+  "bio": "Recién llegada a Mardel, quiero conocer gente.",
+  "trabajo": "Estudiante de arquitectura",
+  "intereses": [
+   "Cine",
+   "After beach",
+   "Música en vivo"
+  ],
+  "intenciones": [
+   "planes",
+   "gente"
+  ],
+  "prompts": [
+   {
+    "p": "Lo que más me gusta de Mar del Plata",
+    "r": "Los atardeceres en el Torreón."
+   }
+  ],
+  "fotos": [
+   "https://fotos.prueba/explorar_cultura.jpg"
+  ],
+  "selfie": true,
+  "verificada": false,
+  "asistencia": {
+   "fue": 2,
+   "de": 2
+  },
+  "planes": 2,
+  "organizados": 1,
+  "miGente": 5,
+  "enMiGente": false,
+  "compartidos": 0,
+  "equipo": false,
+  "proximos": [
+   {
+    "id": "p7",
+    "titulo": "Cita doble: after beach en Waikiki",
+    "categoria": "cita_doble",
+    "empiezaEn": "2026-11-15T20:00:00Z",
+    "foto": "https://fotos.prueba/explorar_cita_doble.jpg",
+    "faltan": 2
+   }
+  ]
+ },
+ "/v1/personas/u6": {
+  "id": "u6",
+  "nombre": "Joaco",
+  "edad": 30,
+  "zona": "Constitución",
+  "ciudad": "Mar del Plata",
+  "bio": "Juego al pádel tres veces por semana.",
+  "trabajo": "Kinesiólogo",
+  "intereses": [
+   "Pádel",
+   "Running",
+   "Previas"
+  ],
+  "intenciones": [
+   "planes",
+   "gente"
+  ],
+  "prompts": [
+   {
+    "p": "Te gano en…",
+    "r": "Pádel. Te espero."
+   }
+  ],
+  "fotos": [
+   "https://fotos.prueba/explorar_juego.jpg"
+  ],
+  "selfie": true,
+  "verificada": true,
+  "asistencia": {
+   "fue": 4,
+   "de": 5
+  },
+  "planes": 5,
+  "organizados": 1,
+  "miGente": 5,
+  "enMiGente": false,
+  "compartidos": 0,
+  "equipo": false,
+  "proximos": [
+   {
+    "id": "p4",
+    "titulo": "Truco y empanadas",
+    "categoria": "juego",
+    "empiezaEn": "2026-11-09T23:00:00Z",
+    "foto": "https://fotos.prueba/explorar_juego.jpg",
+    "faltan": 1
+   }
+  ]
+ },
+ "/v1/personas/u7": {
+  "id": "u7",
+  "nombre": "Cami",
+  "edad": 28,
+  "zona": "Punta Mogotes",
+  "ciudad": "Mar del Plata",
+  "bio": "Fotógrafa. Me copan los planes al aire libre.",
+  "trabajo": "Fotógrafa",
+  "intereses": [
+   "After beach",
+   "Surf",
+   "Cine"
+  ],
+  "intenciones": [
+   "planes",
+   "gente"
+  ],
+  "prompts": [
+   {
+    "p": "Una cita ideal",
+    "r": "Caminata por la costa y helado en Mogotes."
+   }
+  ],
+  "fotos": [
+   "https://fotos.prueba/explorar_cita_doble.jpg"
+  ],
+  "selfie": true,
+  "verificada": true,
+  "asistencia": {
+   "fue": 5,
+   "de": 5
+  },
+  "planes": 5,
+  "organizados": 1,
+  "miGente": 5,
+  "enMiGente": false,
+  "compartidos": 0,
+  "equipo": false
+ },
+ "/v1/gente": {
+  "gente": [
+   {
+    "id": "u2",
+    "nombre": "Tomás",
+    "edad": 31,
+    "zona": "Playa Grande",
+    "ciudad": "Mar del Plata",
+    "bio": "Organizo el fútbol de los sábados hace tres años.",
+    "trabajo": "Contador",
+    "intereses": [
+     "Fútbol 5",
+     "Asado",
+     "Truco"
+    ],
+    "intenciones": [
+     "planes",
+     "gente"
+    ],
+    "prompts": [
+     {
+      "p": "Me sumo seguro si…",
+      "r": "Hay asado después del partido."
+     }
+    ],
+    "fotos": [
+     "https://fotos.prueba/ingreso_amigos.jpg"
+    ],
+    "selfie": true,
+    "verificada": true,
+    "asistencia": {
+     "fue": 18,
+     "de": 19
+    },
+    "planes": 19,
+    "organizados": 9,
+    "miGente": 5,
+    "enMiGente": true,
+    "compartidos": 5,
+    "equipo": false,
+    "proximos": [
+     {
+      "id": "p1",
+      "titulo": "Fútbol 5 en Playa Grande",
+      "categoria": "deporte",
+      "empiezaEn": "2026-11-08T22:00:00Z",
+      "foto": "https://fotos.prueba/explorar_deporte.jpg",
+      "faltan": 3
+     }
+    ]
+   },
+   {
+    "id": "u3",
+    "nombre": "Lucía",
+    "edad": 27,
+    "zona": "La Perla",
+    "ciudad": "Mar del Plata",
+    "bio": "Surfeo cuando hay olas y cuando no, también.",
+    "trabajo": "Profe de educación física",
+    "intereses": [
+     "Surf",
+     "Running",
+     "Asado"
+    ],
+    "intenciones": [
+     "planes",
+     "gente"
+    ],
+    "prompts": [
+     {
+      "p": "Un plan que nunca falla",
+      "r": "Surf a la mañana y medialunas en la rambla."
+     }
+    ],
+    "fotos": [
+     "https://fotos.prueba/ingreso_fogon.jpg",
+     "https://fotos.prueba/explorar_deporte.jpg"
+    ],
+    "selfie": true,
+    "verificada": true,
+    "asistencia": {
+     "fue": 7,
+     "de": 7
+    },
+    "planes": 7,
+    "organizados": 1,
+    "miGente": 5,
+    "enMiGente": true,
+    "compartidos": 3,
+    "equipo": false,
+    "proximos": [
+     {
+      "id": "p5",
+      "titulo": "Surf al amanecer en Biología",
+      "categoria": "deporte",
+      "empiezaEn": "2026-11-10T09:30:00Z",
+      "foto": "https://fotos.prueba/explorar_deporte.jpg",
+      "faltan": 3
+     },
+     {
+      "id": "p3",
+      "titulo": "Jazz en vivo en El Faro",
+      "categoria": "salida",
+      "empiezaEn": "2026-11-12T23:30:00Z",
+      "foto": "https://fotos.prueba/explorar_salida.jpg",
+      "faltan": 16
+     }
+    ]
+   },
+   {
+    "id": "u4",
+    "nombre": "Facu",
+    "edad": 33,
+    "zona": "Centro",
+    "ciudad": "Mar del Plata",
+    "bio": "Truco, mate y charla larga.",
+    "trabajo": "Programador",
+    "intereses": [
+     "Truco",
+     "Juegos de mesa",
+     "Cine"
+    ],
+    "intenciones": [
+     "planes",
+     "gente"
+    ],
+    "prompts": [],
+    "fotos": [],
+    "selfie": true,
+    "verificada": true,
+    "asistencia": {
+     "fue": 9,
+     "de": 11
+    },
+    "planes": 11,
+    "organizados": 1,
+    "miGente": 5,
+    "enMiGente": true,
+    "compartidos": 0,
+    "equipo": false
+   }
+  ]
+ },
+ "/v1/bloqueos": {
+  "bloqueos": [
+   {
+    "id": "u9",
+    "nombre": "Nicolás",
+    "foto": ""
+   }
+  ]
+ },
+ "/v1/publico/zonas": {
+  "zonas": [
+   "Centro",
+   "Güemes",
+   "La Perla",
+   "Playa Grande",
+   "Los Troncos",
+   "Puerto",
+   "Constitución",
+   "Punta Mogotes",
+   "Chauvín"
+  ]
+ },
+ "/v1/planes/ahora": {
+  "planes": [
+   {
+    "id": "p1",
+    "slug": "futbol-5-playa-grande",
+    "titulo": "Fútbol 5 en Playa Grande",
+    "categoria": "deporte",
+    "descripcion": "Partido tranqui, armamos equipos en el momento. Traé remera clara y oscura.",
+    "empiezaEn": "2026-11-08T22:00:00Z",
+    "duracionMin": 90,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Playa Grande",
+    "lugarNombre": "Complejo La Cancha",
+    "lat": -38.0167,
+    "lng": -57.5361,
+    "distanciaM": 850,
+    "somos": 7,
+    "total": 10,
+    "faltan": 3,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "Me defiendo",
+    "foto": "https://fotos.prueba/explorar_deporte.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "u2",
+     "nombre": "Tomás",
+     "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+     "edad": 31,
+     "verificada": true,
+     "asistencia": {
+      "fue": 18,
+      "de": 19
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u2",
+      "nombre": "Tomás",
+      "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+      "edad": 31,
+      "verificada": true,
+      "asistencia": {
+       "fue": 18,
+       "de": 19
+      },
+      "organizador": true
+     },
+     {
+      "id": "u1",
+      "nombre": "Martina",
+      "foto": "https://fotos.prueba/ingreso_previa.jpg",
+      "edad": 29,
+      "verificada": true,
+      "asistencia": {
+       "fue": 11,
+       "de": 12
+      },
+      "llego": false
+     },
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      }
+     },
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      }
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     }
+    ],
+    "miEstado": "aceptada",
+    "miCantidad": 1,
+    "pendientes": 0,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true,
+    "costoCentavos": 350000,
+    "direccion": {
+     "texto": "Av. Peralta Ramos 4800",
+     "lat": -38.0167,
+     "lng": -57.5361
+    }
+   },
+   {
+    "id": "p4",
+    "slug": "truco-y-empanadas",
+    "titulo": "Truco y empanadas",
+    "categoria": "juego",
+    "descripcion": "Mesa de cuatro, falta uno. Las empanadas las ponemos entre todos.",
+    "empiezaEn": "2026-11-09T23:00:00Z",
+    "duracionMin": 120,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Centro",
+    "lugarNombre": "Café de la Plaza",
+    "lat": -38.0,
+    "lng": -57.55,
+    "distanciaM": 1500,
+    "somos": 3,
+    "total": 4,
+    "faltan": 1,
+    "ingreso": "libre",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "Canto falta envido",
+    "foto": "https://fotos.prueba/explorar_juego.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "u4",
+     "nombre": "Facu",
+     "foto": "",
+     "edad": 33,
+     "verificada": true,
+     "asistencia": {
+      "fue": 9,
+      "de": 11
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      },
+      "organizador": true
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     },
+     {
+      "id": "u2",
+      "nombre": "Tomás",
+      "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+      "edad": 31,
+      "verificada": true,
+      "asistencia": {
+       "fue": 18,
+       "de": 19
+      }
+     }
+    ],
+    "miEstado": "ninguno",
+    "miCantidad": 0,
+    "pendientes": 0,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true
+   },
+   {
+    "id": "p5",
+    "slug": "surf-al-amanecer",
+    "titulo": "Surf al amanecer en Biología",
+    "categoria": "deporte",
+    "descripcion": "Todos los martes. Si no tenés tabla, hay para alquilar en la escuela.",
+    "empiezaEn": "2026-11-10T09:30:00Z",
+    "duracionMin": 120,
+    "recurrente": true,
+    "ciudad": "Mar del Plata",
+    "zona": "Playa Grande",
+    "lugarNombre": "Playa Biología",
+    "lat": -38.0292,
+    "lng": -57.5302,
+    "distanciaM": 3400,
+    "somos": 5,
+    "total": 8,
+    "faltan": 3,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "Recién aprendo",
+    "foto": "https://fotos.prueba/explorar_deporte.jpg",
+    "cancelado": false,
+    "destacado": true,
+    "organizador": {
+     "id": "u3",
+     "nombre": "Lucía",
+     "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+     "edad": 27,
+     "verificada": true,
+     "asistencia": {
+      "fue": 7,
+      "de": 7
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      },
+      "organizador": true
+     },
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      }
+     },
+     {
+      "id": "u5",
+      "nombre": "Sofi",
+      "foto": "",
+      "edad": 26,
+      "verificada": false,
+      "asistencia": {
+       "fue": 2,
+       "de": 2
+      }
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     },
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      }
+     }
+    ],
+    "miEstado": "ninguno",
+    "miCantidad": 0,
+    "pendientes": 0,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true
+   },
+   {
+    "id": "p6",
+    "slug": "pastas-en-el-puerto",
+    "titulo": "Cena de pastas en el Puerto",
+    "categoria": "gastronomia",
+    "descripcion": "Mesa larga en la cantina de siempre. Ravioles de verdura y vino de la casa.",
+    "empiezaEn": "2026-11-11T23:30:00Z",
+    "duracionMin": 120,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Puerto",
+    "lugarNombre": "Cantina Don Vicente",
+    "lat": -38.042,
+    "lng": -57.539,
+    "distanciaM": 5200,
+    "somos": 6,
+    "total": 12,
+    "faltan": 6,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "",
+    "foto": "https://fotos.prueba/explorar_gastronomia.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "l2u",
+     "nombre": "Cantina Don Vicente",
+     "foto": "",
+     "edad": null,
+     "verificada": true,
+     "asistencia": {
+      "fue": 0,
+      "de": 0
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u2",
+      "nombre": "Tomás",
+      "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+      "edad": 31,
+      "verificada": true,
+      "asistencia": {
+       "fue": 18,
+       "de": 19
+      }
+     },
+     {
+      "id": "u5",
+      "nombre": "Sofi",
+      "foto": "",
+      "edad": 26,
+      "verificada": false,
+      "asistencia": {
+       "fue": 2,
+       "de": 2
+      }
+     },
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      }
+     }
+    ],
+    "miEstado": "ninguno",
+    "miCantidad": 0,
+    "pendientes": 0,
+    "cobro": "sena",
+    "cargoCentavos": 45000,
+    "incluye": "Pasta, postre y una copa de vino",
+    "cancelacion": "flex",
+    "beneficio": "Limoncello de regalo",
+    "aceptaGrupos": true,
+    "lugar": {
+     "id": "l2",
+     "slug": "don-vicente",
+     "nombre": "Cantina Don Vicente",
+     "zona": "Puerto",
+     "foto": "https://fotos.prueba/explorar_gastronomia.jpg"
+    },
+    "precioCentavos": 1500000,
+    "senaPct": 30
+   },
+   {
+    "id": "p3",
+    "slug": "jazz-en-vivo-el-faro",
+    "titulo": "Jazz en vivo en El Faro",
+    "categoria": "salida",
+    "descripcion": "Trío de jazz con invitados. Mesas compartidas: venite con ganas de charlar.",
+    "empiezaEn": "2026-11-12T23:30:00Z",
+    "duracionMin": 150,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "La Perla",
+    "lugarNombre": "El Faro Bar",
+    "lat": -37.9905,
+    "lng": -57.553,
+    "distanciaM": 2100,
+    "somos": 14,
+    "total": 30,
+    "faltan": 16,
+    "ingreso": "libre",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "",
+    "foto": "https://fotos.prueba/explorar_salida.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "l1u",
+     "nombre": "El Faro Bar",
+     "foto": "",
+     "edad": null,
+     "verificada": true,
+     "asistencia": {
+      "fue": 0,
+      "de": 0
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      }
+     },
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      }
+     },
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      }
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     }
+    ],
+    "miEstado": "aceptada",
+    "miCantidad": 2,
+    "pendientes": 0,
+    "cobro": "entrada",
+    "cargoCentavos": 40000,
+    "incluye": "Una consumición",
+    "cancelacion": "mod",
+    "beneficio": "2x1 en tragos hasta las 23",
+    "aceptaGrupos": true,
+    "lugar": {
+     "id": "l1",
+     "slug": "el-faro",
+     "nombre": "El Faro Bar",
+     "zona": "La Perla",
+     "foto": "https://fotos.prueba/explorar_salida.jpg"
+    },
+    "precioCentavos": 800000,
+    "direccion": {
+     "texto": "Av. Luro 2550",
+     "lat": -37.9905,
+     "lng": -57.553
+    }
+   }
+  ]
+ },
+ "/v1/planes/explorar": {
+  "planes": [
+   {
+    "id": "p5",
+    "slug": "surf-al-amanecer",
+    "titulo": "Surf al amanecer en Biología",
+    "categoria": "deporte",
+    "descripcion": "Todos los martes. Si no tenés tabla, hay para alquilar en la escuela.",
+    "empiezaEn": "2026-11-10T09:30:00Z",
+    "duracionMin": 120,
+    "recurrente": true,
+    "ciudad": "Mar del Plata",
+    "zona": "Playa Grande",
+    "lugarNombre": "Playa Biología",
+    "lat": -38.0292,
+    "lng": -57.5302,
+    "distanciaM": 3400,
+    "somos": 5,
+    "total": 8,
+    "faltan": 3,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "Recién aprendo",
+    "foto": "https://fotos.prueba/explorar_deporte.jpg",
+    "cancelado": false,
+    "destacado": true,
+    "organizador": {
+     "id": "u3",
+     "nombre": "Lucía",
+     "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+     "edad": 27,
+     "verificada": true,
+     "asistencia": {
+      "fue": 7,
+      "de": 7
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      },
+      "organizador": true
+     },
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      }
+     },
+     {
+      "id": "u5",
+      "nombre": "Sofi",
+      "foto": "",
+      "edad": 26,
+      "verificada": false,
+      "asistencia": {
+       "fue": 2,
+       "de": 2
+      }
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     },
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      }
+     }
+    ],
+    "miEstado": "ninguno",
+    "miCantidad": 0,
+    "pendientes": 0,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true
+   },
+   {
+    "id": "p1",
+    "slug": "futbol-5-playa-grande",
+    "titulo": "Fútbol 5 en Playa Grande",
+    "categoria": "deporte",
+    "descripcion": "Partido tranqui, armamos equipos en el momento. Traé remera clara y oscura.",
+    "empiezaEn": "2026-11-08T22:00:00Z",
+    "duracionMin": 90,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Playa Grande",
+    "lugarNombre": "Complejo La Cancha",
+    "lat": -38.0167,
+    "lng": -57.5361,
+    "distanciaM": 850,
+    "somos": 7,
+    "total": 10,
+    "faltan": 3,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "Me defiendo",
+    "foto": "https://fotos.prueba/explorar_deporte.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "u2",
+     "nombre": "Tomás",
+     "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+     "edad": 31,
+     "verificada": true,
+     "asistencia": {
+      "fue": 18,
+      "de": 19
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u2",
+      "nombre": "Tomás",
+      "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+      "edad": 31,
+      "verificada": true,
+      "asistencia": {
+       "fue": 18,
+       "de": 19
+      },
+      "organizador": true
+     },
+     {
+      "id": "u1",
+      "nombre": "Martina",
+      "foto": "https://fotos.prueba/ingreso_previa.jpg",
+      "edad": 29,
+      "verificada": true,
+      "asistencia": {
+       "fue": 11,
+       "de": 12
+      },
+      "llego": false
+     },
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      }
+     },
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      }
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     }
+    ],
+    "miEstado": "aceptada",
+    "miCantidad": 1,
+    "pendientes": 0,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true,
+    "costoCentavos": 350000,
+    "direccion": {
+     "texto": "Av. Peralta Ramos 4800",
+     "lat": -38.0167,
+     "lng": -57.5361
+    }
+   },
+   {
+    "id": "p4",
+    "slug": "truco-y-empanadas",
+    "titulo": "Truco y empanadas",
+    "categoria": "juego",
+    "descripcion": "Mesa de cuatro, falta uno. Las empanadas las ponemos entre todos.",
+    "empiezaEn": "2026-11-09T23:00:00Z",
+    "duracionMin": 120,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Centro",
+    "lugarNombre": "Café de la Plaza",
+    "lat": -38.0,
+    "lng": -57.55,
+    "distanciaM": 1500,
+    "somos": 3,
+    "total": 4,
+    "faltan": 1,
+    "ingreso": "libre",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "Canto falta envido",
+    "foto": "https://fotos.prueba/explorar_juego.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "u4",
+     "nombre": "Facu",
+     "foto": "",
+     "edad": 33,
+     "verificada": true,
+     "asistencia": {
+      "fue": 9,
+      "de": 11
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      },
+      "organizador": true
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     },
+     {
+      "id": "u2",
+      "nombre": "Tomás",
+      "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+      "edad": 31,
+      "verificada": true,
+      "asistencia": {
+       "fue": 18,
+       "de": 19
+      }
+     }
+    ],
+    "miEstado": "ninguno",
+    "miCantidad": 0,
+    "pendientes": 0,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true
+   },
+   {
+    "id": "p3",
+    "slug": "jazz-en-vivo-el-faro",
+    "titulo": "Jazz en vivo en El Faro",
+    "categoria": "salida",
+    "descripcion": "Trío de jazz con invitados. Mesas compartidas: venite con ganas de charlar.",
+    "empiezaEn": "2026-11-12T23:30:00Z",
+    "duracionMin": 150,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "La Perla",
+    "lugarNombre": "El Faro Bar",
+    "lat": -37.9905,
+    "lng": -57.553,
+    "distanciaM": 2100,
+    "somos": 14,
+    "total": 30,
+    "faltan": 16,
+    "ingreso": "libre",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "",
+    "foto": "https://fotos.prueba/explorar_salida.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "l1u",
+     "nombre": "El Faro Bar",
+     "foto": "",
+     "edad": null,
+     "verificada": true,
+     "asistencia": {
+      "fue": 0,
+      "de": 0
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      }
+     },
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      }
+     },
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      }
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     }
+    ],
+    "miEstado": "aceptada",
+    "miCantidad": 2,
+    "pendientes": 0,
+    "cobro": "entrada",
+    "cargoCentavos": 40000,
+    "incluye": "Una consumición",
+    "cancelacion": "mod",
+    "beneficio": "2x1 en tragos hasta las 23",
+    "aceptaGrupos": true,
+    "lugar": {
+     "id": "l1",
+     "slug": "el-faro",
+     "nombre": "El Faro Bar",
+     "zona": "La Perla",
+     "foto": "https://fotos.prueba/explorar_salida.jpg"
+    },
+    "precioCentavos": 800000,
+    "direccion": {
+     "texto": "Av. Luro 2550",
+     "lat": -37.9905,
+     "lng": -57.553
+    }
+   },
+   {
+    "id": "p6",
+    "slug": "pastas-en-el-puerto",
+    "titulo": "Cena de pastas en el Puerto",
+    "categoria": "gastronomia",
+    "descripcion": "Mesa larga en la cantina de siempre. Ravioles de verdura y vino de la casa.",
+    "empiezaEn": "2026-11-11T23:30:00Z",
+    "duracionMin": 120,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Puerto",
+    "lugarNombre": "Cantina Don Vicente",
+    "lat": -38.042,
+    "lng": -57.539,
+    "distanciaM": 5200,
+    "somos": 6,
+    "total": 12,
+    "faltan": 6,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "",
+    "foto": "https://fotos.prueba/explorar_gastronomia.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "l2u",
+     "nombre": "Cantina Don Vicente",
+     "foto": "",
+     "edad": null,
+     "verificada": true,
+     "asistencia": {
+      "fue": 0,
+      "de": 0
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u2",
+      "nombre": "Tomás",
+      "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+      "edad": 31,
+      "verificada": true,
+      "asistencia": {
+       "fue": 18,
+       "de": 19
+      }
+     },
+     {
+      "id": "u5",
+      "nombre": "Sofi",
+      "foto": "",
+      "edad": 26,
+      "verificada": false,
+      "asistencia": {
+       "fue": 2,
+       "de": 2
+      }
+     },
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      }
+     }
+    ],
+    "miEstado": "ninguno",
+    "miCantidad": 0,
+    "pendientes": 0,
+    "cobro": "sena",
+    "cargoCentavos": 45000,
+    "incluye": "Pasta, postre y una copa de vino",
+    "cancelacion": "flex",
+    "beneficio": "Limoncello de regalo",
+    "aceptaGrupos": true,
+    "lugar": {
+     "id": "l2",
+     "slug": "don-vicente",
+     "nombre": "Cantina Don Vicente",
+     "zona": "Puerto",
+     "foto": "https://fotos.prueba/explorar_gastronomia.jpg"
+    },
+    "precioCentavos": 1500000,
+    "senaPct": 30
+   },
+   {
+    "id": "p7",
+    "slug": "cita-doble-after-beach",
+    "titulo": "Cita doble: after beach en Waikiki",
+    "categoria": "cita_doble",
+    "descripcion": "Somos dos amigas, buscamos dos más para un after beach tranqui al atardecer.",
+    "empiezaEn": "2026-11-15T20:00:00Z",
+    "duracionMin": 180,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Punta Mogotes",
+    "lugarNombre": "Waikiki",
+    "lat": -38.07,
+    "lng": -57.545,
+    "distanciaM": 7800,
+    "somos": 2,
+    "total": 4,
+    "faltan": 2,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "",
+    "foto": "https://fotos.prueba/explorar_cita_doble.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "u7",
+     "nombre": "Cami",
+     "foto": "",
+     "edad": 28,
+     "verificada": true,
+     "asistencia": {
+      "fue": 5,
+      "de": 5
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      },
+      "organizador": true
+     },
+     {
+      "id": "u5",
+      "nombre": "Sofi",
+      "foto": "",
+      "edad": 26,
+      "verificada": false,
+      "asistencia": {
+       "fue": 2,
+       "de": 2
+      }
+     }
+    ],
+    "miEstado": "ninguno",
+    "miCantidad": 0,
+    "pendientes": 0,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true,
+    "edadMin": 25,
+    "edadMax": 35
+   }
+  ]
+ },
+ "/v1/publico/planes/explorar": {
+  "planes": [
+   {
+    "id": "p5",
+    "slug": "surf-al-amanecer",
+    "titulo": "Surf al amanecer en Biología",
+    "categoria": "deporte",
+    "descripcion": "Todos los martes. Si no tenés tabla, hay para alquilar en la escuela.",
+    "empiezaEn": "2026-11-10T09:30:00Z",
+    "duracionMin": 120,
+    "recurrente": true,
+    "ciudad": "Mar del Plata",
+    "zona": "Playa Grande",
+    "lugarNombre": "Playa Biología",
+    "lat": -38.0292,
+    "lng": -57.5302,
+    "distanciaM": 3400,
+    "somos": 5,
+    "total": 8,
+    "faltan": 3,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "Recién aprendo",
+    "foto": "https://fotos.prueba/explorar_deporte.jpg",
+    "cancelado": false,
+    "destacado": true,
+    "organizador": {
+     "id": "u3",
+     "nombre": "Lucía",
+     "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+     "edad": 27,
+     "verificada": true,
+     "asistencia": {
+      "fue": 7,
+      "de": 7
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      },
+      "organizador": true
+     },
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      }
+     },
+     {
+      "id": "u5",
+      "nombre": "Sofi",
+      "foto": "",
+      "edad": 26,
+      "verificada": false,
+      "asistencia": {
+       "fue": 2,
+       "de": 2
+      }
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     },
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      }
+     }
+    ],
+    "miEstado": "ninguno",
+    "miCantidad": 0,
+    "pendientes": 0,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true
+   },
+   {
+    "id": "p1",
+    "slug": "futbol-5-playa-grande",
+    "titulo": "Fútbol 5 en Playa Grande",
+    "categoria": "deporte",
+    "descripcion": "Partido tranqui, armamos equipos en el momento. Traé remera clara y oscura.",
+    "empiezaEn": "2026-11-08T22:00:00Z",
+    "duracionMin": 90,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Playa Grande",
+    "lugarNombre": "Complejo La Cancha",
+    "lat": -38.0167,
+    "lng": -57.5361,
+    "distanciaM": 850,
+    "somos": 7,
+    "total": 10,
+    "faltan": 3,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "Me defiendo",
+    "foto": "https://fotos.prueba/explorar_deporte.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "u2",
+     "nombre": "Tomás",
+     "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+     "edad": 31,
+     "verificada": true,
+     "asistencia": {
+      "fue": 18,
+      "de": 19
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u2",
+      "nombre": "Tomás",
+      "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+      "edad": 31,
+      "verificada": true,
+      "asistencia": {
+       "fue": 18,
+       "de": 19
+      },
+      "organizador": true
+     },
+     {
+      "id": "u1",
+      "nombre": "Martina",
+      "foto": "https://fotos.prueba/ingreso_previa.jpg",
+      "edad": 29,
+      "verificada": true,
+      "asistencia": {
+       "fue": 11,
+       "de": 12
+      },
+      "llego": false
+     },
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      }
+     },
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      }
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     }
+    ],
+    "miEstado": "aceptada",
+    "miCantidad": 1,
+    "pendientes": 0,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true,
+    "costoCentavos": 350000,
+    "direccion": {
+     "texto": "Av. Peralta Ramos 4800",
+     "lat": -38.0167,
+     "lng": -57.5361
+    }
+   },
+   {
+    "id": "p4",
+    "slug": "truco-y-empanadas",
+    "titulo": "Truco y empanadas",
+    "categoria": "juego",
+    "descripcion": "Mesa de cuatro, falta uno. Las empanadas las ponemos entre todos.",
+    "empiezaEn": "2026-11-09T23:00:00Z",
+    "duracionMin": 120,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Centro",
+    "lugarNombre": "Café de la Plaza",
+    "lat": -38.0,
+    "lng": -57.55,
+    "distanciaM": 1500,
+    "somos": 3,
+    "total": 4,
+    "faltan": 1,
+    "ingreso": "libre",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "Canto falta envido",
+    "foto": "https://fotos.prueba/explorar_juego.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "u4",
+     "nombre": "Facu",
+     "foto": "",
+     "edad": 33,
+     "verificada": true,
+     "asistencia": {
+      "fue": 9,
+      "de": 11
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      },
+      "organizador": true
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     },
+     {
+      "id": "u2",
+      "nombre": "Tomás",
+      "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+      "edad": 31,
+      "verificada": true,
+      "asistencia": {
+       "fue": 18,
+       "de": 19
+      }
+     }
+    ],
+    "miEstado": "ninguno",
+    "miCantidad": 0,
+    "pendientes": 0,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true
+   },
+   {
+    "id": "p3",
+    "slug": "jazz-en-vivo-el-faro",
+    "titulo": "Jazz en vivo en El Faro",
+    "categoria": "salida",
+    "descripcion": "Trío de jazz con invitados. Mesas compartidas: venite con ganas de charlar.",
+    "empiezaEn": "2026-11-12T23:30:00Z",
+    "duracionMin": 150,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "La Perla",
+    "lugarNombre": "El Faro Bar",
+    "lat": -37.9905,
+    "lng": -57.553,
+    "distanciaM": 2100,
+    "somos": 14,
+    "total": 30,
+    "faltan": 16,
+    "ingreso": "libre",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "",
+    "foto": "https://fotos.prueba/explorar_salida.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "l1u",
+     "nombre": "El Faro Bar",
+     "foto": "",
+     "edad": null,
+     "verificada": true,
+     "asistencia": {
+      "fue": 0,
+      "de": 0
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      }
+     },
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      }
+     },
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      }
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     }
+    ],
+    "miEstado": "aceptada",
+    "miCantidad": 2,
+    "pendientes": 0,
+    "cobro": "entrada",
+    "cargoCentavos": 40000,
+    "incluye": "Una consumición",
+    "cancelacion": "mod",
+    "beneficio": "2x1 en tragos hasta las 23",
+    "aceptaGrupos": true,
+    "lugar": {
+     "id": "l1",
+     "slug": "el-faro",
+     "nombre": "El Faro Bar",
+     "zona": "La Perla",
+     "foto": "https://fotos.prueba/explorar_salida.jpg"
+    },
+    "precioCentavos": 800000,
+    "direccion": {
+     "texto": "Av. Luro 2550",
+     "lat": -37.9905,
+     "lng": -57.553
+    }
+   },
+   {
+    "id": "p6",
+    "slug": "pastas-en-el-puerto",
+    "titulo": "Cena de pastas en el Puerto",
+    "categoria": "gastronomia",
+    "descripcion": "Mesa larga en la cantina de siempre. Ravioles de verdura y vino de la casa.",
+    "empiezaEn": "2026-11-11T23:30:00Z",
+    "duracionMin": 120,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Puerto",
+    "lugarNombre": "Cantina Don Vicente",
+    "lat": -38.042,
+    "lng": -57.539,
+    "distanciaM": 5200,
+    "somos": 6,
+    "total": 12,
+    "faltan": 6,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "",
+    "foto": "https://fotos.prueba/explorar_gastronomia.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "l2u",
+     "nombre": "Cantina Don Vicente",
+     "foto": "",
+     "edad": null,
+     "verificada": true,
+     "asistencia": {
+      "fue": 0,
+      "de": 0
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u2",
+      "nombre": "Tomás",
+      "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+      "edad": 31,
+      "verificada": true,
+      "asistencia": {
+       "fue": 18,
+       "de": 19
+      }
+     },
+     {
+      "id": "u5",
+      "nombre": "Sofi",
+      "foto": "",
+      "edad": 26,
+      "verificada": false,
+      "asistencia": {
+       "fue": 2,
+       "de": 2
+      }
+     },
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      }
+     }
+    ],
+    "miEstado": "ninguno",
+    "miCantidad": 0,
+    "pendientes": 0,
+    "cobro": "sena",
+    "cargoCentavos": 45000,
+    "incluye": "Pasta, postre y una copa de vino",
+    "cancelacion": "flex",
+    "beneficio": "Limoncello de regalo",
+    "aceptaGrupos": true,
+    "lugar": {
+     "id": "l2",
+     "slug": "don-vicente",
+     "nombre": "Cantina Don Vicente",
+     "zona": "Puerto",
+     "foto": "https://fotos.prueba/explorar_gastronomia.jpg"
+    },
+    "precioCentavos": 1500000,
+    "senaPct": 30
+   }
+  ]
+ },
+ "/v1/planes/mios": {
+  "planes": [
+   {
+    "id": "p1",
+    "slug": "futbol-5-playa-grande",
+    "titulo": "Fútbol 5 en Playa Grande",
+    "categoria": "deporte",
+    "descripcion": "Partido tranqui, armamos equipos en el momento. Traé remera clara y oscura.",
+    "empiezaEn": "2026-11-08T22:00:00Z",
+    "duracionMin": 90,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Playa Grande",
+    "lugarNombre": "Complejo La Cancha",
+    "lat": -38.0167,
+    "lng": -57.5361,
+    "distanciaM": 850,
+    "somos": 7,
+    "total": 10,
+    "faltan": 3,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "Me defiendo",
+    "foto": "https://fotos.prueba/explorar_deporte.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "u2",
+     "nombre": "Tomás",
+     "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+     "edad": 31,
+     "verificada": true,
+     "asistencia": {
+      "fue": 18,
+      "de": 19
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u2",
+      "nombre": "Tomás",
+      "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+      "edad": 31,
+      "verificada": true,
+      "asistencia": {
+       "fue": 18,
+       "de": 19
+      },
+      "organizador": true
+     },
+     {
+      "id": "u1",
+      "nombre": "Martina",
+      "foto": "https://fotos.prueba/ingreso_previa.jpg",
+      "edad": 29,
+      "verificada": true,
+      "asistencia": {
+       "fue": 11,
+       "de": 12
+      },
+      "llego": false
+     },
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      }
+     },
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      }
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     }
+    ],
+    "miEstado": "aceptada",
+    "miCantidad": 1,
+    "pendientes": 0,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true,
+    "costoCentavos": 350000,
+    "direccion": {
+     "texto": "Av. Peralta Ramos 4800",
+     "lat": -38.0167,
+     "lng": -57.5361
+    }
+   },
+   {
+    "id": "p2",
+    "slug": "previa-y-after-en-guemes",
+    "titulo": "Previa y after en Güemes",
+    "categoria": "previa",
+    "descripcion": "Arrancamos en casa con fernet y música, después vamos a Alem. Buena onda ante todo.",
+    "empiezaEn": "2026-11-14T00:30:00Z",
+    "duracionMin": 240,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Güemes",
+    "lugarNombre": "Lo de Martina",
+    "lat": -38.0131,
+    "lng": -57.5491,
+    "distanciaM": 300,
+    "somos": 4,
+    "total": 8,
+    "faltan": 4,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": true,
+    "ocultarDireccion": true,
+    "genero": "cualquiera",
+    "nivel": "",
+    "foto": "https://fotos.prueba/explorar_previa.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "u1",
+     "nombre": "Martina",
+     "foto": "https://fotos.prueba/ingreso_previa.jpg",
+     "edad": 29,
+     "verificada": true,
+     "asistencia": {
+      "fue": 11,
+      "de": 12
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u1",
+      "nombre": "Martina",
+      "foto": "https://fotos.prueba/ingreso_previa.jpg",
+      "edad": 29,
+      "verificada": true,
+      "asistencia": {
+       "fue": 11,
+       "de": 12
+      },
+      "organizador": true
+     },
+     {
+      "id": "u2",
+      "nombre": "Tomás",
+      "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+      "edad": 31,
+      "verificada": true,
+      "asistencia": {
+       "fue": 18,
+       "de": 19
+      },
+      "enMiGente": true
+     },
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      },
+      "enMiGente": true
+     },
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      }
+     }
+    ],
+    "miEstado": "organizador",
+    "miCantidad": 1,
+    "pendientes": 2,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true,
+    "edadMin": 24,
+    "edadMax": 35,
+    "direccion": {
+     "texto": "Güemes 2900",
+     "lat": -38.0131,
+     "lng": -57.5491
+    }
+   },
+   {
+    "id": "p3",
+    "slug": "jazz-en-vivo-el-faro",
+    "titulo": "Jazz en vivo en El Faro",
+    "categoria": "salida",
+    "descripcion": "Trío de jazz con invitados. Mesas compartidas: venite con ganas de charlar.",
+    "empiezaEn": "2026-11-12T23:30:00Z",
+    "duracionMin": 150,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "La Perla",
+    "lugarNombre": "El Faro Bar",
+    "lat": -37.9905,
+    "lng": -57.553,
+    "distanciaM": 2100,
+    "somos": 14,
+    "total": 30,
+    "faltan": 16,
+    "ingreso": "libre",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "",
+    "foto": "https://fotos.prueba/explorar_salida.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "l1u",
+     "nombre": "El Faro Bar",
+     "foto": "",
+     "edad": null,
+     "verificada": true,
+     "asistencia": {
+      "fue": 0,
+      "de": 0
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      }
+     },
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      }
+     },
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      }
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      }
+     }
+    ],
+    "miEstado": "aceptada",
+    "miCantidad": 2,
+    "pendientes": 0,
+    "cobro": "entrada",
+    "cargoCentavos": 40000,
+    "incluye": "Una consumición",
+    "cancelacion": "mod",
+    "beneficio": "2x1 en tragos hasta las 23",
+    "aceptaGrupos": true,
+    "lugar": {
+     "id": "l1",
+     "slug": "el-faro",
+     "nombre": "El Faro Bar",
+     "zona": "La Perla",
+     "foto": "https://fotos.prueba/explorar_salida.jpg"
+    },
+    "precioCentavos": 800000,
+    "direccion": {
+     "texto": "Av. Luro 2550",
+     "lat": -37.9905,
+     "lng": -57.553
+    }
+   },
+   {
+    "id": "p8",
+    "slug": "asado-sierra-de-los-padres",
+    "titulo": "Asado en Sierra de los Padres",
+    "categoria": "gastronomia",
+    "descripcion": "Asado, guitarreada y fogón. Cada uno trae algo.",
+    "empiezaEn": "2026-11-01T18:00:00Z",
+    "duracionMin": 300,
+    "recurrente": false,
+    "ciudad": "Mar del Plata",
+    "zona": "Sierra de los Padres",
+    "lugarNombre": "Quinta de Tomás",
+    "lat": -37.95,
+    "lng": -57.78,
+    "distanciaM": 18000,
+    "somos": 6,
+    "total": 6,
+    "faltan": 0,
+    "ingreso": "aprobacion",
+    "visibilidad": "publico",
+    "soloVerificados": false,
+    "ocultarDireccion": false,
+    "genero": "cualquiera",
+    "nivel": "",
+    "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+    "cancelado": false,
+    "destacado": false,
+    "organizador": {
+     "id": "u2",
+     "nombre": "Tomás",
+     "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+     "edad": 31,
+     "verificada": true,
+     "asistencia": {
+      "fue": 18,
+      "de": 19
+     },
+     "organizador": true
+    },
+    "van": [
+     {
+      "id": "u2",
+      "nombre": "Tomás",
+      "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+      "edad": 31,
+      "verificada": true,
+      "asistencia": {
+       "fue": 18,
+       "de": 19
+      },
+      "organizador": true
+     },
+     {
+      "id": "u1",
+      "nombre": "Martina",
+      "foto": "https://fotos.prueba/ingreso_previa.jpg",
+      "edad": 29,
+      "verificada": true,
+      "asistencia": {
+       "fue": 11,
+       "de": 12
+      },
+      "llego": true
+     },
+     {
+      "id": "u3",
+      "nombre": "Lucía",
+      "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+      "edad": 27,
+      "verificada": true,
+      "asistencia": {
+       "fue": 7,
+       "de": 7
+      },
+      "llego": true
+     },
+     {
+      "id": "u4",
+      "nombre": "Facu",
+      "foto": "",
+      "edad": 33,
+      "verificada": true,
+      "asistencia": {
+       "fue": 9,
+       "de": 11
+      },
+      "llego": true
+     },
+     {
+      "id": "u6",
+      "nombre": "Joaco",
+      "foto": "",
+      "edad": 30,
+      "verificada": true,
+      "asistencia": {
+       "fue": 4,
+       "de": 5
+      },
+      "llego": true
+     },
+     {
+      "id": "u7",
+      "nombre": "Cami",
+      "foto": "",
+      "edad": 28,
+      "verificada": true,
+      "asistencia": {
+       "fue": 5,
+       "de": 5
+      },
+      "llego": false
+     }
+    ],
+    "miEstado": "aceptada",
+    "miCantidad": 1,
+    "pendientes": 0,
+    "cobro": "gratis",
+    "cargoCentavos": 0,
+    "incluye": "",
+    "cancelacion": "",
+    "beneficio": "",
+    "aceptaGrupos": true,
+    "costoCentavos": 900000
+   }
+  ]
+ },
+ "/v1/publico/planes/futbol-5-playa-grande": {
+  "id": "p1",
+  "slug": "futbol-5-playa-grande",
+  "titulo": "Fútbol 5 en Playa Grande",
+  "categoria": "deporte",
+  "descripcion": "Partido tranqui, armamos equipos en el momento. Traé remera clara y oscura.",
+  "empiezaEn": "2026-11-08T22:00:00Z",
+  "duracionMin": 90,
+  "recurrente": false,
+  "ciudad": "Mar del Plata",
+  "zona": "Playa Grande",
+  "lugarNombre": "Complejo La Cancha",
+  "lat": -38.0167,
+  "lng": -57.5361,
+  "distanciaM": 850,
+  "somos": 7,
+  "total": 10,
+  "faltan": 3,
+  "ingreso": "aprobacion",
+  "visibilidad": "publico",
+  "soloVerificados": false,
+  "ocultarDireccion": false,
+  "genero": "cualquiera",
+  "nivel": "Me defiendo",
+  "foto": "https://fotos.prueba/explorar_deporte.jpg",
+  "cancelado": false,
+  "destacado": false,
+  "organizador": {
+   "id": "u2",
+   "nombre": "Tomás",
+   "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+   "edad": 31,
+   "verificada": true,
+   "asistencia": {
+    "fue": 18,
+    "de": 19
+   },
+   "organizador": true
+  },
+  "van": [
+   {
+    "id": "u2",
+    "nombre": "Tomás",
+    "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+    "edad": 31,
+    "verificada": true,
+    "asistencia": {
+     "fue": 18,
+     "de": 19
+    },
+    "organizador": true
+   },
+   {
+    "id": "u1",
+    "nombre": "Martina",
+    "foto": "https://fotos.prueba/ingreso_previa.jpg",
+    "edad": 29,
+    "verificada": true,
+    "asistencia": {
+     "fue": 11,
+     "de": 12
+    },
+    "llego": false
+   },
+   {
+    "id": "u3",
+    "nombre": "Lucía",
+    "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+    "edad": 27,
+    "verificada": true,
+    "asistencia": {
+     "fue": 7,
+     "de": 7
+    }
+   },
+   {
+    "id": "u4",
+    "nombre": "Facu",
+    "foto": "",
+    "edad": 33,
+    "verificada": true,
+    "asistencia": {
+     "fue": 9,
+     "de": 11
+    }
+   },
+   {
+    "id": "u6",
+    "nombre": "Joaco",
+    "foto": "",
+    "edad": 30,
+    "verificada": true,
+    "asistencia": {
+     "fue": 4,
+     "de": 5
+    }
+   }
+  ],
+  "miEstado": "ninguno",
+  "miCantidad": 0,
+  "pendientes": 0,
+  "cobro": "gratis",
+  "cargoCentavos": 0,
+  "incluye": "",
+  "cancelacion": "",
+  "beneficio": "",
+  "aceptaGrupos": true,
+  "costoCentavos": 350000,
+  "direccion": {
+   "texto": "Av. Peralta Ramos 4800",
+   "lat": -38.0167,
+   "lng": -57.5361
+  }
+ },
+ "/v1/planes/p2/solicitudes": {
+  "solicitudes": [
+   {
+    "id": "s1",
+    "persona": {
+     "id": "u5",
+     "nombre": "Sofi",
+     "foto": "",
+     "edad": 26,
+     "verificada": false,
+     "asistencia": {
+      "fue": 2,
+      "de": 2
+     }
+    },
+    "cantidad": 2,
+    "mensaje": "Vamos con una amiga, llevamos el fernet.",
+    "estado": "pendiente",
+    "creadaEn": "2026-11-07T15:10:00Z"
+   },
+   {
+    "id": "s2",
+    "persona": {
+     "id": "u6",
+     "nombre": "Joaco",
+     "foto": "",
+     "edad": 30,
+     "verificada": true,
+     "asistencia": {
+      "fue": 4,
+      "de": 5
+     }
+    },
+    "cantidad": 1,
+    "mensaje": "",
+    "estado": "pendiente",
+    "creadaEn": "2026-11-07T16:45:00Z"
+   }
+  ]
+ },
+ "/v1/planes/p1/solicitudes": {
+  "solicitudes": []
+ },
+ "/v1/planes/p2/qr": {
+  "codigo": "CG-P2-8F3K"
+ },
+ "/v1/planes/p1/qr": {
+  "codigo": "CG-P1-2M7Q"
+ },
+ "/v1/planes/p1/mensajes": {
+  "mensajes": [
+   {
+    "id": 101,
+    "planId": "p1",
+    "autor": {
+     "id": "u2",
+     "nombre": "Tomás",
+     "foto": "https://fotos.prueba/ingreso_amigos.jpg"
+    },
+    "texto": "¡Buenas! ¿Quién lleva pelota?",
+    "creadoEn": "2026-11-07T18:02:00Z"
+   },
+   {
+    "id": 102,
+    "planId": "p1",
+    "autor": {
+     "id": "u1",
+     "nombre": "Martina",
+     "foto": "https://fotos.prueba/ingreso_previa.jpg"
+    },
+    "texto": "Yo llevo, y pecheras también.",
+    "creadoEn": "2026-11-07T18:05:00Z"
+   },
+   {
+    "id": 103,
+    "planId": "p1",
+    "autor": {
+     "id": "u3",
+     "nombre": "Lucía",
+     "foto": "https://fotos.prueba/ingreso_fogon.jpg"
+    },
+    "texto": "Llego 10 minutos tarde, ¡arranquen sin mí!",
+    "creadoEn": "2026-11-07T18:20:00Z"
+   },
+   {
+    "id": 104,
+    "planId": "p1",
+    "texto": "Joaco se sumó al plan.",
+    "creadoEn": "2026-11-07T18:31:00Z"
+   },
+   {
+    "id": 105,
+    "planId": "p1",
+    "autor": {
+     "id": "u6",
+     "nombre": "Joaco",
+     "foto": ""
+    },
+    "texto": "Hola a todos 👋",
+    "creadoEn": "2026-11-07T18:32:00Z"
+   }
+  ]
+ },
+ "/v1/planes/p2/mensajes": {
+  "mensajes": [
+   {
+    "id": 101,
+    "planId": "p2",
+    "autor": {
+     "id": "u2",
+     "nombre": "Tomás",
+     "foto": "https://fotos.prueba/ingreso_amigos.jpg"
+    },
+    "texto": "¡Buenas! ¿Quién lleva pelota?",
+    "creadoEn": "2026-11-07T18:02:00Z"
+   },
+   {
+    "id": 102,
+    "planId": "p2",
+    "autor": {
+     "id": "u1",
+     "nombre": "Martina",
+     "foto": "https://fotos.prueba/ingreso_previa.jpg"
+    },
+    "texto": "Yo llevo, y pecheras también.",
+    "creadoEn": "2026-11-07T18:05:00Z"
+   },
+   {
+    "id": 103,
+    "planId": "p2",
+    "autor": {
+     "id": "u3",
+     "nombre": "Lucía",
+     "foto": "https://fotos.prueba/ingreso_fogon.jpg"
+    },
+    "texto": "Llego 10 minutos tarde, ¡arranquen sin mí!",
+    "creadoEn": "2026-11-07T18:20:00Z"
+   },
+   {
+    "id": 104,
+    "planId": "p2",
+    "texto": "Joaco se sumó al plan.",
+    "creadoEn": "2026-11-07T18:31:00Z"
+   },
+   {
+    "id": 105,
+    "planId": "p2",
+    "autor": {
+     "id": "u6",
+     "nombre": "Joaco",
+     "foto": ""
+    },
+    "texto": "Hola a todos 👋",
+    "creadoEn": "2026-11-07T18:32:00Z"
+   }
+  ]
+ },
+ "/v1/planes/p3/mensajes": {
+  "mensajes": [
+   {
+    "id": 101,
+    "planId": "p3",
+    "autor": {
+     "id": "u2",
+     "nombre": "Tomás",
+     "foto": "https://fotos.prueba/ingreso_amigos.jpg"
+    },
+    "texto": "¡Buenas! ¿Quién lleva pelota?",
+    "creadoEn": "2026-11-07T18:02:00Z"
+   },
+   {
+    "id": 102,
+    "planId": "p3",
+    "autor": {
+     "id": "u1",
+     "nombre": "Martina",
+     "foto": "https://fotos.prueba/ingreso_previa.jpg"
+    },
+    "texto": "Yo llevo, y pecheras también.",
+    "creadoEn": "2026-11-07T18:05:00Z"
+   },
+   {
+    "id": 103,
+    "planId": "p3",
+    "autor": {
+     "id": "u3",
+     "nombre": "Lucía",
+     "foto": "https://fotos.prueba/ingreso_fogon.jpg"
+    },
+    "texto": "Llego 10 minutos tarde, ¡arranquen sin mí!",
+    "creadoEn": "2026-11-07T18:20:00Z"
+   },
+   {
+    "id": 104,
+    "planId": "p3",
+    "texto": "Joaco se sumó al plan.",
+    "creadoEn": "2026-11-07T18:31:00Z"
+   },
+   {
+    "id": 105,
+    "planId": "p3",
+    "autor": {
+     "id": "u6",
+     "nombre": "Joaco",
+     "foto": ""
+    },
+    "texto": "Hola a todos 👋",
+    "creadoEn": "2026-11-07T18:32:00Z"
+   }
+  ]
+ },
+ "/v1/privados": {
+  "conversaciones": [
+   {
+    "con": {
+     "id": "u3",
+     "nombre": "Lucía",
+     "foto": "https://fotos.prueba/ingreso_fogon.jpg"
+    },
+    "ultimo": {
+     "id": 503,
+     "deId": "u3",
+     "aId": "u1",
+     "texto": "Dale, el martes te paso a buscar 🏄‍♀️",
+     "creadoEn": "2026-11-07T19:40:00Z"
+    },
+    "sinLeer": 2
+   },
+   {
+    "con": {
+     "id": "u5",
+     "nombre": "Sofi",
+     "foto": ""
+    },
+    "ultimo": {
+     "id": 402,
+     "deId": "u1",
+     "aId": "u5",
+     "texto": "¡Genial! Nos vemos el viernes.",
+     "creadoEn": "2026-11-06T22:15:00Z",
+     "leidoEn": "2026-11-06T22:20:00Z"
+    },
+    "sinLeer": 0
+   }
+  ]
+ },
+ "/v1/privados/u3": {
+  "privados": [
+   {
+    "id": 501,
+    "deId": "u1",
+    "aId": "u3",
+    "texto": "¡Hola! ¿Vas al surf del martes?",
+    "creadoEn": "2026-11-07T19:30:00Z",
+    "leidoEn": "2026-11-07T19:31:00Z"
+   },
+   {
+    "id": 502,
+    "deId": "u3",
+    "aId": "u1",
+    "texto": "¡Sí! ¿Tenés tabla?",
+    "creadoEn": "2026-11-07T19:35:00Z"
+   },
+   {
+    "id": 503,
+    "deId": "u3",
+    "aId": "u1",
+    "texto": "Dale, el martes te paso a buscar 🏄‍♀️",
+    "creadoEn": "2026-11-07T19:40:00Z"
+   }
+  ]
+ },
+ "/v1/gente/mazo": {
+  "personas": [
+   {
+    "id": "u3",
+    "nombre": "Lucía",
+    "edad": 27,
+    "zona": "La Perla",
+    "trabajo": "Profe de educación física",
+    "bio": "Surfeo cuando hay olas y cuando no, también.",
+    "intereses": [
+     "Surf",
+     "Running",
+     "Asado"
+    ],
+    "intenciones": [
+     "planes",
+     "gente"
+    ],
+    "prompts": [
+     {
+      "p": "Un plan que nunca falla",
+      "r": "Surf a la mañana y medialunas en la rambla."
+     }
+    ],
+    "fotos": [
+     "https://fotos.prueba/ingreso_fogon.jpg",
+     "https://fotos.prueba/explorar_deporte.jpg"
+    ],
+    "verificada": true,
+    "asistencia": {
+     "fue": 7,
+     "de": 7
+    },
+    "planes": 7,
+    "enComun": [
+     "Surf",
+     "Running"
+    ],
+    "proximos": [
+     {
+      "id": "p5",
+      "titulo": "Surf al amanecer en Biología",
+      "categoria": "deporte",
+      "empiezaEn": "2026-11-10T09:30:00Z",
+      "foto": "https://fotos.prueba/explorar_deporte.jpg",
+      "faltan": 3
+     },
+     {
+      "id": "p3",
+      "titulo": "Jazz en vivo en El Faro",
+      "categoria": "salida",
+      "empiezaEn": "2026-11-12T23:30:00Z",
+      "foto": "https://fotos.prueba/explorar_salida.jpg",
+      "faltan": 16
+     }
+    ]
+   },
+   {
+    "id": "u5",
+    "nombre": "Sofi",
+    "edad": 26,
+    "zona": "Los Troncos",
+    "trabajo": "Estudiante de arquitectura",
+    "bio": "Recién llegada a Mardel, quiero conocer gente.",
+    "intereses": [
+     "Cine",
+     "After beach",
+     "Música en vivo"
+    ],
+    "intenciones": [
+     "planes",
+     "gente"
+    ],
+    "prompts": [
+     {
+      "p": "Lo que más me gusta de Mar del Plata",
+      "r": "Los atardeceres en el Torreón."
+     }
+    ],
+    "fotos": [
+     "https://fotos.prueba/explorar_cultura.jpg"
+    ],
+    "verificada": false,
+    "asistencia": {
+     "fue": 2,
+     "de": 2
+    },
+    "planes": 2,
+    "enComun": [
+     "Música en vivo"
+    ],
+    "proximos": [
+     {
+      "id": "p7",
+      "titulo": "Cita doble: after beach en Waikiki",
+      "categoria": "cita_doble",
+      "empiezaEn": "2026-11-15T20:00:00Z",
+      "foto": "https://fotos.prueba/explorar_cita_doble.jpg",
+      "faltan": 2
+     }
+    ]
+   },
+   {
+    "id": "u6",
+    "nombre": "Joaco",
+    "edad": 30,
+    "zona": "Constitución",
+    "trabajo": "Kinesiólogo",
+    "bio": "Juego al pádel tres veces por semana.",
+    "intereses": [
+     "Pádel",
+     "Running",
+     "Previas"
+    ],
+    "intenciones": [
+     "planes",
+     "gente"
+    ],
+    "prompts": [
+     {
+      "p": "Te gano en…",
+      "r": "Pádel. Te espero."
+     }
+    ],
+    "fotos": [
+     "https://fotos.prueba/explorar_juego.jpg"
+    ],
+    "verificada": true,
+    "asistencia": {
+     "fue": 4,
+     "de": 5
+    },
+    "planes": 5,
+    "enComun": [
+     "Pádel",
+     "Running",
+     "Previas"
+    ],
+    "proximos": [
+     {
+      "id": "p4",
+      "titulo": "Truco y empanadas",
+      "categoria": "juego",
+      "empiezaEn": "2026-11-09T23:00:00Z",
+      "foto": "https://fotos.prueba/explorar_juego.jpg",
+      "faltan": 1
+     }
+    ]
+   },
+   {
+    "id": "u7",
+    "nombre": "Cami",
+    "edad": 28,
+    "zona": "Punta Mogotes",
+    "trabajo": "Fotógrafa",
+    "bio": "Fotógrafa. Me copan los planes al aire libre.",
+    "intereses": [
+     "After beach",
+     "Surf",
+     "Cine"
+    ],
+    "intenciones": [
+     "planes",
+     "gente"
+    ],
+    "prompts": [
+     {
+      "p": "Una cita ideal",
+      "r": "Caminata por la costa y helado en Mogotes."
+     }
+    ],
+    "fotos": [
+     "https://fotos.prueba/explorar_cita_doble.jpg"
+    ],
+    "verificada": true,
+    "asistencia": {
+     "fue": 5,
+     "de": 5
+    },
+    "planes": 5,
+    "enComun": [],
+    "proximos": []
+   }
+  ]
+ },
+ "/v1/gente/recibidos": {
+  "personas": [
+   {
+    "id": "u6",
+    "nombre": "Joaco",
+    "edad": 30,
+    "foto": "https://fotos.prueba/explorar_juego.jpg",
+    "accion": "prendo",
+    "cuando": "2026-11-07T17:00:00Z"
+   },
+   {
+    "id": "u7",
+    "nombre": "Cami",
+    "edad": 28,
+    "foto": "https://fotos.prueba/explorar_cita_doble.jpg",
+    "accion": "encanta",
+    "cuando": "2026-11-07T12:30:00Z"
+   },
+   {
+    "id": "u5",
+    "nombre": "Sofi",
+    "edad": 26,
+    "foto": "https://fotos.prueba/explorar_cultura.jpg",
+    "accion": "interesa",
+    "cuando": "2026-11-06T21:00:00Z"
+   }
+  ],
+  "bloqueada": false
+ },
+ "/v1/invitaciones": {
+  "invitaciones": [
+   {
+    "planId": "p4",
+    "titulo": "Truco y empanadas",
+    "categoria": "juego",
+    "empiezaEn": "2026-11-09T23:00:00Z",
+    "de": {
+     "id": "u4",
+     "nombre": "Facu",
+     "edad": 33,
+     "foto": "",
+     "accion": "",
+     "cuando": "2026-11-07T14:00:00Z"
+    },
+    "foto": "https://fotos.prueba/explorar_juego.jpg",
+    "cuando": "2026-11-07T14:00:00Z"
+   }
+  ],
+  "bloqueada": false
+ },
+ "/v1/plus": {
+  "estado": {
+   "activo": false,
+   "plan": "",
+   "origen": "",
+   "renueva": false,
+   "sumadasHoy": 2,
+   "limite": 3,
+   "reiniciaEn": "2026-11-08T03:00:00Z",
+   "encantasHoy": 0,
+   "limiteEncantas": 1
+  },
+  "planes": [
+   {
+    "plan": "semana",
+    "producto": "plus_semana",
+    "centavos": 249900,
+    "nombre": "Semana"
+   },
+   {
+    "plan": "mes",
+    "producto": "plus_mes",
+    "centavos": 599900,
+    "nombre": "Mes"
+   },
+   {
+    "plan": "temporada",
+    "producto": "plus_temporada",
+    "centavos": 1399900,
+    "nombre": "Temporada"
+   }
+  ]
+ },
+ "/v1/pases": {
+  "entradas": [
+   {
+    "id": "e1",
+    "codigo": "TK-7Q2M9X",
+    "planId": "p3",
+    "titulo": "Jazz en vivo en El Faro",
+    "lugar": "El Faro Bar",
+    "empiezaEn": "2026-11-12T23:30:00Z",
+    "cantidad": 2,
+    "modo": "entrada",
+    "estado": "pagada",
+    "saldoCentavos": 0,
+    "beneficio": "2x1 en tragos hasta las 23",
+    "validada": false
+   },
+   {
+    "id": "e2",
+    "codigo": "TK-4H8D2K",
+    "planId": "p6",
+    "titulo": "Cena de pastas en el Puerto",
+    "lugar": "Cantina Don Vicente",
+    "empiezaEn": "2026-11-11T23:30:00Z",
+    "cantidad": 1,
+    "modo": "sena",
+    "estado": "pagada",
+    "saldoCentavos": 1050000,
+    "beneficio": "Limoncello de regalo",
+    "validada": false
+   }
+  ],
+  "socios": [
+   {
+    "lugarId": "l1",
+    "lugar": "El Faro Bar",
+    "visitas": 3,
+    "meta": 5,
+    "beneficio": "Un trago de la casa",
+    "pendientes": 0
+   },
+   {
+    "lugarId": "l2",
+    "lugar": "Cantina Don Vicente",
+    "visitas": 5,
+    "meta": 5,
+    "beneficio": "Una cena para dos",
+    "pendientes": 1
+   }
+  ]
+ },
+ "/v1/pases/entradas/e1/google": {
+  "link": "https://pay.google.com/gp/v/save/prueba"
+ },
+ "/v1/pases/socios/l1/google": {
+  "link": "https://pay.google.com/gp/v/save/prueba"
+ },
+ "POST /v1/tap": {
+  "lugar": "El Faro Bar",
+  "uso": "puerta",
+  "plan": {
+   "id": "p3",
+   "titulo": "Jazz en vivo en El Faro",
+   "beneficio": "2x1 en tragos hasta las 23",
+   "saldoCentavos": 0,
+   "repetido": false
+  },
+  "socio": {
+   "visitas": 4,
+   "meta": 5,
+   "beneficio": "Un trago de la casa",
+   "gano": false,
+   "canjeo": false,
+   "sumo": true
+  }
+ },
+ "POST /v1/planes/p3/entradas": {
+  "entradaId": "e3",
+  "link": "https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=prueba",
+  "totalCentavos": 1680000,
+  "cargoCentavos": 80000,
+  "saldoCentavos": 0
+ },
+ "POST /v1/planes/p6/entradas": {
+  "entradaId": "e4",
+  "link": "https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=prueba",
+  "totalCentavos": 495000,
+  "cargoCentavos": 45000,
+  "saldoCentavos": 1050000
+ },
+ "POST /v1/sesion": {
+  "token": "cs_prueba",
+  "usuarioId": "u1",
+  "equipo": false
+ },
+ "POST /v1/verificacion/telefono": {
+  "codigoDePrueba": "123456"
+ },
+ "POST /v1/archivos": {
+  "id": "a1",
+  "url": "https://fotos.prueba/ingreso_previa.jpg"
+ },
+ "POST /v1/planes/p1/sumarme": {
+  "estado": "aceptada"
+ },
+ "POST /v1/planes/p4/sumarme": {
+  "estado": "aceptada"
+ },
+ "POST /v1/planes/p8/repetimos": {
+  "nuevo": null
+ },
+ "POST /v1/planes/p2/en-vivo": {
+  "link": "https://caigo.com.ar/v/prueba"
+ },
+ "/v1/planes/p1": {
+  "id": "p1",
+  "slug": "futbol-5-playa-grande",
+  "titulo": "Fútbol 5 en Playa Grande",
+  "categoria": "deporte",
+  "descripcion": "Partido tranqui, armamos equipos en el momento. Traé remera clara y oscura.",
+  "empiezaEn": "2026-11-08T22:00:00Z",
+  "duracionMin": 90,
+  "recurrente": false,
+  "ciudad": "Mar del Plata",
+  "zona": "Playa Grande",
+  "lugarNombre": "Complejo La Cancha",
+  "lat": -38.0167,
+  "lng": -57.5361,
+  "distanciaM": 850,
+  "somos": 7,
+  "total": 10,
+  "faltan": 3,
+  "ingreso": "aprobacion",
+  "visibilidad": "publico",
+  "soloVerificados": false,
+  "ocultarDireccion": false,
+  "genero": "cualquiera",
+  "nivel": "Me defiendo",
+  "foto": "https://fotos.prueba/explorar_deporte.jpg",
+  "cancelado": false,
+  "destacado": false,
+  "organizador": {
+   "id": "u2",
+   "nombre": "Tomás",
+   "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+   "edad": 31,
+   "verificada": true,
+   "asistencia": {
+    "fue": 18,
+    "de": 19
+   },
+   "organizador": true
+  },
+  "van": [
+   {
+    "id": "u2",
+    "nombre": "Tomás",
+    "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+    "edad": 31,
+    "verificada": true,
+    "asistencia": {
+     "fue": 18,
+     "de": 19
+    },
+    "organizador": true
+   },
+   {
+    "id": "u1",
+    "nombre": "Martina",
+    "foto": "https://fotos.prueba/ingreso_previa.jpg",
+    "edad": 29,
+    "verificada": true,
+    "asistencia": {
+     "fue": 11,
+     "de": 12
+    },
+    "llego": false
+   },
+   {
+    "id": "u3",
+    "nombre": "Lucía",
+    "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+    "edad": 27,
+    "verificada": true,
+    "asistencia": {
+     "fue": 7,
+     "de": 7
+    }
+   },
+   {
+    "id": "u4",
+    "nombre": "Facu",
+    "foto": "",
+    "edad": 33,
+    "verificada": true,
+    "asistencia": {
+     "fue": 9,
+     "de": 11
+    }
+   },
+   {
+    "id": "u6",
+    "nombre": "Joaco",
+    "foto": "",
+    "edad": 30,
+    "verificada": true,
+    "asistencia": {
+     "fue": 4,
+     "de": 5
+    }
+   }
+  ],
+  "miEstado": "aceptada",
+  "miCantidad": 1,
+  "pendientes": 0,
+  "cobro": "gratis",
+  "cargoCentavos": 0,
+  "incluye": "",
+  "cancelacion": "",
+  "beneficio": "",
+  "aceptaGrupos": true,
+  "costoCentavos": 350000,
+  "direccion": {
+   "texto": "Av. Peralta Ramos 4800",
+   "lat": -38.0167,
+   "lng": -57.5361
+  }
+ },
+ "/v1/planes/p2": {
+  "id": "p2",
+  "slug": "previa-y-after-en-guemes",
+  "titulo": "Previa y after en Güemes",
+  "categoria": "previa",
+  "descripcion": "Arrancamos en casa con fernet y música, después vamos a Alem. Buena onda ante todo.",
+  "empiezaEn": "2026-11-14T00:30:00Z",
+  "duracionMin": 240,
+  "recurrente": false,
+  "ciudad": "Mar del Plata",
+  "zona": "Güemes",
+  "lugarNombre": "Lo de Martina",
+  "lat": -38.0131,
+  "lng": -57.5491,
+  "distanciaM": 300,
+  "somos": 4,
+  "total": 8,
+  "faltan": 4,
+  "ingreso": "aprobacion",
+  "visibilidad": "publico",
+  "soloVerificados": true,
+  "ocultarDireccion": true,
+  "genero": "cualquiera",
+  "nivel": "",
+  "foto": "https://fotos.prueba/explorar_previa.jpg",
+  "cancelado": false,
+  "destacado": false,
+  "organizador": {
+   "id": "u1",
+   "nombre": "Martina",
+   "foto": "https://fotos.prueba/ingreso_previa.jpg",
+   "edad": 29,
+   "verificada": true,
+   "asistencia": {
+    "fue": 11,
+    "de": 12
+   },
+   "organizador": true
+  },
+  "van": [
+   {
+    "id": "u1",
+    "nombre": "Martina",
+    "foto": "https://fotos.prueba/ingreso_previa.jpg",
+    "edad": 29,
+    "verificada": true,
+    "asistencia": {
+     "fue": 11,
+     "de": 12
+    },
+    "organizador": true
+   },
+   {
+    "id": "u2",
+    "nombre": "Tomás",
+    "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+    "edad": 31,
+    "verificada": true,
+    "asistencia": {
+     "fue": 18,
+     "de": 19
+    },
+    "enMiGente": true
+   },
+   {
+    "id": "u3",
+    "nombre": "Lucía",
+    "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+    "edad": 27,
+    "verificada": true,
+    "asistencia": {
+     "fue": 7,
+     "de": 7
+    },
+    "enMiGente": true
+   },
+   {
+    "id": "u7",
+    "nombre": "Cami",
+    "foto": "",
+    "edad": 28,
+    "verificada": true,
+    "asistencia": {
+     "fue": 5,
+     "de": 5
+    }
+   }
+  ],
+  "miEstado": "organizador",
+  "miCantidad": 1,
+  "pendientes": 2,
+  "cobro": "gratis",
+  "cargoCentavos": 0,
+  "incluye": "",
+  "cancelacion": "",
+  "beneficio": "",
+  "aceptaGrupos": true,
+  "edadMin": 24,
+  "edadMax": 35,
+  "direccion": {
+   "texto": "Güemes 2900",
+   "lat": -38.0131,
+   "lng": -57.5491
+  }
+ },
+ "/v1/planes/p3": {
+  "id": "p3",
+  "slug": "jazz-en-vivo-el-faro",
+  "titulo": "Jazz en vivo en El Faro",
+  "categoria": "salida",
+  "descripcion": "Trío de jazz con invitados. Mesas compartidas: venite con ganas de charlar.",
+  "empiezaEn": "2026-11-12T23:30:00Z",
+  "duracionMin": 150,
+  "recurrente": false,
+  "ciudad": "Mar del Plata",
+  "zona": "La Perla",
+  "lugarNombre": "El Faro Bar",
+  "lat": -37.9905,
+  "lng": -57.553,
+  "distanciaM": 2100,
+  "somos": 14,
+  "total": 30,
+  "faltan": 16,
+  "ingreso": "libre",
+  "visibilidad": "publico",
+  "soloVerificados": false,
+  "ocultarDireccion": false,
+  "genero": "cualquiera",
+  "nivel": "",
+  "foto": "https://fotos.prueba/explorar_salida.jpg",
+  "cancelado": false,
+  "destacado": false,
+  "organizador": {
+   "id": "l1u",
+   "nombre": "El Faro Bar",
+   "foto": "",
+   "edad": null,
+   "verificada": true,
+   "asistencia": {
+    "fue": 0,
+    "de": 0
+   },
+   "organizador": true
+  },
+  "van": [
+   {
+    "id": "u3",
+    "nombre": "Lucía",
+    "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+    "edad": 27,
+    "verificada": true,
+    "asistencia": {
+     "fue": 7,
+     "de": 7
+    }
+   },
+   {
+    "id": "u4",
+    "nombre": "Facu",
+    "foto": "",
+    "edad": 33,
+    "verificada": true,
+    "asistencia": {
+     "fue": 9,
+     "de": 11
+    }
+   },
+   {
+    "id": "u7",
+    "nombre": "Cami",
+    "foto": "",
+    "edad": 28,
+    "verificada": true,
+    "asistencia": {
+     "fue": 5,
+     "de": 5
+    }
+   },
+   {
+    "id": "u6",
+    "nombre": "Joaco",
+    "foto": "",
+    "edad": 30,
+    "verificada": true,
+    "asistencia": {
+     "fue": 4,
+     "de": 5
+    }
+   }
+  ],
+  "miEstado": "aceptada",
+  "miCantidad": 2,
+  "pendientes": 0,
+  "cobro": "entrada",
+  "cargoCentavos": 40000,
+  "incluye": "Una consumición",
+  "cancelacion": "mod",
+  "beneficio": "2x1 en tragos hasta las 23",
+  "aceptaGrupos": true,
+  "lugar": {
+   "id": "l1",
+   "slug": "el-faro",
+   "nombre": "El Faro Bar",
+   "zona": "La Perla",
+   "foto": "https://fotos.prueba/explorar_salida.jpg"
+  },
+  "precioCentavos": 800000,
+  "direccion": {
+   "texto": "Av. Luro 2550",
+   "lat": -37.9905,
+   "lng": -57.553
+  }
+ },
+ "/v1/planes/p4": {
+  "id": "p4",
+  "slug": "truco-y-empanadas",
+  "titulo": "Truco y empanadas",
+  "categoria": "juego",
+  "descripcion": "Mesa de cuatro, falta uno. Las empanadas las ponemos entre todos.",
+  "empiezaEn": "2026-11-09T23:00:00Z",
+  "duracionMin": 120,
+  "recurrente": false,
+  "ciudad": "Mar del Plata",
+  "zona": "Centro",
+  "lugarNombre": "Café de la Plaza",
+  "lat": -38.0,
+  "lng": -57.55,
+  "distanciaM": 1500,
+  "somos": 3,
+  "total": 4,
+  "faltan": 1,
+  "ingreso": "libre",
+  "visibilidad": "publico",
+  "soloVerificados": false,
+  "ocultarDireccion": false,
+  "genero": "cualquiera",
+  "nivel": "Canto falta envido",
+  "foto": "https://fotos.prueba/explorar_juego.jpg",
+  "cancelado": false,
+  "destacado": false,
+  "organizador": {
+   "id": "u4",
+   "nombre": "Facu",
+   "foto": "",
+   "edad": 33,
+   "verificada": true,
+   "asistencia": {
+    "fue": 9,
+    "de": 11
+   },
+   "organizador": true
+  },
+  "van": [
+   {
+    "id": "u4",
+    "nombre": "Facu",
+    "foto": "",
+    "edad": 33,
+    "verificada": true,
+    "asistencia": {
+     "fue": 9,
+     "de": 11
+    },
+    "organizador": true
+   },
+   {
+    "id": "u6",
+    "nombre": "Joaco",
+    "foto": "",
+    "edad": 30,
+    "verificada": true,
+    "asistencia": {
+     "fue": 4,
+     "de": 5
+    }
+   },
+   {
+    "id": "u2",
+    "nombre": "Tomás",
+    "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+    "edad": 31,
+    "verificada": true,
+    "asistencia": {
+     "fue": 18,
+     "de": 19
+    }
+   }
+  ],
+  "miEstado": "ninguno",
+  "miCantidad": 0,
+  "pendientes": 0,
+  "cobro": "gratis",
+  "cargoCentavos": 0,
+  "incluye": "",
+  "cancelacion": "",
+  "beneficio": "",
+  "aceptaGrupos": true
+ },
+ "/v1/planes/p5": {
+  "id": "p5",
+  "slug": "surf-al-amanecer",
+  "titulo": "Surf al amanecer en Biología",
+  "categoria": "deporte",
+  "descripcion": "Todos los martes. Si no tenés tabla, hay para alquilar en la escuela.",
+  "empiezaEn": "2026-11-10T09:30:00Z",
+  "duracionMin": 120,
+  "recurrente": true,
+  "ciudad": "Mar del Plata",
+  "zona": "Playa Grande",
+  "lugarNombre": "Playa Biología",
+  "lat": -38.0292,
+  "lng": -57.5302,
+  "distanciaM": 3400,
+  "somos": 5,
+  "total": 8,
+  "faltan": 3,
+  "ingreso": "aprobacion",
+  "visibilidad": "publico",
+  "soloVerificados": false,
+  "ocultarDireccion": false,
+  "genero": "cualquiera",
+  "nivel": "Recién aprendo",
+  "foto": "https://fotos.prueba/explorar_deporte.jpg",
+  "cancelado": false,
+  "destacado": true,
+  "organizador": {
+   "id": "u3",
+   "nombre": "Lucía",
+   "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+   "edad": 27,
+   "verificada": true,
+   "asistencia": {
+    "fue": 7,
+    "de": 7
+   },
+   "organizador": true
+  },
+  "van": [
+   {
+    "id": "u3",
+    "nombre": "Lucía",
+    "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+    "edad": 27,
+    "verificada": true,
+    "asistencia": {
+     "fue": 7,
+     "de": 7
+    },
+    "organizador": true
+   },
+   {
+    "id": "u7",
+    "nombre": "Cami",
+    "foto": "",
+    "edad": 28,
+    "verificada": true,
+    "asistencia": {
+     "fue": 5,
+     "de": 5
+    }
+   },
+   {
+    "id": "u5",
+    "nombre": "Sofi",
+    "foto": "",
+    "edad": 26,
+    "verificada": false,
+    "asistencia": {
+     "fue": 2,
+     "de": 2
+    }
+   },
+   {
+    "id": "u6",
+    "nombre": "Joaco",
+    "foto": "",
+    "edad": 30,
+    "verificada": true,
+    "asistencia": {
+     "fue": 4,
+     "de": 5
+    }
+   },
+   {
+    "id": "u4",
+    "nombre": "Facu",
+    "foto": "",
+    "edad": 33,
+    "verificada": true,
+    "asistencia": {
+     "fue": 9,
+     "de": 11
+    }
+   }
+  ],
+  "miEstado": "ninguno",
+  "miCantidad": 0,
+  "pendientes": 0,
+  "cobro": "gratis",
+  "cargoCentavos": 0,
+  "incluye": "",
+  "cancelacion": "",
+  "beneficio": "",
+  "aceptaGrupos": true
+ },
+ "/v1/planes/p6": {
+  "id": "p6",
+  "slug": "pastas-en-el-puerto",
+  "titulo": "Cena de pastas en el Puerto",
+  "categoria": "gastronomia",
+  "descripcion": "Mesa larga en la cantina de siempre. Ravioles de verdura y vino de la casa.",
+  "empiezaEn": "2026-11-11T23:30:00Z",
+  "duracionMin": 120,
+  "recurrente": false,
+  "ciudad": "Mar del Plata",
+  "zona": "Puerto",
+  "lugarNombre": "Cantina Don Vicente",
+  "lat": -38.042,
+  "lng": -57.539,
+  "distanciaM": 5200,
+  "somos": 6,
+  "total": 12,
+  "faltan": 6,
+  "ingreso": "aprobacion",
+  "visibilidad": "publico",
+  "soloVerificados": false,
+  "ocultarDireccion": false,
+  "genero": "cualquiera",
+  "nivel": "",
+  "foto": "https://fotos.prueba/explorar_gastronomia.jpg",
+  "cancelado": false,
+  "destacado": false,
+  "organizador": {
+   "id": "l2u",
+   "nombre": "Cantina Don Vicente",
+   "foto": "",
+   "edad": null,
+   "verificada": true,
+   "asistencia": {
+    "fue": 0,
+    "de": 0
+   },
+   "organizador": true
+  },
+  "van": [
+   {
+    "id": "u2",
+    "nombre": "Tomás",
+    "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+    "edad": 31,
+    "verificada": true,
+    "asistencia": {
+     "fue": 18,
+     "de": 19
+    }
+   },
+   {
+    "id": "u5",
+    "nombre": "Sofi",
+    "foto": "",
+    "edad": 26,
+    "verificada": false,
+    "asistencia": {
+     "fue": 2,
+     "de": 2
+    }
+   },
+   {
+    "id": "u7",
+    "nombre": "Cami",
+    "foto": "",
+    "edad": 28,
+    "verificada": true,
+    "asistencia": {
+     "fue": 5,
+     "de": 5
+    }
+   }
+  ],
+  "miEstado": "ninguno",
+  "miCantidad": 0,
+  "pendientes": 0,
+  "cobro": "sena",
+  "cargoCentavos": 45000,
+  "incluye": "Pasta, postre y una copa de vino",
+  "cancelacion": "flex",
+  "beneficio": "Limoncello de regalo",
+  "aceptaGrupos": true,
+  "lugar": {
+   "id": "l2",
+   "slug": "don-vicente",
+   "nombre": "Cantina Don Vicente",
+   "zona": "Puerto",
+   "foto": "https://fotos.prueba/explorar_gastronomia.jpg"
+  },
+  "precioCentavos": 1500000,
+  "senaPct": 30
+ },
+ "/v1/planes/p7": {
+  "id": "p7",
+  "slug": "cita-doble-after-beach",
+  "titulo": "Cita doble: after beach en Waikiki",
+  "categoria": "cita_doble",
+  "descripcion": "Somos dos amigas, buscamos dos más para un after beach tranqui al atardecer.",
+  "empiezaEn": "2026-11-15T20:00:00Z",
+  "duracionMin": 180,
+  "recurrente": false,
+  "ciudad": "Mar del Plata",
+  "zona": "Punta Mogotes",
+  "lugarNombre": "Waikiki",
+  "lat": -38.07,
+  "lng": -57.545,
+  "distanciaM": 7800,
+  "somos": 2,
+  "total": 4,
+  "faltan": 2,
+  "ingreso": "aprobacion",
+  "visibilidad": "publico",
+  "soloVerificados": false,
+  "ocultarDireccion": false,
+  "genero": "cualquiera",
+  "nivel": "",
+  "foto": "https://fotos.prueba/explorar_cita_doble.jpg",
+  "cancelado": false,
+  "destacado": false,
+  "organizador": {
+   "id": "u7",
+   "nombre": "Cami",
+   "foto": "",
+   "edad": 28,
+   "verificada": true,
+   "asistencia": {
+    "fue": 5,
+    "de": 5
+   },
+   "organizador": true
+  },
+  "van": [
+   {
+    "id": "u7",
+    "nombre": "Cami",
+    "foto": "",
+    "edad": 28,
+    "verificada": true,
+    "asistencia": {
+     "fue": 5,
+     "de": 5
+    },
+    "organizador": true
+   },
+   {
+    "id": "u5",
+    "nombre": "Sofi",
+    "foto": "",
+    "edad": 26,
+    "verificada": false,
+    "asistencia": {
+     "fue": 2,
+     "de": 2
+    }
+   }
+  ],
+  "miEstado": "ninguno",
+  "miCantidad": 0,
+  "pendientes": 0,
+  "cobro": "gratis",
+  "cargoCentavos": 0,
+  "incluye": "",
+  "cancelacion": "",
+  "beneficio": "",
+  "aceptaGrupos": true,
+  "edadMin": 25,
+  "edadMax": 35
+ },
+ "/v1/planes/p8": {
+  "id": "p8",
+  "slug": "asado-sierra-de-los-padres",
+  "titulo": "Asado en Sierra de los Padres",
+  "categoria": "gastronomia",
+  "descripcion": "Asado, guitarreada y fogón. Cada uno trae algo.",
+  "empiezaEn": "2026-11-01T18:00:00Z",
+  "duracionMin": 300,
+  "recurrente": false,
+  "ciudad": "Mar del Plata",
+  "zona": "Sierra de los Padres",
+  "lugarNombre": "Quinta de Tomás",
+  "lat": -37.95,
+  "lng": -57.78,
+  "distanciaM": 18000,
+  "somos": 6,
+  "total": 6,
+  "faltan": 0,
+  "ingreso": "aprobacion",
+  "visibilidad": "publico",
+  "soloVerificados": false,
+  "ocultarDireccion": false,
+  "genero": "cualquiera",
+  "nivel": "",
+  "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+  "cancelado": false,
+  "destacado": false,
+  "organizador": {
+   "id": "u2",
+   "nombre": "Tomás",
+   "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+   "edad": 31,
+   "verificada": true,
+   "asistencia": {
+    "fue": 18,
+    "de": 19
+   },
+   "organizador": true
+  },
+  "van": [
+   {
+    "id": "u2",
+    "nombre": "Tomás",
+    "foto": "https://fotos.prueba/ingreso_amigos.jpg",
+    "edad": 31,
+    "verificada": true,
+    "asistencia": {
+     "fue": 18,
+     "de": 19
+    },
+    "organizador": true
+   },
+   {
+    "id": "u1",
+    "nombre": "Martina",
+    "foto": "https://fotos.prueba/ingreso_previa.jpg",
+    "edad": 29,
+    "verificada": true,
+    "asistencia": {
+     "fue": 11,
+     "de": 12
+    },
+    "llego": true
+   },
+   {
+    "id": "u3",
+    "nombre": "Lucía",
+    "foto": "https://fotos.prueba/ingreso_fogon.jpg",
+    "edad": 27,
+    "verificada": true,
+    "asistencia": {
+     "fue": 7,
+     "de": 7
+    },
+    "llego": true
+   },
+   {
+    "id": "u4",
+    "nombre": "Facu",
+    "foto": "",
+    "edad": 33,
+    "verificada": true,
+    "asistencia": {
+     "fue": 9,
+     "de": 11
+    },
+    "llego": true
+   },
+   {
+    "id": "u6",
+    "nombre": "Joaco",
+    "foto": "",
+    "edad": 30,
+    "verificada": true,
+    "asistencia": {
+     "fue": 4,
+     "de": 5
+    },
+    "llego": true
+   },
+   {
+    "id": "u7",
+    "nombre": "Cami",
+    "foto": "",
+    "edad": 28,
+    "verificada": true,
+    "asistencia": {
+     "fue": 5,
+     "de": 5
+    },
+    "llego": false
+   }
+  ],
+  "miEstado": "aceptada",
+  "miCantidad": 1,
+  "pendientes": 0,
+  "cobro": "gratis",
+  "cargoCentavos": 0,
+  "incluye": "",
+  "cancelacion": "",
+  "beneficio": "",
+  "aceptaGrupos": true,
+  "costoCentavos": 900000
+ }
+}

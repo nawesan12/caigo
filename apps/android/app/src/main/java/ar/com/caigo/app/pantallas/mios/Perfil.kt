@@ -1,10 +1,7 @@
 package ar.com.caigo.app.pantallas.mios
 
-import ar.com.caigo.app.pantallas.pagos.Plus
 
-import ar.com.caigo.app.piezas.nombreCategoria
-import ar.com.caigo.app.piezas.Segmentado
-import ar.com.caigo.app.piezas.Interruptor
+import ar.com.caigo.app.piezas.asistencia
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -61,13 +58,30 @@ import ar.com.caigo.app.nucleo.CambiosPerfil
 import ar.com.caigo.app.nucleo.Prompt
 import ar.com.caigo.app.nucleo.mensajeDe
 import ar.com.caigo.app.app.Ir
+import ar.com.caigo.app.app.OcultarTabBar
+import ar.com.caigo.app.app.Pestana
+import ar.com.caigo.app.nucleo.EstadoPlus
+import ar.com.caigo.app.nucleo.EstadoVerificacion
+import ar.com.caigo.app.nucleo.PersonaCorta
+import ar.com.caigo.app.piezas.Avatares
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import ar.com.caigo.app.app.altoTabBar
 import ar.com.caigo.app.piezas.Avatar
 import ar.com.caigo.app.piezas.BotonIcono
 import ar.com.caigo.app.piezas.Chip
 import ar.com.caigo.app.piezas.Cta
 import ar.com.caigo.app.piezas.Encabezado
-import ar.com.caigo.app.piezas.Fecha
+import ar.com.caigo.app.nucleo.Fecha
 import ar.com.caigo.app.piezas.Foto
 import ar.com.caigo.app.piezas.LocalAvisos
 import ar.com.caigo.app.piezas.Pantalla
@@ -117,7 +131,19 @@ private val gelPlus = Gel(
     grano = true,
 )
 
-/** 11 · Perfil propio (mockup 11 + perfil del prototipo: verificación, Plus, lo que buscás). */
+private val gelVerificacion = Gel(
+    vertical(C.blanco, C.blanco),
+    listOf(interna(1f, 0f, C.blanco), externa(3f, 0f, C.borde1), externa(12f, 24f, rgba(80, 60, 160, .25f), spread = -12f)),
+)
+
+// PARA EL NÚCLEO: `Gels.neutraOscura` (y `Gels.neutra(p)`) como en iOS; mientras, local.
+private val neutraOscura = Gel(
+    vertical(C.oscuro3, C.oscuro4),
+    listOf(interna(1f, 0f, rgba(255, 255, 255, .08f)), externa(3f, 0f, C.oscuro7)),
+)
+
+/** 11 · Perfil propio (mockup 11 + perfil del prototipo: verificación, Plus, lo que buscás). Es `MiPerfil` en iOS. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Perfil(ir: Ir) {
     val c = LocalApp.current
@@ -128,24 +154,39 @@ fun Perfil(ir: Ir) {
     var opciones by remember { mutableStateOf(false) }
     var borrando by remember { mutableStateOf(false) }
     var borrandoAhora by remember { mutableStateOf(false) }
-    var intento by remember { mutableStateOf(0) }
     var fallo by remember { mutableStateOf(false) }
-    LaunchedEffect(intento) { fallo = c.recargarYo() == null }
-    val gente = rememberCarga("gente") { c.api.miGente().gente }
-    val verif = rememberCarga("verif") { c.api.verificacion() }
-    val plus = rememberCarga("plus") { c.api.plus().estado }
-    // «Planes compartidos con vos» (mockup 11): los planes a los que fuiste, del historial.
-    val compartidos = rememberCarga("historial") { c.api.mios("historial").planes.filter { !it.cancelado } }
-    var ajustes by remember { mutableStateOf(false) }
+    var gente by remember { mutableStateOf<List<PersonaCorta>>(emptyList()) }
+    var verif by remember { mutableStateOf<EstadoVerificacion?>(null) }
+    var plus by remember { mutableStateOf<EstadoPlus?>(null) }
+    var refrescando by remember { mutableStateOf(false) }
+
+    suspend fun cargar() {
+        fallo = c.recargarYo() == null
+        coroutineScope {
+            val g = async { runCatching { c.api.miGente().gente }.getOrNull() }
+            val v = async { runCatching { c.api.verificacion() }.getOrNull() }
+            val pl = async { runCatching { c.api.plus().estado }.getOrNull() }
+            gente = g.await() ?: gente
+            verif = v.await() ?: verif
+            plus = pl.await() ?: plus
+        }
+    }
+    LaunchedEffect(Unit) { cargar() }
+    OcultarTabBar(opciones || borrando)
 
     Pantalla { arriba, _ ->
         val y = yo
         if (y == null) {
             Box(Modifier.fillMaxSize().padding(28.dp), contentAlignment = Alignment.Center) {
-                if (fallo) MiosVacio("No pudimos cargar tu perfil", "No hay conexión. Revisá internet y probá de nuevo.", "Probar de nuevo", { intento++ })
-                else Puntitos()
+                if (fallo) MiosVacio("No pudimos cargar tu perfil", "No hay conexión. Revisá internet y probá de nuevo.", "Probar de nuevo", { alcance.launch { cargar() } })
+                else Puntitos(p.acento)
             }
         } else {
+            PullToRefreshBox(
+                refrescando,
+                { alcance.launch { refrescando = true; try { cargar() } finally { refrescando = false } } },
+                Modifier.fillMaxSize(),
+            ) {
             Column(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                     .padding(start = 20.dp, end = 20.dp, top = arriba + 16.dp, bottom = altoTabBar()),
@@ -157,7 +198,7 @@ fun Perfil(ir: Ir) {
                         Avatar(y.nombre, y.fotos.firstOrNull(), 112.dp, borde = 4.dp, colorBorde = C.blanco, tamTexto = 40f)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        T(listOfNotNull(y.nombre.ifBlank { null }, y.edad?.toString()).joinToString(", "), 28f, 700, alto = 1f)
+                        T(listOfNotNull(y.nombre.ifEmpty { null }, y.edad?.toString()).joinToString(", "), 28f, 700, alto = 1f)
                         if (y.verificada) MiosVerificado()
                     }
                     val estado = when {
@@ -165,14 +206,15 @@ fun Perfil(ir: Ir) {
                         y.selfie -> "Selfie verificada · falta DNI"
                         else -> null
                     }
-                    T(listOfNotNull(listOf(y.zona, y.ciudad).filter { it.isNotBlank() }.joinToString(", ").ifBlank { null }, estado).joinToString(" · "), 14f, 400, p.texto2)
+                    val zona = listOf(y.zona, y.ciudad).filter { it.isNotEmpty() }.joinToString(", ")
+                    T(listOfNotNull(zona.ifEmpty { null }, estado).joinToString(" · "), 14f, 400, p.texto2, alinear = TextAlign.Center)
                 }
 
                 // Verificación y seguridad.
-                val dni = if (y.verificada) "aprobada" else verif.dato?.dni ?: "ninguna"
+                val dni = if (y.verificada) "aprobada" else verif?.dni ?: "ninguna"
                 Row(
                     Modifier.fillMaxWidth().toque(alBajar = 2.dp) { ir.verificacion() }
-                        .gel(24.dp, if (p.oscuro) Gels.tarjetaOscura else Gel(vertical(C.blanco, C.blanco), listOf(interna(1f, 0f, C.blanco), externa(3f, 0f, C.borde1), externa(12f, 24f, rgba(80, 60, 160, .25f), spread = -12f))))
+                        .gel(24.dp, if (p.oscuro) Gels.tarjetaOscura else gelVerificacion)
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -197,7 +239,7 @@ fun Perfil(ir: Ir) {
                 }
 
                 // Caigo Plus.
-                val e = plus.dato
+                val e = plus
                 Row(
                     Modifier.fillMaxWidth().toque { ir.plus("perfil") }.gel(24.dp, gelPlus).padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -223,15 +265,15 @@ fun Perfil(ir: Ir) {
                     }
                 }
 
-                // Asistencia real y planes.
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Asistencia real y planes (las dos del mismo alto).
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     val a = y.asistencia
-                    Column(Modifier.weight(1.2f).gel(22.dp, miosOscura).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.weight(1.2f).fillMaxHeight().gel(22.dp, miosOscura).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         T(if (a.de > 0) "${a.fue * 100 / a.de}%" else "—", 40f, 800, C.lima, alto = 1f)
                         T("Asistencia real", 13f, 600, C.blancoCalido)
                         T(if (a.de > 0) "${a.fue} de ${a.de} con check-in" else "Todavía sin planes con check-in", 12f, 400, C.apagado2)
                     }
-                    Column(Modifier.weight(1f).gel(22.dp, if (p.oscuro) Gels.chipOscuro else Gels.chipClaro).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.weight(1f).fillMaxHeight().gel(22.dp, if (p.oscuro) Gels.chipOscuro else Gels.chipClaro).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         T("${y.planes}", 40f, 800, if (p.oscuro) C.lima else C.violetaTexto, alto = 1f)
                         T("Planes", 13f, 600)
                         T(if (y.organizados == 1) "1 organizado" else "${y.organizados} organizados", 12f, 400, p.texto2)
@@ -265,40 +307,19 @@ fun Perfil(ir: Ir) {
                 }
 
                 // Mi gente.
-                val lista = gente.dato.orEmpty()
                 Row(
                     Modifier.fillMaxWidth().tocable { ir.gente() }.gel(22.dp, miosGelTarjeta()).padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         MiosSeccion("Mi gente · ${y.miGente}")
-                        if (lista.isNotEmpty()) {
-                            Row {
-                                lista.take(4).forEachIndexed { i, g ->
-                                    Avatar(g.nombre, g.foto, 34.dp, Modifier.offset(x = (-8 * i).dp).zIndex(10f - i))
-                                }
-                                val resto = y.miGente - minOf(4, lista.size)
-                                if (resto > 0) Avatar("+", null, 34.dp, Modifier.offset(x = (-8 * minOf(4, lista.size)).dp), texto = "+$resto", fondo = C.pista to C.violetaTexto, tamTexto = 11f)
-                            }
-                        } else {
+                        if (gente.isEmpty()) {
                             T("Los que sumás después de un plan aparecen acá.", 12f, 400, p.texto2)
+                        } else {
+                            Avatares(gente.map { it.nombre to it.foto }, total = maxOf(y.miGente, gente.size), max = 4, tam = 34.dp)
                         }
                     }
                     Icono(I.adelante, 20.dp, p.texto, 2.2f)
-                }
-
-                // Planes compartidos con vos (mockup 11): «Truco · Güemes», «Pádel · Gesell».
-                val hechos = compartidos.dato.orEmpty()
-                if (hechos.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MiosSeccion("Planes compartidos con vos")
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        hechos.take(6).forEach { pl ->
-                            val zona = pl.zona.ifBlank { pl.ciudad }
-                            Box(Modifier.tocable { ir.plan(pl.id) }.gel(16.dp, miosGelTarjeta()).padding(horizontal = 12.dp, vertical = 10.dp)) {
-                                T(listOf(nombreCategoria(pl.categoria), zona).filter { it.isNotBlank() }.joinToString(" · "), 13f, 600, unRenglon = true)
-                            }
-                        }
-                    }
                 }
 
                 // Al final, la acción destructiva (con el texto de peligro de «Cancelar el plan»).
@@ -309,10 +330,11 @@ fun Perfil(ir: Ir) {
                 // Que no quede tapado por el botón de Crear de la barra.
                 Spacer(Modifier.height(28.dp))
             }
+            }
         }
         BotonIcono(
             I.sol, { opciones = true }, Modifier.align(Alignment.TopEnd).padding(top = arriba + 8.dp, end = 20.dp),
-            iconoTam = 20.dp, trazo = 2f, gel = if (p.oscuro) Gels.chipOscuro else Gels.icono, color = p.texto,
+            iconoTam = 20.dp, trazo = 2f, gel = if (p.oscuro) Gels.chipOscuro else Gels.chipClaro, color = p.texto,
         )
         MiosHoja(opciones, { opciones = false }, "Tu cuenta") {
             MiosGrupo {
@@ -320,45 +342,24 @@ fun Perfil(ir: Ir) {
                 MiosFila(I.corazonChico, "Lo que buscás") { opciones = false; ir.intenciones(true) }
                 MiosFila(I.billetera, "Mis pases") { opciones = false; ir.pases() }
                 MiosFila(I.enviar, "Mensajes privados") { opciones = false; ir.privados() }
-                MiosFila(I.escudo, "Verificación y seguridad") { opciones = false; ir.verificacion() }
-                MiosFila(I.campana, "Avisos y tema", ultima = true) { opciones = false; ajustes = true }
+                // PARA LA NAVEGACIÓN: Ir.ajustesAvisos() → ruta "avisos" → AjustesDeAvisos(ir) (Ajustes.kt).
+                MiosFila(I.campana, "Avisos") { opciones = false; ir.ajustesAvisos() }
+                MiosFila(I.escudo, "Verificación y seguridad", ultima = true) { opciones = false; ir.verificacion() }
             }
             MiosGrupo {
                 MiosFila(I.flecha, "Salir", colorIcono = C.coral2, ultima = true) {
                     opciones = false
-                    alcance.launch { c.salir(); ir.intro() }
+                    // iOS deja «Ingresar» como base de la pila.
+                    alcance.launch { c.salir(); ir.intro(); ir.ingresar() }
                 }
             }
         }
-        // Ajustes (contrato §3 y tema): no están diseñados; van con las piezas de la hoja «Tu cuenta».
-        MiosHoja(ajustes, { ajustes = false }, "Avisos y tema") {
-            val av = yo?.avisos ?: ar.com.caigo.app.nucleo.AjustesAvisos()
-            fun guardarAvisos(n: ar.com.caigo.app.nucleo.AjustesAvisos) {
-                c.yo.value = c.yo.value?.copy(avisos = n)
-                alcance.launch {
-                    runCatching { c.api.actualizarYo(ar.com.caigo.app.nucleo.CambiosPerfil(avisos = n)) }
-                        .onSuccess { c.yo.value = it }
-                        .onFailure { c.yo.value = c.yo.value?.copy(avisos = av); avisos.error(mensajeDe(it)) }
-                }
-            }
-            MiosGrupo {
-                FilaAjuste("Planes cerca tuyo", "Cuando se arma algo a menos de 5 km y arranca pronto", av.planesCerca) { guardarAvisos(av.copy(planesCerca = it)) }
-                Box(Modifier.fillMaxWidth().height(1.dp).background(if (p.oscuro) p.separador else C.lavanda))
-                FilaAjuste("Planes de tu gente", "Cuando alguien de tu gente publica un plan", av.tuGente) { guardarAvisos(av.copy(tuGente = it)) }
-            }
-            val tema by c.sesion.tema.collectAsState()
-            T("Tema", 15f, 700)
-            Segmentado(
-                listOf("Automático", "Claro", "Oscuro"), listOf("auto", "claro", "oscuro").indexOf(tema).coerceAtLeast(0),
-                { i -> alcance.launch { c.sesion.guardarTema(listOf("auto", "claro", "oscuro")[i]) } },
-            )
-        }
+        // «¿Borrar tu cuenta?» (App Store 5.1.1(v)): DELETE /v1/yo, borra la sesión y vuelve a la intro.
         MiosHoja(borrando, { if (!borrandoAhora) borrando = false }, "¿Borrar tu cuenta?") {
             T(
                 "Se borran tu perfil, tus fotos, tu selfie, tu DNI y tu teléfono, y se cancelan tus planes que no pasaron. Si tenés Caigo Plus, cancelalo en Google Play.",
                 15f, 400, p.texto2, alto = 1.5f,
             )
-            // Las filas de la hoja de opciones: la destructiva en coral.
             MiosGrupo {
                 Box(
                     Modifier.fillMaxWidth().tocable {
@@ -376,7 +377,7 @@ fun Perfil(ir: Ir) {
                                 borrandoAhora = false
                             }
                         }
-                    }.padding(horizontal = 18.dp, vertical = 16.dp),
+                    }.semantics { role = Role.Button }.padding(horizontal = 18.dp, vertical = 16.dp),
                 ) { if (borrandoAhora) Puntitos(C.coral2) else T("Borrar mi cuenta", 15f, 700, C.coral2) }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(if (p.oscuro) p.separador else C.lavanda))
                 Box(Modifier.fillMaxWidth().tocable { if (!borrandoAhora) borrando = false }.padding(horizontal = 18.dp, vertical = 16.dp)) {
@@ -404,9 +405,9 @@ fun MiGente(ir: Ir) {
                 lista == null && gente.error != null -> Box(Modifier.fillMaxSize().padding(28.dp), contentAlignment = Alignment.Center) {
                     MiosVacio("No pudimos cargar tu gente", gente.error!!, "Probar de nuevo", { gente.recargar() })
                 }
-                lista == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Puntitos() }
+                lista == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Puntitos(p.acento) }
                 lista.isEmpty() -> Box(Modifier.fillMaxSize().padding(28.dp), contentAlignment = Alignment.Center) {
-                    MiosVacio("Todavía no sumaste a nadie", "Después de cada plan te preguntamos con quién volverías a salir.", "Ver mis planes", { ir.atras() })
+                    MiosVacio("Todavía no sumaste a nadie", "Después de cada plan te preguntamos con quién volverías a salir.", "Ver mis planes", { ir.principal(Pestana.Mis) })
                 }
                 else -> LazyColumn(
                     contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 18.dp, bottom = abajo + 24.dp),
@@ -419,9 +420,9 @@ fun MiGente(ir: Ir) {
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Avatar(g.nombre, g.foto, 44.dp, borde = 0.dp, tamTexto = 17f)
-                            Column(Modifier.weight(1f)) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    T(listOfNotNull(g.nombre, g.edad?.toString()).joinToString(", "), 15f, 700)
+                                    T(listOfNotNull(g.nombre, g.edad?.toString()).joinToString(", "), 15f, 700, unRenglon = true)
                                     if (g.verificada) MiosVerificado(15.dp)
                                 }
                                 T(miosAsistencia(g.asistencia), 12f, 400, p.texto2)
@@ -435,9 +436,12 @@ fun MiGente(ir: Ir) {
     }
 }
 
-/** Editar perfil: fotos, nombre, bio, trabajo, zona, preguntas e intereses (PATCH /v1/yo). */
+/**
+ * Editar perfil: fotos, nombre, bio, trabajo, zona, preguntas e intereses (PATCH /v1/yo).
+ * Con [completar] (al final del alta): «Completá tu perfil», sin volver y con los mínimos de la API.
+ */
 @Composable
-fun EditarPerfil(ir: Ir) {
+fun EditarPerfil(ir: Ir, completar: Boolean = false) {
     val c = LocalApp.current
     val p = LocalPaleta.current
     val ctx = LocalContext.current
@@ -473,7 +477,8 @@ fun EditarPerfil(ir: Ir) {
         alcance.launch {
             try {
                 val jpeg = withContext(Dispatchers.IO) {
-                    val b = ctx.contentResolver.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it) }
+                    val b = runCatching { ctx.contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it) } }.getOrNull()
+                        ?: throw ar.com.caigo.app.nucleo.ErrorApi(0, ar.com.caigo.app.nucleo.Problema(detail = "No pudimos leer esa foto. Probá con otra."))
                     jpegDe(b, 0, 86, 1600)
                 }
                 fotos.add(c.api.subir("foto", jpeg).url)
@@ -488,11 +493,26 @@ fun EditarPerfil(ir: Ir) {
 
     Pantalla { arriba, abajo ->
         if (!listo) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Puntitos() }
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Puntitos(p.acento) }
             return@Pantalla
         }
-        Column(Modifier.fillMaxSize().padding(top = arriba + 6.dp)) {
-            Encabezado("Editar perfil", null, { ir.atras() }, Modifier.padding(horizontal = 16.dp))
+        // Los mínimos que faltan (los mismos de personas.Faltantes en la API).
+        val faltan = buildList {
+            if (zona.isBlank()) add("tu zona")
+            if (bio.trim().length < 30) add("contar algo sobre vos (30 letras o más)")
+            if (fotos.size < 2) add("2 fotos")
+            if (gustos.size < 3) add("3 cosas que te copen")
+        }
+        Column(Modifier.fillMaxSize().padding(top = if (completar) arriba + 14.dp else arriba + 6.dp)) {
+            if (completar) {
+                // Con los colores de la paleta (el título del alta es para el fondo claro).
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    T("Completá tu perfil", 34f, 700, p.texto, alto = 1.05f, espaciado = px(-.8f, 34f))
+                    T("Así la gente sabe con quién sale. Mínimo 2 fotos, unas líneas sobre vos y 3 cosas que te copen.", 15f, 400, p.texto2, alto = 1.5f)
+                }
+            } else {
+                Encabezado("Editar perfil", null, { ir.atras() }, Modifier.padding(horizontal = 16.dp))
+            }
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
@@ -507,7 +527,8 @@ fun EditarPerfil(ir: Ir) {
                                     if (url.isNotEmpty()) {
                                         Foto(url, Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)))
                                         Box(
-                                            Modifier.align(Alignment.TopEnd).padding(6.dp).size(28.dp).background(C.carbon, CircleShape).tocable { fotos.remove(url) },
+                                            Modifier.align(Alignment.TopEnd).padding(6.dp).size(28.dp).background(C.carbon, CircleShape).tocable { fotos.remove(url) }
+                                                .semantics { contentDescription = "Sacar foto"; role = Role.Button },
                                             contentAlignment = Alignment.Center,
                                         ) { Icono(I.cruz, 14.dp, C.blanco, 3f) }
                                     } else {
@@ -520,7 +541,8 @@ fun EditarPerfil(ir: Ir) {
                                                         style = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))),
                                                     )
                                                 }
-                                                .tocable { if (!subiendo) elegir.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                                                .tocable { if (!subiendo) elegir.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                                                .semantics { contentDescription = "Sumar foto"; role = Role.Button },
                                             contentAlignment = Alignment.Center,
                                         ) { if (subiendo) Puntitos() else Icono(I.mas, 26.dp, C.violeta, 3f) }
                                     }
@@ -534,20 +556,19 @@ fun EditarPerfil(ir: Ir) {
                 Etiquetado("Sobre mí") { MiosCampo(bio, { bio = it }, renglones = 3, maximo = 300) }
                 Etiquetado("Trabajo") { MiosCampo(trabajo, { trabajo = it }, maximo = 60) }
                 Etiquetado("Zona") { MiosCampo(zona, { zona = it }, placeholder = "Güemes", maximo = 60, mayusculas = KeyboardCapitalization.Words) }
-                Etiquetado("Cómo te identificás") {
-                    T("No se lo mostramos a nadie.", 13f, 400, p.texto2)
+                Etiquetado("Género") {
                     ar.com.caigo.app.pantallas.ingreso.CamposGenero(genero, diversidad, { genero = it }, { diversidad = it })
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     MiosSeccion("Preguntas")
                     prompts.forEachIndexed { i, pr ->
-                        Column(Modifier.fillMaxWidth().gel(22.dp, if (p.oscuro) Gels.tarjetaOscura else Gels.neutra).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.fillMaxWidth().gel(22.dp, if (p.oscuro) neutraOscura else Gels.neutra).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 T(pr.p.uppercase(), 12f, 800, p.texto2, Modifier.weight(1f), espaciado = px(1f, 12f))
-                                Icono(I.cruz, 16.dp, p.texto3, 2.4f, modifier = Modifier.tocable { prompts.removeAt(i) })
+                                Icono(I.cruz, 16.dp, p.texto3, 2.4f, modifier = Modifier.tocable { if (i < prompts.size) prompts.removeAt(i) })
                             }
-                            MiosCampo(pr.r, { prompts[i] = pr.copy(r = it) }, renglones = 2, maximo = 150)
+                            MiosCampo(pr.r, { if (i < prompts.size) prompts[i] = prompts[i].copy(r = it) }, renglones = 2, maximo = 150)
                         }
                     }
                     if (prompts.size < 3) {
@@ -568,8 +589,14 @@ fun EditarPerfil(ir: Ir) {
                     }
                 }
             }
+            if (completar && faltan.isNotEmpty()) {
+                T(
+                    "Falta: ${faltan.joinToString(", ")}.", 13f, 600, p.texto2,
+                    Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 6.dp), alinear = TextAlign.Center,
+                )
+            }
             Cta(
-                "Guardar", {
+                if (completar) "Listo, entrar" else "Guardar", {
                     guardando = true
                     alcance.launch {
                         try {
@@ -580,8 +607,13 @@ fun EditarPerfil(ir: Ir) {
                                     prompts = prompts.filter { it.r.isNotBlank() }.map { it.copy(r = it.r.trim()) },
                                 ),
                             )
-                            avisos.ok("Listo, actualizamos tu perfil.")
-                            ir.atras()
+                            if (completar) {
+                                avisos.ok("¡Listo! Ya podés sumarte a planes.")
+                                ir.principal(Pestana.Ahora)
+                            } else {
+                                avisos.ok("Listo, actualizamos tu perfil.")
+                                ir.atras()
+                            }
                         } catch (e: Throwable) {
                             if (e is kotlinx.coroutines.CancellationException) throw e
                             avisos.error(mensajeDe(e))
@@ -591,7 +623,7 @@ fun EditarPerfil(ir: Ir) {
                     }
                 },
                 Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = abajo + 20.dp),
-                habilitado = nombre.isNotBlank() && !subiendo, cargando = guardando,
+                habilitado = nombre.isNotBlank() && !subiendo && (!completar || faltan.isEmpty()), cargando = guardando,
             )
         }
     }
@@ -602,18 +634,5 @@ private fun Etiquetado(etiqueta: String, campo: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         T(etiqueta, 14f, 700)
         campo()
-    }
-}
-
-
-/** Fila con interruptor de los ajustes (como «Solo verificados» de 06c). */
-@Composable
-private fun FilaAjuste(titulo: String, sub: String, on: Boolean, onCambio: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            T(titulo, 14f, 800)
-            T(sub, 12f, 400, LocalPaleta.current.texto2)
-        }
-        Interruptor(on, onCambio)
     }
 }

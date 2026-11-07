@@ -58,14 +58,25 @@ class MainActivity : ComponentActivity() {
             return
         }
         nfc.enableReaderMode(this, { tag ->
-            val ndef = Ndef.get(tag) ?: return@enableReaderMode
-            val uri = runCatching {
+            val ndef = Ndef.get(tag)
+            if (ndef == null) {
+                runOnUiThread { c.avisos.error("Esa placa no es de Caigo Tap.") }
+                return@enableReaderMode
+            }
+            val leida = runCatching {
                 ndef.connect()
                 val m = ndef.ndefMessage ?: ndef.cachedNdefMessage
-                ndef.close()
+                runCatching { ndef.close() }
                 m?.records?.firstNotNullOfOrNull { it.toUri() }
-            }.getOrNull()
-            c.destinoDe(uri)?.let { d -> runOnUiThread { c.destino.value = d } }
+            }
+            runOnUiThread {
+                val d = c.destinoDe(leida.getOrNull())
+                when {
+                    leida.isFailure -> c.avisos.error("No pudimos leer la placa. Probá de nuevo o escaneá el QR.")
+                    d == null -> c.avisos.error("Esa placa no es de Caigo Tap.")
+                    else -> c.destino.value = d
+                }
+            }
         }, NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B, null)
     }
 
@@ -81,10 +92,12 @@ class MainActivity : ComponentActivity() {
             }
             Intent.ACTION_VIEW -> c.destinoDe(i.data)
             else -> {
-                val pantalla = i.getStringExtra("pantalla")
-                val plan = i.getStringExtra("plan")
-                val privado = i.getStringExtra("privado")
-                if (pantalla != null || plan != null || privado != null) Destino.Pantalla(pantalla.orEmpty(), plan, privado, i.getStringExtra("modo")) else null
+                // Como Push.abrir del iPhone: un campo vacío cuenta como que no vino.
+                fun s(k: String) = i.getStringExtra(k)?.takeIf { it.isNotEmpty() }
+                val pantalla = s("pantalla")
+                val plan = s("plan")
+                val privado = s("privado")
+                if (pantalla != null || plan != null || privado != null) Destino.Pantalla(pantalla.orEmpty(), plan, privado, s("modo")) else null
             }
         }
         if (d != null) c.destino.value = d

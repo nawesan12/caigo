@@ -70,6 +70,9 @@ final class Contenedor {
     }
     @ObservationIgnored private let caja: CajaToken
 
+    /// Sólo en las pruebas de pantallas (CaigoTests): la API simulada y una sesión puesta.
+    nonisolated(unsafe) static var prueba: (base: URL, sesion: URLSession, token: String, usuarioId: String)?
+
     init() {
         let caja = CajaToken()
         self.caja = caja
@@ -79,18 +82,19 @@ final class Contenedor {
             Llavero.guardar(s.token, cuenta: "token")
             Llavero.guardar(s.usuarioId, cuenta: "usuario")
         }
-        let t = Llavero.leer("token")
+        let t = Contenedor.prueba?.token ?? Llavero.leer("token")
         caja.valor = t
         token = t
-        usuarioId = Llavero.leer("usuario") ?? ""
+        usuarioId = Contenedor.prueba?.usuarioId ?? Llavero.leer("usuario") ?? ""
         vioIntro = UserDefaults.standard.bool(forKey: "vioIntro")
         let s = UserDefaults.standard.integer(forKey: "somos")
         somos = s > 0 ? s : 1
         let vencer = Vencimiento()
         self.vencer = vencer
-        api = Api(base: Config.api, sesion: Api.sesionHttp(), token: { caja.valor }, alVencer: { vencer.f() })
+        let base = Contenedor.prueba?.base ?? Config.api
+        api = Api(base: base, sesion: Contenedor.prueba?.sesion ?? Api.sesionHttp(), token: { caja.valor }, alVencer: { vencer.f() })
         clerk = Clerk(publicable: Config.clerkPublicable)
-        tiempoReal = TiempoReal(base: Config.api, token: { caja.valor })
+        tiempoReal = TiempoReal(base: base, token: { caja.valor })
         vencer.f = { [weak self] in Task { @MainActor in self?.salirLocal() } }
     }
 

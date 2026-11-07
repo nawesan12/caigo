@@ -35,6 +35,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import ar.com.caigo.app.BuildConfig
 import ar.com.caigo.app.app.LocalApp
@@ -57,27 +61,19 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.Period
 
-/** Título y bajada de los pasos del registro: `700 34px/1.05`, -.8px; `15px/1.5` gris. */
-@Composable
-internal fun ingresoTitulo(titulo: String, bajada: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        T(titulo, 34f, 700, C.carbon, alto = 1.05f, espaciado = px(-.8f, 34f))
-        T(bajada, 15f, 400, C.texto2, alto = 1.5f)
-    }
-}
-
-/** DD/MM/AAAA → fecha, o null si no es válida. */
-private fun fechaDe(t: String): LocalDate? {
-    val d = t.filter(Char::isDigit)
-    if (d.length != 8) return null
-    return runCatching { LocalDate.of(d.substring(4).toInt(), d.substring(2, 4).toInt(), d.substring(0, 2).toInt()) }.getOrNull()
+/** DDMMAAAA (sólo dígitos) → fecha si es válida (y el año, después de 1900). */
+internal fun ingresoFecha(digitos: String): LocalDate? {
+    if (digitos.length != 8 || !digitos.all(Char::isDigit)) return null
+    val a = digitos.substring(4).toInt()
+    if (a <= 1900) return null
+    return runCatching { LocalDate.of(a, digitos.substring(2, 4).toInt(), digitos.substring(0, 2).toInt()) }.getOrNull()
 }
 
 /**
  * Muestra las barras de DD/MM/AAAA sin meterlas en el texto: el estado guarda sólo los dígitos y así
  * el cursor nunca queda antes de una barra (escribir rápido desordenaba la fecha).
  */
-private val conBarras = androidx.compose.ui.text.input.VisualTransformation { t ->
+private val ingresoConBarras = androidx.compose.ui.text.input.VisualTransformation { t ->
     val d = t.text
     val salida = buildString {
         d.forEachIndexed { i, ch ->
@@ -109,10 +105,10 @@ fun Datos(ir: Ir) {
     var genero by remember { mutableStateOf(yo?.genero.orEmpty()) }
     var diversidad by remember { mutableStateOf(yo?.diversidad == true) }
     var cargando by remember { mutableStateOf(false) }
-    val fecha = fechaDe(nacimiento)
+    val fecha = ingresoFecha(nacimiento)
     val listo = nombre.isNotBlank() && fecha != null && zona.isNotBlank()
 
-    Pantalla { arriba, abajo ->
+    ingresoClaro { Pantalla(oscuro = false) { arriba, abajo ->
         Column(Modifier.fillMaxSize().padding(top = arriba)) {
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, top = 88.dp),
@@ -121,11 +117,11 @@ fun Datos(ir: Ir) {
                 ingresoTitulo("¿Cómo te llamás?", "Así te ven en los planes. Tu fecha de nacimiento no aparece en tu perfil.")
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     T("Nombre", 14f, 700, C.carbon)
-                    ingresoCampo(nombre, { nombre = it.take(40) }, Modifier.fillMaxWidth(), pista = "Tu nombre")
+                    ingresoCampo(nombre, { nombre = it.take(40) }, Modifier.fillMaxWidth(), pista = "Tu nombre", contenido = IngresoContenidoCampo.Nombre)
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     T("Fecha de nacimiento", 14f, 700, C.carbon)
-                    ingresoCampo(nacimiento, { nacimiento = it.filter(Char::isDigit).take(8) }, Modifier.fillMaxWidth(), pista = "DD/MM/AAAA", teclado = KeyboardType.Number, transformacion = conBarras)
+                    ingresoCampo(nacimiento, { nacimiento = it.filter(Char::isDigit).take(8) }, Modifier.fillMaxWidth(), pista = "DD/MM/AAAA", teclado = KeyboardType.Number, transformacion = ingresoConBarras)
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     T("¿Dónde estás?", 14f, 700, C.carbon)
@@ -138,8 +134,7 @@ fun Datos(ir: Ir) {
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     T("¿Cómo te identificás?", 14f, 700, C.carbon)
-                    T("No se lo mostramos a nadie. Sirve para los planes «solo mujeres» y «solo diversidades».", 13f, 400, C.texto2, alto = 1.45f)
-                    CamposGenero(genero, diversidad, { genero = it }, { diversidad = it })
+                    ElegirGenero(genero, diversidad, { genero = it }, { diversidad = it })
                 }
             }
             Column(
@@ -150,7 +145,7 @@ fun Datos(ir: Ir) {
                 T("Caigo es solo para mayores de 18.", 13f, 400, C.texto2)
                 Cta("Seguir", {
                     val f = fecha ?: return@Cta
-                    if (Period.between(f, LocalDate.now()).years < 18) {
+                    if (Period.between(f, ar.com.caigo.app.nucleo.Fecha.hoy()).years < 18) {
                         avisos.error("Caigo es sólo para mayores de 18.")
                         return@Cta
                     }
@@ -163,7 +158,7 @@ fun Datos(ir: Ir) {
                                     genero = genero, diversidad = diversidad,
                                 ),
                             )
-                            ir.alta(rutaDeAlta(c))
+                            ir.alta(ingresoRutaDeAlta(c))
                         } catch (e: Exception) {
                             if (e is kotlinx.coroutines.CancellationException) throw e
                             avisos.error(ingresoMensaje(e))
@@ -174,7 +169,7 @@ fun Datos(ir: Ir) {
                 }, Modifier.fillMaxWidth(), habilitado = listo, cargando = cargando)
             }
         }
-    }
+    } }
 }
 
 /** 01d · Teléfono (Paso 1 de 2): número, código de 6 dígitos por SMS y "Reenviar en 0:24". */
@@ -201,8 +196,8 @@ fun Telefono(ir: Ir) {
                 pedido = true
                 espera = 30
                 codigo = ""
-                // El SMS está simulado: en debug la API devuelve el código y se completa solo.
-                if (BuildConfig.DEBUG && r.codigoDePrueba.isNotBlank()) codigo = r.codigoDePrueba
+                // El SMS está simulado: la API devuelve el código de prueba y se completa solo.
+                if (r.codigoDePrueba.isNotEmpty()) codigo = r.codigoDePrueba
                 else runCatching { foco.requestFocus() }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
@@ -213,7 +208,7 @@ fun Telefono(ir: Ir) {
         }
     }
 
-    Pantalla { arriba, abajo ->
+    ingresoClaro { Pantalla(oscuro = false) { arriba, abajo ->
         Column(Modifier.fillMaxSize().padding(top = arriba)) {
             ingresoBarraArriba(I.atras, { ir.alta("datos") }, { T("Paso 1 de 2", 14f, 700, C.texto2) },
                 Modifier.padding(start = 20.dp, end = 24.dp, top = 12.dp))
@@ -228,13 +223,14 @@ fun Telefono(ir: Ir) {
                             .border(1.5.dp, Color(0xFFE6E1F2), RoundedCornerShape(18.dp)).padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center,
                     ) { T("AR +54", 17f, 700, C.carbon) }
-                    ingresoCampo(numero, { v -> numero = v.filter { it.isDigit() || it == ' ' }.take(16) }, Modifier.weight(1f), pista = "223 555 0142", teclado = KeyboardType.Phone)
+                    ingresoCampo(numero, { v -> numero = v.filter { it.isDigit() || it == ' ' }.take(16) }, Modifier.weight(1f), pista = "223 555 0142", teclado = KeyboardType.Phone, contenido = IngresoContenidoCampo.Telefono)
                 }
-                AnimatedVisibility(pedido, enter = fadeIn(tween(250)) + slideInVertically(tween(250)) { 20 }) {
+                val sube = with(androidx.compose.ui.platform.LocalDensity.current) { 20.dp.roundToPx() }
+                AnimatedVisibility(pedido, enter = fadeIn(tween(250, easing = androidx.compose.animation.core.EaseOut)) + slideInVertically(tween(250, easing = androidx.compose.animation.core.EaseOut)) { sube }) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             T("Código", 14f, 700, C.carbon)
-                            if (espera > 0) T("Reenviar en 0:%02d".format(espera), 14f, 700, C.violeta)
+                            if (espera > 0) T(String.format(java.util.Locale.ROOT, "Reenviar en 0:%02d", espera), 14f, 700, C.violeta)
                             else Box(Modifier.tocable { if (!cargando) pedir() }) { T("Reenviar", 14f, 700, C.violeta) }
                         }
                         ingresoCasillas(codigo, { codigo = it.filter(Char::isDigit).take(6) }, foco)
@@ -252,7 +248,7 @@ fun Telefono(ir: Ir) {
                         cargando = true
                         try {
                             c.api.confirmarCodigo(codigo)
-                            ir.alta(rutaDeAlta(c))
+                            ir.alta(ingresoRutaDeAlta(c))
                         } catch (e: Exception) {
                             if (e is kotlinx.coroutines.CancellationException) throw e
                             avisos.error(ingresoMensaje(e))
@@ -265,15 +261,22 @@ fun Telefono(ir: Ir) {
                     cargando = cargando)
             }
         }
-    }
+    } }
 }
 
-/** Las 6 casillas del código: las completas en gel lavanda, la actual con borde violeta. */
+/**
+ * Las 6 casillas del código: las completas en gel lavanda, la actual con borde violeta. Encima, un
+ * campo invisible que recibe el teclado (y el autocompletado del código por SMS).
+ */
 @Composable
 private fun ingresoCasillas(codigo: String, alCambiar: (String) -> Unit, foco: FocusRequester) {
     BasicTextField(
         codigo, alCambiar,
-        Modifier.fillMaxWidth().focusRequester(foco),
+        Modifier.fillMaxWidth().focusRequester(foco).semantics(mergeDescendants = true) {
+            contentType = androidx.compose.ui.autofill.ContentType.SmsOtpCode
+            contentDescription = "Código de 6 dígitos"
+            stateDescription = codigo
+        },
         singleLine = true,
         textStyle = estilo(1f, 400, Color.Transparent),
         cursorBrush = SolidColor(Color.Transparent),

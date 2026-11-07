@@ -18,7 +18,7 @@ import okhttp3.WebSocketListener
 /**
  * El WebSocket de tiempo real (`/v1/tiempo-real?token=cs_…`): mensajes del chat, privados y
  * "escribiendo". Se conecta mientras la app está abierta y se reconecta con espera creciente
- * (1 s, 2 s, 4 s… hasta 30 s).
+ * (1 s, 2 s, 4 s… hasta 30 s). Los eventos se reparten a quien esté escuchando ([eventos]).
  */
 class TiempoReal(
     private val base: String,
@@ -35,15 +35,7 @@ class TiempoReal(
     private var bucle: Job? = null
     private var intentos = 0
 
-    fun url(t: String): String {
-        val b = base.trimEnd('/')
-        val wsBase = when {
-            b.startsWith("https://") -> "wss://" + b.removePrefix("https://")
-            b.startsWith("http://") -> "ws://" + b.removePrefix("http://")
-            else -> b
-        }
-        return "$wsBase/v1/tiempo-real?token=" + java.net.URLEncoder.encode(t, "UTF-8")
-    }
+    fun url(t: String): String = url(base, t)
 
     fun encender() {
         if (bucle?.isActive == true) return
@@ -97,12 +89,23 @@ class TiempoReal(
     @Serializable
     private data class EscribiendoPrivado(val tipo: String = "escribiendo", val privado: String)
 
-    /** Avisa que la persona está escribiendo en un privado con [conId] (contrato §10). */
+    /** Avisa que la persona está escribiendo en un privado (`conId` es con quién habla). */
     fun escribiendoPrivado(conId: String) {
         ws?.send(json.encodeToString(EscribiendoPrivado.serializer(), EscribiendoPrivado(privado = conId)))
     }
 
     companion object {
+        /** `wss://…/v1/tiempo-real?token=…` (o `ws://` si la base es http). */
+        fun url(base: String, token: String): String {
+            val b = base.trimEnd('/')
+            val wsBase = when {
+                b.startsWith("https://") -> "wss://" + b.removePrefix("https://")
+                b.startsWith("http://") -> "ws://" + b.removePrefix("http://")
+                else -> b
+            }
+            return "$wsBase/v1/tiempo-real?token=" + java.net.URLEncoder.encode(token, "UTF-8")
+        }
+
         /**
          * Lee un evento. «escribiendo» en un privado trae `privado` como texto (el id de quien escribe),
          * no como mensaje: se separa antes de decodificar.
@@ -112,7 +115,7 @@ class TiempoReal(
             val pv = o["privado"]
             if (pv is kotlinx.serialization.json.JsonPrimitive && pv.isString) {
                 val sin = kotlinx.serialization.json.JsonObject(o - "privado")
-                json.decodeFromJsonElement(Evento.serializer(), sin).copy(escribePrivado = pv.content)
+                json.decodeFromJsonElement(Evento.serializer(), sin).copy(privadoDe = pv.content)
             } else json.decodeFromJsonElement(Evento.serializer(), o)
         }.getOrNull()
 

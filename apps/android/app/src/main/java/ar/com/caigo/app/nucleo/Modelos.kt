@@ -4,8 +4,8 @@ import kotlinx.serialization.Serializable
 
 /*
  * Lo que manda y recibe la API (apps/api/internal/dominio/<dominio>/ (archivos .go)). Los nombres de los
- * campos son los del JSON; todo lo opcional tiene valor por defecto para que un campo nuevo o que
- * falte no rompa la app.
+ * campos son los del JSON. Cada campo tiene un valor por defecto (como `Lector.v` en el iPhone), así un
+ * campo nuevo, que falte o que venga null no rompe la app.
  */
 
 @Serializable
@@ -34,7 +34,7 @@ data class LugarCorto(val id: String = "", val slug: String = "", val nombre: St
 
 @Serializable
 data class Plan(
-    val id: String,
+    val id: String = "",
     val slug: String = "",
     val titulo: String = "",
     val categoria: String = "",
@@ -81,7 +81,12 @@ data class Plan(
     val aceptaGrupos: Boolean = true,
     /** Destacado con Caigo Plus: va primero en Ahora y Explorar. */
     val destacado: Boolean = false,
-)
+) {
+    /** Plan de un lugar aliado con entrada o seña: el botón es "Entrada" en vez de "Sumarme". */
+    val conEntrada: Boolean get() = cobro == "entrada" || cobro == "sena"
+    val adentro: Boolean get() = miEstado == "aceptada" || miEstado == "organizador"
+    val esMio: Boolean get() = miEstado == "organizador"
+}
 
 @Serializable
 data class Planes(val planes: List<Plan> = emptyList())
@@ -145,7 +150,7 @@ data class Estado(val estado: String = "")
 
 @Serializable
 data class Solicitud(
-    val id: String,
+    val id: String = "",
     val persona: PersonaCorta = PersonaCorta(),
     val cantidad: Int = 1,
     val mensaje: String = "",
@@ -201,14 +206,32 @@ data class Perfil(
     /** «Me identifico como parte de la diversidad». */
     val diversidad: Boolean = false,
     val avisos: AjustesAvisos = AjustesAvisos(),
-    /** Si la API lo devuelve (hoy sólo se manda en PATCH): teléfono o mail. */
-    val contactoConfianza: String? = null,
-    /** Próximos planes de otra persona que quien mira puede ver. */
+    /** Teléfono o mail del contacto de confianza. */
+    val contactoConfianza: String = "",
+    /** Sus próximos planes que quien mira puede ver (GET /v1/personas/{id}). */
     val proximos: List<ProximoPlan> = emptyList(),
-)
+    /** Lo que le falta al perfil propio (GET /v1/yo): edad, ciudad, zona, bio, fotos, intereses. */
+    val faltan: List<String> = emptyList(),
+) {
+    /** Le falta algo del alta (nombre, teléfono o selfie). */
+    val altaIncompleta: Boolean get() = nombre.isEmpty() || telefono.isEmpty() || !selfie
+}
 
+/** Ajustes de avisos push (contrato §3). Por defecto, los dos prendidos. */
 @Serializable
 data class AjustesAvisos(val planesCerca: Boolean = true, val tuGente: Boolean = true)
+
+/** Géneros que se pueden declarar (contrato §1). */
+object Generos {
+    val todos: List<Pair<String, String>> = listOf("mujer" to "Mujer", "varon" to "Varón", "no_binario" to "No binario")
+
+    /** Si la persona cumple con lo que pide el plan (`cualquiera` | `mujeres` | `diversidades`). */
+    fun puedeSumarse(genero: String, miGenero: String, diversidad: Boolean): Boolean = when (genero) {
+        "mujeres" -> miGenero == "mujer"
+        "diversidades" -> diversidad || miGenero == "no_binario"
+        else -> true
+    }
+}
 
 @Serializable
 data class CambiosPerfil(
@@ -228,7 +251,7 @@ data class CambiosPerfil(
     val contactoConfianza: String? = null,
 )
 
-/** Mi gente: la API devuelve el perfil (con `fotos`); se pasa a la vista corta que usan las listas. */
+/** Mi gente: la API devuelve perfiles; las listas usan la vista corta. */
 @Serializable
 data class Gente(@kotlinx.serialization.SerialName("gente") val perfiles: List<Perfil> = emptyList()) {
     val gente: List<PersonaCorta>
@@ -254,7 +277,7 @@ data class ProximoPlan(
 
 @Serializable
 data class Tarjeta(
-    val id: String,
+    val id: String = "",
     val nombre: String = "",
     val edad: Int? = null,
     val zona: String = "",
@@ -309,14 +332,16 @@ data class Recibidos(val personas: List<Recibido> = emptyList(), val bloqueada: 
 
 @Serializable
 data class Invitacion(
-    val planId: String,
+    val planId: String = "",
     val titulo: String = "",
     val categoria: String = "",
     val empiezaEn: String = "",
     val de: Recibido? = null,
     val foto: String = "",
     val cuando: String = "",
-)
+) {
+    val id: String get() = planId
+}
 
 @Serializable
 data class Invitaciones(val invitaciones: List<Invitacion> = emptyList(), val bloqueada: Boolean = false)
@@ -331,7 +356,7 @@ data class Autor(val id: String = "", val nombre: String = "", val foto: String 
 
 @Serializable
 data class Mensaje(
-    val id: Long,
+    val id: Long = 0,
     val planId: String = "",
     /** Sin autor: mensaje del sistema ("Plan completo. A disfrutar."). */
     val autor: Autor? = null,
@@ -344,7 +369,7 @@ data class Mensajes(val mensajes: List<Mensaje> = emptyList())
 
 @Serializable
 data class Privado(
-    val id: Long,
+    val id: Long = 0,
     val deId: String = "",
     val aId: String = "",
     val texto: String = "",
@@ -356,14 +381,16 @@ data class Privado(
 data class Privados(val privados: List<Privado> = emptyList())
 
 @Serializable
-data class Conversacion(val con: Autor = Autor(), val ultimo: Privado = Privado(0), val sinLeer: Int = 0)
+data class Conversacion(val con: Autor = Autor(), val ultimo: Privado = Privado(), val sinLeer: Int = 0) {
+    val id: String get() = con.id
+}
 
 @Serializable
 data class Conversaciones(val conversaciones: List<Conversacion> = emptyList())
 
 /**
  * Evento del WebSocket de tiempo real. En «escribiendo» de un privado, `privado` llega como el id de
- * quien escribe (texto): lo separa [TiempoReal] y queda en [escribePrivado].
+ * quien escribe (texto): lo separa [TiempoReal.leer] y queda en [privadoDe].
  */
 @Serializable
 data class Evento(
@@ -372,14 +399,15 @@ data class Evento(
     val privado: Privado? = null,
     val planId: String = "",
     val quien: Autor? = null,
-    @kotlinx.serialization.Transient val escribePrivado: String = "",
+    /** En `escribiendo` de un privado: el id de quien escribe (el campo `privado` viene como texto). */
+    @kotlinx.serialization.Transient val privadoDe: String = "",
 )
 
 @Serializable
-data class Bloqueo(val id: String = "", val nombre: String = "", val foto: String = "")
+data class Bloqueado(val id: String = "", val nombre: String = "", val foto: String = "")
 
 @Serializable
-data class Bloqueos(val bloqueos: List<Bloqueo> = emptyList())
+data class Bloqueos(val bloqueos: List<Bloqueado> = emptyList())
 
 @Serializable
 data class Zonas(val zonas: List<String> = emptyList())
@@ -387,9 +415,22 @@ data class Zonas(val zonas: List<String> = emptyList())
 @Serializable
 data class Reembolso(val reembolsoCentavos: Long = 0)
 
-/** GET /v1/version: versión de la API y la mínima de cada app (versionCode / build). */
+/** GET /v1/version: `minAndroid` es el versionCode mínimo que sigue andando (`minIos`, el build del iPhone). */
 @Serializable
-data class Version(val version: String = "", val minAndroid: Int = 0, val minIos: Int = 0)
+data class Version(val version: String = "", val minAndroid: Int = 0, val minIos: Int = 0) {
+    /** La app con este versionCode tiene que actualizarse. */
+    fun pideActualizar(build: Int): Boolean = minAndroid > 0 && build < minAndroid
+}
+
+/** PUT /v1/yo/ubicacion: redondeada a dos decimales (~1 km), como pide el contrato. */
+@Serializable
+class Ubicacion(
+    @kotlinx.serialization.Transient private val latCruda: Double = 0.0,
+    @kotlinx.serialization.Transient private val lngCruda: Double = 0.0,
+) {
+    val lat: Double = Math.round(latCruda * 100) / 100.0
+    val lng: Double = Math.round(lngCruda * 100) / 100.0
+}
 
 // ——— Confianza ———
 
@@ -429,7 +470,9 @@ data class SesionNueva(val token: String = "", val usuarioId: String = "", val e
 // ——— Plus ———
 
 @Serializable
-data class PlanPlus(val plan: String = "", val producto: String = "", val centavos: Long = 0, val nombre: String = "")
+data class PlanPlus(val plan: String = "", val producto: String = "", val centavos: Long = 0, val nombre: String = "") {
+    val id: String get() = plan
+}
 
 @Serializable
 data class Plus(val estado: EstadoPlus = EstadoPlus(), val planes: List<PlanPlus> = emptyList())
@@ -447,7 +490,7 @@ data class Compra(
 
 @Serializable
 data class EntradaMia(
-    val id: String,
+    val id: String = "",
     val codigo: String = "",
     val planId: String = "",
     val titulo: String = "",
@@ -463,13 +506,15 @@ data class EntradaMia(
 
 @Serializable
 data class PaseSocio(
-    val lugarId: String,
+    val lugarId: String = "",
     val lugar: String = "",
     val visitas: Int = 0,
     val meta: Int = 0,
     val beneficio: String = "",
     val pendientes: Int = 0,
-)
+) {
+    val id: String get() = lugarId
+}
 
 @Serializable
 data class Pases(val entradas: List<EntradaMia> = emptyList(), val socios: List<PaseSocio> = emptyList())
@@ -499,7 +544,7 @@ data class SocioTap(
 @Serializable
 data class ResultadoTap(val lugar: String = "", val uso: String = "", val plan: PlanTap? = null, val socio: SocioTap? = null)
 
-/** Error de la API (application/problem+json). [detalle] se muestra tal cual. */
+/** Error de la API (application/problem+json). `detail` se muestra tal cual. */
 @Serializable
 data class Problema(
     val title: String = "",
@@ -511,25 +556,3 @@ data class Problema(
 
 @Serializable
 data class Campo(val path: String = "", val message: String = "")
-
-/**
- * Filtros finos de Ahora/Explorar (Caigo Plus): sólo verificados, que falten al menos N, edad de
- * quien organiza (18–99) y sólo gratis. Sin Plus la API responde 403 `plus`: no se mandan.
- */
-data class FiltrosFinos(
-    val verificados: Boolean = false,
-    val faltan: Int? = null,
-    val edadDesde: Int? = null,
-    val edadHasta: Int? = null,
-    val gratis: Boolean = false,
-) {
-    val alguno: Boolean get() = verificados || (faltan ?: 0) > 0 || edadDesde != null || edadHasta != null || gratis
-
-    fun query(): Array<Pair<String, Any?>> = arrayOf(
-        "verificados" to (if (verificados) "1" else null),
-        "faltan" to faltan?.takeIf { it > 0 },
-        "edadDesde" to edadDesde?.coerceIn(18, 99),
-        "edadHasta" to edadHasta?.coerceIn(18, 99),
-        "gratis" to (if (gratis) "1" else null),
-    )
-}

@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -47,29 +48,6 @@ import ar.com.caigo.app.tema.rgba
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 
-/** Fondo del splash (00): grafito con un radial más claro en el centro, y grano. */
-internal fun Modifier.ingresoFondoSplash(): Modifier = this
-    .background(Color(0xFF17151F))
-    .background(radial(.5f, .42f, .7f, .45f, 0f to Color(0xFF3A3450), .5f to Color(0xFF262233), 1f to Color(0xFF17151F)))
-    .ingresoGrano()
-
-/** El grano del handoff encima de un fondo. */
-internal fun Modifier.ingresoGrano(): Modifier = this.drawBehind {
-    dibujarGrano(Path().apply { addRect(Rect(Offset.Zero, size)) })
-}
-
-/** Mancha de color difuminada (las del splash): radial que se apaga hacia el borde. */
-@Composable
-internal fun ingresoMancha(tam: androidx.compose.ui.unit.Dp, claro: Color, medio: Color, oscuro: Color, alfa: Float, modifier: Modifier) {
-    Box(
-        modifier.size(tam).background(
-            radial(.5f, .5f, 0f, 0f,
-                0f to claro.copy(alpha = alfa), .35f to medio.copy(alpha = alfa), .55f to oscuro.copy(alpha = alfa * .7f), .72f to oscuro.copy(alpha = 0f),
-                circulo = true),
-        ),
-    )
-}
-
 /**
  * 00 · Splash. Mientras se ve, decide a dónde ir: sin sesión, a la intro (la primera vez) o al
  * ingreso; con sesión, al paso del alta que falte o a la app.
@@ -83,7 +61,7 @@ fun Arranque(ir: Ir) {
         val ruta: String = when {
             c.sesion.token.value == null -> if (c.sesion.vioIntro || c.destino.value is Destino.VueltaClerk) "ingresar" else "intro"
             else -> try {
-                rutaDeAlta(c)
+                ingresoRutaDeAlta(c)
             } catch (e: ErrorApi) {
                 if (e.estado == 401) "ingresar" else ingresoRutaApp
             } catch (e: Exception) {
@@ -93,15 +71,15 @@ fun Arranque(ir: Ir) {
             }
         }
         minimo.await()
-        progreso.animateTo(1f, tween(250))
+        progreso.animateTo(1f, tween(250, easing = androidx.compose.animation.core.EaseOut))
         delay(80)
         ir.alta(ruta)
     }
-    Pantalla(fondo = Modifier.ingresoFondoSplash()) { _, abajo ->
+    Pantalla(fondo = Modifier.ingresoFondoSplash()) { arriba, abajo ->
         ingresoMancha(180.dp + 60.dp, Color(0xFFF2FFC8), C.lima, Color(0xFF9CCB3A), .5f, Modifier.offset((-60 - 30).dp, (120 - 30).dp))
-        ingresoMancha(150.dp + 60.dp, Color(0xFFFFC4BA), C.coral, Color(0xFFE0503F), .45f, Modifier.align(Alignment.BottomEnd).offset((50 + 30).dp, (-150 + 30).dp - abajo))
+        ingresoMancha(150.dp + 60.dp, Color(0xFFFFC4BA), C.coral, Color(0xFFE0503F), .45f, Modifier.align(Alignment.BottomEnd).offset((50 + 30).dp, (-150 + 30).dp))
         Column(
-            Modifier.fillMaxSize().padding(bottom = 40.dp),
+            Modifier.fillMaxSize().padding(top = arriba, bottom = 40.dp + abajo),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(26.dp, Alignment.CenterVertically),
         ) {

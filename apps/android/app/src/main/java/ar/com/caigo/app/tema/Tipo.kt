@@ -72,6 +72,17 @@ fun estilo(
 /** letter-spacing en px del CSS → em, para que escale con el tamaño. */
 fun px(espaciado: Float, tam: Float): TextUnit = (espaciado / tam).em
 
+/**
+ * Sin renglones viudos (regla de Nahuel): el último espacio pasa a ser no separable, así la última
+ * palabra nunca queda sola en el renglón de abajo. Sólo en textos de 3 palabras o más (como el iPhone).
+ */
+fun sinViudas(s: String): String {
+    val i = s.lastIndexOf(' ')
+    if (s.length <= 12 || i < 0 || s.length - i - 1 > 14) return s
+    if (s.split(' ').count { it.isNotEmpty() } < 3 || s.substring(i + 1).contains('\n')) return s
+    return s.substring(0, i) + '\u00A0' + s.substring(i + 1)
+}
+
 /** Texto con el estilo del handoff. Es el único texto que usan las pantallas. */
 @Composable
 fun T(
@@ -87,7 +98,7 @@ fun T(
     unRenglon: Boolean = false,
 ) {
     BasicText(
-        text = texto,
+        text = if (unRenglon || maxRenglones == 1) texto else sinViudas(texto),
         modifier = modifier,
         style = estilo(tam, peso, color, alto, espaciado, alinear),
         maxLines = if (unRenglon) 1 else maxRenglones,
@@ -98,3 +109,7 @@ fun T(
 
 /** Títulos de pantalla: `700 30px/1`, -0.045em (o el 800 40px de Ahora). */
 val EspaciadoTitulo = (-0.045f).em
+
+/** El mismo espaciado de título, con el nombre del iPhone (`espaciadoTitulo(tam)`; en em no depende del tamaño). */
+@Suppress("UNUSED_PARAMETER")
+fun espaciadoTitulo(tam: Float): TextUnit = EspaciadoTitulo

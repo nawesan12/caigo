@@ -25,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -65,7 +67,9 @@ fun OcultarTabBar(oculta: Boolean) {
 /** Las cuatro pestañas con la tab bar flotante encima. */
 @Composable
 fun Principal(ir: Ir, inicial: Pestana, modo: String?) {
-    var tab by rememberSaveable { mutableStateOf(inicial) }
+    // La pestaña vive en Ir (cualquier pantalla la puede cambiar, como `ir.pestana` del iPhone).
+    androidx.compose.runtime.remember { if (ir.pestana != inicial) ir.pestana = inicial; true }
+    val tab = ir.pestana
     val p = LocalPaleta.current
     val c = ar.com.caigo.app.app.LocalApp.current
     // Avisos (Android 13+): se piden una vez, al llegar a la app después del alta (como iOS).
@@ -83,20 +87,22 @@ fun Principal(ir: Ir, inicial: Pestana, modo: String?) {
             c.sesion.marcarAvisosPedidos()
             c.avisosResueltos.value = true
         }
+        c.mandarUbicacion()
     }
     val oculta = androidx.compose.runtime.remember { mutableStateOf(false) }
     androidx.compose.runtime.CompositionLocalProvider(LocalTabBarOculta provides oculta) {
         Box(Modifier.fillMaxSize().fondoCaigo(p.oscuro)) {
             when (tab) {
-                Pestana.Ahora -> Ahora(ir, modo)
+                Pestana.Ahora -> Ahora(ir, ir.modoAhora ?: modo)
                 Pestana.Explorar -> Explorar(ir)
                 Pestana.Mis -> MisPlanes(ir)
                 Pestana.Perfil -> Perfil(ir)
             }
             androidx.compose.animation.AnimatedVisibility(
                 !oculta.value, Modifier.align(Alignment.BottomCenter),
-                enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut(),
-            ) { TabBar(tab, { tab = it; oculta.value = false }, { ir.crear() }) }
+                enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing)),
+                exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing)),
+            ) { TabBar(tab, { ir.pestana = it }, { ir.crear() }) }
         }
     }
 }
@@ -133,7 +139,7 @@ fun TabBar(activa: Pestana, onTab: (Pestana) -> Unit, onCrear: () -> Unit, modif
                         ) {
                             // drop-shadow(0 10px 12px rgba(116,86,241,.45)) del isotipo
                             Box(Modifier.size(54.dp).gel(17.dp, null, listOf(externa(10f, 12f, rgba(116, 86, 241, .45f)))))
-                            Image(painterResource(R.drawable.caigo_icon), "Crear", Modifier.size(68.dp))
+                            Image(painterResource(R.drawable.caigo_icon), "Crear un plan", Modifier.size(68.dp))
                         }
                     }
                 } else {
@@ -142,9 +148,10 @@ fun TabBar(activa: Pestana, onTab: (Pestana) -> Unit, onCrear: () -> Unit, modif
                     val color = if (on) p.tabActivo else p.tabInactivo
                     Column(
                         Modifier.weight(1f).fillMaxHeight()
+                            .tocable { onTab(t) }
+                            .semantics { selected = on }
                             .padding(horizontal = 3.dp, vertical = 8.dp)
-                            .then(if (on) Modifier.gel(28.dp, if (p.oscuro) Gels.tabPillOscura else Gels.tabPill) else Modifier)
-                            .tocable { onTab(t) },
+                            .then(if (on) Modifier.gel(28.dp, if (p.oscuro) Gels.tabPillOscura else Gels.tabPill) else Modifier),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
                     ) {

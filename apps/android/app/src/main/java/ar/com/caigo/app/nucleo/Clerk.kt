@@ -1,19 +1,19 @@
 package ar.com.caigo.app.nucleo
 
 import android.content.Context
-import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * Ingreso con Google y Apple por Clerk, la identidad compartida de Grupo Vimo, sin el SDK: se habla
  * con la Frontend API en modo nativo (`_is_native=1`), con el token del cliente de Clerk en
- * `Authorization`. Es el mismo flujo que la web de Tu Local Web (mostrador-v2/apps/web/src/lib/clerk.ts):
+ * `Authorization`. Es el mismo flujo que el iPhone (Nucleo/Clerk.swift) y la web de Tu Local Web:
  *
  * 1. [iniciar] crea el intento (`oauth_google` / `oauth_apple`) con `redirect_url =
  *    ar.com.caigo.app://callback` y devuelve la URL del proveedor, que se abre en una Custom Tab.
@@ -22,7 +22,17 @@ import okhttp3.Request
  *    JWT de la sesión de Clerk y cierra esa sesión: la API lo verifica y lo canjea por la de Caigo.
  */
 class Clerk(private val ctx: Context, private val http: OkHttpClient, publicable: String) {
-    class ErrorClerk(val codigo: String) : Exception(codigo)
+    class ErrorClerk(val codigo: String) : Exception(mensajeDe(codigo)) {
+        val mensaje: String get() = mensajeDe(codigo)
+
+        private companion object {
+            fun mensajeDe(codigo: String): String = when (codigo) {
+                "cancelado" -> "Se canceló el ingreso."
+                "sin_clave" -> "Falta configurar el ingreso en esta versión."
+                else -> "No pudimos completar el ingreso. Probá de nuevo."
+            }
+        }
+    }
 
     val fapi: String? = fapiDe(publicable)
     val disponible get() = fapi != null
@@ -57,11 +67,9 @@ class Clerk(private val ctx: Context, private val http: OkHttpClient, publicable
                 .build()
             val b = Request.Builder().url(url)
             if (!cliente.isNullOrBlank()) b.header("Authorization", cliente)
-            val body = when {
-                cuerpo != null -> FormBody.Builder().apply { cuerpo.forEach { (k, v) -> add(k, v) } }.build()
-                metodo == "POST" -> FormBody.Builder().build()
-                else -> null
-            }
+            val body = if (metodo == "POST") {
+                formulario(cuerpo.orEmpty()).toRequestBody("application/x-www-form-urlencoded".toMediaType())
+            } else null
             b.method(metodo, body)
             http.newCall(b.build()).execute().use { res ->
                 val texto = res.body?.string().orEmpty()
@@ -111,7 +119,7 @@ class Clerk(private val ctx: Context, private val http: OkHttpClient, publicable
         }
         if (sesion.isNullOrBlank() || !Regex("^sess_[A-Za-z0-9]+$").matches(sesion)) throw ErrorClerk("cancelado")
         val t = pedir("/client/sessions/$sesion/tokens", "POST", cliente = cliente)
-        val jwt = t.r.jwt ?: throw ErrorClerk("clerk_no_responde")
+        val jwt = t.r.jwt?.takeIf { it.isNotEmpty() } ?: throw ErrorClerk("clerk_no_responde")
         // Caigo sigue con su propia sesión: la de Clerk se cierra. Si falla, vence sola.
         runCatching { pedir("/client/sessions/$sesion/remove", "POST", cliente = t.cliente) }
         return jwt
@@ -120,15 +128,37 @@ class Clerk(private val ctx: Context, private val http: OkHttpClient, publicable
     companion object {
         const val VERSION_FAPI = "2025-11-10"
         const val VUELTA = "ar.com.caigo.app://callback"
+        const val ESQUEMA = "ar.com.caigo.app"
 
         /** La Frontend API sale de la clave publicable: pk_<entorno>_<base64("host$")>. */
         fun fapiDe(publicable: String?): String? {
-            val m = Regex("^pk_(live|test)_([A-Za-z0-9+/=_-]+)$").find(publicable.orEmpty()) ?: return null
+            val partes = publicable?.split("_", limit = 3) ?: return null
+            if (partes.size != 3 || partes[0] != "pk" || (partes[1] != "live" && partes[1] != "test")) return null
             return runCatching {
-                val crudo = m.groupValues[2].replace('-', '+').replace('_', '/')
-                val host = String(Base64.decode(crudo, Base64.DEFAULT)).removeSuffix("$")
+                var b = partes[2].replace('-', '+').replace('_', '/')
+                while (b.length % 4 != 0) b += "="
+                val host = String(java.util.Base64.getDecoder().decode(b), Charsets.UTF_8).removeSuffix("$")
                 if (Regex("^[a-z0-9.-]+\\.[a-z]{2,}$", RegexOption.IGNORE_CASE).matches(host)) "https://$host" else null
             }.getOrNull()
         }
+
+        /** Cuerpo `application/x-www-form-urlencoded`, con las claves ordenadas (como el iPhone). */
+        fun formulario(d: Map<String, String>): String = d.toSortedMap().entries.joinToString("&") { (k, v) -> "$k=${codificar(v)}" }
+
+        private fun codificar(v: String): String = buildString {
+            v.toByteArray(Charsets.UTF_8).forEach { byte ->
+                val c = byte.toInt() and 0xFF
+                val ch = c.toChar()
+                if (ch in 'a'..'z' || ch in 'A'..'Z' || ch in '0'..'9' || ch == '-' || ch == '.' || ch == '_' || ch == '~') append(ch)
+                else append('%').append(String.format(java.util.Locale.ROOT, "%02X", c))
+            }
+        }
+
+        /** El nonce de la URL de vuelta (`ar.com.caigo.app://callback?rotating_token_nonce=…`). */
+        fun nonce(url: String): String? = runCatching { java.net.URI(url).rawQuery }.getOrNull()
+            ?.split("&")
+            ?.firstOrNull { it.substringBefore("=") == "rotating_token_nonce" }
+            ?.substringAfter("=", "")
+            ?.let { java.net.URLDecoder.decode(it, "UTF-8") }
     }
 }

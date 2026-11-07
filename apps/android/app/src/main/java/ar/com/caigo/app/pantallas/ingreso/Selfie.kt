@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -41,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ar.com.caigo.app.app.LocalApp
@@ -49,6 +51,7 @@ import ar.com.caigo.app.piezas.Cta
 import ar.com.caigo.app.piezas.Disparador
 import ar.com.caigo.app.piezas.LocalAvisos
 import ar.com.caigo.app.piezas.Pantalla
+import ar.com.caigo.app.piezas.EscanerCodigos
 import ar.com.caigo.app.piezas.VistaCamara
 import ar.com.caigo.app.piezas.rememberPermiso
 import ar.com.caigo.app.tema.C
@@ -60,72 +63,16 @@ import ar.com.caigo.app.tema.gel
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
+import com.google.mlkit.vision.barcode.common.Barcode
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.min
 
 /**
- * Prueba de vida con ML Kit: mirar a la cámara, girar la cabeza a un lado y después al otro.
- * Además lleva los requisitos de la foto (buena luz, cara centrada, ojos a la vista).
+ * Cámara frontal con la detección de caras conectada a [vida]. Como iOS (Vision), una cara cuenta si
+ * ocupa más del 20 % del ancho del cuadro.
  */
-@Stable
-internal class IngresoVida {
-    /** 0 mirar a la cámara · 1 girar a la izquierda · 2 girar al otro lado · 3 listo. */
-    var fase by mutableIntStateOf(0)
-    var progreso by mutableFloatStateOf(0f)
-    var luz by mutableStateOf(false)
-    var centrada by mutableStateOf(false)
-    var ojos by mutableStateOf(false)
-    var hayCara by mutableStateOf(false)
-    private var quieto = 0
-    private var lado = 0f
-
-    fun reiniciar() {
-        fase = 0; progreso = 0f; quieto = 0; lado = 0f
-    }
-
-    /** Un cuadro analizado: [yaw] es el giro de la cabeza (headEulerAngleY). */
-    fun cuadro(cara: Boolean, yaw: Float, centro: Boolean, ojosAbiertos: Boolean, luminancia: Float) {
-        luz = luminancia > 70f
-        hayCara = cara
-        centrada = cara && centro
-        ojos = cara && ojosAbiertos
-        if (!cara || fase == 3) return
-        when (fase) {
-            0 -> if (centrada && abs(yaw) < 12f) {
-                quieto++
-                progreso = min(.25f, quieto * .03f)
-                if (quieto >= 8) fase = 1
-            }
-            1 -> {
-                progreso = .25f + .4f * min(abs(yaw) / 22f, 1f)
-                if (abs(yaw) >= 22f) { lado = if (yaw > 0) 1f else -1f; fase = 2 }
-            }
-            2 -> {
-                val otro = -yaw * lado
-                progreso = .65f + .3f * (otro.coerceAtLeast(0f) / 22f).coerceAtMost(1f)
-                if (otro >= 22f) { progreso = 1f; fase = 3 }
-            }
-        }
-    }
-}
-
-@androidx.annotation.OptIn(ExperimentalGetImage::class)
-private fun imagenDe(img: ImageProxy): android.media.Image? = img.image
-
-/** Luminancia media del plano Y (muestreada). */
-private fun luminancia(img: ImageProxy): Float {
-    val b = img.planes.firstOrNull()?.buffer ?: return 128f
-    b.rewind()
-    var suma = 0L
-    var n = 0
-    var i = 0
-    val paso = 40
-    while (i < b.limit()) { suma += (b.get(i).toInt() and 0xFF); n++; i += paso }
-    return if (n == 0) 128f else suma.toFloat() / n
-}
-
-/** Cámara frontal con la detección de caras conectada a [vida]. */
 @Composable
 internal fun ingresoCamaraVida(vida: IngresoVida, disparador: Disparador, modifier: Modifier = Modifier) {
     val detector = remember {
@@ -133,27 +80,28 @@ internal fun ingresoCamaraVida(vida: IngresoVida, disparador: Disparador, modifi
             FaceDetectorOptions.Builder()
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
                 .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-                .setMinFaceSize(.25f)
+                .setMinFaceSize(.2f)
                 .build(),
         )
     }
     DisposableEffect(Unit) { onDispose { detector.close() } }
     VistaCamara(modifier, frontal = true, disparador = disparador) { img ->
-        val media = imagenDe(img)
+        val media = ingresoImagenDe(img)
         if (media == null) { img.close(); return@VistaCamara }
-        val lum = luminancia(img)
+        val lum = ingresoLuminancia(img)
         val rot = img.imageInfo.rotationDegrees
         val w = if (rot % 180 == 0) img.width else img.height
         val h = if (rot % 180 == 0) img.height else img.width
         detector.process(InputImage.fromMediaImage(media, rot))
             .addOnSuccessListener { caras ->
                 val f = caras.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
-                if (f == null) {
+                if (f == null || f.boundingBox.width().toFloat() / w <= .2f) {
                     vida.cuadro(false, 0f, false, false, lum)
                 } else {
                     val r: Rect = f.boundingBox
                     val cx = r.exactCenterX() / w
                     val cy = r.exactCenterY() / h
+                    // Ojos abiertos (con lentes oscuros ML Kit no los ve abiertos).
                     val ojos = (f.leftEyeOpenProbability ?: 1f) > .5f && (f.rightEyeOpenProbability ?: 1f) > .5f
                     vida.cuadro(true, f.headEulerAngleY, abs(cx - .5f) < .17f && abs(cy - .5f) < .22f, ojos, lum)
                 }
@@ -162,43 +110,10 @@ internal fun ingresoCamaraVida(vida: IngresoVida, disparador: Disparador, modifi
     }
 }
 
-/**
- * Círculo con anillo de progreso conic (01e: violeta sobre `#E4DEFA`; DNI: lima). Adentro va la
- * cámara o la foto, con el borde de 6 px del color del fondo.
- */
+/** Cámara trasera que lee el PDF417 del DNI y saca la foto. */
 @Composable
-internal fun ingresoAnillo(
-    tam: Dp,
-    grosor: Dp,
-    progreso: Float,
-    color: Color,
-    pista: Color,
-    modifier: Modifier = Modifier,
-    contenido: @Composable () -> Unit,
-) {
-    val p by animateFloatAsState(progreso, tween(220), label = "anillo")
-    Box(modifier.size(tam), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) {
-            drawCircle(pista)
-            drawArc(color, -90f, 360f * p, useCenter = true, topLeft = Offset.Zero, size = Size(size.width, size.height))
-        }
-        Box(
-            Modifier.size(tam - grosor * 2).clip(CircleShape).background(Color(0xFFE9E4F7))
-                .border(6.dp, C.blancoCalido, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            contenido()
-            Box(Modifier.fillMaxSize().border(6.dp, C.blancoCalido, CircleShape))
-        }
-    }
-}
-
-/** Pill oscura de la instrucción. */
-@Composable
-internal fun ingresoPillOscura(texto: String) {
-    Box(Modifier.gel(14.dp, Gels.oscuroSel).padding(horizontal = 16.dp, vertical = 10.dp)) {
-        T(texto, 14f, 600, C.blancoCalido)
-    }
+internal fun ingresoCamaraDni(disparador: Disparador, modifier: Modifier = Modifier, alLeer: (String) -> Unit) {
+    EscanerCodigos(modifier, intArrayOf(Barcode.FORMAT_PDF417), disparador, alLeer)
 }
 
 /** 01e · Selfie con prueba de vida (Paso 2 de 2). */
@@ -206,22 +121,27 @@ internal fun ingresoPillOscura(texto: String) {
 fun Selfie(ir: Ir, volver: Boolean) {
     val c = LocalApp.current
     val ctx = LocalContext.current
+    val vista = LocalView.current
     val avisos = LocalAvisos.current
     val alcance = rememberCoroutineScope()
     val vida = remember { IngresoVida() }
     val disparador = remember { Disparador() }
     var foto by remember { mutableStateOf<ByteArray?>(null) }
     var cargando by remember { mutableStateOf(false) }
-    val (permiso, pedirPermiso) = rememberPermiso(Manifest.permission.CAMERA)
+    val (permiso, pedirPermiso) = rememberIngresoPermisoCamara()
     LaunchedEffect(Unit) { if (!permiso) pedirPermiso() }
 
     // Al terminar la prueba de vida se saca la foto sola.
     LaunchedEffect(vida.fase) {
         if (vida.fase == 3 && foto == null) {
-            foto = runCatching { disparador.foto(ctx) }.getOrElse {
+            try {
+                foto = disparador.foto(ctx)
+                ingresoVibrar(vista)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 avisos.error("No pudimos sacar la foto. Probá de nuevo.")
                 vida.reiniciar()
-                null
             }
         }
     }
@@ -234,7 +154,7 @@ fun Selfie(ir: Ir, volver: Boolean) {
         else -> "Mirá a la cámara"
     }
 
-    Pantalla { arriba, abajo ->
+    ingresoClaro { Pantalla(oscuro = false) { arriba, abajo ->
         Column(Modifier.fillMaxSize().padding(top = arriba), horizontalAlignment = Alignment.CenterHorizontally) {
             ingresoBarraArriba(I.atras, { if (volver) ir.atras() else ir.alta("telefono") }, {
                 if (!volver) T("Paso 2 de 2", 14f, 700, C.texto2)
@@ -242,14 +162,11 @@ fun Selfie(ir: Ir, volver: Boolean) {
             Box(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 32.dp)) {
                 ingresoTitulo("Ahora, una selfie", "Es para confirmar que sos una persona real. No se publica.")
             }
-            Spacer(Modifier.weight(1f).height(20.dp))
+            Spacer(Modifier.weight(1f).heightIn(min = 20.dp))
             ingresoAnillo(276.dp, 8.dp, if (foto != null) 1f else vida.progreso, C.violeta, C.pista) {
                 val f = foto
                 when {
-                    f != null -> {
-                        val bmp = remember(f) { android.graphics.BitmapFactory.decodeByteArray(f, 0, f.size).asImageBitmap() }
-                        Image(bmp, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    }
+                    f != null -> ingresoImagenDatos(f)
                     permiso -> ingresoCamaraVida(vida, disparador, Modifier.fillMaxSize())
                     else -> Icono(I.usuario, 64.dp, C.violeta, 2f)
                 }
@@ -257,18 +174,18 @@ fun Selfie(ir: Ir, volver: Boolean) {
             Spacer(Modifier.height(24.dp))
             ingresoPillOscura(instruccion)
             Spacer(Modifier.height(18.dp))
-            // En pantallas más angostas que el mockup los chips bajan enteros al renglón de abajo (nunca se parte el texto).
+            // En pantallas angostas los chips bajan enteros al renglón de abajo (IngresoFilas de iOS).
             @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
             androidx.compose.foundation.layout.FlowRow(
                 Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                ingresoChipRequisito("Buena luz", vida.luz && permiso)
+                ingresoChipRequisito("Buena luz", (vida.luz && permiso) || foto != null)
                 ingresoChipRequisito("Cara centrada", vida.centrada || foto != null)
                 ingresoChipRequisito("Sin lentes de sol", vida.ojos || foto != null)
             }
-            Spacer(Modifier.weight(1f).height(20.dp))
+            Spacer(Modifier.weight(1f).heightIn(min = 20.dp))
             Column(
                 Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 36.dp + abajo),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -282,14 +199,15 @@ fun Selfie(ir: Ir, volver: Boolean) {
                     val f = foto
                     if (!permiso) { pedirPermiso(); return@Cta }
                     if (f == null) return@Cta
+                    cargando = true
                     alcance.launch {
-                        cargando = true
                         try {
                             val a = c.api.subir("selfie", f)
                             c.api.selfie(a.id)
-                            if (volver) ir.atras() else ir.alta(rutaDeAlta(c))
+                            if (volver) ir.atras() else ir.alta(ingresoRutaDeAlta(c))
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
-                            if (e is kotlinx.coroutines.CancellationException) throw e
                             avisos.error(ingresoMensaje(e))
                         } finally {
                             cargando = false
@@ -298,5 +216,5 @@ fun Selfie(ir: Ir, volver: Boolean) {
                 }, Modifier.fillMaxWidth(), habilitado = !permiso || foto != null, cargando = cargando)
             }
         }
-    }
+    } }
 }

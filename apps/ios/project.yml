@@ -165,7 +165,11 @@ targets:
   CaigoTests:
     type: bundle.unit-test
     platform: iOS
-    sources: [CaigoTests]
+    sources:
+      - CaigoTests
+      # Las respuestas de la API simulada, las mismas que lee Android.
+      - path: ../pruebas/respuestas.json
+        buildPhase: resources
     dependencies:
       - target: Caigo
       - package: Nucleo

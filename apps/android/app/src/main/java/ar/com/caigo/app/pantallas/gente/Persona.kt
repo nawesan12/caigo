@@ -1,8 +1,10 @@
 package ar.com.caigo.app.pantallas.gente
 
-import ar.com.caigo.app.pantallas.planes.HojaOpciones
-import ar.com.caigo.app.pantallas.planes.HojaReporte
-import ar.com.caigo.app.pantallas.planes.colorDeCategoria
+import ar.com.caigo.app.piezas.colorDeCategoria
+import ar.com.caigo.app.piezas.asistencia
+import ar.com.caigo.app.piezas.Verificado
+import ar.com.caigo.app.piezas.HojaReporte
+import ar.com.caigo.app.piezas.HojaOpciones
 
 import ar.com.caigo.app.nucleo.Cupo
 import ar.com.caigo.app.piezas.Foto
@@ -52,7 +54,7 @@ import ar.com.caigo.app.nucleo.Tarjeta
 import ar.com.caigo.app.nucleo.mensajeDe
 import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.piezas.Cta
-import ar.com.caigo.app.piezas.Fecha
+import ar.com.caigo.app.nucleo.Fecha
 import ar.com.caigo.app.piezas.LocalAvisos
 import ar.com.caigo.app.piezas.Pantalla
 import ar.com.caigo.app.piezas.Puntitos
@@ -74,6 +76,16 @@ import ar.com.caigo.app.tema.rgba
 import ar.com.caigo.app.tema.vertical
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import ar.com.caigo.app.nucleo.ErrorApi
+import ar.com.caigo.app.piezas.BotonIcono
+import ar.com.caigo.app.nucleo.Categorias
+import ar.com.caigo.app.tema.LocalPaleta
+import ar.com.caigo.app.tema.PaletaClara
 
 /**
  * Perfil de persona (prototipo · pp). [desde] dice qué botones van abajo:
@@ -83,6 +95,13 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PerfilPersona(ir: Ir, id: String, desde: String) {
+    // Siempre con la paleta clara (como `.environment(\.paleta, .clara)` de iOS).
+    CompositionLocalProvider(LocalPaleta provides PaletaClara) { PerfilPersonaClaro(ir, id, desde) }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PerfilPersonaClaro(ir: Ir, id: String, desde: String) {
     val c = LocalApp.current
     val avisos = LocalAvisos.current
     val alcance = rememberCoroutineScope()
@@ -94,7 +113,15 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
     val esCitas = desde.endsWith("citas")
     val planInvita = desde.removePrefix("invitacion:").takeIf { desde.startsWith("invitacion:") }
 
-    fun accion(f: suspend () -> Unit) = alcance.launch { runCatching { f() }.onFailure { avisos.error(mensajeDe(it)) } }
+    fun accion(f: suspend () -> Unit) = alcance.launch {
+        try {
+            f()
+        } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            avisos.error(mensajeDe(e))
+        }
+    }
+    val modo = if (esCitas) "citas" else "gente"
 
     Pantalla(oscuro = false) { arribaP, abajo ->
         val p = persona.dato
@@ -102,6 +129,7 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 if (persona.error != null) T(persona.error!!, 16f, 600, C.carbon, alinear = TextAlign.Center, modifier = Modifier.padding(30.dp)) else Puntitos()
             }
+            BotonIcono(I.atras, { ir.atras() }, Modifier.padding(start = 16.dp, top = arribaP + 8.dp))
             return@Pantalla
         }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 150.dp + abajo)) {
@@ -118,7 +146,8 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
                 }
                 Box(
                     Modifier.padding(top = arriba + 20.dp, start = 16.dp).size(42.dp).toque { ir.atras() }
-                        .background(rgba(32, 29, 43, .45f), RoundedCornerShape(15.dp)),
+                        .background(rgba(32, 29, 43, .45f), RoundedCornerShape(15.dp))
+                        .semantics { contentDescription = "Volver"; role = Role.Button },
                     contentAlignment = Alignment.Center,
                 ) { Icono(if (desde == "gente" || desde == "citas") I.abajo else I.atras, 20.dp, C.blanco, 2.8f) }
                 val badge = when {
@@ -134,15 +163,15 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
                         T(p.nombre + (p.edad?.let { ", $it" } ?: ""), 34f, 800, C.blanco, alto = 1f, espaciado = px(-.8f, 34f), unRenglon = true)
                         if (p.verificada) Verificado()
                     }
-                    val sub = listOf(p.trabajo, p.zona).filter { it.isNotBlank() }.joinToString(" · ")
-                    if (sub.isNotBlank()) T(sub, 14f, 600, Color(0xFFE4E0EE))
+                    val sub = listOf(p.trabajo, p.zona).filter { it.isNotEmpty() }.joinToString(" · ")
+                    if (sub.isNotEmpty()) T(sub, 14f, 600, Color(0xFFE4E0EE))
                 }
             }
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 if (p.compartidos > 0) Box(Modifier.background(C.lima, RoundedCornerShape(13.dp)).padding(horizontal = 12.dp, vertical = 8.dp)) {
                     T(if (p.compartidos == 1) "1 plan en común" else "${p.compartidos} planes en común", 13f, 800, C.carbon)
                 }
-                if (p.bio.isNotBlank()) TarjetaPerfil {
+                if (p.bio.isNotEmpty()) TarjetaPerfil {
                     T("SOBRE MÍ", 12f, 800, C.texto2, espaciado = px(1.4f, 12f))
                     T(p.bio, 15f, 400, C.carbon, alto = 1.5f)
                 }
@@ -151,7 +180,7 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
                     Estadistica(if (p.asistencia.de > 0) "${(p.asistencia.fue * 100 + p.asistencia.de / 2) / p.asistencia.de}%" else "—", "asistencia", Modifier.weight(1f))
                     Estadistica(if (p.verificada) "DNI" else "Selfie", "verificado", Modifier.weight(1f))
                 }
-                p.prompts.filter { it.r.isNotBlank() }.forEach { pr ->
+                p.prompts.filter { it.r.isNotEmpty() }.forEach { pr ->
                     TarjetaPerfil {
                         T(pr.p, 13f, 700, C.texto2)
                         T(pr.r, 22f, 700, C.carbon, alto = 1.2f, espaciado = px(-.4f, 22f))
@@ -160,7 +189,7 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
                 if (p.intereses.isNotEmpty()) TarjetaPerfil {
                     T("LE COPA", 12f, 800, C.texto2, espaciado = px(1.4f, 12f))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        p.intereses.forEach { g -> Box(Modifier.gel(14.dp, Gels.off).padding(horizontal = 13.dp, vertical = 8.dp)) { T(g, 13f, 700, C.carbon) } }
+                        p.intereses.forEach { g -> Box(Modifier.gel(14.dp, Gels.off).padding(horizontal = 13.dp, vertical = 8.dp)) { T(g, 13f, 700, C.carbon, unRenglon = true) } }
                     }
                 }
                 // Sus próximos planes (contrato §5), con la fila del prototipo (pp · ppPlans).
@@ -168,22 +197,23 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
                     T("Sus próximos planes", 15f, 800, C.carbon)
                     p.proximos.forEach { pr ->
                         Row(
-                            Modifier.fillMaxWidth().toque(alBajar = 0.dp) { ir.plan(pr.id) }.gel(22.dp, Gels.neutra)
+                            Modifier.fillMaxWidth().toque(alBajar = 0.dp) { ir.plan(pr.id) }
+                                .semantics(mergeDescendants = true) { role = Role.Button }.gel(22.dp, Gels.neutra)
                                 .padding(start = 10.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Foto(pr.foto, Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)), colorDeCategoria(pr.categoria))
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 T(pr.titulo, 15f, 800, C.carbon, unRenglon = true)
-                                T(listOfNotNull(Fecha.cuando(pr.empiezaEn), pr.faltan?.let { Cupo.badge(it) }).joinToString(" · "), 12f, 600, C.texto2, unRenglon = true)
+                                T(listOf(Fecha.cuando(pr.empiezaEn), Categorias.nombre(pr.categoria)).filter { it.isNotEmpty() }.joinToString(" · "), 12f, 600, C.texto2, unRenglon = true)
                             }
-                            Icono(I.adelante, 18.dp, C.inactivo, 2.6f)
+                            Icono(I.adelante, 18.dp, Color(0xFF9A95AD), 2.6f)
                         }
                     }
                 }
                 T(
-                    if (p.enMiGente) "Sacar de mi gente, reportar o bloquear" else "Reportar o bloquear a ${p.nombre}", 13f, 700, C.texto2,
-                    modifier = Modifier.align(Alignment.CenterHorizontally).tocable { opciones = true }.padding(8.dp),
+                    "Reportar o bloquear a ${p.nombre}", 13f, 700, C.texto2,
+                    modifier = Modifier.fillMaxWidth().tocable { opciones = true }.padding(8.dp), alinear = TextAlign.Center,
                 )
             }
         }
@@ -192,20 +222,45 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 34.dp + abajo),
             horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
         ) {
-            val modo = if (esCitas) "citas" else "gente"
             when {
                 desde == "gente" || desde == "citas" -> {
-                    BotonRedondo(60.dp, gelPaso, Modifier, { accion { c.api.reaccionar(p.id, modo, "paso"); ir.atras() } }) { Icono(I.cruz, 24.dp, C.coral2, 3.2f) }
+                    GenteBotonRedondo(60.dp, genteGelPaso, "Paso", accion = { accion { c.api.reaccionar(p.id, modo, "paso"); ir.atras() } }) {
+                        Icono(I.cruz, 24.dp, C.coral2, 3.2f)
+                    }
                     if (esCitas) {
-                        BotonRedondo(76.dp, gelCorazon, Modifier, { accion { reaccionarYAvisar(c, avisos, p, modo, "interesa"); ir.atras() } }) { Icono(I.corazon, 34.dp, Color.Transparent, 0f, relleno = C.blanco) }
-                        BotonRedondo(60.dp, gelVioletaRedondo, Modifier, { accion { reaccionarYAvisar(c, avisos, p, modo, "encanta"); ir.atras() } }) { Icono(I.estrella, 26.dp, Color.Transparent, 0f, relleno = C.lima) }
+                        GenteBotonRedondo(76.dp, genteGelCorazon, "Me interesa", accion = { accion { reaccionarYAvisar(c, avisos, p, modo, "interesa"); ir.atras() } }) {
+                            Icono(I.corazon, 34.dp, Color.Transparent, 0f, relleno = C.blanco)
+                        }
+                        GenteBotonRedondo(60.dp, genteGelVioletaRedondo, "Me encanta", accion = {
+                            accion {
+                                try {
+                                    reaccionarYAvisar(c, avisos, p, modo, "encanta"); ir.atras()
+                                } catch (e: ErrorApi) {
+                                    if (e.codigo != "limite_encanta") throw e
+                                    avisos.error(e.detalle)
+                                    // iOS mira `c.plus`; acá se pregunta (sin Plus, a la pantalla de Plus).
+                                    if (runCatching { c.api.plus().estado.activo }.getOrDefault(false) != true) ir.plus("perfil")
+                                }
+                            }
+                        }) { Icono(I.estrella, 26.dp, Color.Transparent, 0f, relleno = C.lima) }
                     } else {
-                        BotonRedondo(76.dp, Gels.limaChico, Modifier, { accion { reaccionarYAvisar(c, avisos, p, modo, "prendo"); ir.atras() } }) { Icono(I.mas, 32.dp, C.carbon, 3.4f) }
-                        BotonRedondo(60.dp, gelVioletaRedondo, Modifier, { invitando = true }) { Icono(I.calendarioSimple, 24.dp, C.blanco, 2.4f) }
+                        GenteBotonRedondo(76.dp, Gels.limaChico, "Me prendo", accion = {
+                            accion {
+                                try {
+                                    reaccionarYAvisar(c, avisos, p, modo, "prendo"); ir.atras()
+                                } catch (e: ErrorApi) {
+                                    if (e.codigo != "limite") throw e
+                                    ir.plus("limit")
+                                }
+                            }
+                        }) { Icono(I.mas, 32.dp, C.carbon, 3.4f) }
+                        GenteBotonRedondo(60.dp, genteGelVioletaRedondo, "Invitar a un plan", accion = { invitando = true }) {
+                            Icono(I.calendarioSimple, 24.dp, C.blanco, 2.4f)
+                        }
                     }
                 }
                 planInvita != null || desde.startsWith("recibido") -> {
-                    BotonRedondo(60.dp, gelPaso, Modifier, {
+                    GenteBotonRedondo(60.dp, genteGelPaso, "Ahora no", accion = {
                         accion {
                             if (planInvita != null) c.api.responderInvitacion(planInvita, false) else c.api.descartarRecibido(p.id, modo)
                             ir.atras()
@@ -216,6 +271,7 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
                         {
                             accion {
                                 if (planInvita != null) {
+                                    // 422 `falta_genero`: conGenero pregunta y reintenta (la HojaGenero de iOS).
                                     ar.com.caigo.app.pantallas.ingreso.conGenero(c) { c.api.responderInvitacion(planInvita, true) }
                                     avisos.ok("Te sumaste al plan. ${p.nombre} ya sabe que vas.")
                                     ir.plan(planInvita)
@@ -231,13 +287,10 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
                 else -> Cta("Invitar a un plan", { invitando = true }, Modifier.fillMaxWidth(), gel = Gels.violeta, color = C.blanco, alto = 58.dp, icono = I.calendarioSimple, iconoTrazo = 2.4f, iconoTam = 20.dp)
             }
         }
-        if (invitando) HojaInvitar(ir, Tarjeta(p.id, p.nombre), { invitando = false }) { plan ->
+        if (invitando) GenteHojaInvitar(ir, p.id, p.nombre, { invitando = false }) { plan ->
             avisos.ok("Invitaste a ${p.nombre} a ${plan.titulo}. Le llega como solicitud.")
         }
-        if (opciones) HojaOpciones({ opciones = false }, listOfNotNull(
-            if (p.enMiGente) "Sacar de mi gente" to {
-                accion { c.api.sacarDeMiGente(p.id); avisos.ok("Sacaste a ${p.nombre} de tu gente. No le llegan más tus planes."); persona.recargar() }
-            } else null,
+        if (opciones) HojaOpciones({ opciones = false }, listOf(
             "Reportar a ${p.nombre}" to { reportando = true },
             "Bloquear a ${p.nombre}" to {
                 accion { c.api.bloquear(p.id); avisos.ok("Bloqueaste a ${p.nombre}. No se van a ver más."); ir.atras() }
@@ -251,14 +304,7 @@ fun PerfilPersona(ir: Ir, id: String, desde: String) {
 
 private suspend fun reaccionarYAvisar(c: ar.com.caigo.app.app.Contenedor, avisos: ar.com.caigo.app.piezas.Avisos, p: Perfil, modo: String, accion: String) {
     val r = c.api.reaccionar(p.id, modo, accion)
-    avisos.ok(
-        when {
-            r.mutuo -> "¡Es mutuo con ${p.nombre}! Ya pueden hablar."
-            accion == "encanta" -> "Le mandaste un «me encanta» a ${p.nombre}. Si es mutuo, se abre el chat."
-            modo == "citas" -> "Le avisamos a ${p.nombre} que te interesa. Si es mutuo, se abre el chat."
-            else -> "${p.nombre} se suma a tu gente. Le van a llegar tus próximos planes."
-        },
-    )
+    avisos.ok(genteMensaje(p.nombre, accion, modo, r.mutuo))
 }
 
 @Composable
@@ -269,104 +315,7 @@ private fun TarjetaPerfil(contenido: @Composable () -> Unit) {
 @Composable
 private fun Estadistica(v: String, l: String, modifier: Modifier) {
     Column(modifier.gel(20.dp, Gels.neutra).padding(vertical = 14.dp, horizontal = 6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        T(v, 22f, 800, C.violetaTexto, alto = 1f)
-        T(l, 12f, 700, C.texto2)
-    }
-}
-
-/** "Te quieren conocer" (prototipo · likes): te sumaron / les interesás y te invitan, borroso sin Plus. */
-@Composable
-fun Recibidos(ir: Ir, modo: String, pestana: Int) {
-    val c = LocalApp.current
-    var tab by rememberSaveable { mutableIntStateOf(pestana) }
-    val recibidos = rememberCarga(modo) { c.api.recibidos(modo) }
-    val invitaciones = rememberCarga { c.api.invitaciones() }
-    val esCitas = modo == "citas"
-    val nR = recibidos.dato?.personas?.size ?: 0
-    val nI = invitaciones.dato?.invitaciones?.size ?: 0
-    val bloqueada = if (tab == 0) recibidos.dato?.bloqueada == true else invitaciones.dato?.bloqueada == true
-
-    Pantalla(oscuro = false) { arriba, abajo ->
-        Column(Modifier.fillMaxSize()) {
-            Column(Modifier.padding(top = arriba + 10.dp, start = 20.dp, end = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.size(44.dp).toque { ir.atras() }.gel(16.dp, Gels.neutra), contentAlignment = Alignment.Center) { Icono(I.atras, 20.dp, C.carbon, 2.6f) }
-                    T("Te quieren conocer", 28f, 800, C.carbon, alto = 1f, espaciado = px(-.8f, 28f), unRenglon = true)
-                }
-                Segmentado(listOf("${if (esCitas) "Les interesás" else "Te sumaron"} · $nR", "Te invitan · $nI"), tab, { tab = it }, radio = 20.dp, radioOpcion = 16.dp, alto = 50.dp)
-                T(
-                    if (tab == 0) {
-                        if (bloqueada) "$nR personas ya te sumaron. Con Plus ves quiénes son y las sumás de vuelta."
-                        else "Tocá un perfil para verlo completo. Si sumás de vuelta, es mutuo y se abre el chat."
-                    } else {
-                        if (bloqueada) "$nI personas te quieren en sus planes. Con Plus ves quién organiza antes de sumarte."
-                        else "Planes a los que te invitaron. Mirá quién organiza y sumate si te copa."
-                    },
-                    14f, 400, C.texto2, alto = 1.45f,
-                )
-            }
-            val tarjetas: List<Triple<String, String, () -> Unit>>? = if (tab == 0) recibidos.dato?.personas?.map { r ->
-                Triple(r.foto, if (bloqueada || r.nombre.isBlank()) "Alguien cerca" else r.nombre + (r.edad?.let { ", $it" } ?: ""),
-                    { if (bloqueada || r.id.isBlank()) ir.plus("likes") else ir.persona(r.id, "recibido-$modo") })
-            } else invitaciones.dato?.invitaciones?.map { v ->
-                Triple(v.de?.foto ?: v.foto, if (bloqueada) "Alguien cerca" else (v.de?.nombre ?: v.titulo),
-                    { if (bloqueada || v.de?.id.isNullOrBlank()) ir.plus("likes") else ir.persona(v.de!!.id, "invitacion:${v.planId}") })
-            }
-            val subs: List<String> = if (tab == 0) recibidos.dato?.personas?.map { (if (esCitas) "Le interesás · " else "Te sumó ") + Fecha.hace(it.cuando) }.orEmpty()
-            else invitaciones.dato?.invitaciones?.map { "Te invitó " + Fecha.hace(it.cuando) }.orEmpty()
-            val planes: List<String?> = if (tab == 0) emptyList() else invitaciones.dato?.invitaciones?.map { v ->
-                if (v.titulo.isBlank()) null else v.titulo.substringBefore(" en ") + " · " + Fecha.cuando(v.empiezaEn)
-            }.orEmpty()
-            when {
-                tarjetas == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Puntitos() }
-                tarjetas.isEmpty() -> Column(
-                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 50.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Image(painterResource(R.drawable.caigo_icon), null, Modifier.size(96.dp))
-                    T("Ya respondiste a todos", 22f, 700, C.carbon, alto = 1.15f, alinear = TextAlign.Center)
-                    T("Cuando alguien te sume o te invite, aparece acá.", 14f, 400, C.texto2, alto = 1.5f, alinear = TextAlign.Center)
-                }
-                else -> LazyVerticalGrid(
-                    GridCells.Fixed(2), Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 160.dp + abajo),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(tarjetas.size) { i ->
-                        val (f, nombre, abrir) = tarjetas[i]
-                        Box(
-                            Modifier.fillMaxWidth().height(236.dp).toque(alBajar = 0.dp, onClick = abrir)
-                                .gel(26.dp, null, listOf(externa(3f, 0f, C.borde1), externa(18f, 28f, rgba(60, 40, 140, .5f), spread = -16f)))
-                                .clip(RoundedCornerShape(26.dp)).background(C.oscuro2),
-                        ) {
-                            AsyncImage(f, null, Modifier.fillMaxSize().then(if (bloqueada) Modifier.blur(14.dp) else Modifier), contentScale = ContentScale.Crop)
-                            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to rgba(32, 29, 43, .25f), .35f to rgba(32, 29, 43, 0f), 1f to rgba(32, 29, 43, .85f))))
-                            planes.getOrNull(i)?.let { pt ->
-                                Box(Modifier.fillMaxWidth().padding(10.dp).background(rgba(250, 249, 246, .95f), RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 7.dp)) {
-                                    T(pt, 12f, 800, C.carbon, alto = 1.25f)
-                                }
-                            }
-                            if (bloqueada) Box(
-                                Modifier.align(Alignment.Center).size(46.dp).gel(23.dp, vertical(rgba(255, 255, 255, .2f), rgba(255, 255, 255, .2f)), listOf(interna(1f, 0f, rgba(255, 255, 255, .35f)))),
-                                contentAlignment = Alignment.Center,
-                            ) { Icono(I.candadoAbierto, 20.dp, C.blanco, 2.4f) }
-                            Column(Modifier.align(Alignment.BottomStart).padding(14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                T(nombre, 16f, 800, C.blanco, unRenglon = true)
-                                T(subs.getOrElse(i) { "" }, 12f, 600, Color(0xFFE4E0EE), unRenglon = true)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (bloqueada && (if (tab == 0) nR else nI) > 0) Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                .background(Brush.verticalGradient(0f to C.blancoCalido.copy(alpha = 0f), .4f to C.blancoCalido))
-                .padding(start = 20.dp, end = 20.dp, top = 40.dp, bottom = 30.dp + abajo),
-            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Cta("Ver quiénes son", { ir.plus("likes") }, Modifier.fillMaxWidth(), alto = 60.dp, radio = 22.dp)
-            T("Con Caigo Plus · cancelás cuando quieras", 12f, 600, C.texto2)
-        }
+        T(v, 22f, 800, C.violetaTexto, alto = 1f, unRenglon = true)
+        T(l, 12f, 700, C.texto2, unRenglon = true)
     }
 }

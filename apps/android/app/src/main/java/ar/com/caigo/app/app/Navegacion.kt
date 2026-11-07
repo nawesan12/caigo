@@ -1,8 +1,6 @@
 package ar.com.caigo.app.app
 
-import ar.com.caigo.app.piezas.Actualizar
 
-import android.net.Uri
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
@@ -26,7 +24,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavBackStackEntry
-import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -46,61 +43,6 @@ import ar.com.caigo.app.piezas.LocalAvisos
 import ar.com.caigo.app.tema.LocalPaleta
 import ar.com.caigo.app.tema.PaletaClara
 import ar.com.caigo.app.tema.PaletaOscura
-
-/** Pestañas de la tab bar flotante. */
-enum class Pestana { Ahora, Explorar, Mis, Perfil }
-
-/**
- * Las acciones de navegación que usan las pantallas. Ninguna pantalla toca el NavController:
- * así cada una se puede armar y probar sola.
- */
-class Ir(private val nav: NavController) {
-    private fun ir(ruta: String) = nav.navigate(ruta) { launchSingleTop = true }
-    private fun e(s: String) = Uri.encode(s)
-
-    fun atras() { if (!nav.popBackStack()) nav.navigate("principal") }
-
-    fun principal(pestana: Pestana = Pestana.Ahora, modo: String? = null) = nav.navigate("principal?tab=${pestana.name}&modo=${modo.orEmpty()}") {
-        popUpTo(0) { inclusive = true }
-        launchSingleTop = true
-    }
-
-    fun intro() = nav.navigate("intro") { popUpTo(0) { inclusive = true } }
-    fun ingresar() = ir("ingresar")
-    fun debug() = ir("debug")
-    /** Siguiente paso del alta (datos → teléfono → selfie → intenciones) o la app. */
-    fun alta(paso: String) = nav.navigate(paso) { popUpTo(0) { inclusive = true } }
-    fun telefono() = ir("telefono")
-    fun selfie(volver: Boolean = false) = ir("selfie?volver=$volver")
-    fun intenciones(soloEditar: Boolean = false) = ir("intenciones?editar=$soloEditar")
-
-    fun plan(id: String) = ir("plan/${e(id)}")
-    fun planSlug(slug: String) = ir("plan/slug/${e(slug)}")
-    fun crear() = ir("crear")
-    fun editarPlan(id: String) = ir("editarplan/${e(id)}")
-    fun publicado(id: String) = nav.navigate("publicado/${e(id)}") { popUpTo("crear") { inclusive = true } }
-    fun solicitudes(planId: String) = ir("solicitudes/${e(planId)}")
-    fun chat(planId: String) = ir("chat/${e(planId)}")
-    fun privados() = ir("privados")
-    fun privado(conId: String, nombre: String) = ir("privado/${e(conId)}?nombre=${e(nombre)}")
-    fun checkin(planId: String) = ir("checkin/${e(planId)}")
-    fun repetimos(planId: String) = ir("repetimos/${e(planId)}")
-    fun qrOrganizador(planId: String) = ir("qr/${e(planId)}")
-    fun escanearQr(planId: String) = ir("escanear/${e(planId)}")
-    fun persona(id: String, desde: String = "perfil") = ir("persona/${e(id)}?desde=${e(desde)}")
-    fun recibidos(modo: String, pestana: Int = 0) = ir("recibidos?modo=$modo&tab=$pestana")
-    fun plus(motivo: String = "perfil") = ir("plus?motivo=$motivo")
-    fun verificacion() = ir("verificacion")
-    fun dni(planId: String? = null) = ir("dni?plan=${planId.orEmpty()}")
-    fun checkout(planId: String, cantidad: Int) = ir("checkout/${e(planId)}?cantidad=$cantidad")
-    fun entrada(entradaId: String, planId: String) = ir("entrada/${e(entradaId)}?plan=${e(planId)}")
-    fun qrEntrada(entradaId: String) = ir("qrentrada/${e(entradaId)}")
-    fun pases() = ir("pases")
-    fun tap(planId: String? = null) = ir("tap?plan=${planId.orEmpty()}")
-    fun adentro() = nav.navigate("adentro") { popUpTo("tap?plan={plan}") { inclusive = true } }
-    fun editarPerfil() = ir("editar")
-    fun gente() = ir("gente")
-}
 
 private fun NavBackStackEntry.arg(k: String): String = arguments?.getString(k).orEmpty()
 
@@ -143,11 +85,19 @@ private fun NavGraphBuilder.hoja(ruta: String, contenido: @Composable (NavBackSt
 fun CaigoNav(c: Contenedor) {
     val nav = rememberNavController()
     val ir = remember(nav) { Ir(nav) }
-    val avisos = remember { Avisos() }
+    val avisos = c.avisos
     val token by c.sesion.token.collectAsState()
     val destino by c.destino.collectAsState()
     val entrada by nav.currentBackStackEntryAsState()
     val rutaActual = entrada?.destination?.route
+
+    // Sin sesión (salió, borró la cuenta o la API respondió 401) estando en la app: de vuelta a Ingresar.
+    val habiaSesion = remember { booleanArrayOf(token != null) }
+    LaunchedEffect(token) {
+        val antes = habiaSesion[0]
+        habiaSesion[0] = token != null
+        if (antes && token == null && nav.currentBackStackEntry?.destination?.route?.startsWith("principal") == true) ir.alta("ingresar")
+    }
 
     // Links, avisos y placas: se resuelven cuando hay sesión.
     LaunchedEffect(destino, token, rutaActual) {
@@ -157,7 +107,7 @@ fun CaigoNav(c: Contenedor) {
         // Se espera a que termine el arranque y el alta: si no, el arranque limpia la pila y se pierde.
         if (rutaActual == null || rutaActual == "arranque" || rutaActual == "intro" || rutaActual == "ingresar" ||
             rutaActual == "debug" || rutaActual == "datos" || rutaActual == "telefono" || rutaActual.startsWith("selfie?") ||
-            rutaActual.startsWith("intenciones?")) return@LaunchedEffect
+            rutaActual.startsWith("intenciones?") || rutaActual == "completar") return@LaunchedEffect
         c.destino.value = null
         when (d) {
             is Destino.Plan -> ir.plan(d.id)
@@ -233,10 +183,13 @@ fun CaigoNav(c: Contenedor) {
                     hoja("tap?plan={plan}") { Tap(ir, it.arg("plan").ifBlank { null }) }
                     composable("adentro") { Adentro(ir) }
                     composable("editar") { EditarPerfil(ir) }
+                    composable("completar") { EditarPerfil(ir, completar = true) }
                     composable("gente") { MiGente(ir) }
+                    composable("bloqueos") { VistaBloqueos(ir) }
+                    composable("ajustesavisos") { AjustesDeAvisos(ir) }
                 }
                 HojaGenero(c)
-                if (actualizar) Actualizar()
+                if (actualizar) ActualizarApp()
                 CapaAvisos(avisos, WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
             }
         }

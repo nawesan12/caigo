@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -92,14 +93,6 @@ internal class IngresoEscala(val w: Dp, val h: Dp) {
 @Composable
 internal fun BoxWithConstraintsScope.ingresoEscala() = remember(maxWidth, maxHeight) { IngresoEscala(maxWidth, maxHeight) }
 
-/** "Saltar": píldora translúcida sobre la foto. */
-@Composable
-internal fun ingresoSaltar(alfa: Float, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier.tocable(onClick).background(rgba(255, 255, 255, alfa), RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 8.dp),
-    ) { T("Saltar", 14f, 700, C.blanco) }
-}
-
 /** CTA "Siguiente →" de la intro. */
 @Composable
 private fun siguiente(alto: Dp, onClick: () -> Unit) {
@@ -125,8 +118,13 @@ fun Intro(ir: Ir) {
             ir.alta("ingresar")
         }
     }
-    val avanzar: () -> Unit = { alcance.launch { pager.animateScrollToPage(pager.currentPage + 1) } }
-    ingresoBarraClara(pager.currentPage != 1)
+    val avanzar: () -> Unit = {
+        alcance.launch {
+            pager.animateScrollToPage(minOf(pager.currentPage + 1, 2), animationSpec = androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.EaseInOut))
+        }
+    }
+    // Como el iPhone: oscuro en 01a y 01c; en 01b, el esquema de la app.
+    ingresoBarraClara(pager.currentPage != 1 || ar.com.caigo.app.tema.LocalPaleta.current.oscuro)
     HorizontalPager(pager, Modifier.fillMaxSize()) { pagina ->
         when (pagina) {
             0 -> slidePlanes(terminar, avanzar)
@@ -144,7 +142,7 @@ private fun slidePlanes(saltar: () -> Unit, avanzar: () -> Unit) {
         Image(
             painterResource(R.drawable.ingreso_previa), null,
             Modifier.fillMaxWidth().height(e.y(560f)),
-            contentScale = ContentScale.Crop, alignment = androidx.compose.ui.BiasAlignment(-.2f, -.3f),
+            contentScale = ContentScale.Crop,
         )
         Box(
             Modifier.fillMaxSize().background(
@@ -216,11 +214,12 @@ private fun slideAmigos(saltar: () -> Unit, avanzar: () -> Unit) {
     // Se guarda y es el valor por defecto al sumarse a un plan (Voy solo / Somos 2 / Somos 4).
     val c = LocalApp.current
     val alcance = rememberCoroutineScope()
-    var cuantos by remember { mutableIntStateOf(listOf(1, 2, 4).indexOf(c.sesion.grupo).coerceAtLeast(0)) }
+    // Lo que ya eligió. Si nunca tocó nada se ve «Somos 2» (el del handoff), pero no se guarda.
+    // PARA EL NÚCLEO: Sesion no dice si «grupo» se guardó alguna vez; con grupo == 1 no se distingue.
+    var cuantos by remember { mutableIntStateOf(listOf(1, 2, 4).indexOf(c.sesion.grupo).takeIf { it >= 0 && c.sesion.grupo != 1 } ?: 1) }
     BoxWithConstraints(Modifier.fillMaxSize().background(C.blancoCalido).ingresoGrano()) {
         val e = ingresoEscala()
-        val altoTotal = maxHeight
-        Image(painterResource(R.drawable.ingreso_amigos), null, Modifier.fillMaxWidth().height(maxHeight - 300.dp), contentScale = ContentScale.Crop)
+        Image(painterResource(R.drawable.ingreso_amigos), null, Modifier.fillMaxWidth().height((maxHeight - 300.dp).coerceAtLeast(0.dp)), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxWidth().height(140.dp).background(Brush.verticalGradient(listOf(rgba(32, 29, 43, .5f), rgba(32, 29, 43, 0f)))))
         ingresoContenido { arriba, nav ->
             ingresoSaltar(.22f, saltar, Modifier.align(Alignment.TopEnd).padding(top = arriba + 12.dp, end = 24.dp))
@@ -232,26 +231,28 @@ private fun slideAmigos(saltar: () -> Unit, avanzar: () -> Unit) {
                     .gel(22.dp, Gel(vertical(rgba(255, 255, 255, .95f), rgba(248, 246, 255, .9f)), listOf(interna(1.5f, 0f, C.blanco), externa(20f, 40f, rgba(20, 10, 60, .55f), spread = -14f))))
                     .padding(start = 18.dp, top = 10.dp, end = 16.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                Row {
-                    Avatar("C", null, 38.dp, Modifier.offset(x = 0.dp), colorBorde = C.blanco, fondo = C.violeta to C.blanco, tamTexto = 15f)
-                    Avatar("L", null, 38.dp, Modifier.offset(x = (-8).dp), colorBorde = C.blanco, fondo = C.coral to C.carbon, tamTexto = 15f)
+                // Avatares encimados 8 (68 de ancho); el + y el texto se corren 8 a la izquierda como en iOS.
+                Box(Modifier.width(68.dp)) {
+                    Avatar("C", null, 38.dp, colorBorde = C.blanco, fondo = C.violeta to C.blanco, tamTexto = 15f)
+                    Avatar("L", null, 38.dp, Modifier.offset(x = 30.dp), colorBorde = C.blanco, fondo = C.coral to C.carbon, tamTexto = 15f)
                 }
                 Box(
-                    Modifier.offset(x = (-8).dp).size(34.dp).gel(12.dp, Gel(Gels.violeta.fondo, listOf(
+                    Modifier.size(34.dp).gel(12.dp, Gel(Gels.violeta.fondo, listOf(
                         interna(3f, 2f, rgba(255, 255, 255, .45f)), interna(-5f, 0f, rgba(40, 20, 140, .35f)), externa(4f, 0f, C.violetaBase),
                         externa(16f, 26f, rgba(116, 86, 241, .75f), spread = -10f),
                     ))),
                     contentAlignment = Alignment.Center,
                 ) { Icono(I.mas, 16.dp, C.lima, 4f) }
-                T("Cita doble", 17f, 700, C.carbon, modifier = Modifier.offset(x = (-8).dp))
+                T("Cita doble", 17f, 700, C.carbon)
             }
             }
             // Hoja de abajo: alto natural, pegada abajo; la foto y la píldora ocupan lo que sobra.
             Column(
                 Modifier.fillMaxWidth()
-                    .background(C.blancoCalido, RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp))
+                    .clip(RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp))
+                    .background(C.blancoCalido)
                     .ingresoGrano()
                     .padding(start = 26.dp, end = 26.dp, top = 30.dp, bottom = 40.dp + nav),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -261,14 +262,20 @@ private fun slideAmigos(saltar: () -> Unit, avanzar: () -> Unit) {
                 ) {
                     listOf("Voy solo", "Somos 2", "Somos 4").forEachIndexed { i, o ->
                         val on = i == cuantos
+                        // withAnimation(.easeOut(duration: 0.18)): el fondo violeta aparece y se va.
+                        val alfa by androidx.compose.animation.core.animateFloatAsState(
+                            if (on) 1f else 0f, androidx.compose.animation.core.tween(180, easing = androidx.compose.animation.core.EaseOut), label = "somos",
+                        )
                         Box(
-                            Modifier.weight(1f).height(46.dp).tocable { cuantos = i; alcance.launch { c.sesion.guardarGrupo(listOf(1, 2, 4)[i]) } }
-                                .then(if (on) Modifier.gel(16.dp, Gel(Gels.violeta.fondo, listOf(
-                                    interna(3f, 2f, rgba(255, 255, 255, .45f)), interna(-5f, 0f, rgba(40, 20, 140, .35f)), externa(4f, 0f, C.violetaBase),
-                                    externa(16f, 26f, rgba(116, 86, 241, .75f), spread = -10f),
-                                ))) else Modifier),
+                            Modifier.weight(1f).height(46.dp).tocable { cuantos = i; alcance.launch { c.sesion.guardarGrupo(listOf(1, 2, 4)[i]) } },
                             contentAlignment = Alignment.Center,
-                        ) { T(o, 15f, if (on) 800 else 600, if (on) C.blanco else C.texto2, unRenglon = true) }
+                        ) {
+                            if (alfa > 0f) Box(Modifier.matchParentSize().graphicsLayer { alpha = alfa }.gel(16.dp, Gel(Gels.violeta.fondo, listOf(
+                                interna(3f, 2f, rgba(255, 255, 255, .45f)), interna(-5f, 0f, rgba(40, 20, 140, .35f)), externa(4f, 0f, C.violetaBase),
+                                externa(16f, 26f, rgba(116, 86, 241, .75f), spread = -10f),
+                            ))))
+                            T(o, 15f, if (on) 800 else 600, if (on) C.blanco else C.texto2, unRenglon = true)
+                        }
                     }
                 }
                 T("Sumate solo o con amigos.", 40f, 800, C.carbon, alto = 1f, espaciado = px(-1.4f, 40f))
@@ -298,7 +305,7 @@ private fun slideAfuera(terminar: () -> Unit) {
                     Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 34.dp + nav),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Column(Modifier.padding(horizontal = 2.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         T("Lo mejor pasa afuera.", 46f, 800, C.blanco, alto = .98f, espaciado = px(-1.8f, 46f))
                         T("Compartís un plan y conocés gente. Sin swipes, sin chats eternos.", 16f, 400, C.blanco, alto = 1.5f)
                     }
@@ -325,12 +332,6 @@ internal fun ingresoZonaFogon(modifier: Modifier) {
     }
 }
 
-/** Fondo violeta de 01c (y de Ingresar): radial lavanda arriba a la derecha + grano. */
-internal fun Modifier.ingresoFondoVioleta(): Modifier = this
-    .background(Color(0xFF5A3DD8))
-    .background(radial(.85f, 0f, 1.2f, .7f, 0f to Color(0xFFA38FFF), .45f to C.violeta, 1f to Color(0xFF5A3DD8)))
-    .ingresoGrano()
-
 /** La foto del fogón inclinada, el isotipo y el chip "Ya somos 6" de 01c. */
 @Composable
 internal fun ingresoComposicionFogon(e: IngresoEscala) {
@@ -341,8 +342,7 @@ internal fun ingresoComposicionFogon(e: IngresoEscala) {
                 .clip(RoundedCornerShape(34.dp))
                 .border(6.dp, C.blancoCalido, RoundedCornerShape(34.dp)),
         ) {
-            Image(painterResource(R.drawable.ingreso_fogon), null, Modifier.fillMaxSize().padding(0.dp), contentScale = ContentScale.Crop)
-            Box(Modifier.fillMaxSize().border(6.dp, C.blancoCalido, RoundedCornerShape(34.dp)))
+            Image(painterResource(R.drawable.ingreso_fogon), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         }
         Box(
             Modifier.align(Alignment.TopEnd).offset(x = -e.x(22f), y = e.y(400f)).size(130.dp).rotate(12f),

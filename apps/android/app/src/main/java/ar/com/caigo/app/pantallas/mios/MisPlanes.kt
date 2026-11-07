@@ -29,7 +29,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import ar.com.caigo.app.BuildConfig
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import ar.com.caigo.app.nucleo.linkPlan
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import ar.com.caigo.app.app.LocalApp
 import ar.com.caigo.app.nucleo.Plan
 import ar.com.caigo.app.pantallas.planes.ChipDestacado
@@ -37,12 +46,12 @@ import ar.com.caigo.app.nucleo.Cupo
 import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.app.Pestana
 import ar.com.caigo.app.app.altoTabBar
-import ar.com.caigo.app.piezas.Fecha
+import ar.com.caigo.app.nucleo.Fecha
 import ar.com.caigo.app.piezas.Foto
 import ar.com.caigo.app.piezas.Pantalla
 import ar.com.caigo.app.piezas.Puntitos
 import ar.com.caigo.app.piezas.Segmentado
-import ar.com.caigo.app.piezas.ZonaAR
+import ar.com.caigo.app.nucleo.ZonaAR
 import ar.com.caigo.app.piezas.compartir
 import ar.com.caigo.app.piezas.rememberCarga
 import ar.com.caigo.app.piezas.tocable
@@ -62,6 +71,7 @@ import java.time.temporal.ChronoUnit
 private val cuales = listOf("organizo", "me_sume", "historial")
 
 /** 10 · Mis planes: Organizo / Me sumé / Historial, agrupados en HOY, ESTA SEMANA y más adelante. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MisPlanes(ir: Ir) {
     val c = LocalApp.current
@@ -74,22 +84,36 @@ fun MisPlanes(ir: Ir) {
     val actual = cargas[tab]
 
     fun etiqueta(l: String, n: Int?) = if (n != null && n > 0) "$l · $n" else l
+    val alcance = rememberCoroutineScope()
+    var refrescando by remember { mutableStateOf(false) }
+    // .refreshable: recarga las tres pestañas (los datos viejos quedan si falla).
+    fun refrescar() {
+        alcance.launch {
+            refrescando = true
+            try {
+                coroutineScope { cargas.forEach { k -> launch { k.correr() } } }
+            } finally {
+                refrescando = false
+            }
+        }
+    }
 
     Pantalla { arriba, _ ->
         Column(Modifier.fillMaxSize().padding(top = arriba + 8.dp)) {
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                T("Mis planes", 40f, 800, alto = 1f, espaciado = px(-1.4f, 40f))
+                T("Mis planes", 40f, 800, alto = 1f, espaciado = px(-1.4f, 40f), unRenglon = true)
                 Segmentado(
                     listOf(etiqueta("Organizo", organizo.dato?.size), etiqueta("Me sumé", meSume.dato?.size), "Historial"),
                     tab, { tab = it }, Modifier.fillMaxWidth(), alto = 46.dp, padOpcion = 4.dp,
                 )
             }
             val planes = actual.dato
+            PullToRefreshBox(refrescando, { refrescar() }, Modifier.fillMaxSize()) {
             when {
                 planes == null && actual.error != null -> Box(Modifier.fillMaxSize().padding(28.dp), contentAlignment = Alignment.Center) {
                     MiosVacio("No pudimos cargar tus planes", actual.error!!, "Probar de nuevo", { actual.recargar() })
                 }
-                planes == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Puntitos() }
+                planes == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Puntitos(p.acento) }
                 planes.isEmpty() -> Box(Modifier.fillMaxSize().padding(horizontal = 28.dp).padding(bottom = altoTabBar()), contentAlignment = Alignment.Center) {
                     when (tab) {
                         0 -> MiosVacio("Todavía no armaste ningún plan", "Armá uno en menos de 30 segundos. Siempre hay alguien que se prende.", "Armá un plan", { ir.crear() })
@@ -113,6 +137,7 @@ fun MisPlanes(ir: Ir) {
                     }
                 }
             }
+            }
         }
     }
 }
@@ -133,16 +158,19 @@ private fun agrupar(planes: List<Plan>): List<Pair<String, List<Plan>>> {
 }
 
 /** "20:30 · Cancha Los Pinos" hoy; "Jue 21:30 · se repite cada semana" otro día. */
-private fun subtitulo(pl: Plan): String {
+internal fun miosSubtitulo(pl: Plan): String {
     val t = Fecha.parse(pl.empiezaEn)
     val cuando = when {
         t == null -> ""
         t.toLocalDate() == Fecha.hoy() -> Fecha.hora(t)
         else -> "${Fecha.diaCorto(t)} ${Fecha.hora(t)}"
     }
-    val donde = if (pl.recurrente) "se repite cada semana" else pl.lugar?.nombre ?: pl.lugarNombre.ifBlank { pl.zona }
-    return listOf(cuando, donde).filter { it.isNotBlank() }.joinToString(" · ")
+    val donde = if (pl.recurrente) "se repite cada semana" else pl.lugar?.nombre ?: pl.lugarNombre.ifEmpty { pl.zona }
+    return listOf(cuando, donde).filter { it.isNotEmpty() }.joinToString(" · ")
 }
+
+/** El link público del plan para compartir. */
+internal fun miosLinkCompartir(pl: Plan): String = "${pl.titulo} · https://${linkPlan(pl.slug)}"
 
 @Composable
 private fun TarjetaMio(pl: Plan, cual: String, ir: Ir) {
@@ -160,7 +188,7 @@ private fun TarjetaMio(pl: Plan, cual: String, ir: Ir) {
             Foto(pl.foto, Modifier.size(72.dp).clip(RoundedCornerShape(18.dp)))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 T(pl.titulo, 18f, 700, alto = 1.15f)
-                T(subtitulo(pl), 12f, 400, p.texto2, unRenglon = true)
+                T(miosSubtitulo(pl), 12f, 400, p.texto2, unRenglon = true)
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     when (cual) {
@@ -173,11 +201,11 @@ private fun TarjetaMio(pl: Plan, cual: String, ir: Ir) {
                         else -> {
                             BadgeMio(pl, urgente = hoy)
                             // Destacado con Plus: sólo la estrella del chip; la palabra no entra junto a «Compartir link».
-                            if (pl.destacado) ChipDestacado(soloEstrella = true)
+                            if (pl.destacado) ChipDestacado(Modifier.semantics { contentDescription = "Destacado" }, soloEstrella = true)
                             if (!Cupo.completo(pl.faltan) && !hoy) {
                                 T(
                                     "Compartir link", 12f, 700, if (p.oscuro) C.lima else C.violetaTexto,
-                                    Modifier.tocable { compartir(ctx, "${pl.titulo} · ${BuildConfig.SITIO.trimEnd('/')}/p/${pl.slug}") },
+                                    Modifier.tocable { compartir(ctx, miosLinkCompartir(pl)) },
                                 )
                             }
                         }

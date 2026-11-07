@@ -20,10 +20,18 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resumeWithException
 
-/** Error de la API: [problema.detail] es lo que se le muestra a la persona, tal cual. */
-class ErrorApi(val estado: Int, val problema: Problema) : Exception(problema.detail.ifBlank { problema.title }) {
-    val codigo get() = problema.code
-    val detalle get() = problema.detail.ifBlank { problema.title.ifBlank { "Algo salió mal. Probá de nuevo." } }
+/** Error de la API: [detalle] es lo que se le muestra a la persona, tal cual. */
+class ErrorApi(val estado: Int, val problema: Problema) : Exception(detalleDe(problema)) {
+    val codigo: String get() = problema.code
+    val detalle: String get() = detalleDe(problema)
+
+    private companion object {
+        fun detalleDe(p: Problema): String = when {
+            p.detail.isNotEmpty() -> p.detail
+            p.title.isNotEmpty() -> p.title
+            else -> "Algo salió mal. Probá de nuevo."
+        }
+    }
 }
 
 val json = Json {
@@ -37,8 +45,12 @@ val json = Json {
 fun mensajeDe(e: Throwable): String = when (e) {
     is ErrorApi -> e.detalle
     is IOException -> "No hay conexión. Revisá internet y probá de nuevo."
-    else -> e.message ?: "Algo salió mal. Probá de nuevo."
+    is Clerk.ErrorClerk -> e.mensaje
+    else -> e.message?.takeIf { it.isNotBlank() } ?: "Algo salió mal. Probá de nuevo."
 }
+
+/** Valor de query: null o vacío no se manda. */
+typealias Query = Array<Pair<String, Any?>>
 
 private suspend fun Call.esperar(): Response = suspendCancellableCoroutine { cont ->
     enqueue(object : Callback {
@@ -93,8 +105,8 @@ class Api(
         crudo(metodo, url(ruta), cuerpoJson(cuerpo, serializer<B>()))
     }
 
-    suspend fun sinCuerpo(metodo: String, ruta: String) {
-        crudo(metodo, url(ruta))
+    suspend fun sinCuerpo(metodo: String, ruta: String, vararg query: Pair<String, Any?>) {
+        crudo(metodo, url(ruta, *query))
     }
 
     fun <B> cuerpoJson(cuerpo: B, s: KSerializer<B>): RequestBody = json.encodeToString(s, cuerpo).toRequestBody(tipoJson)
@@ -125,44 +137,50 @@ class Api(
     suspend fun bloqueos(): Bloqueos = get("/v1/bloqueos")
     suspend fun desbloquear(id: String) = sinCuerpo("DELETE", "/v1/bloqueos/$id")
 
-    @kotlinx.serialization.Serializable
-    data class Punto(val lat: Double, val lng: Double)
-
-    /** La ubicación de quien usa la app, redondeada a ~1 km (para «plan cerca»; la API la borra a las 24 h). */
-    suspend fun ubicacion(lat: Double, lng: Double) = mandar("PUT", "/v1/yo/ubicacion", Punto(redondear(lat), redondear(lng)))
-
-    /** GET /v1/version (pública): la versión mínima de la app. */
-    suspend fun version(): Version = decodificar(crudo("GET", url("/v1/version"), autorizacion = ""))
-    suspend fun zonas(ciudad: String): Zonas = get("/v1/publico/zonas", "ciudad" to ciudad)
+    /** Se manda al abrir la app (redondeada a ~1 km; la API la borra a las 24 h). */
+    suspend fun ubicacion(lat: Double, lng: Double) = mandar("PUT", "/v1/yo/ubicacion", Ubicacion(lat, lng))
+    suspend fun version(): Version = get("/v1/version")
     suspend fun reportar(r: Reporte) = mandar("POST", "/v1/reportes", r)
 
     // ——— Planes ———
 
+    /** `q` (≥ 2 letras) busca en título, zona y lugar; `ciudad` se usa cuando no hay ubicación. */
     suspend fun ahora(
         lat: Double?, lng: Double?, categoria: String?, q: String? = null, finos: FiltrosFinos = FiltrosFinos(),
-    ): Planes = get("/v1/planes/ahora", "lat" to lat, "lng" to lng, "categoria" to categoria, "q" to busqueda(q), *finos.query())
+        zona: String? = null, ciudad: String? = null,
+    ): Planes = get(
+        "/v1/planes/ahora", "lat" to num(lat), "lng" to num(lng), "categoria" to categoria,
+        "q" to busqueda(q), "zona" to zona, "ciudad" to ciudad, *finos.query(),
+    )
 
+    /** PARA LAS PANTALLAS: el iPhone no manda `radio` (queda por compatibilidad con Explorar.kt). */
     suspend fun explorar(
         desde: String? = null, hasta: String? = null, categoria: String? = null, ciudad: String? = null,
         lat: Double? = null, lng: Double? = null, finos: FiltrosFinos = FiltrosFinos(),
         q: String? = null, zona: String? = null, radio: Int? = null,
     ): Planes = get(
         "/v1/planes/explorar", "desde" to desde, "hasta" to hasta, "categoria" to categoria, "ciudad" to ciudad,
-        "lat" to lat, "lng" to lng, "q" to busqueda(q), "zona" to zona, "radio" to radio, *finos.query(),
+        "lat" to num(lat), "lng" to num(lng), "q" to busqueda(q), "zona" to zona, "radio" to radio, *finos.query(),
     )
 
+    /** Las zonas de una ciudad (las de planes de los próximos 30 días + las fijas). */
+    suspend fun zonas(ciudad: String): Zonas = get("/v1/publico/zonas", "ciudad" to ciudad)
+
+    /** Sin sesión: lo público de Ahora, Explorar y el detalle. */
+    suspend fun publicoExplorar(): Planes = get("/v1/publico/planes/explorar")
+
     suspend fun mios(cual: String): Planes = get("/v1/planes/mios", "cual" to cual)
-    suspend fun plan(id: String, lat: Double? = null, lng: Double? = null): Plan = get("/v1/planes/$id", "lat" to lat, "lng" to lng)
+    suspend fun plan(id: String, lat: Double? = null, lng: Double? = null): Plan = get("/v1/planes/$id", "lat" to num(lat), "lng" to num(lng))
     suspend fun publico(slug: String): Plan = get("/v1/publico/planes/$slug")
     suspend fun crearPlan(p: PlanNuevo): Plan = enviar("POST", "/v1/planes", p)
     suspend fun cancelarPlan(id: String) = sinCuerpo("DELETE", "/v1/planes/$id")
     suspend fun editarPlan(id: String, c: CambiosPlan): Plan = enviar("PATCH", "/v1/planes/$id", c)
 
-    /** El organizador saca a alguien aceptado (no a una entrada paga: 409 `con_entrada`). */
+    /** Organizador: saca a alguien aceptado (409 `con_entrada` si pagó entrada). */
     suspend fun sacarPersona(planId: String, usuarioId: String) = sinCuerpo("DELETE", "/v1/planes/$planId/personas/$usuarioId")
 
     /** Con Plus, un plan propio por semana sale primero en Ahora y Explorar. */
-    suspend fun destacar(id: String): Plan = decodificar(crudo("POST", url("/v1/planes/$id/destacar")))
+    suspend fun destacar(id: String) = sinCuerpo("POST", "/v1/planes/$id/destacar")
 
     @kotlinx.serialization.Serializable
     data class Sumarse(val cantidad: Int, val mensaje: String = "")
@@ -193,7 +211,7 @@ class Api(
 
     suspend fun reaccionar(id: String, modo: String, accion: String): ResultadoReaccion = enviar("POST", "/v1/gente/$id/reaccion", Reaccion(modo, accion))
     suspend fun recibidos(modo: String): Recibidos = get("/v1/gente/recibidos", "modo" to modo)
-    suspend fun descartarRecibido(id: String, modo: String) { crudo("DELETE", url("/v1/gente/recibidos/$id", "modo" to modo)) }
+    suspend fun descartarRecibido(id: String, modo: String) = sinCuerpo("DELETE", "/v1/gente/recibidos/$id", "modo" to modo)
 
     @kotlinx.serialization.Serializable
     data class Invitar(val usuarioId: String)
@@ -214,6 +232,7 @@ class Api(
     suspend fun mensajes(planId: String, antes: Long? = null): Mensajes = get("/v1/planes/$planId/mensajes", "antes" to antes)
     suspend fun escribir(planId: String, texto: String): Mensaje = enviar("POST", "/v1/planes/$planId/mensajes", Texto(texto))
     suspend fun conversaciones(): Conversaciones = get("/v1/privados")
+    /** PARA LAS PANTALLAS: el iPhone no pagina los privados (`antes` queda por compatibilidad con Chat.kt). */
     suspend fun privados(conId: String, antes: Long? = null): Privados = get("/v1/privados/$conId", "antes" to antes)
     suspend fun escribirPrivado(conId: String, texto: String): Privado = enviar("POST", "/v1/privados/$conId", Texto(texto))
 
@@ -273,17 +292,43 @@ class Api(
     suspend fun tap(l: Lectura): ResultadoTap = enviar("POST", "/v1/tap", l)
 
     companion object {
-        /** `q` va desde 2 letras (contrato §5); menos, no se manda. */
+        /** Coordenadas con 6 decimales, como el iPhone. */
+        fun num(d: Double?): String? = d?.let { String.format(java.util.Locale.ROOT, "%.6f", it) }
+
+        /** La búsqueda sólo viaja con 2 letras o más. */
         fun busqueda(q: String?): String? = q?.trim()?.takeIf { it.length >= 2 }
 
         /** ~1 km: dos decimales de grado. */
         fun redondear(v: Double): Double = Math.round(v * 100) / 100.0
+
+        /** Sólo en las pruebas de pantallas: responde con la API simulada (apps/pruebas/respuestas.json). */
+        @Volatile var interceptorPrueba: okhttp3.Interceptor? = null
 
         fun http(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
             .pingInterval(25, TimeUnit.SECONDS)
+            .apply { interceptorPrueba?.let { addInterceptor(it) } }
             .build()
     }
+}
+
+/** Los filtros finos de Ahora/Explorar (Plus). Sin Plus, la API responde 403 `plus`. */
+data class FiltrosFinos(
+    val verificados: Boolean = false,
+    val faltan: Int? = null,
+    val edadDesde: Int? = null,
+    val edadHasta: Int? = null,
+    val gratis: Boolean = false,
+) {
+    val activos: Boolean get() = verificados || faltan != null || edadDesde != null || edadHasta != null || gratis
+
+    fun query(): Query = arrayOf(
+        "verificados" to (if (verificados) "1" else null),
+        "faltan" to faltan?.toString(),
+        "edadDesde" to edadDesde?.toString(),
+        "edadHasta" to edadHasta?.toString(),
+        "gratis" to (if (gratis) "1" else null),
+    )
 }

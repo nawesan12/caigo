@@ -33,6 +33,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import ar.com.caigo.app.app.LocalApp
 import ar.com.caigo.app.nucleo.CambiosPerfil
@@ -115,7 +118,7 @@ fun Intenciones(ir: Ir, soloEditar: Boolean) {
                     val soloGente = ("gente" in elegidas || "citas" in elegidas) && "planes" !in elegidas && "completar" !in elegidas
                     val modo = if (!soloGente) "planes" else if ("citas" in elegidas && "gente" !in elegidas) "citas" else "gente"
                     avisos.ok(if (soloGente) "Listo. Arrancamos mostrándote gente cerca." else "Listo. Arrancamos con los planes de las próximas horas.")
-                    ir.principal(Pestana.Ahora, modo)
+                    if (c.yo.value?.faltan?.isNotEmpty() == true) ir.alta("completar") else ir.principal(Pestana.Ahora, modo)
                 }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
@@ -126,11 +129,15 @@ fun Intenciones(ir: Ir, soloEditar: Boolean) {
         }
     }
 
-    Pantalla { arriba, abajo ->
-        AnimatedContent(paso, transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) }, label = "paso") { p ->
+    ingresoClaro { Pantalla(oscuro = false) { arriba, abajo ->
+        // withAnimation(.easeOut(duration: 0.22)) al seguir; 0.2 al volver.
+        AnimatedContent(paso, transitionSpec = {
+            val ms = if (targetState > initialState) 220 else 200
+            fadeIn(tween(ms, easing = androidx.compose.animation.core.EaseOut)) togetherWith fadeOut(tween(ms, easing = androidx.compose.animation.core.EaseOut))
+        }, label = "paso") { p ->
             Column(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                    .padding(start = 20.dp, end = 20.dp, top = arriba + 62.dp, bottom = 140.dp + abajo),
+                    .padding(start = 20.dp, end = 20.dp, top = arriba + 62.dp, bottom = 160.dp + abajo),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (p == 0) {
@@ -141,6 +148,7 @@ fun Intenciones(ir: Ir, soloEditar: Boolean) {
                         val on = it.api in elegidas
                         Row(
                             Modifier.fillMaxWidth().toque(alBajar = 2.dp) { elegidas = if (on) elegidas - it.api else elegidas + it.api }
+                                .semantics { selected = on; role = androidx.compose.ui.semantics.Role.Button }
                                 .gel(24.dp, if (on) gelIntencionOn else gelIntencionOff).padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -168,7 +176,7 @@ fun Intenciones(ir: Ir, soloEditar: Boolean) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(9.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                         intereses.forEach { l ->
                             val on = l in copan
-                            Chip(l, on, { copan = if (on) copan - l else copan + l }, tam = 15f, pesoOff = 700, padH = 16.dp, padV = 12.dp, radio = 17.dp)
+                            Chip(l, on, { copan = if (on) copan - l else copan + l }, tam = 15f, padH = 16.dp, padV = 12.dp, radio = 17.dp)
                         }
                     }
                 }
@@ -199,5 +207,5 @@ fun Intenciones(ir: Ir, soloEditar: Boolean) {
                 cargando = cargando,
             )
         }
-    }
+    } }
 }

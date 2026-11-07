@@ -34,6 +34,7 @@ class PlataTest {
         assertEquals("$13.999", Plata.pesos(1399900))
         assertEquals("$0", Plata.pesos(0))
         assertEquals("$12,50", Plata.pesos(1250))
+        assertEquals("$1.234.567", Plata.pesos(123456700))
     }
 
     @Test fun cargoRedondeadoACien() {
@@ -62,6 +63,7 @@ class PlataTest {
         // La seña se redondea a $100, como la API: 30 % de $11.110 = $3.333 → $3.300.
         assertEquals(330000, Plata.alLugar(1111000, "sena", 30))
         assertEquals(170000, Plata.alLugar(550000, "sena", 30))
+        assertEquals(550000, Plata.alLugar(550000, "entrada", 30))
     }
 }
 
@@ -100,7 +102,7 @@ class MazoTest {
     @Test fun pasaElUmbralYVuela() {
         val e = r(FisicaMazo.Estado(), FisicaMazo.Accion.Empieza, FisicaMazo.Accion.Mueve(140f, 10f), FisicaMazo.Accion.Suelta)
         assertEquals(1, e.vuela)
-        assertEquals(FisicaMazo.SALIDA to -30f, FisicaMazo.desplazamiento(e))
+        assertEquals(FisicaMazo.salida to -30f, FisicaMazo.desplazamiento(e))
         val sig = FisicaMazo.reducir(e, FisicaMazo.Accion.Siguiente)
         assertEquals(1, sig.indice)
         assertEquals(0, sig.vuela)
@@ -151,15 +153,15 @@ class EncantasTest {
 class FiltrosFinosTest {
     @Test fun sinFinosNoMandaNada() {
         val f = ar.com.caigo.app.nucleo.FiltrosFinos()
-        assertTrue(!f.alguno)
+        assertTrue(!f.activos)
         assertTrue(f.query().all { it.second == null })
     }
 
     @Test fun finos() {
         val f = ar.com.caigo.app.nucleo.FiltrosFinos(verificados = true, faltan = 2, edadDesde = 26, edadHasta = 35, gratis = true)
-        assertTrue(f.alguno)
+        assertTrue(f.activos)
         assertEquals(
-            listOf("verificados" to "1", "faltan" to 2, "edadDesde" to 26, "edadHasta" to 35, "gratis" to "1"),
+            listOf("verificados" to "1", "faltan" to "2", "edadDesde" to "26", "edadHasta" to "35", "gratis" to "1"),
             f.query().toList(),
         )
     }
@@ -184,16 +186,12 @@ class SenaTest {
 }
 
 class VacioTest {
-    @Test fun domingoALaSiestaSigueComoEnElHandoff() {
-        assertEquals("Domingo a la siesta, la costa duerme. Si publicás algo ahora, sos lo primero que ven.", Vacio.frase(7, 15))
-    }
-
-    @Test fun cambiaSegunElDiaYLaHora() {
-        assertTrue(Vacio.frase(5, 22).startsWith("Viernes a la noche"))
-        assertTrue(Vacio.frase(2, 22).startsWith("Todavía nadie"))
-        assertTrue(Vacio.frase(3, 9).startsWith("La mañana"))
-        assertTrue(Vacio.frase(3, 3).startsWith("A esta hora"))
-        // Ninguna nombra al domingo fuera del domingo.
-        (1..6).forEach { d -> (0..23).forEach { h -> assertTrue(!Vacio.frase(d, h).contains("Domingo")) } }
+    @Test fun vacioSegunHora() {
+        // Domingo 2 de noviembre de 2025, 15:00 en Argentina.
+        val siesta = Fecha.parse("2025-11-02T15:00:00-03:00")!!
+        assertTrue(VacioAhora.cuerpo(siesta).startsWith("Domingo a la siesta, la costa duerme."))
+        val noche = Fecha.parse("2025-11-07T22:30:00-03:00")!!
+        assertTrue(VacioAhora.cuerpo(noche).startsWith("Viernes a la noche"))
+        assertEquals("No hay planes cerca. ¿Armás uno?", VacioAhora.titulo)
     }
 }

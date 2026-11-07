@@ -5,14 +5,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,19 +30,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.app.LocalApp
 import ar.com.caigo.app.nucleo.EntradaMia
 import ar.com.caigo.app.nucleo.ErrorApi
 import ar.com.caigo.app.nucleo.PaseSocio
 import ar.com.caigo.app.nucleo.mensajeDe
-import ar.com.caigo.app.app.Ir
+import ar.com.caigo.app.piezas.BotonIcono
 import ar.com.caigo.app.piezas.Cta
+import ar.com.caigo.app.nucleo.Fecha
 import ar.com.caigo.app.piezas.Foto
 import ar.com.caigo.app.piezas.LocalAvisos
 import ar.com.caigo.app.piezas.MensajeCentro
 import ar.com.caigo.app.piezas.Pantalla
 import ar.com.caigo.app.piezas.Puntitos
-import ar.com.caigo.app.piezas.abrirPestana
 import ar.com.caigo.app.piezas.rememberCarga
 import ar.com.caigo.app.piezas.tocable
 import ar.com.caigo.app.piezas.toque
@@ -61,15 +66,16 @@ private val gelSocio = Gel(radial(1f, 0f, 1.2f, .8f, 0f to C.violeta2, .6f to Co
 private val numeros = listOf("", "Una", "Dos", "Tres", "Cuatro", "Cinco", "Seis", "Siete", "Ocho", "Nueve", "Diez")
 
 /** "Dos visitas más y tenés: Taller gratis" (o el beneficio ganado, si hay para canjear). */
-private fun textoSocio(s: PaseSocio): String {
+internal fun pagosTextoSocio(s: PaseSocio): String {
     if (s.pendientes > 0) return "Ya ganaste: ${s.beneficio}. Mostralo en el lugar."
-    val faltan = (s.meta - s.visitas).coerceAtLeast(0)
+    val faltan = maxOf(0, s.meta - s.visitas)
     if (faltan == 0) return s.beneficio
-    val n = numeros.getOrNull(faltan) ?: faltan.toString()
+    val n = if (faltan < numeros.size) numeros[faltan] else "$faltan"
     return "$n ${if (faltan == 1) "visita" else "visitas"} más y tenés: ${s.beneficio}"
 }
 
 /** Mis pases (Pases NFC 1f): las entradas pagadas y los pases de socio de los lugares. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Pases(ir: Ir) {
     val c = LocalApp.current
@@ -78,94 +84,90 @@ fun Pases(ir: Ir) {
     val alcance = rememberCoroutineScope()
     val p = LocalPaleta.current
     val pases = rememberCarga { c.api.pases() }
-    // Pases que ya se mandaron a Wallet en esta sesión, y los que no tienen Wallet.
-    var enWallet by remember { mutableStateOf(setOf<String>()) }
-    var sinWallet by remember { mutableStateOf(false) }
+    var bajando by remember { mutableStateOf<String?>(null) }
+    // Google Wallet: si la API responde `sin_wallet`, se dejan de ofrecer (PagosWallet.disponible del iPhone).
+    var conWallet by remember { mutableStateOf(true) }
 
-    fun wallet(clave: String, pedir: suspend () -> String) = alcance.launch {
-        try {
-            abrirPestana(ctx, pedir())
-            enWallet = enWallet + clave
-        } catch (e: ErrorApi) {
-            if (e.codigo == "sin_wallet") sinWallet = true
-            avisos.error(e.detalle)
-        } catch (e: Throwable) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            avisos.error(mensajeDe(e))
+    fun agregar(clave: String, bajar: suspend () -> String) {
+        if (bajando != null) return
+        alcance.launch {
+            bajando = clave
+            try {
+                PagosWallet.agregar(ctx, bajar)
+            } catch (e: ErrorApi) {
+                if (e.codigo == "sin_wallet") conWallet = false
+                avisos.error(e.detalle)
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                avisos.error(mensajeDe(e))
+            } finally {
+                bajando = null
+            }
         }
     }
 
     Pantalla { arriba, abajo ->
-        Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(top = arriba + 6.dp, start = 18.dp, end = 18.dp, bottom = abajo + 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+        PullToRefreshBox(
+            isRefreshing = pases.cargando && pases.dato != null,
+            onRefresh = { pases.recargar() },
+            modifier = Modifier.fillMaxSize(),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ar.com.caigo.app.piezas.BotonIcono(I.atras, { ir.atras() })
-                T("Mis pases", 36f, 800, alto = 1f, espaciado = px(-1.3f, 36f))
-            }
-            val d = pases.dato
-            when {
-                d == null && pases.cargando -> Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { Puntitos() }
-                d == null -> MensajeCentro("No pudimos cargar tus pases", pases.error.orEmpty(), Modifier.padding(top = 60.dp))
-                d.entradas.isEmpty() && d.socios.isEmpty() -> {
-                    MensajeCentro(
-                        "Todavía no tenés pases",
-                        "Cuando compres una entrada o sumes visitas en un lugar con Caigo Tap, aparecen acá.",
-                        Modifier.padding(top = 60.dp, bottom = 10.dp),
-                    )
-                    Cta("Ver planes cerca", { ir.principal() }, Modifier.fillMaxWidth())
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                    .padding(top = arriba + 6.dp, start = 18.dp, end = 18.dp, bottom = abajo + 24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    BotonIcono(I.atras, { ir.atras() })
+                    T("Mis pases", 36f, 800, alto = 1f, espaciado = px(-1.3f, 36f), unRenglon = true)
                 }
-                else -> {
-                    if (d.entradas.isNotEmpty()) {
-                        T("ENTRADAS", 12f, 800, p.texto2, espaciado = px(1.2f, 12f))
-                        d.entradas.forEach { e ->
-                            FilaEntrada(e, e.id in enWallet, !sinWallet, { ir.entrada(e.id, e.planId) }) { wallet(e.id) { c.api.walletEntrada(e.id).link } }
-                        }
+                val d = pases.dato
+                when {
+                    d != null && d.entradas.isEmpty() && d.socios.isEmpty() -> {
+                        MensajeCentro(
+                            "Todavía no tenés pases",
+                            "Cuando compres una entrada o sumes visitas en un lugar con Caigo Tap, aparecen acá.",
+                            Modifier.padding(top = 60.dp, bottom = 10.dp),
+                        )
+                        Cta("Ver planes cerca", { ir.principal() }, Modifier.fillMaxWidth())
                     }
-                    if (d.socios.isNotEmpty()) {
-                        T("PASES DE SOCIO", 12f, 800, p.texto2, Modifier.padding(top = 6.dp), espaciado = px(1.2f, 12f))
-                        d.socios.forEach { s ->
-                            Column(
-                                Modifier.fillMaxWidth().gel(24.dp, gelSocio)
-                                    .then(if (sinWallet) Modifier else Modifier.tocable { wallet("socio:" + s.lugarId) { c.api.walletSocio(s.lugarId).link } })
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    T(s.lugar, 15f, 800, C.blanco, Modifier.weight(1f))
-                                    T("${s.visitas} de ${s.meta}", 12f, 800, C.lima)
+                    d != null -> {
+                        if (d.entradas.isNotEmpty()) {
+                            T("ENTRADAS", 12f, 800, p.texto2, espaciado = px(1.2f, 12f))
+                            d.entradas.forEach { e ->
+                                FilaEntrada(e, conWallet, bajando == e.id, { ir.entrada(e.id, e.planId) }) {
+                                    agregar(e.id) { c.api.walletEntrada(e.id).link }
                                 }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    repeat(s.meta.coerceIn(1, 20)) { i ->
-                                        Box(
-                                            Modifier.weight(1f).height(9.dp)
-                                                .background(if (i < s.visitas) C.lima else rgba(255, 255, 255, .22f), RoundedCornerShape(5.dp)),
-                                        )
-                                    }
+                            }
+                        }
+                        if (d.socios.isNotEmpty()) {
+                            T("PASES DE SOCIO", 12f, 800, p.texto2, Modifier.padding(top = 6.dp), espaciado = px(1.2f, 12f))
+                            d.socios.forEach { s ->
+                                Socio(s, conWallet, bajando == "socio:" + s.lugarId) {
+                                    if (conWallet) agregar("socio:" + s.lugarId) { c.api.walletSocio(s.lugarId).link }
                                 }
-                                T(textoSocio(s), 12f, 600, Color(0xFFE4DDFF))
                             }
                         }
                     }
+                    pases.cargando -> Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { Puntitos() }
+                    else -> MensajeCentro("No pudimos cargar tus pases", pases.error.orEmpty(), Modifier.padding(top = 60.dp))
                 }
-            }
-            Row(
-                Modifier.fillMaxWidth().background(if (p.oscuro) p.superficie else C.lavanda, RoundedCornerShape(22.dp))
-                    .tocable { ir.tap() }.padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icono(I.nfc, 22.dp, if (p.oscuro) C.violeta1 else C.violetaTexto, 2.4f)
-                T("Los lugares con Caigo Tap te dejan entrar apoyando el celu.", 13f, 700, p.texto, Modifier.weight(1f), alto = 1.4f)
+                Row(
+                    Modifier.fillMaxWidth().background(if (p.oscuro) p.superficie else C.lavanda, RoundedCornerShape(22.dp))
+                        .tocable { ir.tap() }.padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icono(I.nfc, 22.dp, if (p.oscuro) C.violeta1 else C.violetaTexto, 2.4f)
+                    T("Los lugares con Caigo Tap te dejan entrar apoyando el celu.", 13f, 700, p.texto, Modifier.weight(1f), alto = 1.4f)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun FilaEntrada(e: EntradaMia, enWallet: Boolean, conWallet: Boolean, abrir: () -> Unit, agregar: () -> Unit) {
+private fun FilaEntrada(e: EntradaMia, conWallet: Boolean, bajando: Boolean, abrir: () -> Unit, agregar: () -> Unit) {
     val c = LocalApp.current
     // La foto sale del plan (la entrada no la trae).
     val foto = rememberCarga(e.planId) { runCatching { c.api.plan(e.planId).foto }.getOrNull() }
@@ -177,19 +179,43 @@ private fun FilaEntrada(e: EntradaMia, enWallet: Boolean, conWallet: Boolean, ab
         Foto(foto.dato, Modifier.size(62.dp).clip(RoundedCornerShape(16.dp)))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             T(e.titulo, 15f, 800, C.carbon, maxRenglones = 2)
-            val detalle = when {
-                e.modo == "sena" -> "Señada"
-                e.cantidad > 1 -> "${e.cantidad} entradas"
-                else -> "1 entrada"
-            }
-            T("${ar.com.caigo.app.piezas.Fecha.cuando(e.empiezaEn)} · $detalle", 12f, 600, C.texto2)
+            val detalle = if (e.modo == "sena") "Señada" else if (e.cantidad > 1) "${e.cantidad} entradas" else "1 entrada"
+            T("${Fecha.cuando(e.empiezaEn)} · $detalle", 12f, 600, C.texto2, unRenglon = true)
         }
-        when {
-            enWallet -> Box(Modifier.background(C.lima, RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 6.dp)) {
-                T("En Wallet", 11f, 800, C.carbon)
+        if (conWallet) {
+            Box(
+                Modifier.toque(onClick = agregar).background(C.carbon, RoundedCornerShape(12.dp)).padding(horizontal = 11.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (bajando) Puntitos(C.blanco, 5.dp) else T("+ Wallet", 11f, 800, C.blanco, alinear = TextAlign.Center, unRenglon = true)
             }
-            conWallet -> Box(Modifier.toque(onClick = agregar).background(C.carbon, RoundedCornerShape(12.dp)).padding(horizontal = 11.dp, vertical = 8.dp)) {
-                T("+ Wallet", 11f, 800, C.blanco, alinear = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun Socio(s: PaseSocio, conWallet: Boolean, bajando: Boolean, tocar: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().gel(24.dp, gelSocio).tocable(tocar).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            T(s.lugar, 15f, 800, C.blanco, Modifier.weight(1f))
+            T("${s.visitas} de ${s.meta}", 12f, 800, C.lima, unRenglon = true)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            repeat(minOf(maxOf(s.meta, 1), 20)) { i ->
+                Box(
+                    Modifier.weight(1f).height(9.dp)
+                        .background(if (i < s.visitas) C.lima else rgba(255, 255, 255, .22f), RoundedCornerShape(50)),
+                )
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            T(pagosTextoSocio(s), 12f, 600, Color(0xFFE4DDFF), Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            if (conWallet) {
+                if (bajando) Puntitos(C.lima, 5.dp) else Icono(I.billetera, 18.dp, C.lima, 2f)
             }
         }
     }

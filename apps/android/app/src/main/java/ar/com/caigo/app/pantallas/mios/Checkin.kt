@@ -1,5 +1,6 @@
 package ar.com.caigo.app.pantallas.mios
 
+import ar.com.caigo.app.piezas.asistencia
 import android.Manifest
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.keyframes
@@ -38,6 +39,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ar.com.caigo.app.app.LocalApp
@@ -52,11 +57,11 @@ import ar.com.caigo.app.piezas.BotonIcono
 import ar.com.caigo.app.piezas.CodigoQr
 import ar.com.caigo.app.piezas.Cta
 import ar.com.caigo.app.piezas.EscanerCodigos
-import ar.com.caigo.app.piezas.Fecha
+import ar.com.caigo.app.nucleo.Fecha
 import ar.com.caigo.app.piezas.LocalAvisos
 import ar.com.caigo.app.piezas.Pantalla
 import ar.com.caigo.app.piezas.Puntitos
-import ar.com.caigo.app.piezas.ZonaAR
+import ar.com.caigo.app.nucleo.ZonaAR
 import ar.com.caigo.app.piezas.compartir
 import ar.com.caigo.app.piezas.rememberCarga
 import ar.com.caigo.app.piezas.rememberPermiso
@@ -112,6 +117,8 @@ fun Checkin(ir: Ir, planId: String) {
     var compartiendo by remember { mutableStateOf(false) }
     val escala = remember { Animatable(1f) }
     val giro = remember { Animatable(0f) }
+    // PARA EL NÚCLEO: un `vibrar(exito)` compartido como `Sistema.vibrar()` de iOS; mientras, el háptico directo.
+    val haptico = LocalHapticFeedback.current
 
     fun llegue() {
         ocupado = true
@@ -125,8 +132,9 @@ fun Checkin(ir: Ir, planId: String) {
                 }
                 c.api.checkin(planId, Api.Llegada("geo", u.first, u.second))
                 listo = true
-                tkPop(escala, giro)
+                haptico.performHapticFeedback(HapticFeedbackType.Confirm)
                 avisos.ok("Listo, tu asistencia quedó registrada.")
+                launch { tkPop(escala, giro) }
                 delay(1200)
                 ir.atras()
             } catch (e: Throwable) {
@@ -167,16 +175,12 @@ fun Checkin(ir: Ir, planId: String) {
             }
             Spacer(Modifier.height(30.dp))
             Column(Modifier.padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val lugar = pl?.lugar?.nombre ?: pl?.lugarNombre?.ifBlank { null } ?: pl?.zona.orEmpty()
+                val lugar = pl?.lugar?.nombre ?: pl?.lugarNombre?.ifEmpty { null } ?: pl?.zona.orEmpty()
                 T(if (listo) "¡Llegaste!" else "Estás en $lugar", 32f, 700, alto = 1.05f, espaciado = px(-.8f, 32f), alinear = TextAlign.Center)
                 T("Hacé check-in para que cuente tu asistencia.", 15f, 400, p.texto2, alto = 1.5f, alinear = TextAlign.Center)
             }
             Spacer(Modifier.weight(1f))
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                // Plan de un lugar: el QR personal es lo que valida la puerta (contrato §6).
-                if (pl?.lugar != null && pl.miEstado == "aceptada" && !listo) {
-                    Cta("Mostrar mi QR en la puerta", { ir.qrOrganizador(planId) }, Modifier.fillMaxWidth(), gel = Gels.blanco, icono = I.qr, iconoTrazo = 2.2f, iconoTam = 20.dp)
-                }
                 if (lejos && !listo) {
                     Cta("Escanear el QR del organizador", { ir.escanearQr(planId) }, Modifier.fillMaxWidth(), gel = Gels.violeta, color = C.blanco, icono = I.qr, iconoTrazo = 2.2f, iconoTam = 20.dp)
                 }
@@ -239,6 +243,7 @@ fun Repetimos(ir: Ir, planId: String) {
                 val nuevo = r.nuevo
                 if (repetir && nuevo != null) {
                     avisos.ok("Listo, ya está el plan de la semana que viene.")
+                    ir.atras()
                     ir.plan(nuevo.id)
                 } else {
                     avisos.ok("Gracias. Nadie ve tus respuestas.")
@@ -257,7 +262,7 @@ fun Repetimos(ir: Ir, planId: String) {
         val pl = plan.dato
         if (pl == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (plan.error != null) T(plan.error!!, 15f, 600, C.blanco, alinear = TextAlign.Center) else Puntitos(C.lima)
+                if (plan.error != null) T(plan.error!!, 15f, 600, C.blanco, Modifier.padding(28.dp), alinear = TextAlign.Center) else Puntitos(C.lima)
             }
             return@Pantalla
         }
@@ -278,17 +283,17 @@ fun Repetimos(ir: Ir, planId: String) {
                         T(listOfNotNull(pl.titulo, cuando).joinToString(" · "), 13f, 700, C.blanco, unRenglon = true)
                     }
                 }
-                T("¿Repetimos?", 52f, 800, C.blanco, alto = .95f, espaciado = px(-2f, 52f))
+                T("¿Repetimos?", 52f, 800, C.blanco, alto = .95f, espaciado = px(-2f, 52f), unRenglon = true)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Cta(
                         t?.let { "Sí, el ${Fecha.diaLargo(it).lowercase()}" } ?: "Sí", { responder(true) }, Modifier.weight(1.4f),
-                        alto = 54.dp, radio = 18.dp, tam = 16f, color = C.carbon, cargando = mandando == true, habilitado = mandando == null,
+                        alto = 54.dp, radio = 18.dp, tam = 16f, color = C.carbon, cargando = mandando == true, habilitado = mandando == null || mandando == true,
                     )
                     Box(
                         Modifier.weight(1f).height(54.dp).toque(mandando == null) { responder(false) }
                             .border(2.dp, Color(0xFFA897F7), RoundedCornerShape(18.dp)),
                         contentAlignment = Alignment.Center,
-                    ) { if (mandando == false) Puntitos(C.blanco) else T("Esta vez no", 16f, 700, C.blanco) }
+                    ) { if (mandando == false) Puntitos(C.blanco) else T("Esta vez no", 16f, 700, C.blanco, unRenglon = true) }
                 }
             }
             Column(
@@ -310,7 +315,7 @@ fun Repetimos(ir: Ir, planId: String) {
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Avatar(g.nombre, g.foto, 44.dp, Modifier.tocable { ir.persona(g.id, "repetimos") }, borde = 0.dp, tamTexto = 17f)
-                            Column(Modifier.weight(1f)) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                                 T(miosPrimer(g.nombre), 15f, 700)
                                 if (g.organizador || g.id == pl.organizador.id) T("Organizó el plan", 12f, 400, p.texto2)
                             }
@@ -324,7 +329,7 @@ fun Repetimos(ir: Ir, planId: String) {
                                     T("Tu gente", 13f, 800, C.carbon)
                                 }
                             } else {
-                                BotonIcono(I.mas, { volveria[g.id] = true }, tam = 40.dp, radio = 14.dp, iconoTam = 16.dp, trazo = 3f, color = C.violeta,
+                                BotonIcono(I.mas, { volveria[g.id] = true }, Modifier.semantics { contentDescription = "Sumar a tu gente" }, tam = 40.dp, radio = 14.dp, iconoTam = 16.dp, trazo = 3f, color = C.violeta,
                                     gel = if (p.oscuro) Gels.chipOscuro else Gels.chipClaro)
                             }
                         }
@@ -385,13 +390,13 @@ fun QrOrganizador(ir: Ir, planId: String) {
             plan.dato?.let { pl ->
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     T(pl.titulo, 20f, 700, alto = 1.15f)
-                    T(listOf(Fecha.cuando(pl.empiezaEn), pl.lugar?.nombre ?: pl.lugarNombre.ifBlank { pl.zona }).filter { it.isNotBlank() }.joinToString(" · "), 13f, 600, p.texto2)
+                    T(listOf(Fecha.cuando(pl.empiezaEn), pl.lugar?.nombre ?: pl.lugarNombre.ifEmpty { pl.zona }).filter { it.isNotEmpty() }.joinToString(" · "), 13f, 600, p.texto2)
                 }
             }
-            Box(Modifier.padding(top = 10.dp).fillMaxWidth(.82f).aspectRatio(1f).gel(30.dp, gelQr).padding(20.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.padding(start = 28.dp, end = 28.dp, top = 10.dp).fillMaxWidth().aspectRatio(1f).gel(30.dp, gelQr).padding(20.dp), contentAlignment = Alignment.Center) {
                 val cod = qr.dato
                 when {
-                    cod != null -> CodigoQr(cod, Modifier.fillMaxSize())
+                    cod != null -> CodigoQr(cod, Modifier.fillMaxSize().semantics { contentDescription = "Código QR" })
                     qr.error != null -> T(qr.error!!, 14f, 600, C.texto2, alinear = TextAlign.Center)
                     else -> Puntitos()
                 }
@@ -417,6 +422,7 @@ fun EscanearQr(ir: Ir, planId: String) {
     val avisos = LocalAvisos.current
     val alcance = rememberCoroutineScope()
     var leyendo by remember { mutableStateOf(false) }
+    val haptico = LocalHapticFeedback.current
     val (permiso, pedir) = rememberPermiso(Manifest.permission.CAMERA)
     LaunchedEffect(Unit) { if (!permiso) pedir() }
 
@@ -428,6 +434,7 @@ fun EscanearQr(ir: Ir, planId: String) {
                 alcance.launch {
                     try {
                         c.api.checkin(planId, Api.Llegada("qr", codigo = codigo))
+                        haptico.performHapticFeedback(HapticFeedbackType.Confirm)
                         avisos.ok("Listo, tu asistencia quedó registrada.")
                         ir.atras()
                     } catch (e: Throwable) {

@@ -15,6 +15,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import ar.com.caigo.app.nucleo.Api
 import ar.com.caigo.app.nucleo.Clerk
+import ar.com.caigo.app.nucleo.EstadoPlus
 import ar.com.caigo.app.nucleo.Perfil
 import ar.com.caigo.app.nucleo.ResultadoTap
 import ar.com.caigo.app.nucleo.Sesion
@@ -25,6 +26,7 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.crossfade
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -45,11 +47,10 @@ sealed interface Destino {
     data class VueltaClerk(val nonce: String?) : Destino
 }
 
-/** Centro de Mar del Plata: donde arranca el mapa si no hay permiso de ubicación. */
-const val LAT_MDP = -38.0023
-const val LNG_MDP = -57.5575
-
-/** Todo lo que comparten las pantallas: API, sesión, tiempo real, ubicación y destinos pendientes. */
+/**
+ * Todo lo que comparten las pantallas: API, sesión, tiempo real, ubicación y destinos pendientes
+ * (como Contenedor.swift del iPhone).
+ */
 class Contenedor(val ctx: Context) {
     val alcance = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val sesion = Sesion(ctx)
@@ -57,9 +58,13 @@ class Contenedor(val ctx: Context) {
     val api = Api(BuildConfig.API, http, { sesion.token.value }, alVencer = { alcance.launch { salirLocal() } })
     val clerk = Clerk(ctx, http, BuildConfig.CLERK_PUBLICABLE)
     val tiempoReal = TiempoReal(BuildConfig.API, http, { sesion.token.value }, alcance)
+    /** Los avisos (toasts) de toda la app: los usa también MainActivity al leer placas NFC. */
+    val avisos = ar.com.caigo.app.piezas.Avisos()
 
     /** Mi perfil (se recarga al entrar y al editar). */
     val yo = MutableStateFlow<Perfil?>(null)
+    /** Estado de Plus (se recarga al entrar a Perfil, al comprar y en el paywall). */
+    val plus = MutableStateFlow<EstadoPlus?>(null)
     val destino = MutableStateFlow<Destino?>(null)
     /** Resultado del último tap en una placa (pantalla "Adentro"). */
     var ultimoTap: ResultadoTap? = null
@@ -68,12 +73,17 @@ class Contenedor(val ctx: Context) {
     /** Mientras la pantalla de Caigo Tap está abierta, MainActivity lee placas NFC en primer plano. */
     val nfcActivo = MutableStateFlow(false)
 
-    suspend fun recargarYo(): Perfil? = runCatching { api.yo() }.getOrNull()?.also { yo.value = it }
+    /** Recarga mi perfil; si falla, queda el que había. */
+    suspend fun recargarYo(): Perfil? = runCatching { api.yo() }.getOrNull()?.also { yo.value = it } ?: yo.value
+
+    /** Recarga el estado de Plus; si falla, queda el que había. */
+    suspend fun recargarPlus(): EstadoPlus? = runCatching { api.plus() }.getOrNull()?.estado?.also { plus.value = it } ?: plus.value
 
     suspend fun entrar(token: String, usuarioId: String) {
         sesion.guardar(token, usuarioId)
-        Push.registrar(this)
         tiempoReal.encender()
+        Push.registrar(this)
+        alcance.launch { mandarUbicacion() }
     }
 
     suspend fun salir() {
@@ -90,13 +100,20 @@ class Contenedor(val ctx: Context) {
         salirLocal()
     }
 
+    @Volatile
+    private var ubicacionMandada: Long? = null
+
     /**
-     * Al abrir la app con sesión: la ubicación para los avisos de «plan cerca» (`PUT /v1/yo/ubicacion`,
-     * redondeada a ~1 km). Sin permiso no se manda nada.
+     * PUT /v1/yo/ubicacion (avisos de planes cerca): al abrir y al volver a primer plano, como mucho
+     * una vez cada 30 minutos. Sólo si ya hay permiso: no se pide permiso para esto.
      */
     suspend fun mandarUbicacion() {
-        val (la, ln) = ubicacion() ?: return
-        runCatching { api.ubicacion(la, ln) }
+        if (sesion.token.value == null || !tienePermisoUbicacion()) return
+        val u = ubicacionMandada
+        if (u != null && System.currentTimeMillis() - u < 30 * 60_000L) return
+        ubicacionMandada = System.currentTimeMillis()
+        val (la, ln) = ubicacion() ?: run { ubicacionMandada = null; return }
+        runCatching { api.ubicacion(la, ln) }.onFailure { ubicacionMandada = null }
     }
 
     /**
@@ -110,7 +127,7 @@ class Contenedor(val ctx: Context) {
 
     suspend fun chequearVersion() {
         val v = runCatching { api.version() }.getOrNull() ?: return
-        actualizar.value = v.minAndroid > BuildConfig.VERSION_CODE
+        if (v.pideActualizar(BuildConfig.VERSION_CODE)) actualizar.value = true
     }
 
     /** Pregunta de género pendiente (ante `falta_genero`): la hoja la responde con true si se guardó. */
@@ -123,10 +140,12 @@ class Contenedor(val ctx: Context) {
         return try { d.await() } finally { if (preguntaGenero.value === d) preguntaGenero.value = null }
     }
 
-    private suspend fun salirLocal() {
+    /** Cierra la sesión sólo en el teléfono (sin avisarle a la API). */
+    suspend fun salirLocal() {
         tiempoReal.apagar()
         sesion.borrar()
         yo.value = null
+        plus.value = null
     }
 
     fun tienePermisoUbicacion() =
@@ -161,8 +180,9 @@ class Contenedor(val ctx: Context) {
         if (uri == null) return null
         val seg = uri.pathSegments.orEmpty()
         return when {
-            uri.scheme == "ar.com.caigo.app" && uri.host == "callback" -> Destino.VueltaClerk(uri.getQueryParameter("rotating_token_nonce"))
-            uri.scheme == "ar.com.caigo.app" && uri.host == "p" && seg.isNotEmpty() -> Destino.PlanSlug(seg[0])
+            uri.scheme == Clerk.ESQUEMA && uri.host == "callback" -> Destino.VueltaClerk(uri.getQueryParameter("rotating_token_nonce"))
+            uri.scheme == Clerk.ESQUEMA && uri.host == "p" && seg.isNotEmpty() -> Destino.PlanSlug(seg[0])
+            uri.scheme == Clerk.ESQUEMA && uri.host == "plan" && seg.isNotEmpty() -> Destino.Plan(seg[0])
             uri.scheme == "https" && seg.size >= 2 && seg[0] == "p" -> Destino.PlanSlug(seg[1])
             (uri.scheme == "https" || uri.scheme == "ar.com.caigo.app") && seg.size >= 2 && seg[0] == "t" -> Destino.Tap(
                 seg[1], uri.getQueryParameter("picc_data").orEmpty(), uri.getQueryParameter("cmac").orEmpty(),
@@ -204,5 +224,7 @@ class App : Application(), SingletonImageLoader.Factory {
 
     override fun newImageLoader(context: PlatformContext): ImageLoader = ImageLoader.Builder(context)
         .components { add(OkHttpNetworkFetcherFactory(callFactory = { contenedor.http })) }
+        // Las fotos aparecen con un fundido de 0,2 s, como ImagenRed del iPhone.
+        .crossfade(200)
         .build()
 }

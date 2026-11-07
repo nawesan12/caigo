@@ -131,7 +131,7 @@ private fun esquinas(modifier: Modifier) {
 @Composable
 private fun iconoLatiendo() {
     val t = rememberInfiniteTransition(label = "pop")
-    val k by t.animateFloat(0f, 1f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "k")
+    val k by t.animateFloat(0f, 1f, infiniteRepeatable(tween(600, easing = androidx.compose.animation.core.EaseInOut), RepeatMode.Reverse), label = "k")
     Image(
         painterResource(R.drawable.caigo_icon), null,
         Modifier.size(120.dp).graphicsLayer {
@@ -149,6 +149,7 @@ private fun iconoLatiendo() {
 fun Dni(ir: Ir, planId: String?) {
     val c = LocalApp.current
     val ctx = LocalContext.current
+    val vista = androidx.compose.ui.platform.LocalView.current
     val avisos = LocalAvisos.current
     val alcance = rememberCoroutineScope()
     var paso by remember { mutableIntStateOf(PasoDni.CARGANDO) }
@@ -159,7 +160,7 @@ fun Dni(ir: Ir, planId: String?) {
     var disparo by remember { mutableStateOf(false) }
     val vida = remember { IngresoVida() }
     val disparador = remember(paso) { Disparador() }
-    val (permiso, pedirPermiso) = rememberPermiso(Manifest.permission.CAMERA)
+    val (permiso, pedirPermiso) = rememberIngresoPermisoCamara()
     val etiquetaFin = if (planId != null) "Seguir con el plan" else "Listo"
 
     LaunchedEffect(Unit) {
@@ -170,7 +171,7 @@ fun Dni(ir: Ir, planId: String?) {
                 else -> PasoDni.FRENTE
             }
         } ?: PasoDni.FRENTE
-        if (!permiso) pedirPermiso()
+        if (!permiso && paso == PasoDni.FRENTE) pedirPermiso()
     }
 
     val enviar: () -> Unit = {
@@ -216,6 +217,7 @@ fun Dni(ir: Ir, planId: String?) {
             if (foto == null) { avisos.error("No pudimos sacar la foto. Probá de nuevo."); return@launch }
             if (paso == PasoDni.FRENTE) frente = foto else dorso = foto
             disparo = true
+            ingresoVibrar(vista)
             delay(650)
             disparo = false
             if (paso == PasoDni.DORSO && datos == null) {
@@ -228,13 +230,19 @@ fun Dni(ir: Ir, planId: String?) {
         }
     }
 
-    Pantalla { arriba, abajo ->
+    ingresoClaro { Pantalla(oscuro = false) { arriba, abajo ->
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            Modifier.fillMaxSize()
+                .verticalScroll(rememberScrollState(), enabled = paso != PasoDni.FRENTE && paso != PasoDni.DORSO && paso != PasoDni.SELFIE)
                 .padding(start = 20.dp, end = 20.dp, top = arriba + 8.dp, bottom = 40.dp + abajo),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             ingresoBarraArriba(I.cruz, { ir.atras() }, { ingresoEncriptado() })
+            // withAnimation(.easeOut(duration: 0.25)) al pasar de paso: el paso nuevo aparece. Sin
+            // AnimatedContent: dos cámaras a la vez se pisan el ProcessCameraProvider.
+            val aparece = remember(paso) { androidx.compose.animation.core.Animatable(0f) }
+            LaunchedEffect(paso) { aparece.animateTo(1f, tween(250, easing = androidx.compose.animation.core.EaseOut)) }
+            Column(Modifier.fillMaxWidth().graphicsLayer { alpha = aparece.value }, verticalArrangement = Arrangement.spacedBy(18.dp)) {
             when (paso) {
                 PasoDni.CARGANDO -> Box(Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) { Puntitos() }
 
@@ -250,14 +258,18 @@ fun Dni(ir: Ir, planId: String?) {
                     ) {
                         if (permiso) {
                             androidx.compose.runtime.key(paso) {
-                                EscanerCodigos(Modifier.fillMaxSize(), intArrayOf(Barcode.FORMAT_PDF417), disparador) { crudo ->
-                                    if (datos == null) Pdf417Dni.leer(crudo)?.let { datos = it }
+                                ingresoCamaraDni(disparador, Modifier.fillMaxSize()) { crudo ->
+                                    if (datos == null) Pdf417Dni.leer(crudo)?.let { datos = it; ingresoVibrar(vista) }
                                 }
                             }
                         }
                         esquinas(Modifier.fillMaxSize())
-                        if (disparo) {
-                            Box(Modifier.fillMaxSize().background(rgba(32, 29, 43, .6f)).ingresoSube(), contentAlignment = Alignment.Center) {
+                        androidx.compose.animation.AnimatedVisibility(
+                            disparo,
+                            enter = androidx.compose.animation.fadeIn(tween(200, easing = androidx.compose.animation.core.EaseOut)),
+                            exit = androidx.compose.animation.fadeOut(tween(200, easing = androidx.compose.animation.core.EaseOut)),
+                        ) {
+                            Box(Modifier.fillMaxSize().background(rgba(32, 29, 43, .6f)), contentAlignment = Alignment.Center) {
                                 Box(Modifier.size(72.dp).ingresoPop().background(C.lima, RoundedCornerShape(24.dp)), contentAlignment = Alignment.Center) {
                                     Icono(I.check, 34.dp, C.carbon, 3.2f)
                                 }
@@ -291,17 +303,16 @@ fun Dni(ir: Ir, planId: String?) {
                         ingresoAnillo(260.dp, 9.dp, vida.progreso, C.lima, rgba(255, 255, 255, .18f)) {
                             val s = selfie
                             if (s != null) {
-                                val bmp = remember(s) { android.graphics.BitmapFactory.decodeByteArray(s, 0, s.size).asImageBitmap() }
-                                Image(bmp, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                ingresoImagenDatos(s)
                             } else if (permiso) {
                                 ingresoCamaraVida(vida, disparador, Modifier.fillMaxSize())
                             }
                         }
                     }
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        val pista = when (vida.fase) {
-                            1 -> "Girá despacio a la izquierda"
-                            2, 3 -> "Ahora a la derecha"
+                        val pista = when {
+                            vida.fase == 1 -> "Girá despacio a la izquierda"
+                            vida.fase >= 2 -> "Ahora a la derecha"
                             else -> "Mirá a la cámara"
                         }
                         Box(Modifier.background(C.carbon, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -354,6 +365,7 @@ fun Dni(ir: Ir, planId: String?) {
                     }
                 }
             }
+            }
         }
-    }
+    } }
 }

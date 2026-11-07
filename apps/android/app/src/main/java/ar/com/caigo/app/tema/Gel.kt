@@ -150,10 +150,14 @@ fun Modifier.gel(radio: Dp, fondo: Brush?, sombras: List<Sombra> = emptyList(), 
         val pathsInt = internas.map { s ->
             val spread = s.spread.dp.toPx()
             val blur = s.blur.dp.toPx()
-            val hueco = caja.translate(s.x.dp.toPx(), s.y.dp.toPx()).deflate(spread)
             val grande = Path().apply { addRect(caja.inflate(blur * 2 + 60f)) }
+            // `inset 0 0 0 Npx color` (sin desplazamiento ni desenfoque, extensión negativa): un borde por
+            // dentro de N, como el strokeBorder del iPhone.
+            val borde = s.blur == 0f && s.x == 0f && s.y == 0f && s.spread < 0f
+            val hueco = if (borde) caja.deflate(-spread) else caja.translate(s.x.dp.toPx(), s.y.dp.toPx()).deflate(spread)
+            val radioHueco = if (borde) (r + spread).coerceAtLeast(0f) else (r - spread).coerceAtLeast(0f)
             val p = Path().apply {
-                op(grande, camino(redondeado(hueco, (r - spread).coerceAtLeast(0f))), PathOperation.Difference)
+                op(grande, camino(redondeado(hueco, radioHueco)), PathOperation.Difference)
             }
             p to pintura(s.color, blur)
         }
@@ -292,6 +296,7 @@ object Gels {
 
     /** Tarjeta neutra del prototipo / panel. */
     val neutra = Gel(vertical(C.blanco, C.blanco), listOf(interna(1f, 0f, C.blanco), externa(3f, 0f, C.borde1)))
+    val neutraOscura = Gel(vertical(C.oscuro3, C.oscuro4), listOf(interna(1f, 0f, rgba(255, 255, 255, .08f)), externa(3f, 0f, C.oscuro7)))
 
     /** Opción seleccionada (radio-card). */
     val opcionSel = Gel(vertical(C.lavanda, C.lavanda), listOf(interna(0f, 0f, C.violeta, spread = -2f), externa(3f, 0f, C.borde5)))
@@ -331,9 +336,24 @@ object Gels {
         vertical(C.blanco, C.blanco),
         listOf(interna(0f, 0f, C.borde4, spread = -1.5f), externa(4f, 0f, C.borde4)),
     )
+
+    /** Botón ícono sobre foto: vidrio claro translúcido. */
+    val vidrio = Gel(
+        vertical(rgba(255, 255, 255, .92f), rgba(240, 236, 255, .92f)),
+        listOf(interna(1.5f, 0f, C.blanco), interna(-2f, 0f, rgba(116, 86, 241, .1f))),
+    )
+
+    /** Botón volver / cerrar del prototipo: blanco a lavanda con base `#DCD5EE`. */
+    val volver = Gel(vertical(C.blanco, Color(0xFFF3F0FA)), listOf(interna(2f, 0f, C.blanco), externa(3f, 0f, C.borde3)))
+
+    fun tarjeta(p: Paleta): Gel = if (p.oscuro) tarjetaOscura else tarjeta
+    fun neutra(p: Paleta): Gel = if (p.oscuro) neutraOscura else neutra
+    fun chip(p: Paleta): Gel = if (p.oscuro) chipOscuro else chipClaro
 }
 
 /** Fondo de pantalla clara: grano sobre el brillo lavanda arriba a la derecha. */
 fun fondoPantalla(p: Paleta): Brush =
     if (p.oscuro) radial(1f, 0f, 1f, .4f, 0f to Color(0xFF352B6E), .65f to C.grafito)
     else radial(1f, 0f, .9f, .38f, 0f to C.tinte3, .7f to C.tinte3.copy(alpha = 0f))
+
+/** Fondo de pantalla (FondoCaigo del iPhone): color + brillo arriba a la derecha + grano. Es [ar.com.caigo.app.piezas.fondoCaigo]. */

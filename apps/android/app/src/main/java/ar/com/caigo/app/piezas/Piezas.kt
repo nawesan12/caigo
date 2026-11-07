@@ -2,6 +2,7 @@ package ar.com.caigo.app.piezas
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -52,6 +53,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -95,10 +100,15 @@ fun Modifier.toque(habilitado: Boolean = true, alBajar: Dp = 3.dp, onClick: () -
         .clickable(interactionSource = fuente, indication = null, enabled = habilitado, onClick = onClick)
 }
 
-/** Simple: clickable sin ripple ni movimiento. */
+/** Simple: tocable sin ripple ni movimiento (filas, tarjetas); mientras está apretado queda al 85 %. */
 @Composable
-fun Modifier.tocable(onClick: () -> Unit): Modifier =
-    clickable(remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+fun Modifier.tocable(onClick: () -> Unit): Modifier {
+    val fuente = remember { MutableInteractionSource() }
+    val apretado by fuente.collectIsPressedAsState()
+    return this
+        .graphicsLayer { alpha = if (apretado) .85f else 1f }
+        .clickable(fuente, indication = null, onClick = onClick)
+}
 
 /**
  * CTA gel (lima por defecto, 60 px de alto, radio 20, `800 17px`). Lo usan todos los "Seguir",
@@ -140,6 +150,27 @@ fun Cta(
     }
 }
 
+/** CTA lima grande del prototipo (62, radio 22, base de 5). */
+@Composable
+fun CtaGrande(
+    texto: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    habilitado: Boolean = true,
+    cargando: Boolean = false,
+    icono: String? = null,
+) = Cta(
+    texto, onClick, modifier, gel = Gels.lima, alto = 62.dp, radio = 22.dp, tam = 18f, color = C.carbon, icono = icono,
+    iconoTrazo = 4f, iconoTam = 18.dp, habilitado = habilitado, cargando = cargando,
+)
+
+/** CTA violeta ("Siguiente"). */
+@Composable
+fun CtaVioleta(texto: String, onClick: () -> Unit, modifier: Modifier = Modifier, habilitado: Boolean = true, cargando: Boolean = false) = Cta(
+    texto, onClick, modifier, gel = Gels.violeta, alto = 60.dp, radio = 20.dp, tam = 17f, color = C.blanco,
+    habilitado = habilitado, cargando = cargando,
+)
+
 /** Tres puntitos que laten: el "cargando" de los botones, armado con los colores del handoff. */
 @Composable
 fun Puntitos(color: Color = C.violeta, tam: Dp = 8.dp) {
@@ -173,11 +204,8 @@ fun BotonIcono(
     ) { Icono(d, iconoTam, color, trazo, relleno) }
 }
 
-/** Botón ícono sobre foto (detalle del plan): vidrio oscuro translúcido. */
-val GelVidrio = Gel(
-    vertical(rgba(255, 255, 255, .92f), rgba(240, 236, 255, .92f)),
-    listOf(ar.com.caigo.app.tema.interna(1.5f, 0f, C.blanco), ar.com.caigo.app.tema.interna(-2f, 0f, rgba(116, 86, 241, .1f))),
-)
+/** Botón ícono sobre foto: vidrio claro translúcido (es [Gels.vidrio]). */
+val GelVidrio: Gel get() = Gels.vidrio
 
 /** Chip lima «Plus» del prototipo (lo que es de Caigo Plus, cuando no lo tenés): 800 11px, 6×10, radio 11. */
 @Composable
@@ -236,15 +264,18 @@ fun Segmentado(
     ) {
         opciones.forEachIndexed { i, o ->
             val on = i == seleccion
+            // La opción activa aparece y se va con un fundido de 0,18 s (withAnimation del iPhone).
+            val a by animateFloatAsState(if (on) 1f else 0f, tween(180, easing = FastOutSlowInEasing), label = "seg")
             Box(
                 (if (llenar) Modifier.weight(1f) else Modifier)
                     .height(alto - 8.dp)
-                    .tocable { onSeleccion(i) }
-                    .then(if (on) Modifier.gel(radioOpcion, gelOn(i) ?: if (p.oscuro) Gels.segOnOscuro else Gels.segOn) else Modifier)
-                    .padding(horizontal = padOpcion),
+                    .tocable { onSeleccion(i) },
                 contentAlignment = Alignment.Center,
             ) {
-                T(o, tam, if (on) 700 else 600, if (on) (colorOn(i) ?: p.segOnTexto) else p.segOffTexto, unRenglon = true)
+                if (a > 0f) {
+                    Box(Modifier.matchParentSize().graphicsLayer { alpha = a }.gel(radioOpcion, gelOn(i) ?: if (p.oscuro) Gels.segOnOscuro else Gels.segOn))
+                }
+                T(o, tam, if (on) 700 else 600, if (on) (colorOn(i) ?: p.segOnTexto) else p.segOffTexto, Modifier.padding(horizontal = padOpcion), unRenglon = true)
             }
         }
     }
@@ -265,7 +296,12 @@ private val coloresAvatar = listOf(
     C.violeta to C.blanco, C.lima to C.carbon, C.coral to C.carbon, C.lavanda to C.violetaTexto, C.grafito to C.blanco,
 )
 
-fun colorAvatar(semilla: String): Pair<Color, Color> = coloresAvatar[(semilla.hashCode() and 0x7fffffff) % coloresAvatar.size]
+/** Hash estable (el mismo que el iPhone: h·31 + cada código Unicode, en 32 bits sin signo). */
+fun colorAvatar(semilla: String): Pair<Color, Color> {
+    var h = 0u
+    semilla.codePoints().forEach { h = h * 31u + it.toUInt() }
+    return coloresAvatar[(h % coloresAvatar.size.toUInt()).toInt()]
+}
 
 /** Avatar redondo: foto si hay, si no la inicial sobre color con brillo arriba a la izquierda. */
 @Composable
@@ -286,7 +322,7 @@ fun Avatar(
             .size(tam)
             .clip(CircleShape)
             .background(bg)
-            .background(radial(.3f, .25f, 0f, 0f, 0f to rgba(255, 255, 255, .6f), .42f to rgba(255, 255, 255, 0f), circulo = true))
+            .background(radial(.3f, .25f, .9f, .9f, 0f to rgba(255, 255, 255, .6f), .42f to rgba(255, 255, 255, 0f)))
             .then(if (borde > 0.dp) Modifier.border(borde, colorBorde, CircleShape) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
@@ -294,7 +330,7 @@ fun Avatar(
             AsyncImage(foto, null, Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
             if (borde > 0.dp) Box(Modifier.fillMaxSize().border(borde, colorBorde, CircleShape))
         } else {
-            T(texto ?: nombre.take(1).uppercase(), tamTexto, 800, fg)
+            T(texto ?: nombre.take(1).uppercase(), tamTexto, 800, fg, unRenglon = true)
         }
     }
 }
@@ -309,13 +345,14 @@ fun Avatares(
     solape: Dp = 8.dp,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier) {
+    // HStack(spacing: -solape) del iPhone: se pisan y la fila mide lo que se ve.
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(-solape)) {
         personas.take(max).forEachIndexed { i, (n, f) ->
-            Avatar(n, f, tam, Modifier.offset(x = -solape * i).zIndex((max - i).toFloat()))
+            Avatar(n, f, tam, Modifier.zIndex((max - i).toFloat()))
         }
         val resto = total - minOf(max, personas.size)
         if (resto > 0) {
-            Avatar("+", null, tam, Modifier.offset(x = -solape * minOf(max, personas.size)), texto = "+$resto", fondo = C.pista to C.violetaTexto)
+            Avatar("+", null, tam, texto = "+$resto", fondo = C.pista to C.violetaTexto)
         }
     }
 }
@@ -331,10 +368,11 @@ fun Foto(url: String?, modifier: Modifier = Modifier, tinte: Color = C.oscuro2) 
 /** Interruptor del handoff: 50×30, violeta prendido, perilla blanca de 24. */
 @Composable
 fun Interruptor(on: Boolean, onCambio: (Boolean) -> Unit, modifier: Modifier = Modifier) {
-    val x by animateDpAsState(if (on) 23.dp else 3.dp, tween(200), label = "x")
+    val x by animateDpAsState(if (on) 23.dp else 3.dp, tween(200, easing = FastOutSlowInEasing), label = "x")
     Box(
         modifier
             .size(50.dp, 30.dp)
+            .semantics { role = Role.Button; stateDescription = if (on) "Sí" else "No" }
             .tocable { onCambio(!on) }
             .gel(15.dp, Brush.verticalGradient(listOf(if (on) C.violeta else Color(0xFFDDD8EA), if (on) C.violeta else Color(0xFFDDD8EA))),
                 listOf(ar.com.caigo.app.tema.interna(2f, 4f, rgba(0, 0, 0, .15f)))),
@@ -371,55 +409,18 @@ fun BarraCupo(somos: Int, total: Int, modifier: Modifier = Modifier, alto: Dp = 
                     .then(
                         if (lleno) Modifier.background(vertical(C.cupoLleno1, C.cupoLleno2), RoundedCornerShape(alto / 2))
                         else Modifier.drawBehind {
-                            val r = alto.toPx() / 2
+                            // strokeBorder: el trazo va por dentro de la cápsula.
+                            val w = 1.5.dp.toPx()
+                            val r = alto.toPx() / 2 - w / 2
                             drawRoundRect(
-                                C.coral, cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r),
-                                style = Stroke(1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 2.dp.toPx()))),
+                                C.coral, topLeft = androidx.compose.ui.geometry.Offset(w / 2, w / 2),
+                                size = androidx.compose.ui.geometry.Size(size.width - w, size.height - w),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r),
+                                style = Stroke(w, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 2.dp.toPx()))),
                             )
                         },
                     ),
             )
-        }
-    }
-}
-
-// ——— Toast (2,6 s, arriba, como el prototipo) ———
-
-data class Aviso(val texto: String, val error: Boolean = false, val id: Long = System.nanoTime())
-
-class Avisos {
-    var actual by mutableStateOf<Aviso?>(null)
-        private set
-
-    fun ok(t: String) { actual = Aviso(t) }
-    fun error(t: String) { actual = Aviso(t, error = true) }
-    fun limpiar() { actual = null }
-}
-
-val LocalAvisos = staticCompositionLocalOf { Avisos() }
-
-@Composable
-fun BoxScope.CapaAvisos(avisos: Avisos, arriba: Dp) {
-    val a = avisos.actual
-    LaunchedEffect(a?.id) { if (a != null) { delay(2600); avisos.limpiar() } }
-    AnimatedVisibility(
-        a != null,
-        modifier = Modifier.align(Alignment.TopCenter).padding(top = arriba + 10.dp, start = 20.dp, end = 20.dp).zIndex(40f),
-        enter = fadeIn(tween(250)) + slideInVertically(tween(250)) { 20 },
-        exit = fadeOut(tween(200)),
-    ) {
-        val v = a ?: return@AnimatedVisibility
-        Row(
-            Modifier.fillMaxWidth()
-                .gel(20.dp, Brush.verticalGradient(listOf(C.carbon, C.carbon)), listOf(externa(18f, 30f, rgba(0, 0, 0, .5f), spread = -12f)))
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Box(Modifier.size(28.dp).background(if (v.error) C.coral else C.lima, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-                Icono(if (v.error) I.cruz else I.check, 14.dp, C.carbon, 3.4f)
-            }
-            T(v.texto, 14f, 700, C.blancoCalido, alto = 1.4f, modifier = Modifier.weight(1f))
         }
     }
 }

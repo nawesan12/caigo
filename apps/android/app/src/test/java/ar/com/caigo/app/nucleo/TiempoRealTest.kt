@@ -8,14 +8,14 @@ class TiempoRealTest {
     @Test fun escribiendoEnUnPrivadoTraeElIdComoTexto() {
         val e = TiempoReal.leer("""{"tipo":"escribiendo","privado":"u-123"}""")!!
         assertEquals("escribiendo", e.tipo)
-        assertEquals("u-123", e.escribePrivado)
+        assertEquals("u-123", e.privadoDe)
         assertNull(e.privado)
     }
 
     @Test fun unPrivadoNuevoSigueSiendoMensaje() {
         val e = TiempoReal.leer("""{"tipo":"privado","privado":{"id":7,"deId":"a","aId":"b","texto":"hola"}}""")!!
         assertEquals(7L, e.privado?.id)
-        assertEquals("", e.escribePrivado)
+        assertEquals("", e.privadoDe)
     }
 
     @Test fun busquedaDesdeDosLetras() {

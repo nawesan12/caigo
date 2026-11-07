@@ -1,4 +1,4 @@
-# Pruebas de la API y de la web en cada push y PR. El repo es público: Actions es gratis.
+# Pruebas de la API, la web y las apps (con las de pantallas) en cada push y PR. El repo es público: Actions es gratis.
 name: ci
 on:
   push:
@@ -58,7 +58,41 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v5
-      - run: ./gradlew :app:assembleDebug test
+      # paridad.txt (las pantallas de iOS) y la API simulada (apps/pruebas/respuestas.json), frescos.
+      - run: herramientas/paridad.sh
+      # Los tests incluyen PantallasTest: cada pantalla en claro y oscuro (Roborazzi) a app/build/capturas.
+      - run: ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest -Proborazzi.test.record=true
+      # Las capturas en JPG de 540 px de ancho para revisarlas (los PNG grandes no se suben: hay poco espacio).
+      - name: Galería
+        if: always()
+        run: |
+          [ -d app/build/capturas ] || exit 0
+          python3 -m pip install -q pillow
+          python3 - <<'PY'
+          import glob, os
+          from PIL import Image
+          os.makedirs('galeria', exist_ok=True)
+          for f in glob.glob('app/build/capturas/**/*.png', recursive=True):
+              im = Image.open(f).convert('RGB')
+              im.thumbnail((540, 4000))
+              im.save('galeria/' + os.path.basename(f)[:-4] + '.jpg', quality=78, optimize=True)
+          PY
+      - name: Subir la galería
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: galeria
+          path: apps/android/galeria
+          retention-days: 3
+          if-no-files-found: ignore
+      - name: Reportes de tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tests-android
+          path: apps/android/app/build/reports/tests
+          retention-days: 3
+          if-no-files-found: ignore
 
   # La app de iPhone: el proyecto sale de project.yml (XcodeGen) y se compila para el simulador sin
   # firmar. El núcleo (modelos, API, lógica) se prueba aparte con swift test.
@@ -84,3 +118,24 @@ jobs:
             | tee build.log | xcbeautify --renderer github-actions
       - if: failure()
         run: grep -E 'error:' build.log | sort -u | head -150
+      # Las pruebas (CaigoTests: PantallasTests monta cada pantalla con la API simulada), en Release como lo que llega a
+      # TestFlight, con testability para @testable. Si una se cuelga, XCTest la corta a los 4 minutos.
+      - name: Probar
+        run: |
+          set -o pipefail
+          sim=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k in sorted(d, reverse=True) if 'iOS' in k for x in d[k] if x['name'].startswith('iPhone')))")
+          echo "Simulador: $sim"
+          xcodebuild test -project Caigo.xcodeproj -scheme Caigo -configuration Release -only-testing:CaigoTests \
+            -destination "platform=iOS Simulator,id=$sim" CODE_SIGNING_ALLOWED=NO ENABLE_TESTABILITY=YES \
+            CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY=- PROVISIONING_PROFILE_SPECIFIER= \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 240 -maximum-test-execution-time-allowance 600 \
+            -resultBundlePath probar.xcresult \
+            | tee probar.log | xcbeautify --renderer github-actions
+      - if: failure()
+        run: grep -E -B2 -A30 'Fatal error|crashed|Thread 0 Crashed|error:' probar.log | head -150 || true
+      - if: failure()
+        name: Reportes de crash del simulador
+        run: |
+          for f in $(find ~/Library/Logs/DiagnosticReports -name 'Caigo*' -mmin -60 2>/dev/null | head -3); do
+            echo "== $f"; head -c 6000 "$f"
+          done

@@ -1,9 +1,11 @@
 package ar.com.caigo.app.pantallas.ingreso
 
+import ar.com.caigo.app.piezas.Verificado
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.launch
 import ar.com.caigo.app.pantallas.mios.MiosHoja
 import androidx.compose.foundation.background
@@ -83,39 +85,43 @@ private val gelTarjetaOscura = Gel(Gels.oscuroSel.fondo, listOf(externa(16f, 28f
 @Composable
 fun Verificacion(ir: Ir) {
     val c = LocalApp.current
-    val estado = rememberCarga { c.api.verificacion() }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { estado.recargar() }
-    val v = estado.dato
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val avisos = ar.com.caigo.app.piezas.LocalAvisos.current
     val alcance = androidx.compose.runtime.rememberCoroutineScope()
-    var contacto by remember { mutableStateOf(c.yo.value?.contactoConfianza ?: c.sesion.contacto) }
+    val estado = rememberCarga {
+        if (c.yo.value == null) c.recargarYo()
+        c.api.verificacion()
+    }
+    // El .task de iOS corre otra vez al volver a la pantalla (después de la selfie o el DNI).
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { estado.recargar() }
+    val v = estado.dato
+    val yo by c.yo.collectAsState()
+    var contacto by remember { mutableStateOf("") }
     var editandoContacto by remember { mutableStateOf(false) }
-    var verBloqueos by remember { mutableStateOf(false) }
+    var guardandoContacto by remember { mutableStateOf(false) }
     var compartiendo by remember { mutableStateOf(false) }
 
-    /** «Compartir mi plan en vivo»: el plan de hoy en el que estás, con el link para tu contacto. */
+    // «Compartir mi plan en vivo»: el link de /vivo del próximo plan en el que estoy adentro.
     fun compartirEnVivo() {
         if (compartiendo) return
         compartiendo = true
         alcance.launch {
             try {
-                val ahora = java.time.ZonedDateTime.now(ar.com.caigo.app.piezas.ZonaAR)
+                val ahora = java.time.ZonedDateTime.now(ar.com.caigo.app.nucleo.ZonaAR)
                 val plan = c.api.mios("me_sume").planes
-                    .filter { it.miEstado == "aceptada" && !it.cancelado }
                     .filter { p ->
-                        val t = ar.com.caigo.app.piezas.Fecha.parse(p.empiezaEn) ?: return@filter false
-                        t.plusMinutes(p.duracionMin.toLong()).isAfter(ahora) && t.toLocalDate() <= ahora.toLocalDate().plusDays(1)
+                        val t = if (p.miEstado == "aceptada") ar.com.caigo.app.nucleo.Fecha.parse(p.empiezaEn) else null
+                        t != null && t.plusSeconds(p.duracionMin.toLong() * 60).isAfter(ahora)
                     }
                     .minByOrNull { it.empiezaEn }
                 if (plan == null) {
-                    avisos.error("Cuando estés en un plan de hoy, lo compartís desde acá.")
+                    avisos.error("Cuando te acepten en un plan, lo compartís desde acá.")
                 } else {
-                    val link = c.api.enVivo(plan.id).link
-                    ar.com.caigo.app.piezas.compartirWhatsApp(ctx, "Estoy en «${plan.titulo}». Seguilo en vivo hasta que termine: $link")
+                    ar.com.caigo.app.piezas.compartir(ctx, c.api.enVivo(plan.id).link)
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Throwable) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
                 avisos.error(ar.com.caigo.app.nucleo.mensajeDe(e))
             } finally {
                 compartiendo = false
@@ -123,7 +129,7 @@ fun Verificacion(ir: Ir) {
         }
     }
 
-    Pantalla { arriba, abajo ->
+    ingresoClaro { Pantalla(oscuro = false) { arriba, abajo ->
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, top = arriba + 8.dp, bottom = 40.dp + abajo),
@@ -141,105 +147,59 @@ fun Verificacion(ir: Ir) {
                 }
                 return@Column
             }
-            val dniHecho = v.dni == "aprobada"
             Column(Modifier.fillMaxWidth().gel(26.dp, gelTarjetaOscura).padding(6.dp)) {
-                fila(v.telefono.isNotBlank(), 1, "Teléfono", if (v.telefono.isNotBlank()) telefonoLindo(v.telefono) else "Te mandamos un código por SMS",
-                    primera = true) { if (v.telefono.isBlank()) ir.telefono() }
+                fila(v.telefono.isNotEmpty(), 1, "Teléfono", if (v.telefono.isEmpty()) "Te mandamos un código por SMS" else telefonoLindo(v.telefono),
+                    primera = true) { if (v.telefono.isEmpty()) ir.telefono() }
                 fila(v.selfie, 2, "Selfie con prueba de vida", "Confirma que sos una persona real") { if (!v.selfie) ir.selfie(volver = true) }
                 fila(
-                    dniHecho, 3, "DNI · badge Verificado",
+                    v.dni == "aprobada", 3, "DNI · badge Verificado",
                     when (v.dni) {
                         "pendiente" -> "Ya estamos revisando tu DNI."
-                        "rechazada" -> v.dniMotivo.ifBlank { "Habilita planes «solo verificados»" }
+                        "rechazada" -> v.dniMotivo.ifEmpty { "Habilita planes «solo verificados»" }
                         else -> "Habilita planes «solo verificados»"
                     },
-                ) {}
+                ) { if (v.dni == "ninguna" || v.dni == "rechazada") ir.dni() }
             }
             if (v.dni == "ninguna" || v.dni == "rechazada") {
                 ingresoCtaGrande("Verificar con DNI · 2 minutos", { ir.dni() })
             }
             T("Herramientas para salir tranqui", 20f, 700, C.carbon, modifier = Modifier.padding(top = 4.dp))
             Column(Modifier.fillMaxWidth().gel(22.dp, Gels.neutra)) {
-                herramienta(I.pin, C.violeta, "Compartir mi plan en vivo", "Tu contacto ve dónde estás hasta que termina", true) { compartirEnVivo() }
-                herramienta(I.usuario, C.violeta, "Contacto de confianza", contacto.ifBlank { "Sumá a alguien que sepa dónde estás" }, true) { editandoContacto = true }
-                herramienta(I.bloqueo, C.coral2, "Bloqueos y reportes", "Los revisa una persona del equipo, no un bot", false) { verBloqueos = true }
+                herramienta(I.pin, C.violeta, "Compartir mi plan en vivo", "Tu contacto ve dónde estás hasta que termina", true,
+                    cargando = compartiendo) { compartirEnVivo() }
+                herramienta(I.usuario, C.violeta, "Contacto de confianza",
+                    yo?.contactoConfianza.orEmpty().ifEmpty { "Sumá a alguien que sepa dónde estás" }, true) {
+                    contacto = yo?.contactoConfianza.orEmpty()
+                    editandoContacto = true
+                }
+                herramienta(I.bloqueo, C.coral2, "Bloqueos y reportes", "Los revisa una persona del equipo, no un bot", false) { ir.bloqueos() }
             }
             T(
                 "Nunca mostramos tu DNI ni tu dirección. Solo el badge.", 12f, 400, C.texto2, alto = 1.5f,
                 alinear = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
             )
         }
-        HojaContacto(editandoContacto, contacto, { editandoContacto = false }) { contacto = it }
-        HojaBloqueos(verBloqueos) { verBloqueos = false }
-    }
-}
-
-/** Contacto de confianza (PATCH /v1/yo `contactoConfianza`): un teléfono o un mail. Con las piezas de editar perfil. */
-@Composable
-private fun androidx.compose.foundation.layout.BoxScope.HojaContacto(abierta: Boolean, actual: String, cerrar: () -> Unit, alGuardar: (String) -> Unit) {
-    val c = LocalApp.current
-    val avisos = ar.com.caigo.app.piezas.LocalAvisos.current
-    val alcance = androidx.compose.runtime.rememberCoroutineScope()
-    var texto by remember(abierta) { mutableStateOf(actual) }
-    var guardando by remember { mutableStateOf(false) }
-    MiosHoja(abierta, { if (!guardando) cerrar() }, "Contacto de confianza") {
-        T("Alguien que reciba tu plan en vivo cuando lo compartas. Un teléfono o un mail.", 15f, 400, C.texto2, alto = 1.5f)
-        ar.com.caigo.app.pantallas.mios.MiosCampo(texto, { texto = it }, placeholder = "Mamá · 223 444 1290", maximo = 80)
-        ar.com.caigo.app.piezas.Cta("Guardar", {
-            alcance.launch {
-                guardando = true
-                try {
-                    val t = texto.trim()
-                    c.api.actualizarYo(ar.com.caigo.app.nucleo.CambiosPerfil(contactoConfianza = t))
-                    c.sesion.guardarContacto(t)
-                    alGuardar(t)
-                    avisos.ok(if (t.isBlank()) "Sacamos tu contacto de confianza." else "Listo. Guardamos tu contacto de confianza.")
-                    cerrar()
-                } catch (e: Throwable) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    avisos.error(ar.com.caigo.app.nucleo.mensajeDe(e))
-                } finally {
-                    guardando = false
-                }
-            }
-        }, Modifier.fillMaxWidth(), cargando = guardando)
-    }
-}
-
-/** Bloqueos (GET /v1/bloqueos, DELETE /v1/bloqueos/{id}), con las filas de la tarjeta de opciones. */
-@Composable
-private fun androidx.compose.foundation.layout.BoxScope.HojaBloqueos(abierta: Boolean, cerrar: () -> Unit) {
-    val c = LocalApp.current
-    val avisos = ar.com.caigo.app.piezas.LocalAvisos.current
-    val alcance = androidx.compose.runtime.rememberCoroutineScope()
-    val lista = ar.com.caigo.app.piezas.rememberCarga(abierta) { if (abierta) c.api.bloqueos().bloqueos else emptyList() }
-    MiosHoja(abierta, cerrar, "Gente que bloqueaste") {
-        val l = lista.dato
-        when {
-            l == null && lista.error != null -> T(lista.error.orEmpty(), 15f, 500, C.texto2, alto = 1.5f)
-            l == null -> Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) { Puntitos() }
-            l.isEmpty() -> T("No bloqueaste a nadie. Si alguien te incomoda, lo bloqueás o lo reportás desde su perfil o el chat.", 15f, 400, C.texto2, alto = 1.5f)
-            else -> ar.com.caigo.app.pantallas.mios.MiosGrupo {
-                l.forEachIndexed { i, b ->
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        ar.com.caigo.app.piezas.Avatar(b.nombre, b.foto, 36.dp, borde = 0.dp, tamTexto = 14f)
-                        T(b.nombre, 15f, 700, C.carbon, Modifier.weight(1f), unRenglon = true)
-                        T("Desbloquear", 14f, 700, C.violeta, Modifier.tocable {
-                            alcance.launch {
-                                runCatching { c.api.desbloquear(b.id) }
-                                    .onSuccess { avisos.ok("Desbloqueaste a ${b.nombre}."); lista.recargar() }
-                                    .onFailure { avisos.error(ar.com.caigo.app.nucleo.mensajeDe(it)) }
-                            }
-                        })
+        // Contacto de confianza (PATCH /v1/yo `contactoConfianza`): teléfono o mail.
+        MiosHoja(editandoContacto, { if (!guardandoContacto) editandoContacto = false }, "Contacto de confianza") {
+            T("A quién le mandás tu plan en vivo. Un teléfono o un mail, con un nombre si querés.", 15f, 400, C.texto2, alto = 1.45f)
+            ar.com.caigo.app.pantallas.mios.MiosCampo(contacto, { contacto = it }, placeholder = "Mamá · +54 223 444 1290", maximo = 80)
+            ar.com.caigo.app.piezas.Cta("Guardar", {
+                guardandoContacto = true
+                alcance.launch {
+                    try {
+                        c.yo.value = c.api.actualizarYo(ar.com.caigo.app.nucleo.CambiosPerfil(contactoConfianza = contacto.trim()))
+                        editandoContacto = false
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        avisos.error(ar.com.caigo.app.nucleo.mensajeDe(e))
+                    } finally {
+                        guardandoContacto = false
                     }
-                    if (i < l.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(C.lavanda))
                 }
-            }
+            }, Modifier.fillMaxWidth(), cargando = guardandoContacto)
         }
-    }
+    } }
 }
 
 @Composable
@@ -261,7 +221,7 @@ private fun fila(hecho: Boolean, n: Int, titulo: String, sub: String, primera: B
 }
 
 @Composable
-private fun herramienta(icono: String, color: Color, titulo: String, sub: String?, borde: Boolean, onClick: () -> Unit) {
+private fun herramienta(icono: String, color: Color, titulo: String, sub: String?, borde: Boolean, cargando: Boolean = false, onClick: () -> Unit) {
     Column {
         Row(
             Modifier.fillMaxWidth().tocable(onClick).padding(horizontal = 16.dp, vertical = 14.dp),
@@ -273,6 +233,7 @@ private fun herramienta(icono: String, color: Color, titulo: String, sub: String
                 T(titulo, 14f, 800, C.carbon)
                 if (sub != null) T(sub, 12f, 400, C.texto2)
             }
+            if (cargando) Puntitos(C.violeta)
         }
         if (borde) Box(Modifier.fillMaxWidth().height(1.dp).background(C.lavanda))
     }

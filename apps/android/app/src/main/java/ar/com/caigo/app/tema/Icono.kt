@@ -16,7 +16,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** Círculo en sintaxis de path de SVG (para los `<circle>` de los íconos del handoff). */
-private fun c(cx: Float, cy: Float, r: Float) = "M${cx - r} ${cy}a$r $r 0 1 0 ${2 * r} 0a$r $r 0 1 0 ${-2 * r} 0"
+private fun c(cx: Float, cy: Float, r: Float): String {
+    fun n(v: Float): String = if (v == kotlin.math.round(v)) v.toInt().toString() else v.toString()
+    return "M${n(cx - r)} ${n(cy)}a${n(r)} ${n(r)} 0 1 0 ${n(2 * r)} 0a${n(r)} ${n(r)} 0 1 0 ${n(-2 * r)} 0"
+}
 
 /** Los íconos lineales del handoff: los mismos paths (viewBox 24×24, trazo redondeado). */
 object I {
@@ -58,6 +61,12 @@ object I {
     val relojCirculo = c(12f, 12f, 9f) + "M12 7v5l3 2"
     val puntos = c(5f, 12f, 2f) + c(12f, 12f, 2f) + c(19f, 12f, 2f)
     const val ubicacion = "M3 11l18-8-8 18-2-8z"
+
+    val todos: List<String> = listOf(
+        reloj, lupa, lupaChica, calendario, calendarioSimple, usuario, mas, check, checkChico, atras, adelante, flecha, cruz, abajo,
+        arriba, pin, escudo, escudoCheck, verificado, candado, candadoAbierto, regalo, compartir, corazon, corazonChico, estrella, nfc,
+        filtros, gente, campana, bloqueo, qr, billetera, enviar, sol, relojCirculo, puntos, ubicacion,
+    )
 }
 
 /**

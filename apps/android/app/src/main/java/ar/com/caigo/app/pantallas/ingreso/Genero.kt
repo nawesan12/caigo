@@ -3,8 +3,6 @@ package ar.com.caigo.app.pantallas.ingreso
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -35,26 +33,29 @@ import kotlinx.coroutines.launch
 val generos = listOf("mujer" to "Mujer", "varon" to "Varón", "no_binario" to "No binario")
 
 /**
- * Género y diversidad, con los chips y el interruptor del handoff (06b «Quiénes» y 06c). Lo usan el
- * alta, editar perfil y la hoja que aparece ante `falta_genero`. No se muestra a nadie.
+ * Género autodeclarado (contrato §1): chips Mujer / Varón / No binario y la casilla de diversidad.
+ * No se muestra a nadie; sólo sirve para los planes «Solo mujeres» y «Solo diversidades».
+ * No está en el handoff: se arma con los chips y el interruptor del alta.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CamposGenero(genero: String, diversidad: Boolean, onGenero: (String) -> Unit, onDiversidad: (Boolean) -> Unit) {
+fun ElegirGenero(genero: String, diversidad: Boolean, onGenero: (String) -> Unit, onDiversidad: (Boolean) -> Unit) {
     val p = LocalPaleta.current
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             generos.forEach { (k, l) -> Chip(l, genero == k, { onGenero(if (genero == k) "" else k) }) }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                T("Me identifico como parte de la diversidad", 14f, 700, p.texto)
-                T("Para los planes «solo diversidades».", 12f, 400, p.texto2)
-            }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            T("Me identifico como parte de la diversidad", 14f, 600, p.texto, Modifier.weight(1f))
             Interruptor(diversidad, onDiversidad)
         }
+        T("No se lo mostramos a nadie. Sólo sirve para sumarte a planes de mujeres o de diversidades.", 12f, 400, p.texto2, alto = 1.4f)
     }
 }
+
+/** El nombre viejo (lo usa Editar perfil): es [ElegirGenero]. */
+@Composable
+fun CamposGenero(genero: String, diversidad: Boolean, onGenero: (String) -> Unit, onDiversidad: (Boolean) -> Unit) =
+    ElegirGenero(genero, diversidad, onGenero, onDiversidad)
 
 /**
  * La hoja que pide el género cuando la API dice `falta_genero` (plan «solo mujeres» o «solo
@@ -74,12 +75,9 @@ fun BoxScope.HojaGenero(c: Contenedor) {
             diversidad = c.yo.value?.diversidad == true
         }
     }
-    MiosHoja(pregunta != null, { if (!guardando) pregunta?.complete(false) }, "¿Cómo te identificás?") {
-        T(
-            "Este plan es para un grupo en particular. Lo usamos sólo para eso y no se lo mostramos a nadie.",
-            15f, 400, LocalPaleta.current.texto2, alto = 1.5f,
-        )
-        CamposGenero(genero, diversidad, { genero = it }, { diversidad = it })
+    MiosHoja(pregunta != null, { if (!guardando) pregunta?.complete(false) }, "Antes de sumarte") {
+        T("Este plan es sólo para mujeres o diversidades. Contanos cómo te identificás.", 15f, 400, LocalPaleta.current.texto, alto = 1.45f)
+        ElegirGenero(genero, diversidad, { genero = it }, { diversidad = it })
         Cta("Guardar y seguir", {
             alcance.launch {
                 guardando = true
@@ -93,7 +91,7 @@ fun BoxScope.HojaGenero(c: Contenedor) {
                     guardando = false
                 }
             }
-        }, Modifier.fillMaxWidth(), habilitado = genero.isNotBlank() || diversidad, cargando = guardando)
+        }, Modifier.fillMaxWidth(), habilitado = genero.isNotEmpty() || diversidad, cargando = guardando)
     }
 }
 

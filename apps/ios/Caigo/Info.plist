@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>es-AR</string>
+	<key>CFBundleDisplayName</key>
+	<string>Caigo</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>ar.com.caigo.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ar.com.caigo.app</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>CaigoAPI</key>
+	<string>$(CAIGO_API)</string>
+	<key>CaigoClerkPublicable</key>
+	<string>$(CAIGO_CLERK_PUBLICABLE)</string>
+	<key>CaigoGrupoLlavero</key>
+	<string>$(AppIdentifierPrefix)ar.com.caigo.app</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>whatsapp</string>
+	</array>
+	<key>NFCReaderUsageDescription</key>
+	<string>Para hacer check-in apoyando el celu en la placa de Caigo Tap.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Para la selfie con prueba de vida, las fotos del DNI y escanear el QR de entrada.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Para mostrarte los planes que tenés cerca y hacer check-in cuando llegás.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Para elegir las fotos de tu perfil y del plan.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Geist-400.ttf</string>
+		<string>Geist-500.ttf</string>
+		<string>Geist-600.ttf</string>
+		<string>Geist-700.ttf</string>
+		<string>Geist-800.ttf</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string></string>
+		<key>UIImageName</key>
+		<string></string>
+	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+</dict>
+</plist>

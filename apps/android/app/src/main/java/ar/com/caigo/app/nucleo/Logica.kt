@@ -1,9 +1,8 @@
 package ar.com.caigo.app.nucleo
 
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
+import java.time.ZonedDateTime
 import java.util.Locale
-import kotlin.math.roundToLong
+import kotlin.math.abs
 
 /** El cupo del plan: el badge "Falta 1 / Faltan N / Completo" (README · Interactions). */
 object Cupo {
@@ -35,21 +34,31 @@ object Encantas {
 
 /** Plata en centavos → "$4.500" (pesos argentinos, sin decimales si son redondos). */
 object Plata {
-    private val miles = DecimalFormat("#,##0", DecimalFormatSymbols(Locale.forLanguageTag("es-AR")).apply { groupingSeparator = '.' })
-    private val conDecimales = DecimalFormat("#,##0.00", DecimalFormatSymbols(Locale.forLanguageTag("es-AR")).apply {
-        groupingSeparator = '.'; decimalSeparator = ','
-    })
+    private fun miles(n: Long): String {
+        val s = abs(n).toString()
+        val out = StringBuilder()
+        s.forEachIndexed { i, ch ->
+            if (i > 0 && (s.length - i) % 3 == 0) out.append('.')
+            out.append(ch)
+        }
+        return (if (n < 0) "-" else "") + out
+    }
 
-    fun pesos(centavos: Long): String =
-        if (centavos % 100 == 0L) "$" + miles.format(centavos / 100) else "$" + conDecimales.format(centavos / 100.0)
+    fun pesos(centavos: Long): String {
+        if (centavos % 100 == 0L) return "$" + miles(centavos / 100)
+        val c = abs(centavos % 100)
+        return "$" + miles(centavos / 100) + "," + (if (c < 10) "0$c" else "$c")
+    }
+
+    /** Redondeo a $100 (10.000 centavos), como Math.round en la API. */
+    internal fun aCien(centavos: Double): Long = Math.round(centavos / 10000) * 10000
 
     /** Cargo por servicio por persona: 7,5 % del precio, redondeado a $100 (planes.Cargo en la API). */
-    fun cargo(precioCentavos: Long): Long = (precioCentavos * 0.075 / 10000).roundToLong() * 10000
+    fun cargo(precioCentavos: Long): Long = aCien(precioCentavos * 0.075)
 
-    /** Lo que se le paga al lugar por persona ahora: el precio entero o la seña redondeada a $100 (como la API y el panel). */
+    /** Lo que se le paga al lugar por persona ahora: el precio entero o la seña redondeada a $100. */
     fun alLugar(precioCentavos: Long, cobro: String, senaPct: Int?): Long =
-        if (cobro == "sena" && senaPct != null) (precioCentavos * senaPct / 100.0 / 10000).roundToLong() * 10000
-        else precioCentavos
+        if (cobro == "sena" && senaPct != null) aCien(precioCentavos.toDouble() * senaPct / 100) else precioCentavos
 
     data class Desglose(val alLugar: Long, val cargo: Long, val total: Long, val saldo: Long)
 
@@ -114,11 +123,11 @@ object Pdf417Dni {
 
 /**
  * El mazo arrastrable de Gente / Citas, con las físicas del prototipo: rotación dx/16°, salida a
- * ±520 px, umbral de 100 px, tinte lima/coral según el lado y la carta de abajo de .93 a 1.
+ * ±520 pt, umbral de 100 pt, tinte lima/coral según el lado y la carta de abajo de .93 a 1.
  */
 object FisicaMazo {
-    const val UMBRAL = 100f
-    const val SALIDA = 520f
+    const val umbral = 100f
+    const val salida = 520f
 
     data class Estado(
         val indice: Int = 0,
@@ -146,7 +155,7 @@ object FisicaMazo {
         is Accion.Mueve -> if (e.arrastrando) e.copy(dx = a.dx, dy = a.dy) else e
         Accion.Suelta -> when {
             !e.arrastrando -> e
-            kotlin.math.abs(e.dx) > UMBRAL -> e.copy(arrastrando = false, vuela = if (e.dx > 0) 1 else -1)
+            kotlin.math.abs(e.dx) > umbral -> e.copy(arrastrando = false, vuela = if (e.dx > 0) 1 else -1)
             else -> e.copy(arrastrando = false, dx = 0f, dy = 0f)
         }
         is Accion.Vuela -> e.copy(vuela = a.lado, arrastrando = false)
@@ -156,7 +165,7 @@ object FisicaMazo {
 
     /** Desplazamiento a dibujar: si vuela, sale a ±520 y sube 40. */
     fun desplazamiento(e: Estado): Pair<Float, Float> =
-        if (e.vuela != 0) e.vuela * SALIDA to e.dy - 40f else e.dx to e.dy
+        if (e.vuela != 0) e.vuela * salida to e.dy - 40f else e.dx to e.dy
 
     fun rotacion(dx: Float): Float = dx / 16f
 
@@ -169,22 +178,51 @@ object FisicaMazo {
     fun alfaPaso(dx: Float): Float = (-dx / 90f).coerceIn(0f, 1f)
 }
 
-/** 13a · La bajada del vacío de Ahora según el día y la hora (antes era siempre «Domingo a la siesta…»). */
-object Vacio {
-    private val dias = listOf("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
+/** Categorías de plan (planes.go · Categorias), en el orden del handoff. */
+object Categorias {
+    val todas: List<Pair<String, String>> = listOf(
+        "deporte" to "Deporte", "juego" to "Juego", "previa" to "Previa", "salida" to "Salida",
+        "cita_doble" to "Cita doble", "cultura" to "Cultura", "gastronomia" to "Gastronomía", "otro" to "Otro",
+        "taller" to "Taller", "musica" to "Música en vivo", "fiesta" to "Fiesta",
+    )
 
-    /** [dia]: 1 = lunes … 7 = domingo (java.time.DayOfWeek.value); [hora]: 0–23. */
-    fun frase(dia: Int, hora: Int): String {
-        val nombre = dias[(dia - 1).coerceIn(0, 6)]
-        val finde = dia >= 6
-        return when (hora) {
-            in 0..5 -> "A esta hora la costa duerme. Si publicás algo para mañana, sos lo primero que ven."
-            in 6..11 -> if (finde) "$nombre a la mañana, todavía nadie arrancó. Si publicás algo ahora, sos lo primero que ven."
-            else "La mañana viene tranqui. Si publicás algo para la salida del laburo, sos lo primero que ven."
-            in 12..17 -> if (finde) "$nombre a la siesta, la costa duerme. Si publicás algo ahora, sos lo primero que ven."
-            else "Todo el mundo está laburando. Si publicás algo para la tarde, sos lo primero que ven."
-            else -> if (dia == 5 || dia == 6) "$nombre a la noche y nadie armó nada todavía. Si publicás algo ahora, sos lo primero que ven."
-            else "Todavía nadie armó nada para esta noche. Si publicás algo ahora, sos lo primero que ven."
+    /** Las 8 que se eligen al crear un plan (06a). */
+    val paraCrear: List<Pair<String, String>> = todas.take(8)
+
+    fun nombre(clave: String): String =
+        todas.firstOrNull { it.first == clave }?.second ?: (clave.take(1).uppercase() + clave.drop(1))
+}
+
+/** "800 m", "1,2 km". */
+fun distancia(m: Int?): String = when {
+    m == null -> ""
+    m < 100 -> "$m m"
+    m < 1000 -> "${((m + 50) / 100) * 100} m"
+    m < 10_000 -> String.format(Locale.ROOT, "%.1f km", m / 1000.0).replace('.', ',')
+    else -> "${m / 1000} km"
+}
+
+/** Link público de un plan. */
+fun linkPlan(slug: String) = "caigo.com.ar/p/$slug"
+
+/** Centro de Mar del Plata: donde arranca el mapa si no hay permiso de ubicación. */
+const val latMDP = -38.0023
+const val lngMDP = -57.5575
+
+/** 13a · Ahora sin planes: la primera frase cambia según el día y la hora (en Argentina). */
+object VacioAhora {
+    const val titulo = "No hay planes cerca. ¿Armás uno?"
+
+    fun cuerpo(d: ZonedDateTime = ZonedDateTime.now(ZonaAR)): String {
+        val t = d.withZoneSameInstant(ZonaAR)
+        val dia = Fecha.diaLargo(t)
+        val frase = when (t.hour) {
+            in 0 until 6 -> "$dia de madrugada, la costa duerme."
+            in 6 until 12 -> "$dia a la mañana, la costa recién se despierta."
+            in 12 until 17 -> "$dia a la siesta, la costa duerme."
+            in 17 until 20 -> "$dia a la tarde, la costa está tranqui."
+            else -> "$dia a la noche y nadie armó nada todavía."
         }
+        return "$frase Si publicás algo ahora, sos lo primero que ven."
     }
 }
