@@ -23,7 +23,7 @@ func TestEntradasConPreferenciaSiguen(t *testing.T) {
 	var c struct{ EntradaID string }
 	e.pedir(martina, "POST", "/v1/planes/"+p.ID+"/entradas", map[string]int{"cantidad": 1}, http.StatusOK, &c)
 	// Como si se hubiera creado antes del cambio.
-	e.sistema(`UPDATE entradas SET mp_orden = NULL, mp_preferencia = 'pref-1' WHERE id = '`+c.EntradaID+`'`)
+	e.sistema(`UPDATE entradas SET mp_orden = NULL, mp_preferencia = 'pref-1' WHERE id = '` + c.EntradaID + `'`)
 
 	aviso := fmt.Sprintf(`{"type":"payment","action":"payment.created","user_id":%d,"data":{"id":"99"}}`, mp.usuario)
 	r := httptest.NewRequest("POST", "/v1/webhooks/mercadopago?data.id=99", strings.NewReader(aviso))
