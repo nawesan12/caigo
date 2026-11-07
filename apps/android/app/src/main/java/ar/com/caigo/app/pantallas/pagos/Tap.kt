@@ -1,5 +1,6 @@
 package ar.com.caigo.app.pantallas.pagos
 
+import ar.com.caigo.app.piezas.Sistema
 import android.content.Intent
 import android.net.Uri
 import android.nfc.NfcAdapter
@@ -127,7 +128,7 @@ fun Tap(ir: Ir, planId: String?) {
         mandando = true
         try {
             c.ultimoTap = c.api.tap(l)
-            pagosVibrar(vista)
+            Sistema.vibrar(vista)
             ir.adentro()
         } catch (e: Throwable) {
             if (e is kotlinx.coroutines.CancellationException) throw e

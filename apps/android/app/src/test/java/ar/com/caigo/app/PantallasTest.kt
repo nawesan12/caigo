@@ -231,7 +231,9 @@ class PantallasTest {
     @Test fun crearEditar() = montar("CrearEditar") { Crear(it, editar = "p2") }
     @Test fun publicado() = montar("Publicado") { Publicado(it, "p2") }
     @Test fun hojaConfirmar() = montar("HojaConfirmar") {
-        HojaConfirmar(true, "¿Cancelás el plan?", "Les avisamos a los que van.", "Cancelar plan", {}, {})
+        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+            HojaConfirmar(true, "¿Cancelás el plan?", "Les avisamos a los que van.", "Cancelar plan", {}, {})
+        }
     }
     @Test fun piezasPlanes() {
         val p = plan("p1")
@@ -256,10 +258,9 @@ class PantallasTest {
     @Test fun mazoVacio() = montar("MazoVacio", contenedor(mapOf("/v1/gente/mazo" to """{"personas": []}"""))) { MazoGente(it, "gente") }
     @Ignore("Falta en Android: GenteCarta (va privada adentro de MazoGente.kt)")
     @Test fun genteCarta() {}
-    // En iOS es GenteHojaInvitar(personaId:nombre:); en Android HojaInvitar recibe la tarjeta entera.
     @Test fun genteHojaInvitar() {
         val t = dato<Mazo>("/v1/gente/mazo").personas.first()
-        montar("GenteHojaInvitar") { HojaInvitar(it, t, {}, {}) }
+        montar("GenteHojaInvitar") { GenteHojaInvitar(it, t.id, t.nombre, {}, {}) }
     }
     @Test fun perfilPersona() = montar("PerfilPersona") { PerfilPersona(it, "u3", "mazo") }
     @Test fun perfilPersonaDeMiGente() = montar("PerfilPersonaDeMiGente") { PerfilPersona(it, "u2", "perfil") }
@@ -289,7 +290,7 @@ class PantallasTest {
         val c = contenedor()
         montar("HojaGenero", c) {
             androidx.compose.runtime.LaunchedEffect(Unit) { c.preguntarGenero() }
-            HojaGenero(c)
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) { HojaGenero(c) }
         }
     }
     @Ignore("Falta en Android: las piezas de IngresoComun (IngresoTitulo, IngresoCampo, IngresoCasillas…) como funciones públicas")

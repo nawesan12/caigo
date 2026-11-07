@@ -289,11 +289,3 @@ internal fun PagosSube(modifier: Modifier = Modifier, retraso: Int = 0, contenid
  * `Sistema.vibrar()` del iPhone (notificación de éxito o de error).
  * PARA EL NÚCLEO: `Sistema.vibrar(exito)` compartido en piezas/.
  */
-internal fun pagosVibrar(vista: View, exito: Boolean = true) {
-    val tipo = if (android.os.Build.VERSION.SDK_INT >= 30) {
-        if (exito) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.REJECT
-    } else {
-        HapticFeedbackConstants.LONG_PRESS
-    }
-    vista.performHapticFeedback(tipo)
-}

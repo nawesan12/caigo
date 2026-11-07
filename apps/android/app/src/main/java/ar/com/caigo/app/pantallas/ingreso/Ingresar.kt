@@ -200,7 +200,7 @@ fun DebugToken(ir: Ir) {
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        debugSalirLocal(c)
+                        c.salirLocal()
                         avisos.error(ingresoMensaje(e))
                     } finally {
                         cargando = false
@@ -209,11 +209,4 @@ fun DebugToken(ir: Ir) {
             }, Modifier.fillMaxWidth(), habilitado = token.startsWith("cs_"), cargando = cargando)
         }
     } }
-}
-
-// PARA EL NÚCLEO: `Contenedor.salirLocal()` es privado; esto hace lo mismo (sin tocar la API).
-private suspend fun debugSalirLocal(c: Contenedor) {
-    c.tiempoReal.apagar()
-    c.sesion.borrar()
-    c.yo.value = null
 }

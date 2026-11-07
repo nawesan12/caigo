@@ -1,5 +1,6 @@
 package ar.com.caigo.app.pantallas.ingreso
 
+import ar.com.caigo.app.piezas.Sistema
 import android.Manifest
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -217,7 +218,7 @@ fun Dni(ir: Ir, planId: String?) {
             if (foto == null) { avisos.error("No pudimos sacar la foto. Probá de nuevo."); return@launch }
             if (paso == PasoDni.FRENTE) frente = foto else dorso = foto
             disparo = true
-            ingresoVibrar(vista)
+            Sistema.vibrar(vista)
             delay(650)
             disparo = false
             if (paso == PasoDni.DORSO && datos == null) {
@@ -259,7 +260,7 @@ fun Dni(ir: Ir, planId: String?) {
                         if (permiso) {
                             androidx.compose.runtime.key(paso) {
                                 ingresoCamaraDni(disparador, Modifier.fillMaxSize()) { crudo ->
-                                    if (datos == null) Pdf417Dni.leer(crudo)?.let { datos = it; ingresoVibrar(vista) }
+                                    if (datos == null) Pdf417Dni.leer(crudo)?.let { datos = it; Sistema.vibrar(vista) }
                                 }
                             }
                         }

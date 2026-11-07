@@ -1,5 +1,6 @@
 package ar.com.caigo.app.pantallas.ingreso
 
+import ar.com.caigo.app.piezas.Sistema
 import android.Manifest
 import android.graphics.Rect
 import androidx.camera.core.ExperimentalGetImage
@@ -136,7 +137,7 @@ fun Selfie(ir: Ir, volver: Boolean) {
         if (vida.fase == 3 && foto == null) {
             try {
                 foto = disparador.foto(ctx)
-                ingresoVibrar(vista)
+                Sistema.vibrar(vista)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

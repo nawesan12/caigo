@@ -308,9 +308,3 @@ internal fun Modifier.ingresoFondoVioleta(): Modifier = this
     .background(radial(.85f, 0f, 1.2f, .7f, 0f to Color(0xFFA38FFF), .45f to C.violeta, 1f to Color(0xFF5A3DD8)))
     .ingresoGrano()
 
-/** `Sistema.vibrar()` de iOS (UINotificationFeedbackGenerator .success). PARA EL NÚCLEO: `Sistema.vibrar` en piezas/. */
-internal fun ingresoVibrar(v: android.view.View) {
-    v.performHapticFeedback(
-        if (android.os.Build.VERSION.SDK_INT >= 30) android.view.HapticFeedbackConstants.CONFIRM else android.view.HapticFeedbackConstants.VIRTUAL_KEY,
-    )
-}
