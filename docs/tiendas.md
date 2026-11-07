@@ -86,7 +86,7 @@ Cifrado en tránsito: sí. Borrar la cuenta: sí, desde Perfil en la app y en la
   > gente cerca tuyo, o completá los tuyos.
 - **Descripción:** la misma de Play, cambiando «Google Wallet» por «Apple Wallet».
 - **Notas para la revisión:** la app pide ingresar con Apple o Google y verificar teléfono y selfie.
-  Hay que dejarles una cuenta de prueba (y el SMS es simulado: el código aparece solo). Explicar que
+  Hay que dejarles una cuenta de prueba (el código del teléfono llega al mail de esa cuenta). Explicar que
   el modo Citas se puede reportar y bloquear, y que se modera a mano desde caigo.com.ar/equipo.
 - **Etiquetas de privacidad:** las mismas filas que la tabla de Play («Datos vinculados a vos»).
 

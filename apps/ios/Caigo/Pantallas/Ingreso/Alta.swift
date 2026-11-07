@@ -119,13 +119,14 @@ struct Datos: View {
     }
 }
 
-/// 01d · Teléfono (Paso 1 de 2): número, código de 6 dígitos por SMS y "Reenviar en 0:24".
+/// 01d · Teléfono (Paso 1 de 2): número, código de 6 dígitos por mail y "Reenviar en 0:24".
 struct Telefono: View {
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @State private var numero = ""
     @State private var codigo = ""
     @State private var pedido = false
+    @State private var destino = ""
     @State private var espera = 0
     @State private var cargando = false
     @FocusState private var focoCodigo: Bool
@@ -137,7 +138,9 @@ struct Telefono: View {
                     .padding(.leading, 20).padding(.trailing, 24).padding(.top, 12)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 28) {
-                        IngresoTitulo(titulo: "¿Cuál es tu número?", bajada: "Te mandamos un código por SMS. No aparece en tu perfil.")
+                        IngresoTitulo(titulo: "¿Cuál es tu número?", bajada: destino.isEmpty
+                            ? "Te mandamos un código por mail. Tu número no aparece en tu perfil."
+                            : "Te mandamos un código por mail a \(destino). Tu número no aparece en tu perfil.")
                         HStack(spacing: 10) {
                             T("AR +54", 17, 700, C.carbon)
                                 .padding(.horizontal, 16)
@@ -194,7 +197,8 @@ struct Telefono: View {
                 withAnimation { pedido = true }
                 espera = 30
                 codigo = ""
-                // El SMS está simulado: la API devuelve el código de prueba y se completa solo.
+                destino = r.destino
+                // Sin correo en la API (desarrollo), viene el código de prueba y se completa solo.
                 if !r.codigoDePrueba.isEmpty { codigo = r.codigoDePrueba } else { focoCodigo = true }
             } catch {
                 c.avisos.error(ingresoMensaje(error))
@@ -217,7 +221,7 @@ struct Telefono: View {
 }
 
 /// Las 6 casillas del código: las completas en gel lavanda, la actual con borde violeta. Encima,
-/// un campo invisible que recibe el teclado (y el autocompletado del código por SMS).
+/// un campo invisible que recibe el teclado (y el autocompletado del código que llega por mail).
 struct IngresoCasillas: View {
     @Binding var codigo: String
     var foco: FocusState<Bool>.Binding
@@ -227,7 +231,7 @@ struct IngresoCasillas: View {
             TextField("", text: Binding(get: { codigo }, set: { codigo = String($0.filter(\.isNumber).prefix(6)) }))
                 .focused(foco)
                 .teclado(.numeros)
-                .modifier(IngresoCodigoSms())
+                .modifier(IngresoCodigoUnaVez())
                 .foregroundStyle(.clear)
                 .tint(.clear)
                 .frame(width: 1, height: 1)
@@ -258,7 +262,7 @@ struct IngresoCasillas: View {
     }
 }
 
-struct IngresoCodigoSms: ViewModifier {
+struct IngresoCodigoUnaVez: ViewModifier {
     func body(content: Content) -> some View {
         #if os(iOS)
         content.textContentType(.oneTimeCode)

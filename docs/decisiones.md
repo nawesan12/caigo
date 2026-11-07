@@ -12,7 +12,7 @@ producto entero y dejarlo en el VPS, conviviendo con Tu Local Web, Corredor y Te
 - UI fiel al handoff, **Geist** en todo; los mockups v5 mandan y el prototipo aporta los flujos extra.
 - Orden: **API Go → web SvelteKit → iOS (Swift, iOS 17+) → Android (Kotlin + Compose, minSdk 26)**.
 - Repo **nawesan12/caigo**, público, monorepo en `~/Trabajo/vimo/caigo`, todo a main.
-- Identidad: **Clerk** (la app única de Grupo Vimo). Teléfono + SMS **simulado** (código de prueba detrás de una interfaz `sms.Enviador`).
+- Identidad: **Clerk** (la app única de Grupo Vimo). Teléfono con código por **mail** (7/11: sin proveedor de SMS, va a la casilla verificada de Clerk por el SMTP propio; sin SMTP, simulado con código de prueba).
 - Prueba de vida y DNI **en el dispositivo** (Vision / ML Kit), DNI frente/dorso + lectura del PDF417, revisión manual en el backoffice.
 - Mapa: **MapKit** en iOS; **MapLibre + teselas Protomaps** (recorte de la Costa Atlántica, servidas desde el VPS) en Android y web.
 - Plus: **StoreKit 2 + Play Billing + Mercado Pago (web)**, con el estado unificado en la API.

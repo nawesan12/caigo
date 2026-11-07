@@ -235,10 +235,10 @@ public final class Api: @unchecked Sendable {
     }
     public func verificacion() async throws -> EstadoVerificacion { try await get("/v1/verificacion") }
     struct Telefono: Encodable { var telefono: String }
-    struct CodigoSms: Encodable { var codigo: String }
+    struct CodigoTelefono: Encodable { var codigo: String }
     struct ArchivoId: Encodable { var archivoId: String }
-    public func pedirCodigo(_ telefono: String) async throws -> CodigoDePrueba { try await enviar("POST", "/v1/verificacion/telefono", Telefono(telefono: telefono)) }
-    public func confirmarCodigo(_ codigo: String) async throws { try await mandar("POST", "/v1/verificacion/telefono/confirmar", CodigoSms(codigo: codigo)) }
+    public func pedirCodigo(_ telefono: String) async throws -> EnvioDeCodigo { try await enviar("POST", "/v1/verificacion/telefono", Telefono(telefono: telefono)) }
+    public func confirmarCodigo(_ codigo: String) async throws { try await mandar("POST", "/v1/verificacion/telefono/confirmar", CodigoTelefono(codigo: codigo)) }
     public func selfie(_ archivoId: String) async throws { try await mandar("POST", "/v1/verificacion/selfie", ArchivoId(archivoId: archivoId)) }
     public func dni(_ d: DatosDNI) async throws { try await mandar("POST", "/v1/verificacion/dni", d) }
 

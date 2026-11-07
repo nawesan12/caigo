@@ -3379,6 +3379,8 @@
   "equipo": false
  },
  "POST /v1/verificacion/telefono": {
+  "via": "mail",
+  "destino": "m•••@gmail.com",
   "codigoDePrueba": "123456"
  },
  "POST /v1/archivos": {

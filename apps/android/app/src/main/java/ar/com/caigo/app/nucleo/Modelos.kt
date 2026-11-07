@@ -437,8 +437,12 @@ class Ubicacion(
 @Serializable
 data class Archivo(val id: String = "", val url: String = "")
 
+/**
+ * Respuesta de POST /v1/verificacion/telefono: el código va por mail (`via` "mail", `destino` la
+ * casilla enmascarada, n•••@gmail.com). Sin correo en la API, simulado: viene `codigoDePrueba`.
+ */
 @Serializable
-data class CodigoDePrueba(val codigoDePrueba: String = "")
+data class EnvioDeCodigo(val via: String = "", val destino: String = "", val codigoDePrueba: String = "")
 
 @Serializable
 data class EstadoVerificacion(

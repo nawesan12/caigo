@@ -532,9 +532,14 @@ public struct Archivo: Decodable, Sendable {
     public init(from d: Decoder) throws { let c = try d.lector(); id = c.v("id", ""); url = c.v("url", "") }
 }
 
-public struct CodigoDePrueba: Decodable, Sendable {
-    public var codigoDePrueba = ""
-    public init(from d: Decoder) throws { codigoDePrueba = try d.lector().v("codigoDePrueba", "") }
+/// Respuesta de POST /v1/verificacion/telefono: el código va por mail (`via` "mail", `destino` la
+/// casilla enmascarada, n•••@gmail.com). Sin correo en la API, simulado: viene `codigoDePrueba`.
+public struct EnvioDeCodigo: Decodable, Sendable {
+    public var via = "", destino = "", codigoDePrueba = ""
+    public init(from d: Decoder) throws {
+        let c = try d.lector()
+        via = c.v("via", ""); destino = c.v("destino", ""); codigoDePrueba = c.v("codigoDePrueba", "")
+    }
 }
 
 public struct EstadoVerificacion: Decodable, Sendable {

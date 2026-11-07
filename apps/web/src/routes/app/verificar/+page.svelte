@@ -19,10 +19,12 @@
 	let espera = $state(0);
 	let reloj: ReturnType<typeof setInterval> | undefined;
 	const enviado = $derived(!!form && 'enviado' in form && form.enviado);
+	let destino = $state('');
 
 	$effect(() => {
 		if (form && 'telefono' in form && form.telefono && !telefono) telefono = String(form.telefono);
 		if (form && 'codigo' in form && form.codigo) codigo = String(form.codigo);
+		if (form && 'destino' in form && form.destino) destino = String(form.destino);
 	});
 
 	function arrancarEspera() {
@@ -178,7 +180,11 @@
 		{#if data.paso === 1}
 			<div class="txt">
 				<h1>¿Cuál es tu número?</h1>
-				<p>Te mandamos un código por SMS. No aparece en tu perfil.</p>
+				<p>
+					{destino
+						? `Te mandamos un código por mail a ${destino}. Tu número no aparece en tu perfil.`
+						: 'Te mandamos un código por mail. Tu número no aparece en tu perfil.'}
+				</p>
 			</div>
 			<form
 				method="POST"

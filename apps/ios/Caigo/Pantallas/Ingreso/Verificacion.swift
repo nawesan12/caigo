@@ -127,7 +127,7 @@ struct Verificacion: View {
     @ViewBuilder
     private func contenido(_ v: EstadoVerificacion) -> some View {
         VStack(spacing: 0) {
-            fila(!v.telefono.isEmpty, 1, "Teléfono", v.telefono.isEmpty ? "Te mandamos un código por SMS" : telefonoLindo(v.telefono), primera: true) {
+            fila(!v.telefono.isEmpty, 1, "Teléfono", v.telefono.isEmpty ? "Te mandamos un código por mail" : telefonoLindo(v.telefono), primera: true) {
                 if v.telefono.isEmpty { ir.telefono() }
             }
             fila(v.selfie, 2, "Selfie con prueba de vida", "Confirma que sos una persona real") {

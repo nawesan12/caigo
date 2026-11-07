@@ -172,7 +172,7 @@ fun Datos(ir: Ir) {
     } }
 }
 
-/** 01d · Teléfono (Paso 1 de 2): número, código de 6 dígitos por SMS y "Reenviar en 0:24". */
+/** 01d · Teléfono (Paso 1 de 2): número, código de 6 dígitos por mail y "Reenviar en 0:24". */
 @Composable
 fun Telefono(ir: Ir) {
     val c = LocalApp.current
@@ -181,6 +181,7 @@ fun Telefono(ir: Ir) {
     var numero by remember { mutableStateOf("") }
     var codigo by remember { mutableStateOf("") }
     var pedido by remember { mutableStateOf(false) }
+    var destino by remember { mutableStateOf("") }
     var espera by remember { mutableIntStateOf(0) }
     var cargando by remember { mutableStateOf(false) }
     val foco = remember { FocusRequester() }
@@ -196,7 +197,8 @@ fun Telefono(ir: Ir) {
                 pedido = true
                 espera = 30
                 codigo = ""
-                // El SMS está simulado: la API devuelve el código de prueba y se completa solo.
+                destino = r.destino
+                // Sin correo en la API (desarrollo), viene el código de prueba y se completa solo.
                 if (r.codigoDePrueba.isNotEmpty()) codigo = r.codigoDePrueba
                 else runCatching { foco.requestFocus() }
             } catch (e: Exception) {
@@ -216,7 +218,11 @@ fun Telefono(ir: Ir) {
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, top = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(28.dp),
             ) {
-                ingresoTitulo("¿Cuál es tu número?", "Te mandamos un código por SMS. No aparece en tu perfil.")
+                ingresoTitulo(
+                    "¿Cuál es tu número?",
+                    if (destino.isEmpty()) "Te mandamos un código por mail. Tu número no aparece en tu perfil."
+                    else "Te mandamos un código por mail a $destino. Tu número no aparece en tu perfil.",
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(
                         Modifier.height(60.dp).background(C.blanco, RoundedCornerShape(18.dp))
@@ -266,7 +272,8 @@ fun Telefono(ir: Ir) {
 
 /**
  * Las 6 casillas del código: las completas en gel lavanda, la actual con borde violeta. Encima, un
- * campo invisible que recibe el teclado (y el autocompletado del código por SMS).
+ * campo invisible que recibe el teclado (y el autocompletado del código que llega por mail: el tipo
+ * SmsOtpCode es el de los códigos de un solo uso, no lee SMS ni pide permisos).
  */
 @Composable
 private fun ingresoCasillas(codigo: String, alCambiar: (String) -> Unit, foco: FocusRequester) {

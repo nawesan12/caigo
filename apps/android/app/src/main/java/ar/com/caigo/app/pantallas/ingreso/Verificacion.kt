@@ -148,7 +148,7 @@ fun Verificacion(ir: Ir) {
                 return@Column
             }
             Column(Modifier.fillMaxWidth().gel(26.dp, gelTarjetaOscura).padding(6.dp)) {
-                fila(v.telefono.isNotEmpty(), 1, "Teléfono", if (v.telefono.isEmpty()) "Te mandamos un código por SMS" else telefonoLindo(v.telefono),
+                fila(v.telefono.isNotEmpty(), 1, "Teléfono", if (v.telefono.isEmpty()) "Te mandamos un código por mail" else telefonoLindo(v.telefono),
                     primera = true) { if (v.telefono.isEmpty()) ir.telefono() }
                 fila(v.selfie, 2, "Selfie con prueba de vida", "Confirma que sos una persona real") { if (!v.selfie) ir.selfie(volver = true) }
                 fila(

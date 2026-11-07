@@ -248,13 +248,13 @@ class Api(
     data class Telefono(val telefono: String)
 
     @kotlinx.serialization.Serializable
-    data class CodigoSms(val codigo: String)
+    data class CodigoTelefono(val codigo: String)
 
     @kotlinx.serialization.Serializable
     data class ArchivoId(val archivoId: String)
 
-    suspend fun pedirCodigo(telefono: String): CodigoDePrueba = enviar("POST", "/v1/verificacion/telefono", Telefono(telefono))
-    suspend fun confirmarCodigo(codigo: String) = mandar("POST", "/v1/verificacion/telefono/confirmar", CodigoSms(codigo))
+    suspend fun pedirCodigo(telefono: String): EnvioDeCodigo = enviar("POST", "/v1/verificacion/telefono", Telefono(telefono))
+    suspend fun confirmarCodigo(codigo: String) = mandar("POST", "/v1/verificacion/telefono/confirmar", CodigoTelefono(codigo))
     suspend fun selfie(archivoId: String) = mandar("POST", "/v1/verificacion/selfie", ArchivoId(archivoId))
     suspend fun dni(d: DatosDNI) = mandar("POST", "/v1/verificacion/dni", d)
 

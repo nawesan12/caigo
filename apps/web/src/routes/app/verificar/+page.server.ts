@@ -18,7 +18,7 @@ export const actions: Actions = {
 		if (telefono.replace(/\D/g, '').length < 8)
 			return fail(400, { error: 'Poné tu número de celular.', telefono });
 		try {
-			const r = await conSesion<{ codigoDePrueba?: string }>(
+			const r = await conSesion<{ via?: string; destino?: string; codigoDePrueba?: string }>(
 				event,
 				'POST',
 				'/v1/verificacion/telefono',
@@ -26,8 +26,14 @@ export const actions: Actions = {
 					cuerpo: { telefono: telefonoAR(telefono) }
 				}
 			);
-			// Con el SMS simulado la API devuelve el código: se completa solo.
-			return { enviado: true, telefono, codigo: r?.codigoDePrueba ?? '' };
+			// El código va por mail (destino: la casilla enmascarada). Sin correo en la API
+			// (desarrollo), viene el código de prueba y se completa solo.
+			return {
+				enviado: true,
+				telefono,
+				destino: r?.destino ?? '',
+				codigo: r?.codigoDePrueba ?? ''
+			};
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
 			return fail(400, { error: mensajeDe(e), telefono });
