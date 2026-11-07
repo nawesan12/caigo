@@ -65,9 +65,6 @@ fun colorDeCategoria(cat: String): Color = when (cat) {
 /** Fondo de las píldoras de vidrio sobre fotos. */
 val vidrioSobreFoto: Color = rgba(255, 255, 255, .16f)
 
-/** Una fila de una hoja de opciones. */
-data class Opcion(val texto: String, val accion: () -> Unit)
-
 /**
  * Hoja de opciones (armada con la tarjeta de filas de "Herramientas para salir tranqui"): se apoya
  * abajo sobre un velo; tocar afuera cierra. Las opciones que reportan, cancelan, bloquean o borran
@@ -96,9 +93,6 @@ fun HojaOpciones(cerrar: () -> Unit, filas: List<Pair<String, () -> Unit>>) {
         }
     }
 }
-
-@Composable
-fun HojaOpciones(cerrar: () -> Unit, filas: List<Opcion>) = HojaOpciones(cerrar, filas.map { it.texto to it.accion })
 
 /** Motivos de reporte (personas.go · motivos). */
 val motivosReporte: List<Pair<String, String>> = listOf(
