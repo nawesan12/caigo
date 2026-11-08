@@ -39,6 +39,14 @@ Reglas del clon: `CLON.md`; método de la repasada: `PASADA.md`.
 
 En las capturas no salen las fotos de la red (Coil en Robolectric); en la app sí.
 
+## Repaso visual (7/11), a revisar por Nahuel
+- Galería: https://claude.ai/artifact/EjWR71aqgtGqHvGGRHBWZX
+- Arreglado: chips ilegibles en oscuro, la barra de pestañas transparente, el QR vacío, renglones que arrancaban con «·» y «1 sumada».
+- También en el iPhone (Crear, MazoGente, `sinViudas`, barra opaca); TestFlight subido.
+- Pregunta abierta: en Ahora oscuro el handoff pone el logo en vez de la campana, así que no se llega a Recibidos. ¿Campana también en oscuro?
+- Para retomar: Nahuel mira la galería y hace un repaso profundo de todo. Lo que marque se arregla en Android y,
+  si también pasa en el iPhone, en los dos lados, con TestFlight después.
+
 ## Falta
 1. **Cuenta de Play** (necesita que Nahuel verifique un Android y su teléfono). Hay que armar:
    - la app;
