@@ -72,8 +72,19 @@
                 <data android:scheme="https" />
                 <data android:host="caigo.com.ar" />
                 <data android:host="www.caigo.com.ar" />
+                <!-- Los mismos patrones que apps/pruebas/enlaces.json (EnlacesTest lo controla): «app» como path/pathPrefix y
+                     «web» como grupos que no abren la app (Android 15+; antes, si llega uno, se abre en la web adentro). -->
                 <data android:pathPrefix="/p/" />
                 <data android:pathPrefix="/t/" />
+                <data android:path="/app" />
+                <data android:pathPrefix="/app/" />
+                <uri-relative-filter-group android:allow="false"><data android:queryPattern=".*web=1.*" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:pathPrefix="/vivo/" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:path="/app/borrar" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:path="/app/foto" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:path="/app/perfil/foto" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:path="/app/reportar" /></uri-relative-filter-group>
+                <uri-relative-filter-group android:allow="false"><data android:path="/app/vivo" /></uri-relative-filter-group>
             </intent-filter>
 
             <!-- Placa Caigo Tap apoyada con la app cerrada: el chip trae la URL https://caigo.com.ar/t/…. -->

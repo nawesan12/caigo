@@ -1,6 +1,7 @@
 package ar.com.caigo.app.app
 
-
+import android.net.Uri
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
@@ -23,6 +24,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.NavHost
@@ -99,6 +101,7 @@ fun CaigoNav(c: Contenedor) {
         if (antes && token == null && nav.currentBackStackEntry?.destination?.route?.startsWith("principal") == true) ir.alta("ingresar")
     }
 
+    val contexto = LocalContext.current
     // Links, avisos y placas: se resuelven cuando hay sesión.
     LaunchedEffect(destino, token, rutaActual) {
         val d = destino ?: return@LaunchedEffect
@@ -131,6 +134,24 @@ fun CaigoNav(c: Contenedor) {
                 }
             }
             is Destino.VueltaClerk -> Unit
+            is Destino.Seccion -> ir.principal(d.pestana)
+            is Destino.Ruta -> when (d.pantalla) {
+                "crear" -> ir.crear()
+                "verificacion" -> ir.verificacion()
+                "privados" -> ir.privados()
+                "privado" -> d.id?.let { ir.privado(it, "") }
+                "persona" -> d.id?.let { ir.persona(it, "link") }
+                "editarPerfil" -> ir.editarPerfil()
+                "bloqueos" -> ir.bloqueos()
+                "gente" -> ir.gente()
+                "ajustesAvisos" -> ir.ajustesAvisos()
+                "chat" -> d.id?.let { ir.chat(it) }
+                "editarPlan" -> d.id?.let { ir.editarPlan(it) }
+                "repetimos" -> d.id?.let { ir.repetimos(it) }
+                "solicitudes" -> d.id?.let { ir.solicitudes(it) }
+            }
+            // Lo que la app no tiene: la web dentro de la app (pestaña personalizada, nunca el navegador, que volvería acá).
+            is Destino.Web -> runCatching { CustomTabsIntent.Builder().build().launchUrl(contexto, Uri.parse(d.url)) }
         }
     }
 

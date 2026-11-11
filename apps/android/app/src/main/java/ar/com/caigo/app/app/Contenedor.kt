@@ -45,6 +45,12 @@ sealed interface Destino {
     data class Pantalla(val pantalla: String, val plan: String?, val privado: String?, val modo: String?) : Destino
     data class Tap(val placa: String, val picc: String, val cmac: String) : Destino
     data class VueltaClerk(val nonce: String?) : Destino
+    /** Una pestaña de la app (/app, /app/mis, /app/perfil…). */
+    data class Seccion(val pestana: Pestana) : Destino
+    /** Una pantalla de la app por su nombre (`Destino.ruta(Ruta)` en iOS): /app/plan/<id>/chat, /app/mensajes/<id>… */
+    data class Ruta(val pantalla: String, val id: String? = null) : Destino
+    /** Un link de caigo.com.ar que la app no tiene: se abre la web dentro de la app. */
+    data class Web(val url: String) : Destino
 }
 
 /**
@@ -176,21 +182,63 @@ class Contenedor(val ctx: Context) {
     }
 
     /** Interpreta un link entrante: ar.com.caigo.app://…, https://caigo.com.ar/p/… o /t/…. */
-    fun destinoDe(uri: Uri?): Destino? {
-        if (uri == null) return null
-        val seg = uri.pathSegments.orEmpty()
-        return when {
-            uri.scheme == Clerk.ESQUEMA && uri.host == "callback" -> Destino.VueltaClerk(uri.getQueryParameter("rotating_token_nonce"))
-            uri.scheme == Clerk.ESQUEMA && uri.host == "p" && seg.isNotEmpty() -> Destino.PlanSlug(seg[0])
-            uri.scheme == Clerk.ESQUEMA && uri.host == "plan" && seg.isNotEmpty() -> Destino.Plan(seg[0])
-            uri.scheme == "https" && seg.size >= 2 && seg[0] == "p" -> Destino.PlanSlug(seg[1])
-            (uri.scheme == "https" || uri.scheme == "ar.com.caigo.app") && seg.size >= 2 && seg[0] == "t" -> Destino.Tap(
-                seg[1], uri.getQueryParameter("picc_data").orEmpty(), uri.getQueryParameter("cmac").orEmpty(),
-            )
-            uri.scheme == "ar.com.caigo.app" && uri.host == "t" && seg.isNotEmpty() -> Destino.Tap(
-                seg[0], uri.getQueryParameter("picc_data").orEmpty(), uri.getQueryParameter("cmac").orEmpty(),
-            )
-            else -> null
+    fun destinoDe(uri: Uri?): Destino? = destino(uri)
+
+    companion object {
+        fun destino(uri: Uri?): Destino? {
+            if (uri == null) return null
+            val seg = uri.pathSegments.orEmpty()
+            return when {
+                uri.scheme == Clerk.ESQUEMA && uri.host == "callback" -> Destino.VueltaClerk(uri.getQueryParameter("rotating_token_nonce"))
+                uri.scheme == Clerk.ESQUEMA && uri.host == "p" && seg.isNotEmpty() -> Destino.PlanSlug(seg[0])
+                uri.scheme == Clerk.ESQUEMA && uri.host == "plan" && seg.isNotEmpty() -> Destino.Plan(seg[0])
+                uri.scheme == "ar.com.caigo.app" && uri.host == "t" && seg.isNotEmpty() -> Destino.Tap(
+                    seg[0], uri.getQueryParameter("picc_data").orEmpty(), uri.getQueryParameter("cmac").orEmpty(),
+                )
+                uri.scheme == "ar.com.caigo.app" && seg.size >= 2 && seg[0] == "t" -> Destino.Tap(
+                    seg[1], uri.getQueryParameter("picc_data").orEmpty(), uri.getQueryParameter("cmac").orEmpty(),
+                )
+                // Los links de caigo.com.ar (qué paths abren la app: apps/pruebas/enlaces.json, de ahí sale el assetlinks).
+                uri.scheme != "https" || (uri.host != "caigo.com.ar" && uri.host != "www.caigo.com.ar") -> null
+                "web" in uri.queryParameterNames -> Destino.Web(uri.toString())
+                seg.size >= 2 && seg[0] == "p" -> Destino.PlanSlug(seg[1])
+                seg.size >= 2 && seg[0] == "t" -> Destino.Tap(seg[1], uri.getQueryParameter("picc_data").orEmpty(), uri.getQueryParameter("cmac").orEmpty())
+                seg.firstOrNull() == "app" -> destinoApp(seg.drop(1), uri.toString())
+                else -> Destino.Web(uri.toString())
+            }
+        }
+
+        /** `/app/...` (la web de Caigo para usuarios) → la misma pantalla en la app; lo que no tiene, la web adentro. */
+        fun destinoApp(p: List<String>, url: String): Destino {
+            val id = p.getOrNull(1)
+            val sub = p.getOrNull(2)
+            return when (p.firstOrNull()) {
+                null, "bienvenida", "intereses", "genero" -> Destino.Seccion(Pestana.Ahora)
+                "explorar", "mapa" -> Destino.Seccion(Pestana.Explorar)
+                "mis" -> Destino.Seccion(Pestana.Mis)
+                "crear" -> Destino.Ruta("crear")
+                "verificar" -> Destino.Ruta("verificacion")
+                "mensajes" -> if (id == null || id == "privados") Destino.Ruta("privados") else Destino.Ruta("privado", id)
+                "persona" -> if (id != null) Destino.Ruta("persona", id) else Destino.Web(url)
+                "perfil" -> when (id) {
+                    null -> Destino.Seccion(Pestana.Perfil)
+                    "editar" -> Destino.Ruta("editarPerfil")
+                    "bloqueados" -> Destino.Ruta("bloqueos")
+                    "gente" -> Destino.Ruta("gente")
+                    "ajustes" -> Destino.Ruta("ajustesAvisos")
+                    else -> Destino.Web(url)
+                }
+                "plan" -> when {
+                    id == null -> Destino.Seccion(Pestana.Ahora)
+                    sub == null -> Destino.Plan(id)
+                    sub == "chat" -> Destino.Ruta("chat", id)
+                    sub == "editar" -> Destino.Ruta("editarPlan", id)
+                    sub == "repetimos" -> Destino.Ruta("repetimos", id)
+                    sub == "solicitudes" -> Destino.Ruta("solicitudes", id)
+                    else -> Destino.Web(url)
+                }
+                else -> Destino.Web(url)
+            }
         }
     }
 }
