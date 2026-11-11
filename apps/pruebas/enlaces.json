@@ -1,0 +1,60 @@
+{
+  "_": "Qué links de caigo.com.ar abren la app (Universal Links y App Links). infra/vps/well-known/generar.py arma con esto el AASA y el assetlinks que sirve Caddy, y lo leen las pruebas de iOS y Android. «web» va primero: lo que está ahí nunca abre la app aunque caiga dentro de un patrón de «app». Patrones: * es cualquier cosa. En «ejemplos», el valor es el destino que abre la app, o «web» si el link no la abre. lugares.caigo.com.ar (el panel de los lugares) no tiene app: siempre web.",
+  "dominio": "caigo.com.ar",
+  "ios": "M6935MSNQB.ar.com.caigo.app",
+  "clip": "M6935MSNQB.ar.com.caigo.app.Clip",
+  "android": "ar.com.caigo.app",
+  "huellas": [
+    "57:21:D7:CC:7C:5A:FF:51:96:E3:B8:5E:18:F0:A6:DA:8E:EB:FF:1A:18:F6:DD:5C:BD:F8:0B:D6:D9:73:33:16",
+    "A2:25:D9:45:8C:49:B8:2C:2A:19:75:34:81:38:75:80:17:23:BA:23:08:06:8E:79:E4:77:99:47:B1:D9:E7:4F"
+  ],
+  "web": [
+    "/vivo/*",
+    "/app/borrar",
+    "/app/foto",
+    "/app/perfil/foto",
+    "/app/reportar",
+    "/app/vivo"
+  ],
+  "app": [
+    "/p/*",
+    "/t/*",
+    "/app",
+    "/app/*"
+  ],
+  "ejemplos": {
+    "/": "web",
+    "/plus": "web",
+    "/terminos": "web",
+    "/privacidad": "web",
+    "/arrepentimiento": "web",
+    "/ingresar": "web",
+    "/vivo/tok1": "web",
+    "/app/borrar": "web",
+    "/app?web=1": "web",
+    "/p/futbol-5": "planSlug:futbol-5",
+    "/t/placa1": "tap:placa1",
+    "/app": "seccion:ahora",
+    "/app/bienvenida": "seccion:ahora",
+    "/app/explorar": "seccion:explorar",
+    "/app/mapa": "seccion:explorar",
+    "/app/mis": "seccion:mis",
+    "/app/perfil": "seccion:perfil",
+    "/app/perfil/editar": "ruta:editarPerfil",
+    "/app/perfil/bloqueados": "ruta:bloqueos",
+    "/app/perfil/gente": "ruta:gente",
+    "/app/perfil/ajustes": "ruta:ajustesAvisos",
+    "/app/crear": "ruta:crear",
+    "/app/verificar": "ruta:verificacion",
+    "/app/mensajes": "ruta:privados",
+    "/app/mensajes/privados": "ruta:privados",
+    "/app/mensajes/c1": "ruta:privado:c1",
+    "/app/persona/u1": "ruta:persona:u1",
+    "/app/plan/pl1": "plan:pl1",
+    "/app/plan/pl1/chat": "ruta:chat:pl1",
+    "/app/plan/pl1/editar": "ruta:editarPlan:pl1",
+    "/app/plan/pl1/repetimos": "ruta:repetimos:pl1",
+    "/app/plan/pl1/solicitudes": "ruta:solicitudes:pl1",
+    "/app/algo-nuevo": "web-en-app"
+  }
+}

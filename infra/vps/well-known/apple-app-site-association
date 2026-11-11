@@ -2,19 +2,66 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["M6935MSNQB.ar.com.caigo.app"],
+        "appIDs": [
+          "M6935MSNQB.ar.com.caigo.app"
+        ],
         "components": [
-          { "/": "/p/*", "comment": "Link público de un plan" },
-          { "/": "/t/*", "comment": "Placa Caigo Tap" },
-          { "/": "/vivo/*", "exclude": true, "comment": "El plan en vivo es para el contacto de confianza: va a la web" }
+          {
+            "/": "*",
+            "?": {
+              "web": "1"
+            },
+            "exclude": true,
+            "comment": "Forzar la web"
+          },
+          {
+            "/": "/vivo/*",
+            "exclude": true
+          },
+          {
+            "/": "/app/borrar",
+            "exclude": true
+          },
+          {
+            "/": "/app/foto",
+            "exclude": true
+          },
+          {
+            "/": "/app/perfil/foto",
+            "exclude": true
+          },
+          {
+            "/": "/app/reportar",
+            "exclude": true
+          },
+          {
+            "/": "/app/vivo",
+            "exclude": true
+          },
+          {
+            "/": "/p/*"
+          },
+          {
+            "/": "/t/*"
+          },
+          {
+            "/": "/app"
+          },
+          {
+            "/": "/app/*"
+          }
         ]
       }
     ]
   },
   "appclips": {
-    "apps": ["M6935MSNQB.ar.com.caigo.app.Clip"]
+    "apps": [
+      "M6935MSNQB.ar.com.caigo.app.Clip"
+    ]
   },
   "webcredentials": {
-    "apps": ["M6935MSNQB.ar.com.caigo.app"]
+    "apps": [
+      "M6935MSNQB.ar.com.caigo.app"
+    ]
   }
 }

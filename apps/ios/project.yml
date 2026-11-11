@@ -170,6 +170,9 @@ targets:
       # Las respuestas de la API simulada, las mismas que lee Android.
       - path: ../pruebas/respuestas.json
         buildPhase: resources
+      # Qué links abren la app (EnlacesTests), lo mismo que sirve Caddy.
+      - path: ../pruebas/enlaces.json
+        buildPhase: resources
     dependencies:
       - target: Caigo
       - package: Nucleo

@@ -1,3 +1,4 @@
+import SafariServices
 import SwiftUI
 import Nucleo
 
@@ -6,6 +7,8 @@ struct CaigoRaiz: View {
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @State private var actualizar = false
+    /// Un link de caigo.com.ar que la app no tiene: la web dentro de la app.
+    @State private var web: URL?
 
     /// GET /v1/version: si este build es más viejo que `minIos`, no se deja seguir.
     func chequearVersion() async {
@@ -25,6 +28,7 @@ struct CaigoRaiz: View {
             if actualizar { ActualizarApp().transition(.opacity).zIndex(50) }
         }
         .task { await chequearVersion() }
+        .sheet(item: Binding(get: { web.map(PaginaWeb.init) }, set: { web = $0?.url })) { p in NavegadorWeb(url: p.url).ignoresSafeArea() }
         .modifier(ConPaleta())
         .onChange(of: c.destino) { resolverDestino() }
         .onChange(of: ir.base) { resolverDestino() }
@@ -113,6 +117,18 @@ struct CaigoRaiz: View {
             default:
                 if let privado { ir.privado(privado, nombre: "") } else if let plan { ir.plan(plan) }
             }
+        case let .seccion(p): ir.principal(p)
+        case let .ruta(r): ir.ir(r)
+        case let .web(u): web = u
         }
     }
+}
+
+/// La web de caigo.com.ar dentro de la app (un link que la app no tiene).
+struct PaginaWeb: Identifiable { var url: URL; var id: String { url.absoluteString } }
+
+struct NavegadorWeb: UIViewControllerRepresentable {
+    var url: URL
+    func makeUIViewController(context: Context) -> SFSafariViewController { SFSafariViewController(url: url) }
+    func updateUIViewController(_ c: SFSafariViewController, context: Context) {}
 }

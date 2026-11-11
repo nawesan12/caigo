@@ -8,6 +8,12 @@ enum Destino: Equatable {
     case planSlug(String)
     case pantalla(pantalla: String, plan: String?, privado: String?, modo: String?)
     case tap(placa: String, picc: String, cmac: String)
+    /// Una pestaña de la app (/app, /app/mis, /app/perfil…).
+    case seccion(Pestana)
+    /// Una pantalla de la app por su ruta (/app/plan/<id>/chat, /app/mensajes/<id>…).
+    case ruta(Ruta)
+    /// Un link de caigo.com.ar que la app no tiene: se abre la web dentro de la app.
+    case web(URL)
 }
 
 /// Configuración que viene del Info.plist (sale de Config/*.xcconfig).
@@ -181,7 +187,9 @@ final class Contenedor {
     func ubicacion() async -> (Double, Double)? { await ubicador.actual() }
 
     /// Interpreta un link entrante: ar.com.caigo.app://…, https://caigo.com.ar/p/… o /t/….
-    func destinoDe(_ url: URL) -> Destino? {
+    func destinoDe(_ url: URL) -> Destino? { Self.destino(de: url) }
+
+    static func destino(de url: URL) -> Destino? {
         let c = URLComponents(url: url, resolvingAgainstBaseURL: false)
         func q(_ k: String) -> String { c?.queryItems?.first { $0.name == k }?.value ?? "" }
         let seg = url.pathComponents.filter { $0 != "/" }
@@ -193,11 +201,50 @@ final class Contenedor {
             if host == "plan", let s = seg.first { return .plan(s) }
             return nil
         }
-        if esquema == "https", seg.count >= 2 {
-            if seg[0] == "p" { return .planSlug(seg[1]) }
-            if seg[0] == "t" { return .tap(placa: seg[1], picc: q("picc_data"), cmac: q("cmac")) }
+        // Los links de caigo.com.ar (qué paths abren la app: apps/pruebas/enlaces.json, de ahí sale el AASA).
+        guard esquema == "https", host == "caigo.com.ar" || host == "www.caigo.com.ar" else { return nil }
+        if c?.queryItems?.contains(where: { $0.name == "web" }) == true { return .web(url) }
+        if seg.count >= 2, seg[0] == "p" { return .planSlug(seg[1]) }
+        if seg.count >= 2, seg[0] == "t" { return .tap(placa: seg[1], picc: q("picc_data"), cmac: q("cmac")) }
+        if seg.first == "app" { return Self.destinoApp(Array(seg.dropFirst()), url) }
+        return .web(url)
+    }
+
+    /// `/app/...` (la web de Caigo para usuarios) → la misma pantalla en la app; lo que no tiene, la web adentro.
+    static func destinoApp(_ p: [String], _ url: URL) -> Destino {
+        let id = p.count > 1 ? p[1] : nil
+        let sub = p.count > 2 ? p[2] : nil
+        switch p.first {
+        case nil, "bienvenida", "intereses", "genero": return .seccion(.ahora)
+        case "explorar", "mapa": return .seccion(.explorar)
+        case "mis": return .seccion(.mis)
+        case "crear": return .ruta(.crear)
+        case "verificar": return .ruta(.verificacion)
+        case "mensajes":
+            guard let id, id != "privados" else { return .ruta(.privados) }
+            return .ruta(.privado(id, nombre: ""))
+        case "persona": return id.map { .ruta(.persona($0, desde: "link")) } ?? .web(url)
+        case "perfil":
+            switch id {
+            case nil: return .seccion(.perfil)
+            case "editar": return .ruta(.editarPerfil)
+            case "bloqueados": return .ruta(.bloqueos)
+            case "gente": return .ruta(.gente)
+            case "ajustes": return .ruta(.ajustesAvisos)
+            default: return .web(url)
+            }
+        case "plan":
+            guard let id else { return .seccion(.ahora) }
+            switch sub {
+            case nil: return .plan(id)
+            case "chat": return .ruta(.chat(id))
+            case "editar": return .ruta(.editarPlan(id))
+            case "repetimos": return .ruta(.repetimos(id))
+            case "solicitudes": return .ruta(.solicitudes(id))
+            default: return .web(url)
+            }
+        default: return .web(url)
         }
-        return nil
     }
 }
 
