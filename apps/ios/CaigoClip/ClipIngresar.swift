@@ -71,6 +71,7 @@ struct ClipIngresar: View {
                 }
             } catch {
                 ocupado = nil
+                if !ingresoAppleCancelado(error) { entrarCon("apple") }
             }
         }
         #else

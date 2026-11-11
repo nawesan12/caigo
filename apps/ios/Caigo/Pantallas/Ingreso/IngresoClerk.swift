@@ -92,6 +92,12 @@ final class IngresoApple: NSObject, ASAuthorizationControllerDelegate, ASAuthori
         MainActor.assumeIsolated { Sistema.ventana() ?? ASPresentationAnchor() }
     }
 }
+
+/// Si la persona cerró la hoja de Apple (no se avisa nada). Cualquier otro error de la hoja pasa al
+/// ingreso web con Apple.
+func ingresoAppleCancelado(_ e: Error) -> Bool {
+    (e as? ASAuthorizationError)?.code == .canceled
+}
 #endif
 
 /// El canje del token de Apple en la Frontend API de Clerk (modo nativo), sin pasar por la web:

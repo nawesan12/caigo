@@ -86,8 +86,9 @@ struct Ingresar: View {
                     entrarCon("apple")
                 }
             } catch {
-                // Canceló la hoja de Apple: no se avisa nada.
+                // Canceló la hoja de Apple: no se avisa nada. Si la hoja falló, el ingreso web.
                 ocupado = nil
+                if !ingresoAppleCancelado(error) { entrarCon("apple") }
             }
         }
         #else
