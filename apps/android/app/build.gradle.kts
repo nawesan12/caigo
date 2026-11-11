@@ -138,6 +138,7 @@ dependencies {
 
     implementation(libs.maplibre)
     implementation(libs.billing)
+    implementation(libs.androidx.fragment)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
     implementation(libs.androidx.browser)
