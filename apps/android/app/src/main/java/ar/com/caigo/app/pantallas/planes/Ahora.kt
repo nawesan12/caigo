@@ -1,6 +1,5 @@
 package ar.com.caigo.app.pantallas.planes
 
-import android.Manifest
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -66,7 +65,7 @@ import ar.com.caigo.app.piezas.Chip
 import ar.com.caigo.app.piezas.Cta
 import ar.com.caigo.app.piezas.Puntitos
 import ar.com.caigo.app.piezas.Segmentado
-import ar.com.caigo.app.piezas.rememberPermiso
+import ar.com.caigo.app.piezas.rememberPermisoUbicacion
 import ar.com.caigo.app.piezas.tocable
 import ar.com.caigo.app.piezas.toque
 import ar.com.caigo.app.tema.C
@@ -120,7 +119,7 @@ fun Ahora(ir: Ir, modoInicial: String?) {
     var invitaciones by remember { mutableStateOf<Invitaciones?>(null) }
     var vuelta by remember { mutableIntStateOf(0) }
     var pidio by rememberSaveable { mutableStateOf(false) }
-    val (permiso, pedir) = rememberPermiso(Manifest.permission.ACCESS_FINE_LOCATION)
+    val (permiso, pedir) = rememberPermisoUbicacion()
 
     val conCitas = yo?.intenciones?.contains("citas") == true
     val m = modo ?: modoInicial ?: "planes"

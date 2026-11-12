@@ -24,7 +24,8 @@ android {
         applicationId = "ar.com.caigo.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
+        // Cada corrida del CI sube un número nuevo (Play rechaza los repetidos); en local queda en 100.
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0) + 100
         versionName = "0.2.0"
 
         buildConfigField("String", "CLERK_PUBLICABLE", cadena(local("caigo.clerk.publicable")))
@@ -72,11 +73,11 @@ android {
         compose = true
         buildConfig = true
     }
-    // APKs por arquitectura para probar en un teléfono sin bajar 110 MB (Play usa el App Bundle,
-    // que ya separa solo).
+    // APKs por arquitectura para probar en un teléfono sin bajar 110 MB. Al armar el App Bundle se
+    // apagan: Play ya separa solo, y con isShrinkResources cada ABI deja su .ap_ y bundleRelease falla.
     splits {
         abi {
-            isEnable = true
+            isEnable = gradle.startParameter.taskNames.none { it.contains("bundle", ignoreCase = true) }
             reset()
             include("arm64-v8a", "x86_64")
             isUniversalApk = false

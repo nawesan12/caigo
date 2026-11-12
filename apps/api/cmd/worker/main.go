@@ -12,11 +12,13 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/avisos"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/lugares"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
 	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/apns"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/cifrado"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
@@ -78,7 +80,7 @@ func correr() error {
 		manejadores[k] = m
 	}
 	w := &outbox.Worker{Pool: app, Manejadores: manejadores}
-	go limpiar(ctx, app)
+	go limpiar(ctx, app, cfg.Archivos)
 	go programados(ctx, app)
 	return w.Correr(ctx)
 }
@@ -110,7 +112,8 @@ func programados(ctx context.Context, app *db.Pool) {
 
 // limpiar borra cada hora lo que ya no sirve: topes viejos, sesiones vencidas, estados de OAuth
 // usados o vencidos, códigos de teléfono vencidos y eventos del outbox publicados hace más de 30 días.
-func limpiar(ctx context.Context, app *db.Pool) {
+// Y purga los datos personales de las cuentas borradas hace más de 30 días (confianza.Purgar).
+func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string) {
 	t := time.NewTicker(time.Hour)
 	defer t.Stop()
 	consultas := []string{
@@ -133,10 +136,28 @@ func limpiar(ctx context.Context, app *db.Pool) {
 				slog.Warn("limpieza fallida", "consulta", q, "error", err)
 			}
 		}
+		purgar(ctx, app, carpetaArchivos)
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
 		}
+	}
+}
+
+// purgar corre la purga de las cuentas borradas. Necesita la carpeta de archivos (las fotos, la
+// selfie y el DNI se borran del disco): si el worker no la tiene montada, no purga nada (mejor tarde
+// que dejar fotos huérfanas en el disco).
+func purgar(ctx context.Context, app *db.Pool, carpeta string) {
+	if st, err := os.Stat(carpeta); err != nil || !st.IsDir() {
+		slog.Warn("purga de cuentas: sin la carpeta de archivos, no se purga", "carpeta", carpeta)
+		return
+	}
+	n, err := confianza.Purgar(ctx, app, archivos.Disco{Raiz: carpeta}, time.Now().AddDate(0, 0, -confianza.DiasParaPurgar))
+	if err != nil && ctx.Err() == nil {
+		slog.Warn("purga de cuentas", "error", err)
+	}
+	if n > 0 {
+		slog.Info("cuentas purgadas", "cantidad", n)
 	}
 }

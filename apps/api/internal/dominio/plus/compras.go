@@ -205,7 +205,11 @@ func (s *Servicio) AvisoApple(ctx context.Context, t *Tiendas, signedPayload str
 	return s.Actualizar(ctx, "apple", tx.OriginalTransactionID, plan, estado, tx.Vence(), renueva)
 }
 
-// AvisoGoogle procesa una Real-time Developer Notification (por Pub/Sub): vuelve a leer el estado.
+// AvisoGoogle procesa una Real-time Developer Notification (por Pub/Sub): vuelve a leer el estado y,
+// si Google todavía espera la confirmación (acknowledge) de una compra vigente, la confirma. Así no
+// depende de que la app llegue a mandar POST /v1/plus/google: si se cerró o perdió la red entre la
+// compra y ese pedido, Google la reintegraba sola a los 3 días. Si la confirmación falla, devuelve el
+// error y Pub/Sub reintenta el aviso (guardar el estado otra vez no cambia nada).
 func (s *Servicio) AvisoGoogle(ctx context.Context, t *Tiendas, token string) error {
 	if t.Play == nil || token == "" {
 		return nil
@@ -216,7 +220,26 @@ func (s *Servicio) AvisoGoogle(ctx context.Context, t *Tiendas, token string) er
 	}
 	plan, _ := PlanDeProducto(g.Producto)
 	if g.Cuenta != "" && plan != "" {
-		return s.Guardar(ctx, g.Cuenta, "google", token, plan, estadoGoogle(g), g.Vence, g.Renueva)
+		err = s.Guardar(ctx, g.Cuenta, "google", token, plan, estadoGoogle(g), g.Vence, g.Renueva)
+	} else {
+		err = s.Actualizar(ctx, "google", token, plan, estadoGoogle(g), g.Vence, g.Renueva)
 	}
-	return s.Actualizar(ctx, "google", token, plan, estadoGoogle(g), g.Vence, g.Renueva)
+	if err != nil {
+		return err
+	}
+	// Sólo las de Plus y con una persona de Caigo detrás (la app pone su id en la compra): una compra
+	// que no sabemos de quién es no se confirma, y Google la devuelve.
+	if g.Reconoce && plan != "" && g.Cuenta != "" && vigenteGoogle(g, s.ahora()) {
+		return t.Play.Reconocer(ctx, g.Producto, token)
+	}
+	return nil
+}
+
+// vigenteGoogle: Google le da acceso (activa, en período de gracia, o dada de baja sin vencer).
+func vigenteGoogle(g tiendas.SuscripcionGoogle, ahora time.Time) bool {
+	switch g.Estado {
+	case "SUBSCRIPTION_STATE_ACTIVE", "SUBSCRIPTION_STATE_IN_GRACE_PERIOD", "SUBSCRIPTION_STATE_CANCELED":
+		return g.Vence.After(ahora)
+	}
+	return false
 }

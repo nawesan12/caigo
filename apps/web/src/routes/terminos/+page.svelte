@@ -5,7 +5,7 @@
 <Legal
 	titulo="Términos y&nbsp;condiciones"
 	ruta="/terminos"
-	vigencia="31 de octubre de 2026"
+	vigencia="12 de noviembre de 2026"
 	descripcion="Los términos de Caigo: cómo funcionan los planes, las sumadas, los pagos con Mercado Pago y la verificación, y qué esperamos de toda la comunidad."
 >
 	<p>
@@ -43,7 +43,7 @@
 		</li>
 		<li>
 			Podés borrar tu cuenta cuando quieras desde Perfil o en
-			<a href="/app/borrar">caigo.com.ar/app/borrar</a>.
+			<a href="/borrar-cuenta">caigo.com.ar/borrar-cuenta</a>.
 		</li>
 	</ul>
 

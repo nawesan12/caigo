@@ -109,7 +109,7 @@ fun CaigoNav(c: Contenedor) {
         if (token == null) return@LaunchedEffect
         // Se espera a que termine el arranque y el alta: si no, el arranque limpia la pila y se pierde.
         if (rutaActual == null || rutaActual == "arranque" || rutaActual == "intro" || rutaActual == "ingresar" ||
-            rutaActual == "debug" || rutaActual == "datos" || rutaActual == "telefono" || rutaActual.startsWith("selfie?") ||
+            rutaActual == "debug" || rutaActual == "mail" || rutaActual == "datos" || rutaActual == "telefono" || rutaActual.startsWith("selfie?") ||
             rutaActual.startsWith("intenciones?") || rutaActual == "completar") return@LaunchedEffect
         c.destino.value = null
         when (d) {
@@ -169,6 +169,7 @@ fun CaigoNav(c: Contenedor) {
                     composable("intro") { Intro(ir) }
                     hoja("ingresar") { Ingresar(ir) }
                     composable("debug") { DebugToken(ir) }
+                    composable("mail") { IngresoMail(ir) }
                     composable("datos") { Datos(ir) }
                     composable("telefono") { Telefono(ir) }
                     composable("selfie?volver={volver}") { Selfie(ir, it.arg("volver") == "true") }

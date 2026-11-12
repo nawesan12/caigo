@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/servidor"
 )
@@ -259,6 +260,7 @@ func TestBajaDeCuenta(t *testing.T) {
 	}
 	var entrada string
 	e.valor(`SELECT id::text FROM entradas WHERE plan_id = $1 AND usuario_id = $2 AND estado = 'pagada'`, &entrada, lp.ID, lu.id)
+	e.pedir(lu, "POST", "/v1/planes/"+planID+"/mensajes", map[string]string{"texto": "¿Llevo hielo?"}, http.StatusCreated, nil)
 	e.pedir(propia, "DELETE", "/v1/yo", nil, http.StatusNoContent, nil)
 	// Su plan se cancela como si lo cancelara: aviso a Fede con el motivo.
 	cancelado := e.eventos("plan.cancelado", suyo.ID)
@@ -289,9 +291,20 @@ func TestBajaDeCuenta(t *testing.T) {
 		// Pagada por el aviso payment (sin transacción guardada): la devolución la busca en la orden.
 		t.Fatalf("reembolso de la baja: %q %d %q", estado, devuelto, mp.reembolsos)
 	}
-	// Las sesiones mueren, la selfie se borra, su plan se cancela y deja el lugar en el de Nico.
+	// Las sesiones mueren y el ingreso (con el token de Clerk) responde cuenta_borrada.
 	e.pedir(propia, "GET", "/v1/yo", nil, http.StatusUnauthorized, nil)
-	e.pedir(nico, "GET", "/v1/archivos/"+foto.ID, nil, http.StatusNotFound, nil)
+	var pr struct{ Code, Detail string }
+	e.pedir(lu, "POST", "/v1/sesion?cliente=android", nil, http.StatusConflict, &pr)
+	if pr.Code != "cuenta_borrada" || !strings.Contains(pr.Detail, "hola@caigo.com.ar") || !strings.Contains(pr.Detail, "30 días") {
+		t.Fatalf("ingreso de una cuenta borrada: %+v", pr)
+	}
+	e.pedir(lu, "GET", "/v1/yo", nil, http.StatusConflict, nil)
+	var n int
+	e.valor(`SELECT count(*) FROM sesiones WHERE usuario_id = $1`, &n, lu.id)
+	if n != 0 {
+		t.Fatalf("sesiones después de la baja: %d", n)
+	}
+	// Su plan se cancela y deja el lugar en el de Nico.
 	var p struct {
 		Somos     int
 		Cancelado bool
@@ -304,11 +317,86 @@ func TestBajaDeCuenta(t *testing.T) {
 	if p.Somos != 3 {
 		t.Fatalf("somos después de la baja: %d", p.Somos)
 	}
-	// Si vuelve a entrar con la misma cuenta de Clerk, arranca de cero.
+	// Antes de los 30 días, la purga no la toca: sus datos siguen (por si la recupera).
+	ctx := context.Background()
+	if _, err := confianza.Purgar(ctx, e.app, archivos.Disco{Raiz: e.archivos}, time.Now().AddDate(0, 0, -confianza.DiasParaPurgar)); err != nil {
+		t.Fatal(err)
+	}
+	var nombre string
+	e.valor(`SELECT nombre FROM usuarios WHERE id = $1`, &nombre, lu.id)
+	if nombre != "Lu" {
+		t.Fatalf("purgada antes de tiempo: %q", nombre)
+	}
+	// A los 30 días: sin nombre, fotos, selfie ni teléfono; su mensaje queda firmado por «Cuenta borrada».
+	if _, err := confianza.Purgar(ctx, e.app, archivos.Disco{Raiz: e.archivos}, time.Now().Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	var selfie, purgada bool
+	e.valor(`SELECT nombre FROM usuarios WHERE id = $1`, &nombre, lu.id)
+	e.valor(`SELECT selfie_en IS NOT NULL FROM usuarios WHERE id = $1`, &selfie, lu.id)
+	e.valor(`SELECT purgada_en IS NOT NULL FROM usuarios WHERE id = $1`, &purgada, lu.id)
+	if nombre != "Cuenta borrada" || selfie || !purgada {
+		t.Fatalf("después de la purga: %q selfie=%v purgada=%v", nombre, selfie, purgada)
+	}
+	e.valor(`SELECT count(*) FROM archivos WHERE usuario_id = $1`, &n, lu.id)
+	if n != 0 {
+		t.Fatalf("archivos después de la purga: %d", n)
+	}
+	e.pedir(nico, "GET", "/v1/archivos/"+foto.ID, nil, http.StatusNotFound, nil)
+	var ms struct {
+		Mensajes []struct {
+			Texto string
+			Autor *struct{ Nombre string }
+		}
+	}
+	e.pedir(nico, "GET", "/v1/planes/"+planID+"/mensajes", nil, http.StatusOK, &ms)
+	firmado := false
+	for _, m := range ms.Mensajes {
+		if m.Texto == "¿Llevo hielo?" && m.Autor != nil {
+			firmado = m.Autor.Nombre == "Cuenta borrada"
+		}
+	}
+	if !firmado {
+		t.Fatalf("mensajes después de la purga: %+v", ms.Mensajes)
+	}
+	// Purgada, si vuelve a entrar con la misma cuenta de Clerk arranca de cero.
 	var yo struct{ ID, Nombre string }
 	e.pedir(lu, "GET", "/v1/yo", nil, http.StatusOK, &yo)
 	if yo.ID == lu.id || yo.Nombre != "Lu" {
 		t.Fatalf("vuelta después de la baja: %+v", yo)
+	}
+}
+
+// En los 30 días, la cuenta se recupera a mano (caigoctl recuperar-cuenta) por mail o id de Clerk.
+func TestRecuperarCuentaBorrada(t *testing.T) {
+	e := nuevoEntorno(t)
+	ana := e.persona("Ana")
+	// GET /v1/yo trae el mail de la cuenta: con él se confirma la baja.
+	var y struct{ Email string }
+	e.pedir(ana, "GET", "/v1/yo", nil, http.StatusOK, &y)
+	if y.Email != "Ana@caigo.test" {
+		t.Fatalf("mail en /v1/yo: %q", y.Email)
+	}
+	// Si viene el mail escrito, tiene que ser el de la cuenta.
+	e.pedir(ana, "DELETE", "/v1/cuenta", map[string]string{"confirmarEmail": "otra@caigo.test"}, http.StatusUnprocessableEntity, nil)
+	e.pedir(ana, "GET", "/v1/yo", nil, http.StatusOK, nil)
+	e.pedir(ana, "DELETE", "/v1/cuenta", map[string]string{"confirmarEmail": " ana@CAIGO.test "}, http.StatusNoContent, nil)
+	e.pedir(ana, "GET", "/v1/yo", nil, http.StatusConflict, nil)
+	ctx := context.Background()
+	if id, err := confianza.Recuperar(ctx, e.migrador, "nadie@caigo.test"); err != nil || id != "" {
+		t.Fatalf("recuperó a otra: %q %v", id, err)
+	}
+	id, err := confianza.Recuperar(ctx, e.migrador, "ANA@caigo.test")
+	if err != nil || id != ana.id {
+		t.Fatalf("recuperar por mail: %q %v", id, err)
+	}
+	var yo struct{ ID string }
+	e.pedir(ana, "GET", "/v1/yo", nil, http.StatusOK, &yo)
+	if yo.ID != ana.id {
+		t.Fatalf("después de recuperar: %+v", yo)
+	}
+	if id, _ := confianza.Recuperar(ctx, e.migrador, "Ana@caigo.test"); id != "" {
+		t.Fatal("recuperó dos veces")
 	}
 }
 

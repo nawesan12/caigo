@@ -16,6 +16,7 @@
 			<a href="/terminos">Términos</a>
 			<a href="/privacidad">Privacidad</a>
 			<a href="/arrepentimiento">Botón de arrepentimiento</a>
+			<a href="/borrar-cuenta">Borrar mi cuenta</a>
 			<a href="mailto:hola@caigo.com.ar">hola@caigo.com.ar</a>
 		</nav>
 		<p class="chico">Mar del Plata y Villa Gesell · Una app de Grupo&nbsp;Vimo</p>

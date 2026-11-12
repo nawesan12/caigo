@@ -113,7 +113,7 @@ internal fun ingresoTitulo(titulo: String, bajada: String) {
 }
 
 /** Qué autocompleta el sistema en un [ingresoCampo] (el `textContentType` de iOS). */
-internal enum class IngresoContenidoCampo { Ninguno, Nombre, Telefono }
+internal enum class IngresoContenidoCampo { Ninguno, Nombre, Telefono, Email, Clave, ClaveNueva }
 
 /** Botón volver / cerrar del prototipo: blanco a lavanda con base `#DCD5EE`. */
 internal val ingresoGelVolver = Gel(
@@ -148,6 +148,9 @@ internal fun ingresoCampo(
         IngresoContenidoCampo.Ninguno -> null
         IngresoContenidoCampo.Nombre -> ContentType.PersonFirstName
         IngresoContenidoCampo.Telefono -> ContentType.PhoneNumber
+        IngresoContenidoCampo.Email -> ContentType.EmailAddress
+        IngresoContenidoCampo.Clave -> ContentType.Password
+        IngresoContenidoCampo.ClaveNueva -> ContentType.NewPassword
     }
     BasicTextField(
         valor, alCambiar,

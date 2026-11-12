@@ -45,22 +45,26 @@ struct IngresoCampo: View {
     var peso = 600
     var espaciado: CGFloat = 0.5
     var contenido: ContenidoCampo = .ninguno
+    /// Contraseña: se tapa lo que se escribe (SecureField).
+    var secreto = false
     @FocusState private var foco: Bool
 
-    enum ContenidoCampo { case ninguno, nombre, telefono }
+    enum ContenidoCampo { case ninguno, nombre, telefono, email, clave, claveNueva }
 
     var body: some View {
         ZStack(alignment: .leading) {
             if valor.isEmpty && !pista.isEmpty { T(pista, tam, 500, C.apagado, unRenglon: true) }
-            TextField("", text: $valor)
-                .font(Geist.fuente(tam, peso))
-                .tracking(espaciado)
-                .foregroundStyle(C.carbon)
-                .tint(C.violeta)
-                .focused($foco)
-                .teclado(teclado)
-                .autocorrectionDisabled(teclado != .texto)
-                .modifier(IngresoTipoContenido(tipo: contenido))
+            Group {
+                if secreto { SecureField("", text: $valor) } else { TextField("", text: $valor) }
+            }
+            .font(Geist.fuente(tam, peso))
+            .tracking(espaciado)
+            .foregroundStyle(C.carbon)
+            .tint(C.violeta)
+            .focused($foco)
+            .teclado(teclado)
+            .autocorrectionDisabled(teclado != .texto)
+            .modifier(IngresoTipoContenido(tipo: contenido))
         }
         .padding(.horizontal, 18)
         .frame(height: 60)
@@ -80,6 +84,9 @@ struct IngresoTipoContenido: ViewModifier {
         case .ninguno: content
         case .nombre: content.textContentType(.givenName)
         case .telefono: content.textContentType(.telephoneNumber)
+        case .email: content.textContentType(.emailAddress)
+        case .clave: content.textContentType(.password)
+        case .claveNueva: content.textContentType(.newPassword)
         }
         #else
         content

@@ -58,6 +58,7 @@ struct CaigoRaiz: View {
         switch r {
         case .ingresar: Ingresar()
         case .debug: DebugToken()
+        case .ingresoMail: IngresoMail()
         case .telefono: Telefono()
         case let .selfie(volver): Selfie(volver: volver)
         case let .intenciones(editar): Intenciones(editar: editar)

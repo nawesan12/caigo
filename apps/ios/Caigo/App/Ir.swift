@@ -21,6 +21,8 @@ enum Base: Hashable {
 /// Las pantallas que se apilan (las mismas rutas que Navegacion.kt de Android).
 enum Ruta: Hashable {
     case ingresar, debug
+    /// Entrar con mail y contraseña (o código) por Clerk.
+    case ingresoMail
     case telefono
     case selfie(volver: Bool)
     case intenciones(editar: Bool)
@@ -91,6 +93,7 @@ final class Ir {
     func intro() { base = .intro; camino = [] }
     func ingresar() { ir(.ingresar) }
     func debug() { ir(.debug) }
+    func ingresoMail() { ir(.ingresoMail) }
     /// Siguiente paso del alta (datos → teléfono → selfie → intenciones) o la app.
     func alta(_ b: Base) {
         if case let .principal(p, m) = b { principal(p, modo: m) } else { base = b; camino = [] }

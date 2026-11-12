@@ -231,7 +231,7 @@
 
 		<div class="pie">
 			<form method="POST" action="/salir"><button class="salir">Salir</button></form>
-			<a class="borrar-cuenta" href="/app/borrar">Borrar mi cuenta</a>
+			<a class="borrar-cuenta" href="/borrar-cuenta">Borrar mi cuenta</a>
 		</div>
 	</div>
 </div>

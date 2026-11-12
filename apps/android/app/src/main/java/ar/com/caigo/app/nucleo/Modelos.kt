@@ -201,6 +201,8 @@ data class Perfil(
     val compartidos: Int = 0,
     val equipo: Boolean = false,
     val telefono: String = "",
+    /** El mail de la cuenta (GET /v1/yo): con él se confirma «Borrar mi cuenta». */
+    val email: String = "",
     /** Autodeclarado, no se muestra a nadie: "" | mujer | varon | no_binario. */
     val genero: String = "",
     /** «Me identifico como parte de la diversidad». */

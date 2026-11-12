@@ -175,6 +175,7 @@ describe('sitemap y robots', () => {
 			`${SITIO}/terminos`,
 			`${SITIO}/privacidad`,
 			`${SITIO}/arrepentimiento`,
+			`${SITIO}/borrar-cuenta`,
 			`${SITIO}/p/previa-al-atardecer-en-playa-grande-6e23`,
 			`${SITIO}/p/truco-vn9f`
 		]);

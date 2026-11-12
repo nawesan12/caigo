@@ -184,6 +184,7 @@ final class PantallasTests: XCTestCase {
     }
     func testIngresar() { montar(Ingresar()) }
     func testDebugToken() { montar(DebugToken()) }
+    func testIngresoMail() { montar(IngresoMail()) }
     func testDatos() { montar(Datos()) }
     func testTelefono() { montar(Telefono()) }
     func testSelfie() { montar(Selfie(volver: false)) }

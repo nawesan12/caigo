@@ -10,6 +10,7 @@ Ingreso/Ingresar.swift
 Ingreso/IngresoCamara.swift
 Ingreso/IngresoClerk.swift
 Ingreso/IngresoComun.swift
+Ingreso/IngresoMail.swift
 Ingreso/Intenciones.swift
 Ingreso/Intro.swift
 Ingreso/Selfie.swift

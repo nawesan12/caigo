@@ -52,10 +52,14 @@ struct Arranque: View {
         } else {
             do {
                 destino = try await ingresoRutaDeAlta(c)
-            } catch let e as ErrorApi where e.estado == 401 {
+            } catch let e as ErrorApi where e.estado == 401 || e.codigo == "cuenta_borrada" {
+                // La sesión ya no sirve (venció o la cuenta se dio de baja): se olvida y se vuelve a ingresar.
+                c.salirLocal()
+                if e.codigo == "cuenta_borrada" { c.avisos.error(e.detalle) }
                 destino = .ingresar
             } catch {
-                // Sin conexión: se entra igual y cada pantalla avisa.
+                // Sin conexión o la API con problemas: se entra con lo guardado y se avisa.
+                c.avisos.error(mensajeDe(error))
                 destino = .principal(.ahora, modo: nil)
             }
         }

@@ -14,12 +14,19 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
 
 // Servicio de personas.
-type Servicio struct{ App *db.Pool }
+type Servicio struct {
+	App *db.Pool
+	// Clerk, para completar el mail de quien entró antes de que se guardara (nil: no se completa).
+	Casillas interface {
+		Usuario(ctx context.Context, id string) (clerk.Usuario, error)
+	}
+}
 
 // Prompt del perfil ("Un domingo ideal…").
 type Prompt struct {
@@ -55,6 +62,8 @@ type Perfil struct {
 	// Sólo en el propio.
 	Equipo   bool   `json:"equipo,omitempty"`
 	Telefono string `json:"telefono,omitempty"`
+	// El mail de la cuenta (sólo en /v1/yo): con él se confirma «Borrar mi cuenta».
+	Email string `json:"email,omitempty"`
 	// Autodeclarados y privados (sólo en el propio): "" | mujer | varon | no_binario.
 	Genero *string `json:"genero,omitempty"`
 	// Contacto de confianza (sólo en /v1/yo).
@@ -137,7 +146,7 @@ func escanear(row pgx.Row) (Perfil, error) {
 }
 
 // Yo devuelve el perfil propio, con el teléfono.
-func (s *Servicio) Yo(ctx context.Context, usuarioID string) (Perfil, error) {
+func (s *Servicio) Yo(ctx context.Context, usuarioID, clerkID string) (Perfil, error) {
 	var p Perfil
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var err error
@@ -148,15 +157,36 @@ func (s *Servicio) Yo(ctx context.Context, usuarioID string) (Perfil, error) {
 		}
 		p.EnMiGente, p.Compartidos = false, 0
 		genero, diversidad, contacto, av := "", false, "", Avisos{PlanesCerca: true, TuGente: true}
-		err = tx.QueryRow(ctx, `SELECT coalesce(telefono, ''), genero, diversidad, avisos_cerca, avisos_gente, contacto_confianza
-			FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&p.Telefono, &genero, &diversidad, &av.PlanesCerca, &av.TuGente, &contacto)
+		err = tx.QueryRow(ctx, `SELECT coalesce(telefono, ''), genero, diversidad, avisos_cerca, avisos_gente, contacto_confianza, email
+			FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&p.Telefono, &genero, &diversidad, &av.PlanesCerca, &av.TuGente, &contacto, &p.Email)
 		p.Genero, p.Diversidad, p.Avisos, p.ContactoConfianza = &genero, &diversidad, &av, &contacto
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
 		return err
 	})
+	if err == nil && p.Email == "" {
+		p.Email = s.completarEmail(ctx, usuarioID, clerkID)
+	}
 	return p, err
+}
+
+// completarEmail trae de Clerk el mail de quien entró antes de que se guardara al ingresar, y lo
+// guarda. Si Clerk no responde, vuelve vacío (la app confirma la baja con un mail válido).
+func (s *Servicio) completarEmail(ctx context.Context, usuarioID, clerkID string) string {
+	if s.Casillas == nil || clerkID == "" {
+		return ""
+	}
+	u, err := s.Casillas.Usuario(ctx, clerkID)
+	if err != nil || u.Email == "" || len(u.Email) > 200 {
+		return ""
+	}
+	_ = s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO usuarios_privado (usuario_id, email) VALUES ($1, $2)
+			ON CONFLICT (usuario_id) DO UPDATE SET email = excluded.email`, usuarioID, u.Email)
+		return err
+	})
+	return u.Email
 }
 
 // Ver devuelve el perfil de otra persona (sin el flag de equipo). Si hay un bloqueo, no existe.
@@ -330,7 +360,7 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 	if err != nil {
 		return Perfil{}, err
 	}
-	return s.Yo(ctx, usuarioID)
+	return s.Yo(ctx, usuarioID, "")
 }
 
 // SumarAGente suma a alguien a mi gente. Sólo se puede con quien ya compartí un plan.

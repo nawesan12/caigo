@@ -41,6 +41,8 @@ services:
     env_file: ./api.conf
     volumes:
       - ./bin:/app/bin:ro
+      # La purga de cuentas borradas borra sus fotos, selfie y DNI del disco.
+      - ./archivos:/datos/archivos
       - ./apns:/datos/apns:ro
       - ./claves:/datos/claves:ro
     mem_limit: 96m

@@ -59,6 +59,16 @@ type Resolvedor struct {
 // ErrSuspendida: la cuenta está suspendida por moderación.
 var ErrSuspendida = errors.New("sesion: cuenta suspendida")
 
+// ErrCuentaBorrada: la persona borró su cuenta y todavía no se purgó (30 días). No entra: el
+// ingreso responde 409 cuenta_borrada. Purgada, el clerk_id queda libre y entra como cuenta nueva.
+var ErrCuentaBorrada = errors.New("sesion: cuenta borrada")
+
+// CuentaBorrada es lo que ve quien intenta entrar con una cuenta borrada.
+func CuentaBorrada() *problema.Problema {
+	return problema.Conflicto("cuenta_borrada",
+		"Esta cuenta se borró. Si fue un error, escribinos a hola@caigo.com.ar dentro de los 30 días y la recuperamos.")
+}
+
 // ErrSinToken: el pedido no trae token.
 var ErrSinToken = errors.New("sesion: sin token")
 
@@ -93,6 +103,7 @@ func (s *Resolvedor) Crear(ctx context.Context, tokenClerk, cliente string) (str
 	if err != nil {
 		return "", Persona{}, err
 	}
+	s.copiarEmail(ctx, p)
 	b := make([]byte, 32)
 	_, _ = rand.Read(b)
 	tok := prefijo + base64.RawURLEncoding.EncodeToString(b)
@@ -102,6 +113,26 @@ func (s *Resolvedor) Crear(ctx context.Context, tokenClerk, cliente string) (str
 		return err
 	})
 	return tok, p, err
+}
+
+// copiarEmail guarda el mail de Clerk en usuarios_privado (GET /v1/yo lo devuelve para confirmar la
+// baja, y con él se encuentra una cuenta borrada). Una vez por ingreso; si Clerk no responde, sigue.
+func (s *Resolvedor) copiarEmail(ctx context.Context, p Persona) {
+	if s.Clerk == nil || p.Clerk == "" {
+		return
+	}
+	u, err := s.Clerk.Usuario(ctx, p.Clerk)
+	if err != nil || u.Email == "" || len(u.Email) > 200 {
+		return
+	}
+	err = s.App.EnUsuario(ctx, p.ID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO usuarios_privado (usuario_id, email) VALUES ($1, $2)
+			ON CONFLICT (usuario_id) DO UPDATE SET email = excluded.email WHERE usuarios_privado.email <> excluded.email`, p.ID, u.Email)
+		return err
+	})
+	if err != nil {
+		s.log().Warn("sesion: no se pudo guardar el mail", "error", err)
+	}
 }
 
 // Cerrar borra la sesión del token.
@@ -153,9 +184,13 @@ func (s *Resolvedor) Resolver(ctx context.Context, token string) (Persona, error
 	}
 	p := Persona{Clerk: sujeto}
 	err = s.App.EnTx(ctx, func(tx pgx.Tx) error {
-		var suspendida bool
-		err := tx.QueryRow(ctx, `SELECT id, nombre, equipo, suspendido_en IS NOT NULL FROM usuarios
-			WHERE clerk_id = $1 AND baja_en IS NULL`, sujeto).Scan(&p.ID, &p.Nombre, &p.Equipo, &suspendida)
+		var suspendida, borrada bool
+		// Una baja sin purgar conserva el clerk_id (para poder recuperarla): no entra ni se crea otra.
+		err := tx.QueryRow(ctx, `SELECT id, nombre, equipo, suspendido_en IS NOT NULL, baja_en IS NOT NULL FROM usuarios
+			WHERE clerk_id = $1`, sujeto).Scan(&p.ID, &p.Nombre, &p.Equipo, &suspendida, &borrada)
+		if borrada {
+			return ErrCuentaBorrada
+		}
 		if suspendida {
 			return ErrSuspendida
 		}
@@ -189,6 +224,10 @@ func (s *Resolvedor) Resolver(ctx context.Context, token string) (Persona, error
 func (s *Resolvedor) Exigir(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, err := s.Resolver(r.Context(), Token(r))
+		if errors.Is(err, ErrCuentaBorrada) {
+			problema.Escribir(w, CuentaBorrada())
+			return
+		}
 		if errors.Is(err, ErrSuspendida) {
 			problema.Escribir(w, problema.SinPermiso("Tu cuenta está suspendida. Escribinos a soporte@caigo.com.ar."))
 			return
@@ -212,6 +251,8 @@ func (s *Resolvedor) Rutas(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/sesion", func(w http.ResponseWriter, r *http.Request) {
 		tok, p, err := s.Crear(r.Context(), Token(r), r.URL.Query().Get("cliente"))
 		switch {
+		case errors.Is(err, ErrCuentaBorrada):
+			problema.Escribir(w, CuentaBorrada())
 		case errors.Is(err, ErrSuspendida):
 			problema.Escribir(w, problema.SinPermiso("Tu cuenta está suspendida. Escribinos a soporte@caigo.com.ar."))
 		case errors.Is(err, ErrSinToken) || errors.Is(err, clerk.ErrToken):

@@ -3,6 +3,7 @@
 //	caigoctl bootstrap   crea roles y base (superusuario: CAIGO_BASE_DE_DATOS_ADMIN)
 //	caigoctl migrar      aplica las migraciones (CAIGO_BASE_DE_DATOS_MIGRADOR)
 //	caigoctl equipo <user_…> [no]   suma (o saca) a una persona del equipo de Caigo
+//	caigoctl recuperar-cuenta <mail|user_…>  reactiva una cuenta borrada hace menos de 30 días
 //	caigoctl semilla <planes.json>  publica planes semilla del equipo (ver docs/semilla.md)
 //
 // Las claves de los roles salen de CAIGO_CLAVE_<ROL> (vacías en desarrollo).
@@ -15,13 +16,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "uso: caigoctl bootstrap|migrar|equipo <user_…> [no]|semilla <planes.json>")
+		fmt.Fprintln(os.Stderr, "uso: caigoctl bootstrap|migrar|equipo <user_…> [no]|recuperar-cuenta <mail|user_…>|semilla <planes.json>")
 		os.Exit(2)
 	}
 	if err := correr(os.Args[1]); err != nil {
@@ -83,6 +85,28 @@ func correr(cmd string) error {
 			return fmt.Errorf("no hay nadie con ese id: que entre una vez a Caigo y probá de nuevo")
 		}
 		fmt.Println("listo")
+	case "recuperar-cuenta":
+		// Alguien borró su cuenta y escribió a hola@ dentro de los 30 días: se reactiva (sus planes
+		// cancelados siguen cancelados). Por mail o por id de Clerk.
+		if err := cfg.Exigir("BaseMigrador"); err != nil {
+			return err
+		}
+		if len(os.Args) < 3 {
+			return fmt.Errorf("falta el mail o el id de Clerk (user_…) de la cuenta")
+		}
+		conn, err := db.Abrir(ctx, cfg.BaseMigrador)
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		id, err := confianza.Recuperar(ctx, conn, os.Args[2])
+		if err != nil {
+			return err
+		}
+		if id == "" {
+			return fmt.Errorf("no hay una cuenta borrada sin purgar con ese mail o id")
+		}
+		fmt.Println("recuperada:", id)
 	case "semilla":
 		if err := cfg.Exigir("BaseApp"); err != nil {
 			return err

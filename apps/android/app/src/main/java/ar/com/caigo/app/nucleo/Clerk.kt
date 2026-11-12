@@ -11,7 +11,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
- * Ingreso con Google y Apple por Clerk, la identidad compartida de Grupo Vimo, sin el SDK: se habla
+ * Ingreso con Google por Clerk (y con mail: [ClerkMail], nucleo/ClerkClave.kt), la identidad compartida de Grupo Vimo, sin el SDK: se habla
  * con la Frontend API en modo nativo (`_is_native=1`), con el token del cliente de Clerk en
  * `Authorization`. Es el mismo flujo que el iPhone (Nucleo/Clerk.swift) y la web de Tu Local Web:
  *
@@ -38,27 +38,38 @@ class Clerk(private val ctx: Context, private val http: OkHttpClient, publicable
     val disponible get() = fapi != null
 
     @Serializable
-    private data class Verificacion(val status: String? = null, val external_verification_redirect_url: String? = null)
+    data class Verificacion(val status: String? = null, val external_verification_redirect_url: String? = null)
+
+    /** Un factor de ingreso que ofrece Clerk (contraseña, código por mail…). */
+    @Serializable
+    data class Factor(val strategy: String? = null, val email_address_id: String? = null)
 
     @Serializable
-    private data class Recurso(
+    data class Recurso(
         val id: String? = null,
         val status: String? = null,
         val created_session_id: String? = null,
         val first_factor_verification: Verificacion? = null,
+        /** Con mail (ClerkMail): qué factores acepta la cuenta, y qué le falta al alta. */
+        val supported_first_factors: List<Factor>? = null,
+        val supported_second_factors: List<Factor>? = null,
+        val missing_fields: List<String>? = null,
     )
 
     @Serializable
-    private data class ErrorFapi(val code: String? = null)
+    data class ErrorFapi(val code: String? = null)
 
     @Serializable
-    private data class Respuesta(val response: Recurso? = null, val jwt: String? = null, val errors: List<ErrorFapi> = emptyList())
+    data class Respuesta(val response: Recurso? = null, val jwt: String? = null, val errors: List<ErrorFapi> = emptyList())
 
-    private data class Resultado(val r: Respuesta, val cliente: String)
+    /** La respuesta y el token del cliente de Clerk (el último que mandó). */
+    data class Resultado(val r: Respuesta, val cliente: String)
 
     private val prefs get() = ctx.getSharedPreferences("caigo_clerk", Context.MODE_PRIVATE)
 
-    private suspend fun pedir(ruta: String, metodo: String = "GET", cuerpo: Map<String, String>? = null, cliente: String? = null): Resultado =
+    /** Un pedido a la Frontend API. Con `cuerpo` va como formulario en cualquier método (el alta con mail usa PATCH);
+     *  un POST sin cuerpo manda el formulario vacío. */
+    suspend fun pedir(ruta: String, metodo: String = "GET", cuerpo: Map<String, String>? = null, cliente: String? = null): Resultado =
         withContext(Dispatchers.IO) {
             val base = fapi ?: throw ErrorClerk("sin_clave")
             val url = "$base/v1$ruta".toHttpUrl().newBuilder()
@@ -67,7 +78,7 @@ class Clerk(private val ctx: Context, private val http: OkHttpClient, publicable
                 .build()
             val b = Request.Builder().url(url)
             if (!cliente.isNullOrBlank()) b.header("Authorization", cliente)
-            val body = if (metodo == "POST") {
+            val body = if (cuerpo != null || metodo == "POST") {
                 formulario(cuerpo.orEmpty()).toRequestBody("application/x-www-form-urlencoded".toMediaType())
             } else null
             b.method(metodo, body)

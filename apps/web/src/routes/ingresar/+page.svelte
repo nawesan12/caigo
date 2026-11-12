@@ -4,7 +4,23 @@
 	import Seo from '#lib/ui/Seo.svelte';
 	import { OG_FIJAS, urlOgFija } from '#lib/og.ts';
 	import Pantalla from '#lib/ui/PantallaOscura.svelte';
-	import { fapiDe, iniciar, ErrorClerk, type ProveedorClerk } from '#lib/clerk.ts';
+	import Icono from '#lib/ui/Icono.svelte';
+	import { tick } from 'svelte';
+	import Requisitos from '#lib/ui/Requisitos.svelte';
+	import {
+		confirmarCodigo,
+		empezarConMail,
+		entrarConClave,
+		ErrorClerk,
+		fapiDe,
+		guardarClave,
+		iniciar,
+		mensajeClerk,
+		requisitosClave,
+		type FlujoMail,
+		type PasoMail,
+		type ProveedorClerk
+	} from '#lib/clerk.ts';
 
 	/*
 	 * Ingreso con Google o Apple (Clerk, modo nativo). No está en el handoff: se arma con el splash
@@ -30,6 +46,72 @@
 					: 'No pudimos hablar con el servicio de ingreso. Probá en un rato.';
 		}
 	}
+
+	/*
+	 * Con mail y contraseña (calcado de Tengo Libre, lib/clerk.ts): contraseña o código, y si es la
+	 * primera vez se crea la cuenta. Desde un navegador nuevo Clerk puede pedir confirmarlo con un
+	 * código por mail. Al final el token de Clerk va a /sso-callback, que lo canjea por la sesión de
+	 * Caigo (igual que con Google o Apple).
+	 */
+	let paso = $state<'mail' | PasoMail['paso']>('mail');
+	let email = $state('');
+	let clave = $state('');
+	let codigo = $state('');
+	let alta = $state(false);
+	let confiar = $state(false);
+	let enviando = $state(false);
+	let tokenMail = $state('');
+	let flujo: FlujoMail | null = null;
+	let formToken: HTMLFormElement;
+	const req = $derived(requisitosClave(clave));
+
+	async function hacer(fn: () => Promise<PasoMail>) {
+		enviando = true;
+		error = '';
+		try {
+			const sig = await fn();
+			if (sig.paso === 'listo') {
+				tokenMail = sig.token;
+				await tick();
+				formToken.requestSubmit();
+				return;
+			}
+			alta = 'alta' in sig ? sig.alta : false;
+			confiar = sig.paso === 'codigo' && !!sig.confiar;
+			if (sig.paso === 'codigo') codigo = '';
+			paso = sig.paso;
+		} catch (x) {
+			error =
+				x instanceof ErrorClerk ? mensajeClerk(x.codigo) : 'No pudimos conectar. Probá de nuevo.';
+		} finally {
+			if (!tokenMail) enviando = false;
+		}
+	}
+
+	function seguirConMail(e: SubmitEvent) {
+		e.preventDefault();
+		const f = fapi;
+		if (!f || enviando) return;
+		if (paso === 'mail')
+			void hacer(async () => {
+				const r = await empezarConMail(f, email.trim());
+				flujo = r.flujo;
+				return r.sigue;
+			});
+		else if (paso === 'clave' && flujo) void hacer(() => entrarConClave(flujo!, clave));
+		else if (paso === 'codigo' && flujo) void hacer(() => confirmarCodigo(flujo!, codigo));
+		else if (paso === 'clave_nueva' && flujo) {
+			if (!req.largo || !req.comun)
+				return void (error = 'La contraseña todavía no cumple los requisitos.');
+			void hacer(() => guardarClave(flujo!, clave));
+		}
+	}
+
+	function otroMail() {
+		paso = 'mail';
+		clave = codigo = error = '';
+		flujo = null;
+	}
 </script>
 
 {#if data.lugares}
@@ -52,30 +134,113 @@
 		<span class="marca">Caigo</span>
 		<h1>Hacé planes. Conocé&nbsp;gente.</h1>
 		{#if data.lugares}
-			<p>Entrá con tu cuenta de Google o de Apple para publicar los planes de tu&nbsp;lugar.</p>
+			<p>Entrá con Google, Apple o tu mail para publicar los planes de tu&nbsp;lugar.</p>
 		{:else}
-			<p>Entrá con tu cuenta de Google o de Apple para sumarte a&nbsp;planes.</p>
+			<p>Entrá con Google, Apple o tu mail para sumarte a&nbsp;planes.</p>
 		{/if}
 	</div>
 
 	<div class="acciones">
 		{#if fapi}
-			<button
-				class="gel gel-lima boton"
-				onclick={() => entrar('google')}
-				disabled={!!yendo}
-				aria-busy={yendo === 'google'}
-			>
-				{yendo === 'google' ? 'Abriendo Google…' : 'Seguir con Google'}
-			</button>
-			<button
-				class="boton vidrio"
-				onclick={() => entrar('apple')}
-				disabled={!!yendo}
-				aria-busy={yendo === 'apple'}
-			>
-				{yendo === 'apple' ? 'Abriendo Apple…' : 'Seguir con Apple'}
-			</button>
+			{#if paso === 'mail'}
+				<button
+					class="gel gel-lima boton"
+					onclick={() => entrar('google')}
+					disabled={!!yendo || enviando}
+					aria-busy={yendo === 'google'}
+				>
+					{yendo === 'google' ? 'Abriendo Google…' : 'Seguir con Google'}
+				</button>
+				<button
+					class="boton vidrio"
+					onclick={() => entrar('apple')}
+					disabled={!!yendo || enviando}
+					aria-busy={yendo === 'apple'}
+				>
+					{yendo === 'apple' ? 'Abriendo Apple…' : 'Seguir con Apple'}
+				</button>
+			{/if}
+			<form class="con-mail" onsubmit={seguirConMail}>
+				{#if paso === 'mail'}
+					<span class="separador">o con tu mail</span>
+					<label class="sr" for="email">Tu mail</label>
+					<input
+						id="email"
+						class="input"
+						type="email"
+						autocomplete="email"
+						inputmode="email"
+						required
+						maxlength="200"
+						placeholder="tu@mail.com"
+						bind:value={email}
+					/>
+					<button class="boton vidrio" disabled={enviando || !!yendo}
+						>{enviando ? 'Un segundo…' : 'Seguir con mail'}</button
+					>
+				{:else}
+					<button type="button" class="volver" onclick={otroMail}>
+						<Icono nombre="atras" tam={18} /><span>{email}</span>
+					</button>
+					{#if paso === 'clave'}
+						<label class="etiqueta" for="clave">Tu contraseña</label>
+						<input
+							id="clave"
+							class="input"
+							type="password"
+							autocomplete="current-password"
+							required
+							bind:value={clave}
+						/>
+						<button class="gel gel-lima boton" disabled={enviando}
+							>{enviando ? 'Entrando…' : 'Entrar'}</button
+						>
+						<a class="olvide" href="/ingresar/recuperar?email={encodeURIComponent(email)}"
+							>¿Te olvidaste la contraseña?</a
+						>
+					{:else if paso === 'codigo'}
+						<p class="explica">
+							{#if confiar}
+								Es la primera vez que entrás desde este dispositivo. Te mandamos un código a <b
+									>{email}</b
+								> para&nbsp;confirmarlo.
+							{:else if alta}
+								Te mandamos un código a <b>{email}</b>. Con él creamos tu&nbsp;cuenta.
+							{:else}
+								Te mandamos un código a <b>{email}</b>. Escribilo para&nbsp;entrar.
+							{/if}
+						</p>
+						<label class="etiqueta" for="codigo">Código</label>
+						<input
+							id="codigo"
+							class="input codigo"
+							inputmode="numeric"
+							autocomplete="one-time-code"
+							maxlength="6"
+							required
+							bind:value={codigo}
+						/>
+						<button class="gel gel-lima boton" disabled={enviando}
+							>{enviando ? 'Revisando…' : alta ? 'Crear mi cuenta' : 'Entrar'}</button
+						>
+					{:else if paso === 'clave_nueva'}
+						<p class="explica">Elegí una contraseña para entrar con tu&nbsp;mail.</p>
+						<label class="etiqueta" for="nueva">Contraseña</label>
+						<input
+							id="nueva"
+							class="input"
+							type="password"
+							autocomplete="new-password"
+							required
+							bind:value={clave}
+						/>
+						<Requisitos {req} />
+						<button class="gel gel-lima boton" disabled={enviando}
+							>{enviando ? 'Guardando…' : 'Guardar y entrar'}</button
+						>
+					{/if}
+				{/if}
+			</form>
 		{:else}
 			<p class="aviso">El ingreso todavía no está configurado en este&nbsp;sitio.</p>
 		{/if}
@@ -97,6 +262,11 @@
 		</p>
 	</div>
 </Pantalla>
+
+<!-- El token de Clerk del ingreso con mail termina igual que el de Google o Apple. -->
+<form method="POST" action="/sso-callback" bind:this={formToken} hidden>
+	<input type="hidden" name="token" value={tokenMail} />
+</form>
 
 <style>
 	.centro {
@@ -170,6 +340,76 @@
 		line-height: 1.5;
 		text-align: center;
 		color: #ffd9d3;
+	}
+	.con-mail {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+	.separador {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		font-size: 13px;
+		font-weight: 600;
+		color: #a8a3bd;
+	}
+	.separador::before,
+	.separador::after {
+		content: '';
+		flex: 1;
+		height: 1px;
+		background: rgba(255, 255, 255, 0.15);
+	}
+	.volver {
+		align-self: flex-start;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-height: 44px;
+		max-width: 100%;
+		padding: 0;
+		border: 0;
+		background: none;
+		font: inherit;
+		font-size: 14px;
+		font-weight: 700;
+		color: #c9c4da;
+		cursor: pointer;
+	}
+	.volver span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.etiqueta {
+		font-size: 14px;
+		font-weight: 700;
+		color: #faf9f6;
+	}
+	.explica {
+		font-size: 14px;
+		line-height: 1.5;
+		color: #c9c4da;
+		overflow-wrap: anywhere;
+	}
+	.explica b {
+		color: #faf9f6;
+	}
+	.codigo {
+		font-size: 22px;
+		letter-spacing: 0.3em;
+		text-align: center;
+	}
+	.olvide {
+		align-self: center;
+		min-height: 44px;
+		display: grid;
+		place-items: center;
+		font-size: 14px;
+		font-weight: 700;
+		color: #c8f36b;
+		text-decoration: none;
 	}
 	.prueba {
 		display: flex;

@@ -249,6 +249,8 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
     public var compartidos = 0
     public var equipo = false
     public var telefono = ""
+    /// El mail de la cuenta (GET /v1/yo): con él se confirma «Borrar mi cuenta».
+    public var email = ""
     /// "" | mujer | varon | no_binario (autodeclarado, no se muestra a nadie).
     public var genero = ""
     /// «Me identifico como parte de la diversidad».
@@ -269,7 +271,7 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
         prompts = c.v("prompts", []); fotos = c.v("fotos", []); selfie = c.v("selfie", false); verificada = c.v("verificada", false)
         asistencia = c.v("asistencia", Asist()); planes = c.v("planes", 0); organizados = c.v("organizados", 0)
         miGente = c.v("miGente", 0); enMiGente = c.v("enMiGente", false); compartidos = c.v("compartidos", 0)
-        equipo = c.v("equipo", false); telefono = c.v("telefono", "")
+        equipo = c.v("equipo", false); telefono = c.v("telefono", ""); email = c.v("email", "")
         genero = c.v("genero", ""); diversidad = c.v("diversidad", false); avisos = c.v("avisos", AjustesAvisos())
         contactoConfianza = c.v("contactoConfianza", ""); proximos = c.v("proximos", []); faltan = c.v("faltan", [])
     }

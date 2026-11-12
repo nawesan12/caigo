@@ -65,6 +65,7 @@ import ar.com.caigo.app.nucleo.ZonaAR
 import ar.com.caigo.app.piezas.compartir
 import ar.com.caigo.app.piezas.rememberCarga
 import ar.com.caigo.app.piezas.rememberPermiso
+import ar.com.caigo.app.piezas.rememberPermisoUbicacion
 import ar.com.caigo.app.piezas.tocable
 import ar.com.caigo.app.piezas.toque
 import ar.com.caigo.app.tema.C
@@ -146,7 +147,7 @@ fun Checkin(ir: Ir, planId: String) {
             }
         }
     }
-    val (_, pedirUbicacion) = rememberPermiso(Manifest.permission.ACCESS_FINE_LOCATION) { llegue() }
+    val (_, pedirUbicacion) = rememberPermisoUbicacion { llegue() }
 
     Pantalla { arriba, abajo ->
         val pl = plan.dato

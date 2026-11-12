@@ -14,7 +14,9 @@ const SIN_CUENTA = new Set([
 	'/app/mapa',
 	'/app/explorar',
 	'/app/plan/[id]',
-	'/app/bienvenida'
+	'/app/bienvenida',
+	// Redirige a /borrar-cuenta (pública).
+	'/app/borrar'
 ]);
 
 /** Onboarding (01a–01c y "¿Qué buscás?"): cookies de "ya lo vio". */

@@ -132,7 +132,7 @@ final class Contenedor {
         salirLocal()
     }
 
-    /// Borra la cuenta (DELETE /v1/yo) y la sesión local.
+    /// Da de baja la cuenta (DELETE /v1/cuenta) y olvida la sesión local.
     func borrarCuenta() async throws {
         try await api.borrarCuenta()
         salirLocal()

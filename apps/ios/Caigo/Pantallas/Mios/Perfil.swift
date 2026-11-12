@@ -82,6 +82,8 @@ struct MiPerfil: View {
     @State private var opciones = false
     @State private var borrando = false
     @State private var borrandoAhora = false
+    /// El mail que escribe la persona para confirmar la baja.
+    @State private var mailBaja = ""
     @State private var fallo = false
     @State private var gente: [PersonaCorta] = []
     @State private var verif: EstadoVerificacion?
@@ -143,7 +145,7 @@ struct MiPerfil: View {
             }
             miGente(y)
             // Al final, la acción destructiva (con el texto de peligro de «Cancelar el plan»).
-            Button { borrando = true } label: {
+            Button { mailBaja = ""; borrando = true } label: {
                 T("Borrar mi cuenta", 15, 700, C.coral2).padding(.horizontal, 18).padding(.vertical, 16)
             }
             .buttonStyle(EstiloPlano())
@@ -315,20 +317,37 @@ struct MiPerfil: View {
         }
     }
 
-    /// «¿Borrar tu cuenta?» (App Store 5.1.1(v)): DELETE /v1/yo, borra la sesión y vuelve a la intro.
+    /// El mail escrito coincide con el de la cuenta. Si la API todavía no lo manda, alcanza con un mail válido.
+    private var mailBajaOk: Bool {
+        let escrito = mailBaja.trimmingCharacters(in: .whitespaces).lowercased()
+        let cuenta = (c.yo?.email ?? "").trimmingCharacters(in: .whitespaces).lowercased()
+        if !cuenta.isEmpty { return escrito == cuenta }
+        return escrito.contains("@") && escrito.contains(".")
+    }
+
+    /// «¿Borrar tu cuenta?» (App Store 5.1.1(v)): se confirma escribiendo el mail, DELETE /v1/cuenta, se olvida la
+    /// sesión y vuelve al ingreso. La cuenta se desactiva ahora y los datos se borran a los 30 días.
     private var hojaBorrar: some View {
         MiosHoja(abierta: borrando, titulo: "¿Borrar tu cuenta?", cerrar: { if !borrandoAhora { borrando = false } }) {
-            T("Se borran tu perfil, tus fotos, tu selfie, tu DNI y tu teléfono, y se cancelan tus planes que no pasaron. Si tenés Caigo Plus, cancelalo en tu cuenta de Apple.",
-              15, 400, p.texto2, alto: 1.5)
+            T("Tu cuenta se desactiva ahora y tus datos personales se borran a los 30 días.", 15, 600, p.texto, alto: 1.5)
+            T("En esos 30 días la recuperás escribiendo a hola@caigo.com.ar. Después no se puede deshacer.", 15, 400, p.texto2, alto: 1.5)
+            T("Si tenés Caigo Plus, cancelalo en tu cuenta de Apple.", 15, 400, p.texto2, alto: 1.5)
+            VStack(alignment: .leading, spacing: 10) {
+                T("Para confirmar, escribí tu mail", 14, 700)
+                MiosCampo(valor: $mailBaja, placeholder: "tu@mail.com", maximo: 120)
+                    .teclado(.email)
+                    .autocorrectionDisabled()
+            }
             MiosGrupo {
                 Button {
-                    guard !borrandoAhora else { return }
+                    guard !borrandoAhora, mailBajaOk else { return }
                     borrandoAhora = true
                     Task {
                         do {
                             try await c.borrarCuenta()
                             borrando = false
-                            ir.intro()
+                            ir.base = .ingresar
+                            ir.camino = []
                         } catch {
                             c.avisos.error(error)
                         }
@@ -336,13 +355,14 @@ struct MiPerfil: View {
                     }
                 } label: {
                     Group {
-                        if borrandoAhora { Puntitos(color: C.coral2) } else { T("Borrar mi cuenta", 15, 700, C.coral2) }
+                        if borrandoAhora { Puntitos(color: C.coral2) } else { T("Borrar mi cuenta", 15, 700, C.coral2.opacity(mailBajaOk ? 1 : 0.4)) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 18).padding(.vertical, 16)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(EstiloPlano())
+                .disabled(!mailBajaOk)
                 .accessibilityAddTraits(.isButton)
                 Rectangle().fill(p.oscuro ? p.separador : C.lavanda).frame(height: 1)
                 Button { if !borrandoAhora { borrando = false } } label: {

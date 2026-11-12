@@ -127,8 +127,8 @@ class Api(
     suspend fun yo(): Perfil = get("/v1/yo")
     suspend fun actualizarYo(c: CambiosPerfil): Perfil = enviar("PATCH", "/v1/yo", c)
 
-    /** Borra la cuenta (perfil, fotos, selfie, DNI y teléfono; cancela los planes que no pasaron). 204. */
-    suspend fun borrarCuenta() = sinCuerpo("DELETE", "/v1/yo")
+    /** Da de baja la cuenta: se desactiva ahora y los datos personales se borran a los 30 días. 204. */
+    suspend fun borrarCuenta() = sinCuerpo("DELETE", "/v1/cuenta")
     suspend fun persona(id: String): Perfil = get("/v1/personas/$id")
     suspend fun miGente(): Gente = get("/v1/gente")
     suspend fun sumarAMiGente(id: String) = sinCuerpo("PUT", "/v1/gente/$id")

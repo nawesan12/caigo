@@ -10,7 +10,10 @@ const ERRORES: Record<string, string> = {
 	cancelado: 'No se completó el ingreso. Probá de nuevo.',
 	estado_invalido: 'El ingreso tardó demasiado. Probá de nuevo.',
 	clerk_no_responde: 'No pudimos hablar con el servicio de ingreso. Probá en un rato.',
-	suspendida: 'Tu cuenta está suspendida. Escribinos a soporte@caigo.com.ar.'
+	suspendida: 'Tu cuenta está suspendida. Escribinos a soporte@caigo.com.ar.',
+	// El detail de la API (409 cuenta_borrada), tal cual.
+	borrada:
+		'Esta cuenta se borró. Si fue un error, escribinos a hola@caigo.com.ar dentro de los 30 días y la recuperamos.'
 };
 
 export const load: PageServerLoad = ({ url, cookies, locals }) => {

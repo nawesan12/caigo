@@ -253,7 +253,8 @@ export const PAGINAS_FIJAS: UrlSitemap[] = [
 	{ loc: '/plus', lastmod: '2026-10-31', changefreq: 'monthly', priority: 0.6 },
 	{ loc: '/terminos', lastmod: '2026-10-31', changefreq: 'yearly', priority: 0.3 },
 	{ loc: '/privacidad', lastmod: '2026-10-31', changefreq: 'yearly', priority: 0.3 },
-	{ loc: '/arrepentimiento', lastmod: '2026-10-31', changefreq: 'yearly', priority: 0.2 }
+	{ loc: '/arrepentimiento', lastmod: '2026-10-31', changefreq: 'yearly', priority: 0.2 },
+	{ loc: '/borrar-cuenta', lastmod: '2026-11-12', changefreq: 'yearly', priority: 0.2 }
 ];
 
 /**

@@ -5,7 +5,7 @@ import AuthenticationServices
 /// Botón negro como "Agregar a Wallet" del prototipo (base `#333333`).
 let ingresoGelNegro = Gel(fondo: .liso(C.negro), sombras: [externa(4, 0, Color(hex: 0x333333))])
 
-/// Ingresar con Google o Apple (por Clerk). No está en el handoff: se arma con la composición y el
+/// Ingresar con Google, Apple o mail (por Clerk). No está en el handoff: se arma con la composición y el
 /// fondo violeta de 01c, el CTA lima y el botón negro de Wallet.
 struct Ingresar: View {
     @Environment(Contenedor.self) private var c
@@ -32,6 +32,9 @@ struct Ingresar: View {
                                 habilitado: c.clerk.disponible && ocupado == nil, cargando: ocupado == "google") { entrarCon("google") }
                             Cta(texto: "Seguir con Apple", gel: ingresoGelNegro, alto: 56, radio: 20, tam: 16, color: C.blanco,
                                 habilitado: c.clerk.disponible && ocupado == nil, cargando: ocupado == "apple") { entrarConApple() }
+                            Button { ir.ingresoMail() } label: { T("Entrar con mail", 16, 700, C.blanco).padding(4) }
+                                .buttonStyle(EstiloPlano())
+                                .disabled(!c.clerk.disponible || ocupado != nil)
                             #if DEBUG
                             Button { ir.debug() } label: { T("Entrar con token", 15, 700, C.blanco).padding(4) }
                                 .buttonStyle(EstiloPlano())

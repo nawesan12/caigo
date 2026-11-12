@@ -31,6 +31,8 @@ type entorno struct {
 	app   *db.Pool
 	// Dueño del esquema: para lo que la app no puede hacer (dar de alta al equipo).
 	migrador *db.Pool
+	// Carpeta de los archivos subidos (la purga de cuentas los borra).
+	archivos string
 }
 
 func nuevoEntorno(t *testing.T) *entorno { return nuevoEntornoCon(t, nil) }
@@ -73,7 +75,7 @@ func nuevoEntornoAjustado(t *testing.T, ajustar func(*servidor.Dependencias)) *e
 		Sitio: "https://caigo.test", APIPublica: "https://api.caigo.test", Panel: "https://lugares.caigo.test", Archivos: t.TempDir()}
 	ajustar(&d)
 	h := servidor.Nuevo(d)
-	return &entorno{t: t, h: h, clerk: f, app: app, migrador: mig}
+	return &entorno{t: t, h: h, clerk: f, app: app, migrador: mig, archivos: d.Archivos}
 }
 
 // persona da de alta a alguien en el Clerk falso y devuelve su token y su id de Caigo.

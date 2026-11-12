@@ -5,7 +5,7 @@
 <Legal
 	titulo="Política de&nbsp;privacidad"
 	ruta="/privacidad"
-	vigencia="31 de octubre de 2026"
+	vigencia="12 de noviembre de 2026"
 	descripcion="Qué datos usa Caigo (teléfono, selfie, ubicación), para qué, con quién los compartimos y cómo pedís verlos, corregirlos o borrarlos cuando quieras."
 >
 	<p>
@@ -131,10 +131,12 @@
 	<h2>7. Borrar tu cuenta</h2>
 	<p>
 		Podés borrar tu cuenta cuando quieras desde Perfil, en la app o en
-		<a href="/app/borrar">caigo.com.ar/app/borrar</a>. Se borran al instante tu perfil, tus fotos,
-		tu selfie, tu DNI y tu teléfono, se cierran tus sesiones y se cancelan tus planes que no
-		pasaron. Lo que tiene que quedar por ley (los pagos) queda sin tus datos personales. Si tenés
-		Caigo Plus, cancelalo en la tienda donde lo compraste.
+		<a href="/borrar-cuenta">caigo.com.ar/borrar-cuenta</a>. Al instante la cuenta deja de
+		funcionar, se cierran tus sesiones y se cancelan tus planes que no pasaron. A los 30 días se
+		borran tu perfil, tus fotos, tu selfie, tu DNI, tu teléfono y tu mail; en ese plazo, si fue un
+		error, escribinos a hola@caigo.com.ar y la recuperamos. Lo que tiene que quedar por ley (los
+		pagos) queda sin tus datos personales. Si tenés Caigo Plus, cancelalo en la tienda donde lo
+		compraste.
 	</p>
 
 	<h2>8. Tus derechos</h2>

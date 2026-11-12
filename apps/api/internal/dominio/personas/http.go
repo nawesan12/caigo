@@ -22,7 +22,7 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 	sinCuerpo := func(w http.ResponseWriter) error { w.WriteHeader(http.StatusNoContent); return nil }
 
 	mux.Handle("GET /v1/yo", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
-		yo, err := s.Yo(r.Context(), p.ID)
+		yo, err := s.Yo(r.Context(), p.ID, p.Clerk)
 		if err == nil {
 			yo.Faltan = Faltantes(yo)
 			respuesta.JSON(w, http.StatusOK, yo)

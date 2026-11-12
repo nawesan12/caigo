@@ -276,7 +276,7 @@ fun Telefono(ir: Ir) {
  * SmsOtpCode es el de los códigos de un solo uso, no lee SMS ni pide permisos).
  */
 @Composable
-private fun ingresoCasillas(codigo: String, alCambiar: (String) -> Unit, foco: FocusRequester) {
+internal fun ingresoCasillas(codigo: String, alCambiar: (String) -> Unit, foco: FocusRequester) {
     BasicTextField(
         codigo, alCambiar,
         Modifier.fillMaxWidth().focusRequester(foco).semantics(mergeDescendants = true) {

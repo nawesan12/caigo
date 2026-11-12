@@ -13,6 +13,7 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | GET | `/v1/bloqueos` | sesión | dominio/personas |
 | DELETE | `/v1/bloqueos/{id}` | sesión | dominio/personas |
 | PUT | `/v1/bloqueos/{id}` | sesión | dominio/personas |
+| DELETE | `/v1/cuenta` | sesión | dominio/confianza |
 | PUT | `/v1/dispositivos` | sesión | dominio/avisos |
 | DELETE | `/v1/dispositivos/{token}` | sesión | dominio/avisos |
 | DELETE | `/v1/entradas/{id}` | sesión | dominio/lugares |
@@ -157,14 +158,30 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 - `POST /v1/planes/{id}/entradas` acepta `modo`: `entrada` (pagar todo) o `sena` (sólo si el plan
   tiene seña). Vacío: lo que diga el plan.
 
-## Borrar la cuenta (31/10)
-`DELETE /v1/yo` (204): perfil anónimo, se borran fotos, selfie, DNI (archivos y verificación),
-teléfono, sesiones, dispositivos, género y ubicación. Sus planes futuros (no los de lugares) se cancelan como
-si los cancelara: aviso `plan.cancelado` con el motivo «La persona que organizaba se dio de baja» y reembolso
-entero de las entradas pagas; sus propias entradas pagas de planes futuros se le devuelven (el precio, sin el
-cargo), y se cancelan sus pedidos que no pasaron. Los pagos y el
-historial quedan atados al id sin datos. La cuenta de Clerk no se toca (es de todo Grupo Vimo): si
-vuelve a entrar, arranca una cuenta nueva. Plus hay que cancelarlo en la tienda.
+## Borrar la cuenta (31/10, en dos tiempos desde el 12/11)
+`DELETE /v1/cuenta` (204, con sesión; `DELETE /v1/yo` es el mismo, el de antes). Cuerpo opcional
+`{"confirmarEmail": "…"}` (la web): si viene y no es el mail de la cuenta en Clerk, 422 `email_distinto`.
+`GET /v1/yo` trae `email` (el de Clerk, copiado al entrar) para que las apps confirmen escribiéndolo.
+**En el momento:** se cierran todas sus sesiones, se borran sus
+dispositivos de push, su ubicación y los códigos del teléfono, y la cuenta queda desactivada (`baja_en`).
+Sus planes futuros (no los de lugares) se cancelan como si los cancelara: aviso `plan.cancelado` con el
+motivo «La persona que organizaba se dio de baja» y reembolso entero de las entradas pagas; sus propias
+entradas pagas de planes futuros se le devuelven (el precio, sin el cargo) y sus solicitudes en planes
+futuros se cancelan. Desde ahí, `POST /v1/sesion` (y cualquier pedido con el JWT de Clerk) responde
+**409** `code: "cuenta_borrada"`, `detail`: «Esta cuenta se borró. Si fue un error, escribinos a
+hola@caigo.com.ar dentro de los 30 días y la recuperamos.» (mostrarlo tal cual). Con el token `cs_…` viejo: 401.
+
+**A los 30 días** (el worker, cada hora): se borran sus fotos, selfie y DNI (archivos y verificación),
+teléfono, nacimiento, género, contacto de confianza, bio, intereses, Mi gente, los «me interesa» e
+invitaciones de Gente/Citas y sus bloqueos; la fila queda con nombre «Cuenta borrada» (así firman sus
+mensajes en los chats de los demás) y el clerk_id se libera: si vuelve a entrar, arranca una cuenta nueva.
+Los pagos y el historial de planes quedan atados al id sin datos. En los 30 días se recupera a mano:
+`caigoctl recuperar-cuenta <mail|user_…>`. La cuenta de Clerk no se toca (es de todo Grupo Vimo). Plus
+hay que cancelarlo en la tienda. Página pública de los pasos (la URL de Play): `https://caigo.com.ar/borrar-cuenta`.
+
+**Compras de Google:** el aviso de Google (`POST /v1/webhooks/google`, RTDN) además confirma
+(acknowledge) la compra si Google todavía lo espera, está vigente y trae el id de la persona: no depende
+de que la app llegue a mandar `POST /v1/plus/google`.
 
 ## Lo que faltaba contra el handoff (31/10, rama `api-faltantes`)
 Implementa `docs/contrato-faltantes.md` (migración 00014). Lo que hay que saber al programar contra esto:

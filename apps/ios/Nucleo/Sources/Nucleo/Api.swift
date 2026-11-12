@@ -110,8 +110,8 @@ public final class Api: @unchecked Sendable {
 
     public func yo() async throws -> Perfil { try await get("/v1/yo") }
     public func actualizarYo(_ c: CambiosPerfil) async throws -> Perfil { try await enviar("PATCH", "/v1/yo", c) }
-    /// Borra la cuenta (App Store 5.1.1(v)): perfil, fotos, selfie, DNI, teléfono y planes que no pasaron.
-    public func borrarCuenta() async throws { try await sinCuerpo("DELETE", "/v1/yo") }
+    /// Da de baja la cuenta: se desactiva ahora y los datos personales se borran a los 30 días. 204.
+    public func borrarCuenta() async throws { try await sinCuerpo("DELETE", "/v1/cuenta") }
     public func persona(_ id: String) async throws -> Perfil { try await get("/v1/personas/\(id)") }
     public func miGente() async throws -> Gente { try await get("/v1/gente") }
     public func sumarAMiGente(_ id: String) async throws { try await sinCuerpo("PUT", "/v1/gente/\(id)") }

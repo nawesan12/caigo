@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -188,6 +189,7 @@ internal fun MiosCampo(
     renglones: Int = 1,
     maximo: Int = 200,
     mayusculas: KeyboardCapitalization = KeyboardCapitalization.Sentences,
+    teclado: KeyboardType = KeyboardType.Text,
 ) {
     val p = LocalPaleta.current
     var foco by remember { mutableStateOf(false) }
@@ -206,7 +208,7 @@ internal fun MiosCampo(
         minLines = renglones,
         maxLines = if (renglones == 1) 1 else 6,
         cursorBrush = SolidColor(C.violeta),
-        keyboardOptions = KeyboardOptions(capitalization = mayusculas),
+        keyboardOptions = KeyboardOptions(capitalization = mayusculas, keyboardType = teclado, autoCorrectEnabled = teclado == KeyboardType.Text),
         decorationBox = { campo ->
             Box(Modifier.padding(horizontal = 18.dp, vertical = 18.dp), contentAlignment = if (renglones == 1) Alignment.CenterStart else Alignment.TopStart) {
                 if (valor.isEmpty()) T(placeholder, 16f, 500, C.inactivo, unRenglon = renglones == 1)

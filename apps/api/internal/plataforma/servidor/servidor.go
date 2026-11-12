@@ -98,7 +98,7 @@ func Nuevo(d Dependencias) http.Handler {
 		equipo.Rutas(mux, &equipo.Servicio{App: d.App, Publicador: pls, Reloj: d.Reloj}, ses, d.Log)
 		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos}, Correo: d.Correo, Casillas: d.Clerk,
 			Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj}, ses, d.Log)
-		personas.Rutas(mux, &personas.Servicio{App: d.App}, ses.Exigir, d.Log)
+		personas.Rutas(mux, &personas.Servicio{App: d.App, Casillas: d.Clerk}, ses.Exigir, d.Log)
 		avisos.Rutas(mux, d.App, ses.Exigir, d.Log)
 		if d.Hub == nil {
 			d.Hub = &chat.Hub{Servicio: &chat.Servicio{App: d.App, Reloj: d.Reloj}, Log: d.Log}

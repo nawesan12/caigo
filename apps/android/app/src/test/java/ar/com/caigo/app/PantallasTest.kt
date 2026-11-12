@@ -111,7 +111,7 @@ class ApiFalsa(private val tabla: Map<String, String?>, private val app: Applica
 
 /** Las rutas de CaigoNav (app/Navegacion.kt), vacías: una pantalla que navega (Arranque, «atrás») no rompe la prueba. */
 private val rutas = listOf(
-    "arranque", "intro", "ingresar", "debug", "datos", "telefono", "selfie?volver={volver}", "intenciones?editar={editar}",
+    "arranque", "intro", "ingresar", "debug", "mail", "datos", "telefono", "selfie?volver={volver}", "intenciones?editar={editar}",
     "verificacion", "dni?plan={plan}", "principal?tab={tab}&modo={modo}", "plan/{id}", "plan/slug/{slug}", "crear",
     "editarplan/{id}", "publicado/{id}", "persona/{id}?desde={desde}", "recibidos?modo={modo}&tab={tab}", "solicitudes/{id}",
     "chat/{id}", "privados", "privado/{id}?nombre={nombre}", "checkin/{id}", "repetimos/{id}", "qr/{id}", "escanear/{id}",
@@ -288,6 +288,7 @@ class PantallasTest {
     @Test fun ingresoSlides() {}
     @Test fun ingresar() = montar("Ingresar") { Ingresar(it) }
     @Test fun debugToken() = montar("DebugToken") { DebugToken(it) }
+    @Test fun ingresoMail() = montar("IngresoMail") { IngresoMail(it) }
     @Test fun datos() = montar("Datos") { Datos(it) }
     @Test fun telefono() = montar("Telefono") { Telefono(it) }
     @Test fun selfie() = montar("Selfie") { Selfie(it, false) }

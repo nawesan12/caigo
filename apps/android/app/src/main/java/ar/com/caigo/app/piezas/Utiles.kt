@@ -222,6 +222,22 @@ fun rememberPermiso(permiso: String, alResponder: (Boolean) -> Unit = {}): Pair<
     return concedido to { if (concedido) alResponder(true) else lanzador.launch(permiso) }
 }
 
+/**
+ * Pide la ubicación: FINE y COARSE juntas (Android 12+ ignora el pedido de FINE sola) y toma como concedida
+ * cualquiera de las dos, así la «aproximada» también sirve. Devuelve (concedido, pedir()).
+ */
+@Composable
+fun rememberPermisoUbicacion(alResponder: (Boolean) -> Unit = {}): Pair<Boolean, () -> Unit> {
+    val ctx = LocalContext.current
+    val permisos = arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+    var concedido by remember { mutableStateOf(permisos.any { tienePermiso(ctx, it) }) }
+    val lanzador = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
+        concedido = r.values.any { it } || permisos.any { tienePermiso(ctx, it) }
+        alResponder(concedido)
+    }
+    return concedido to { if (concedido) alResponder(true) else lanzador.launch(permisos) }
+}
+
 /** Lo del sistema que usan las pantallas (abrir, copiar, compartir, vibrar), con los nombres del iPhone. */
 object Sistema {
     /** Abre una URL fuera de la app (el navegador o la app que la atienda). */

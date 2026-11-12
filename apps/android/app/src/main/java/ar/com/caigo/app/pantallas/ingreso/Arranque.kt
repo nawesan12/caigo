@@ -34,6 +34,8 @@ import ar.com.caigo.app.app.Destino
 import ar.com.caigo.app.app.LocalApp
 import ar.com.caigo.app.R
 import ar.com.caigo.app.nucleo.ErrorApi
+import ar.com.caigo.app.nucleo.mensajeDe
+import ar.com.caigo.app.piezas.LocalAvisos
 import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.piezas.Pantalla
 import ar.com.caigo.app.tema.C
@@ -55,6 +57,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun Arranque(ir: Ir) {
     val c = LocalApp.current
+    val avisos = LocalAvisos.current
     val progreso = remember { Animatable(.15f) }
     LaunchedEffect(Unit) {
         val minimo = async { progreso.animateTo(.55f, tween(900, easing = LinearEasing)) }
@@ -62,12 +65,18 @@ fun Arranque(ir: Ir) {
             c.sesion.token.value == null -> if (c.sesion.vioIntro || c.destino.value is Destino.VueltaClerk) "ingresar" else "intro"
             else -> try {
                 ingresoRutaDeAlta(c)
-            } catch (e: ErrorApi) {
-                if (e.estado == 401) "ingresar" else ingresoRutaApp
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                // Sin conexión: se entra igual y cada pantalla avisa.
-                ingresoRutaApp
+                if (e is ErrorApi && (e.estado == 401 || e.codigo == "cuenta_borrada")) {
+                    // La sesión ya no sirve (venció o la cuenta se dio de baja): se olvida y se vuelve a ingresar.
+                    c.salirLocal()
+                    if (e.codigo == "cuenta_borrada") avisos.error(e.detalle)
+                    "ingresar"
+                } else {
+                    // Sin conexión o la API con problemas: se entra con lo guardado y se avisa.
+                    avisos.error(mensajeDe(e))
+                    ingresoRutaApp
+                }
             }
         }
         minimo.await()

@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,7 +53,7 @@ import kotlinx.coroutines.launch
 internal val ingresoGelNegro = Gel(vertical(C.negro, C.negro), listOf(externa(4f, 0f, Color(0xFF333333))))
 
 /**
- * Ingresar con Google (por Clerk). No está en el handoff: se arma con la composición y el fondo violeta
+ * Ingresar con Google o mail (por Clerk). No está en el handoff: se arma con la composición y el fondo violeta
  * de 01c y el CTA lima. En Android no hay «Seguir con Apple».
  */
 @Composable
@@ -61,9 +62,10 @@ fun Ingresar(ir: Ir) {
     val ctx = LocalContext.current
     val avisos = LocalAvisos.current
     val alcance = rememberCoroutineScope()
-    var ocupado by remember { mutableStateOf<String?>(null) }
+    // Saveable: si el teléfono gira (tablets) mientras la Custom Tab está abierta, no se pierde la espera.
+    var ocupado by rememberSaveable { mutableStateOf<String?>(null) }
     // La Custom Tab está abierta y todavía no volvió (para notar si la cerraron sin terminar).
-    var enPestana by remember { mutableStateOf(false) }
+    var enPestana by rememberSaveable { mutableStateOf(false) }
     val destino by c.destino.collectAsState()
     ingresoBarraClara(true)
 
@@ -156,6 +158,9 @@ fun Ingresar(ir: Ir) {
                             gel = Gels.limaChico, alto = 62.dp, radio = 22.dp, tam = 18f, color = C.carbon,
                             habilitado = c.clerk.disponible && ocupado == null, cargando = ocupado == "google",
                         )
+                        Box(Modifier.tocable { if (c.clerk.disponible && ocupado == null) ir.ingresoMail() }.padding(4.dp)) {
+                            T("Entrar con mail", 16f, 700, C.blanco)
+                        }
                         if (BuildConfig.DEBUG) {
                             Box(Modifier.tocable { ir.debug() }.padding(4.dp)) { T("Entrar con token", 15f, 700, C.blanco) }
                         }

@@ -1,6 +1,8 @@
 package confianza
 
 import (
+	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -93,12 +95,25 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		}
 		return listo(w)
 	}))
-	mux.Handle("DELETE /v1/yo", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
-		if err := s.Baja(r.Context(), p.ID); err != nil {
+	// Borrar la cuenta: 204. Desde ahí el ingreso responde 409 cuenta_borrada y a los 30 días se
+	// borran sus datos (ver Baja). Cuerpo opcional {"confirmarEmail": "…"} (la web). Las apps usan
+	// DELETE /v1/cuenta; DELETE /v1/yo es el de antes (la web y las versiones viejas).
+	borrar := h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		var in struct {
+			ConfirmarEmail string `json:"confirmarEmail"`
+		}
+		if r.ContentLength != 0 {
+			if err := json.NewDecoder(io.LimitReader(r.Body, 4<<10)).Decode(&in); err != nil && !errors.Is(err, io.EOF) {
+				return problema.Invalido("Cuerpo inválido.")
+			}
+		}
+		if err := s.Baja(r.Context(), p.ID, p.Clerk, in.ConfirmarEmail); err != nil {
 			return err
 		}
 		return listo(w)
-	}))
+	})
+	mux.Handle("DELETE /v1/cuenta", borrar)
+	mux.Handle("DELETE /v1/yo", borrar)
 	mux.Handle("POST /v1/verificacion/selfie", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		var in struct {
 			ArchivoID string `json:"archivoId"`

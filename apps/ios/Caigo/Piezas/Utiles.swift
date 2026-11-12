@@ -233,6 +233,7 @@ extension View {
         case .numeros: .numberPad
         case .telefono: .phonePad
         case .texto: .default
+        case .email: .emailAddress
         }
         return self.keyboardType(t).textInputAutocapitalization(tipo == .texto ? .sentences : .never)
         #else
@@ -241,4 +242,4 @@ extension View {
     }
 }
 
-enum TipoTeclado { case numeros, telefono, texto }
+enum TipoTeclado { case numeros, telefono, texto, email }

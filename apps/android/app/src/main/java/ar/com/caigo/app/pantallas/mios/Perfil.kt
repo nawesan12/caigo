@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import ar.com.caigo.app.app.LocalApp
@@ -154,6 +155,13 @@ fun Perfil(ir: Ir) {
     var opciones by remember { mutableStateOf(false) }
     var borrando by remember { mutableStateOf(false) }
     var borrandoAhora by remember { mutableStateOf(false) }
+    // El mail que escribe la persona para confirmar la baja.
+    var mailBaja by remember { mutableStateOf("") }
+    // El mail escrito coincide con el de la cuenta. Si la API todavía no lo manda, alcanza con un mail válido.
+    val mailBajaOk = mailBaja.trim().lowercase().let { escrito ->
+        val cuenta = yo?.email.orEmpty().trim().lowercase()
+        if (cuenta.isNotEmpty()) escrito == cuenta else escrito.contains("@") && escrito.contains(".")
+    }
     var fallo by remember { mutableStateOf(false) }
     var gente by remember { mutableStateOf<List<PersonaCorta>>(emptyList()) }
     var verif by remember { mutableStateOf<EstadoVerificacion?>(null) }
@@ -325,7 +333,7 @@ fun Perfil(ir: Ir) {
                 // Al final, la acción destructiva (con el texto de peligro de «Cancelar el plan»).
                 T(
                     "Borrar mi cuenta", 15f, 700, C.coral2,
-                    Modifier.align(Alignment.CenterHorizontally).tocable { borrando = true }.padding(horizontal = 18.dp, vertical = 16.dp),
+                    Modifier.align(Alignment.CenterHorizontally).tocable { mailBaja = ""; borrando = true }.padding(horizontal = 18.dp, vertical = 16.dp),
                 )
                 // Que no quede tapado por el botón de Crear de la barra.
                 Spacer(Modifier.height(28.dp))
@@ -354,22 +362,30 @@ fun Perfil(ir: Ir) {
                 }
             }
         }
-        // «¿Borrar tu cuenta?» (App Store 5.1.1(v)): DELETE /v1/yo, borra la sesión y vuelve a la intro.
+        // «¿Borrar tu cuenta?» (App Store 5.1.1(v)): se confirma escribiendo el mail, DELETE /v1/cuenta, se olvida la
+        // sesión y vuelve al ingreso. La cuenta se desactiva ahora y los datos se borran a los 30 días.
         MiosHoja(borrando, { if (!borrandoAhora) borrando = false }, "¿Borrar tu cuenta?") {
-            T(
-                "Se borran tu perfil, tus fotos, tu selfie, tu DNI y tu teléfono, y se cancelan tus planes que no pasaron. Si tenés Caigo Plus, cancelalo en Google Play.",
-                15f, 400, p.texto2, alto = 1.5f,
-            )
+            T("Tu cuenta se desactiva ahora y tus datos personales se borran a los 30 días.", 15f, 600, p.texto, alto = 1.5f)
+            T("En esos 30 días la recuperás escribiendo a hola@caigo.com.ar. Después no se puede deshacer.", 15f, 400, p.texto2, alto = 1.5f)
+            T("Si tenés Caigo Plus, cancelalo en Google Play.", 15f, 400, p.texto2, alto = 1.5f)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                T("Para confirmar, escribí tu mail", 14f, 700)
+                MiosCampo(
+                    mailBaja, { mailBaja = it }, placeholder = "tu@mail.com", maximo = 120,
+                    mayusculas = KeyboardCapitalization.None, teclado = KeyboardType.Email,
+                )
+            }
             MiosGrupo {
                 Box(
                     Modifier.fillMaxWidth().tocable {
-                        if (borrandoAhora) return@tocable
+                        if (borrandoAhora || !mailBajaOk) return@tocable
                         borrandoAhora = true
                         alcance.launch {
                             try {
                                 c.borrarCuenta()
                                 borrando = false
-                                ir.intro()
+                                // Como «Salir»: Ingresar sobre la intro.
+                                ir.intro(); ir.ingresar()
                             } catch (e: Throwable) {
                                 if (e is kotlinx.coroutines.CancellationException) throw e
                                 avisos.error(mensajeDe(e))
@@ -378,7 +394,7 @@ fun Perfil(ir: Ir) {
                             }
                         }
                     }.semantics { role = Role.Button }.padding(horizontal = 18.dp, vertical = 16.dp),
-                ) { if (borrandoAhora) Puntitos(C.coral2) else T("Borrar mi cuenta", 15f, 700, C.coral2) }
+                ) { if (borrandoAhora) Puntitos(C.coral2) else T("Borrar mi cuenta", 15f, 700, C.coral2.copy(alpha = if (mailBajaOk) 1f else .4f)) }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(if (p.oscuro) p.separador else C.lavanda))
                 Box(Modifier.fillMaxWidth().tocable { if (!borrandoAhora) borrando = false }.padding(horizontal = 18.dp, vertical = 16.dp)) {
                     T("Cancelar", 15f, 700)
