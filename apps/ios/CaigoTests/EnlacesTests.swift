@@ -3,6 +3,7 @@ import XCTest
 
 /// Cada link de `apps/pruebas/enlaces.json` que abre la app lleva a su pantalla (o a la web dentro de la app),
 /// nunca a nada. La misma lista la sirve Caddy (generar.py) y la prueba Android en EnlacesTest.kt.
+@MainActor
 final class EnlacesTests: XCTestCase {
     private struct Lista: Decodable { var dominio: String; var ejemplos: [String: String] }
 
