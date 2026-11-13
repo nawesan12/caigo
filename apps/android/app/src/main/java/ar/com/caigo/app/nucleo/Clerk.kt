@@ -15,7 +15,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
  * con la Frontend API en modo nativo (`_is_native=1`), con el token del cliente de Clerk en
  * `Authorization`. Es el mismo flujo que el iPhone (Nucleo/Clerk.swift) y la web de Tu Local Web:
  *
- * 1. [iniciar] crea el intento (`oauth_google` / `oauth_apple`) con `redirect_url =
+ * 1. [iniciar] crea el intento (`oauth_google`) con `redirect_url =
  *    ar.com.caigo.app://callback` y devuelve la URL del proveedor, que se abre en una Custom Tab.
  * 2. El proveedor vuelve a Clerk y Clerk a `ar.com.caigo.app://callback?rotating_token_nonce=…`.
  * 3. [completar] recarga el intento con el nonce (o lo pasa a alta si la persona es nueva), pide el

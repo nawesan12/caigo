@@ -84,7 +84,10 @@ jobs:
       # A mano (workflow_dispatch): el paquete firmado para Play (prueba interna).
       - name: Paquete para Play
         if: github.event_name == 'workflow_dispatch'
-        run: ./gradlew --no-daemon :app:bundleRelease
+        # Sin la firma el .aab sale sin firmar y Play lo rechaza: mejor que el run falle.
+        run: |
+          grep -q '^caigo.firma.archivo=' local.properties || { echo "::error::Falta CAIGO_FIRMA_JKS: el paquete saldría sin firmar"; exit 1; }
+          ./gradlew --no-daemon :app:bundleRelease
       - name: Subir el paquete
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
