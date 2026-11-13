@@ -393,7 +393,7 @@ var ErrResponder = problema.NoEncontrado("Esa invitación ya no está.")
 
 // ResponderInvitacion marca la invitación. Si acepta y la invitó el organizador, entra directo
 // (si hay lugar); si no, la app sigue con el "Sumarme" del plan. Devuelve si quedó adentro.
-func (s *Servicio) ResponderInvitacion(ctx context.Context, usuarioID, planID string, aceptar, diversidad bool) (bool, error) {
+func (s *Servicio) ResponderInvitacion(ctx context.Context, usuarioID, planID string, aceptar bool, conf planes.Confirma) (bool, error) {
 	adentro := false
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var de, org, genero string
@@ -410,7 +410,7 @@ func (s *Servicio) ResponderInvitacion(ctx context.Context, usuarioID, planID st
 		if aceptar {
 			estado = "aceptada"
 			// Un plan "Solo mujeres" o "Solo diversidades" pide lo mismo que al sumarse.
-			if err := planes.ChequearGenero(ctx, tx, usuarioID, genero, diversidad); err != nil {
+			if err := planes.ChequearGenero(genero, conf); err != nil {
 				return err
 			}
 		}

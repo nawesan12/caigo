@@ -23,9 +23,8 @@ type Solicitud struct {
 
 // Sumarse pide entrar al plan, solo (cantidad 1) o en bloque ("somos 2"). Con ingreso libre entra
 // directo si hay lugar; si no, queda pendiente hasta que el organizador acepte. Devuelve el estado.
-// diversidad: la persona confirma en este pedido que es parte de la diversidad (para un plan «Solo
-// diversidades»); no se guarda.
-func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantidad int16, mensaje string, diversidad bool) (string, error) {
+// conf: lo que confirma para un plan «Solo mujeres» / «Solo diversidades» (no se guarda).
+func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantidad int16, mensaje string, conf Confirma) (string, error) {
 	if cantidad == 0 {
 		cantidad = 1
 	}
@@ -86,7 +85,7 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 		case edad != nil && ((edadMin != nil && *edad < *edadMin) || (edadMax != nil && *edad > *edadMax)):
 			return problema.Conflicto("edad", "Este plan busca otro rango de edad.")
 		}
-		if err := ChequearGenero(ctx, tx, usuarioID, generoPlan, diversidad); err != nil {
+		if err := ChequearGenero(generoPlan, conf); err != nil {
 			return err
 		}
 		var previo string

@@ -204,18 +204,20 @@ de que la app llegue a mandar `POST /v1/plus/google`.
 ## Lo que faltaba contra el handoff (31/10, rama `api-faltantes`)
 Implementa `docs/contrato-faltantes.md` (migración 00014). Lo que hay que saber al programar contra esto:
 
-**Perfil.** `GET /v1/yo` suma `genero` (`""`|`mujer`|`varon`|`no_binario`) y `avisos`
-`{planesCerca, tuGente}` (todo privado: no sale en `/v1/personas/{id}`). `PATCH /v1/yo` acepta esos dos
-(en `avisos` se puede mandar uno solo; `diversidad`, de las versiones viejas, se acepta y se ignora) y `origen` (`[A-Za-z0-9:_./-]`, hasta 80; sólo la primera vez, las
+**Perfil.** `GET /v1/yo` suma `avisos` `{planesCerca, tuGente}` (privado: no sale en
+`/v1/personas/{id}`). `PATCH /v1/yo` lo acepta (se puede mandar uno solo; `genero` y `diversidad`, de
+las versiones viejas, se aceptan y se ignoran) y `origen` (`[A-Za-z0-9:_./-]`, hasta 80; sólo la primera vez, las
 siguientes se ignoran sin error). `PUT /v1/yo/ubicacion {lat, lng}` → 204 (se guarda redondeada a 0,01°
 y se borra a las 24 h). `GET /v1/personas/{id}` suma `proximos` (hasta 5: `{id, titulo, categoria,
 empiezaEn, foto}`). `GET /v1/bloqueos` → `{bloqueos: [{id, nombre, foto}]}`; `DELETE /v1/bloqueos/{id}`.
 
-**Género.** Sumarse, comprar entradas y aceptar una invitación a un plan `mujeres`: 422 `falta_genero` |
-`solo_mujeres`. A un plan `diversidades`: el pedido (`/sumarme`, `/entradas`, `/v1/invitaciones/{planId}`)
-lleva `diversidad: true`, que la persona confirma en ese momento; sin eso, 422 `confirmar_diversidad`. No
-se guarda en ningún lado (AAIP 1.2, migración 00021). Del DNI sólo se valida la edad: el `sexo` que
-mandan las versiones viejas se descarta.
+**Género.** Caigo no guarda género, orientación ni identidad de género (AAIP 1.2, migraciones 00021 y
+00022). A un plan `mujeres` o `diversidades`, el pedido (`/sumarme`, `/entradas`,
+`/v1/invitaciones/{planId}`) lleva `mujer: true` o `diversidad: true`, que la persona confirma en ese
+momento; sin eso, 422 `confirmar_mujer` | `confirmar_diversidad`. No se guarda en ningún lado. Del DNI
+sólo se valida la edad: el `sexo` que mandan las versiones viejas se descarta. Las fotos de la
+verificación (frente, dorso y selfie) se borran al resolverla (aprobada o rechazada); el equipo las ve
+sólo mientras está pendiente, y el worker purga cada hora lo que quede (`confianza.PurgarFotosDNI`).
 
 **Editar y cancelar.** `PATCH /v1/planes/{id}`: el cuerpo de `POST /v1/planes` (parcial) + `total`;
 `categoria`, `ciudad`, `recurrente`, `somos` y `faltan` se ignoran. Errores: 404 (no es tuyo), 409

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
@@ -229,14 +230,13 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		var in struct {
 			Cantidad int16  `json:"cantidad"`
 			Modo     string `json:"modo"`
-			// Confirma, sólo para este pedido, que es parte de la diversidad (planes «Solo
-			// diversidades»). No se guarda.
-			Diversidad bool `json:"diversidad"`
+			// «Solo mujeres» / «Solo diversidades»: mujer / diversidad, sólo para este pedido.
+			planes.Confirma
 		}
 		if !respuesta.Leer(w, r, &in) {
 			return nil
 		}
-		c, err := s.Comprar(r.Context(), p.ID, r.PathValue("id"), in.Cantidad, in.Modo, in.Diversidad)
+		c, err := s.Comprar(r.Context(), p.ID, r.PathValue("id"), in.Cantidad, in.Modo, in.Confirma)
 		if err != nil {
 			return err
 		}

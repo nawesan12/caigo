@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -133,6 +135,19 @@ func TestVerificacion(t *testing.T) {
 	// El equipo ve las fotos del DNI.
 	e.pedir(equipo, "GET", "/v1/archivos/"+frente.ID, nil, http.StatusOK, nil)
 	e.pedir(equipo, "POST", "/v1/equipo/dni/"+id, map[string]any{"aprobar": true}, http.StatusNoContent, nil)
+	// Resuelta: las fotos (frente, dorso y selfie) ya no están ni en la base ni para el equipo, y su
+	// borrado del disco quedó encolado para el worker.
+	for _, f := range []string{frente.ID, dorso.ID, s2.ID} {
+		e.pedir(equipo, "GET", "/v1/archivos/"+f, nil, http.StatusNotFound, nil)
+		e.pedir(mar, "GET", "/v1/archivos/"+f, nil, http.StatusNotFound, nil)
+	}
+	var refs int
+	e.valor(`SELECT count(*) FROM verificaciones_dni WHERE id::text = $1 AND frente_id IS NULL AND dorso_id IS NULL AND selfie_id IS NULL`, &refs, id)
+	var encolados int
+	e.valor(`SELECT count(*) FROM outbox WHERE tipo = 'archivo.borrar' AND datos->>'ruta' LIKE 'dni/%' AND creado_en > now() - interval '1 minute'`, &encolados)
+	if refs != 1 || encolados < 2 {
+		t.Fatalf("fotos de la verificación resuelta: refs %d, encolados %d", refs, encolados)
+	}
 
 	var estado struct {
 		Telefono, DNI string
@@ -439,5 +454,80 @@ func TestContactoDeConfianzaEnYo(t *testing.T) {
 	e.pedir(p, "GET", "/v1/yo", nil, http.StatusOK, &yo)
 	if yo.ContactoConfianza != "+54 9 223 555 0000" {
 		t.Fatalf("contacto: %q", yo.ContactoConfianza)
+	}
+}
+
+// La purga del worker (confianza.PurgarFotosDNI) levanta lo que quedó de verificaciones resueltas, las
+// fotos del DNI sueltas y los archivos sin fila en el disco. Otra vuelta no encuentra nada.
+func TestPurgaFotosDNI(t *testing.T) {
+	e := nuevoEntorno(t)
+	ana := e.persona("Ana")
+	var frente, dorso, selfie, suelta struct{ ID string }
+	e.pedir(ana, "POST", "/v1/archivos?tipo=dni", jpeg, http.StatusCreated, &frente)
+	e.pedir(ana, "POST", "/v1/archivos?tipo=dni", jpeg, http.StatusCreated, &dorso)
+	e.pedir(ana, "POST", "/v1/archivos?tipo=selfie", jpeg, http.StatusCreated, &selfie)
+	e.pedir(ana, "POST", "/v1/archivos?tipo=dni", jpeg, http.StatusCreated, &suelta)
+	numero := fmt.Sprint(30000000 + time.Now().UnixNano()%60000000)
+	e.pedir(ana, "POST", "/v1/verificacion/dni", map[string]string{"frenteId": frente.ID, "dorsoId": dorso.ID, "selfieId": selfie.ID,
+		"numero": numero, "apellido": "LOPEZ", "nombres": "ANA", "nacimiento": "1995-01-02"}, http.StatusNoContent, nil)
+	// Una resuelta de antes de este cambio (con las fotos todavía) y una foto del DNI que nunca llegó a
+	// verificación, de hace dos días.
+	e.sistema(`UPDATE verificaciones_dni SET estado = 'rechazada', motivo = 'borrosa', revisada_en = now() WHERE usuario_id = $1`, ana.id)
+	if err := e.migrador.EnSistema(context.Background(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(context.Background(), `UPDATE archivos SET creado_en = now() - interval '2 days' WHERE id = $1`, suelta.ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// Un archivo en dni/ sin fila en la base, viejo.
+	resto := filepath.Join(e.archivos, "dni", "2020-01", "resto.jpg.cif")
+	if err := os.MkdirAll(filepath.Dir(resto), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(resto, []byte("x"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	viejo := time.Now().Add(-48 * time.Hour)
+	if err := os.Chtimes(resto, viejo, viejo); err != nil {
+		t.Fatal(err)
+	}
+
+	disco := archivos.Disco{Raiz: e.archivos}
+	inf, err := confianza.PurgarFotosDNI(context.Background(), e.app, disco)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inf.Resueltas < 3 || inf.Sueltas < 1 || inf.Disco < 1 {
+		t.Fatalf("purga: %+v", inf)
+	}
+	var quedan int
+	e.valor(`SELECT count(*) FROM archivos WHERE id::text = ANY ($1)`, &quedan, []string{frente.ID, dorso.ID, selfie.ID, suelta.ID})
+	if quedan != 0 {
+		t.Fatalf("quedaron %d archivos", quedan)
+	}
+	if _, err := os.Stat(resto); !os.IsNotExist(err) {
+		t.Fatalf("el resto sigue en el disco: %v", err)
+	}
+	// Los archivos con fila no se tocan desde la purga del disco (los borra el evento).
+	var otra struct{ ID string }
+	e.pedir(ana, "POST", "/v1/archivos?tipo=selfie", jpeg, http.StatusCreated, &otra)
+	var ruta string
+	e.valor(`SELECT ruta FROM archivos WHERE id = $1`, &ruta, otra.ID)
+	abs := filepath.Join(e.archivos, ruta)
+	if err := os.Chtimes(abs, viejo, viejo); err != nil {
+		t.Fatal(err)
+	}
+	// Idempotente: otra vuelta no encuentra nada de esto.
+	inf, err = confianza.PurgarFotosDNI(context.Background(), e.app, disco)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(abs); err != nil {
+		t.Fatalf("borró una selfie con fila: %v", err)
+	}
+	var refs int
+	e.valor(`SELECT count(*) FROM verificaciones_dni WHERE usuario_id = $1 AND frente_id IS NULL`, &refs, ana.id)
+	if refs != 1 {
+		t.Fatalf("referencias: %d", refs)
 	}
 }

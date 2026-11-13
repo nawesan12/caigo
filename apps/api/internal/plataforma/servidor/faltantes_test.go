@@ -79,36 +79,30 @@ func TestGeneroEnLosPlanes(t *testing.T) {
 	mujeres := e.planNuevo(org, map[string]any{"genero": "mujeres"})
 	diversas := e.planNuevo(org, map[string]any{"genero": "diversidades"})
 
-	// Sin género cargado: la app lo pregunta y reintenta.
-	if c := codigo(t, e, ana, "POST", "/v1/planes/"+mujeres.ID+"/sumarme", map[string]any{}, http.StatusUnprocessableEntity); c != "falta_genero" {
-		t.Fatalf("sin género: %q", c)
+	// «Solo mujeres»: sin confirmarlo en el pedido, no entra.
+	if c := codigo(t, e, ana, "POST", "/v1/planes/"+mujeres.ID+"/sumarme", map[string]any{}, http.StatusUnprocessableEntity); c != "confirmar_mujer" {
+		t.Fatalf("mujeres sin confirmar: %q", c)
 	}
-	e.pedir(ana, "PATCH", "/v1/yo", map[string]any{"genero": "otro"}, http.StatusBadRequest, nil)
+	// Las versiones viejas mandan "genero" y "diversidad" en el perfil: se aceptan y no se guardan.
 	var yo map[string]any
-	e.pedir(ana, "PATCH", "/v1/yo", map[string]any{"genero": "mujer"}, http.StatusOK, &yo)
-	if av, _ := yo["avisos"].(map[string]any); yo["genero"] != "mujer" || av["planesCerca"] != true || av["tuGente"] != true {
+	e.pedir(ana, "PATCH", "/v1/yo", map[string]any{"genero": "mujer", "diversidad": true}, http.StatusOK, &yo)
+	if av, _ := yo["avisos"].(map[string]any); av["planesCerca"] != true || av["tuGente"] != true {
 		t.Fatalf("yo: %+v", yo)
 	}
-	// La diversidad no está en el perfil.
-	if _, ok := yo["diversidad"]; ok {
-		t.Fatalf("yo trae diversidad: %+v", yo)
+	for _, k := range []string{"genero", "diversidad"} {
+		if _, ok := yo[k]; ok {
+			t.Fatalf("yo trae %s: %+v", k, yo)
+		}
 	}
-	e.pedir(ana, "POST", "/v1/planes/"+mujeres.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
-	// «Solo diversidades»: sin confirmarlo en el pedido, no entra (aunque tenga género cargado).
-	if c := codigo(t, e, ana, "POST", "/v1/planes/"+diversas.ID+"/sumarme", map[string]any{}, http.StatusUnprocessableEntity); c != "confirmar_diversidad" {
+	if c := codigo(t, e, ana, "POST", "/v1/planes/"+mujeres.ID+"/sumarme", map[string]any{}, http.StatusUnprocessableEntity); c != "confirmar_mujer" {
+		t.Fatalf("género guardado: %q", c)
+	}
+	// Confirmar una cosa no sirve para la otra.
+	if c := codigo(t, e, ana, "POST", "/v1/planes/"+diversas.ID+"/sumarme", map[string]any{"mujer": true}, http.StatusUnprocessableEntity); c != "confirmar_diversidad" {
 		t.Fatalf("diversidades: %q", c)
 	}
-
-	e.pedir(beto, "PATCH", "/v1/yo", map[string]any{"genero": "varon"}, http.StatusOK, nil)
-	if c := codigo(t, e, beto, "POST", "/v1/planes/"+mujeres.ID+"/sumarme", map[string]any{}, http.StatusUnprocessableEntity); c != "solo_mujeres" {
-		t.Fatalf("mujeres: %q", c)
-	}
-	// Las versiones viejas mandan "diversidad" en el perfil: se acepta y no se guarda.
-	e.pedir(beto, "PATCH", "/v1/yo", map[string]any{"diversidad": true}, http.StatusOK, nil)
-	if c := codigo(t, e, beto, "POST", "/v1/planes/"+diversas.ID+"/sumarme", map[string]any{}, http.StatusUnprocessableEntity); c != "confirmar_diversidad" {
-		t.Fatalf("diversidad guardada: %q", c)
-	}
 	// Lo confirma al sumarse: entra, y no queda guardado en ningún lado.
+	e.pedir(ana, "POST", "/v1/planes/"+mujeres.ID+"/sumarme", map[string]any{"mujer": true}, http.StatusOK, nil)
 	e.pedir(beto, "POST", "/v1/planes/"+diversas.ID+"/sumarme", map[string]any{"diversidad": true}, http.StatusOK, nil)
 
 	// El género no se ve en el perfil ajeno.

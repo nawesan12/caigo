@@ -207,7 +207,13 @@ func TestCifrarVerificacionesIdempotente(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(e.archivos, ruta)); !errors.Is(err, fs.ErrNotExist) {
 			t.Fatal("quedó el original sin cifrar")
 		}
-		if w := e.ver(equipo, id, ""); w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), jpeg) {
+		// La selfie la abre el equipo; la foto del DNI, la dueña (el equipo sólo ve fotos del DNI de
+		// una verificación pendiente).
+		quien := equipo
+		if strings.HasPrefix(ruta, "dni/") {
+			quien = lu
+		}
+		if w := e.ver(quien, id, ""); w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), jpeg) {
 			t.Fatalf("después de cifrar: %d", w.Code)
 		}
 	}
@@ -221,8 +227,8 @@ func TestCifrarVerificacionesIdempotente(t *testing.T) {
 		t.Fatalf("segunda corrida: %+v %v", inf, err)
 	}
 	// Un corte después de cambiar la base y antes de borrar dejaría el original al lado: lo borra.
-	var unID, unaRuta string
-	for unID, unaRuta = range ids {
+	var unaRuta string
+	for _, unaRuta = range ids {
 		break
 	}
 	if err := os.WriteFile(filepath.Join(e.archivos, unaRuta), jpeg, 0o640); err != nil {
@@ -252,7 +258,13 @@ func TestCifrarVerificacionesIdempotente(t *testing.T) {
 		}
 	}
 	// El registro de quién miró queda (sin el archivo).
-	if n := e.accesos(unID); n != 1 {
+	var selfieID string
+	for id, ruta := range ids {
+		if strings.HasPrefix(ruta, "selfie/") {
+			selfieID = id
+		}
+	}
+	if n := e.accesos(selfieID); n != 1 {
 		t.Fatalf("accesos después de la purga: %d", n)
 	}
 }

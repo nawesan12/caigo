@@ -127,7 +127,8 @@ func programados(ctx context.Context, app *db.Pool) {
 // limpiar borra cada hora lo que ya no sirve: topes viejos, sesiones vencidas, estados de OAuth
 // usados o vencidos, códigos de teléfono vencidos, eventos del outbox publicados hace más de 30 días y
 // los accesos del equipo a DNI y selfies de más de 2 años; los plazos de lo que queda de las cuentas
-// purgadas y de los intereses (confianza.Plazos), y las fotos sueltas (archivos.BarrerFotos).
+// purgadas y de los intereses (confianza.Plazos), las fotos sueltas (archivos.BarrerFotos) y las fotos
+// de las verificaciones de DNI resueltas (confianza.PurgarFotosDNI).
 // Y purga los datos personales de las cuentas borradas hace más de 30 días (confianza.Purgar).
 func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string, veto *vetados.Clave) {
 	t := time.NewTicker(time.Hour)
@@ -156,6 +157,7 @@ func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string, veto *ve
 			}
 		}
 		barrerFotos(ctx, app, carpetaArchivos)
+		fotosDNI(ctx, app, carpetaArchivos)
 		purgar(ctx, app, carpetaArchivos, veto)
 		select {
 		case <-ctx.Done():
@@ -180,6 +182,19 @@ func barrerFotos(ctx context.Context, app *db.Pool, carpeta string) {
 	})
 	if err != nil && ctx.Err() == nil {
 		slog.Warn("fotos sueltas", "error", err)
+	}
+}
+
+// fotosDNI borra lo que quedó de las fotos de verificaciones de DNI ya resueltas (las que se resuelven
+// ahora se borran en el momento), las fotos del DNI sueltas y los archivos de dni/ y selfie/ sin fila
+// en la base (confianza.PurgarFotosDNI). Idempotente.
+func fotosDNI(ctx context.Context, app *db.Pool, carpeta string) {
+	inf, err := confianza.PurgarFotosDNI(ctx, app, archivos.Disco{Raiz: carpeta})
+	if err != nil && ctx.Err() == nil {
+		slog.Warn("fotos del DNI", "error", err)
+	}
+	if inf.Resueltas+inf.Sueltas+inf.Disco > 0 {
+		slog.Info("fotos del DNI borradas", "resueltas", inf.Resueltas, "sueltas", inf.Sueltas, "disco", inf.Disco)
 	}
 }
 

@@ -307,7 +307,7 @@ func nuevoCodigo() string {
 // Comprar reserva entradas de un plan de lugar y devuelve el link de pago. modo: entrada (pagar
 // todo) | sena (sólo si el plan tiene seña; vacío = lo que diga el plan). El monto sale de la
 // base, nunca del cliente.
-func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantidad int16, modo string, diversidad bool) (Compra, error) {
+func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantidad int16, modo string, conf planes.Confirma) (Compra, error) {
 	if cantidad < 1 || cantidad > 10 {
 		return Compra{}, problema.Invalido("Podés comprar de 1 a 10 entradas.")
 	}
@@ -363,7 +363,7 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 		case sumados+int(cantidad) > int(total):
 			return problema.Conflicto("completo", "No quedan tantos lugares (puede que se liberen si alguien no termina de pagar).")
 		}
-		if err := planes.ChequearGenero(ctx, tx, usuarioID, generoPlan, diversidad); err != nil {
+		if err := planes.ChequearGenero(generoPlan, conf); err != nil {
 			return err
 		}
 		var ya bool

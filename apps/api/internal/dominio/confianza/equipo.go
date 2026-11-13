@@ -65,7 +65,8 @@ func (s *Servicio) DNIPendientes(ctx context.Context) ([]DNIPendiente, error) {
 	return out, err
 }
 
-// RevisarDNI aprueba o rechaza. Al aprobar, el perfil queda Verificado y toma la edad del DNI.
+// RevisarDNI aprueba o rechaza. Al aprobar, el perfil queda Verificado y toma la edad del DNI. En
+// los dos casos, las fotos de la verificación se borran.
 func (s *Servicio) RevisarDNI(ctx context.Context, equipoID, id string, aprobar bool, motivo string) error {
 	motivo = strings.TrimSpace(motivo)
 	if !aprobar && motivo == "" {
@@ -88,6 +89,10 @@ func (s *Servicio) RevisarDNI(ctx context.Context, equipoID, id string, aprobar 
 		if _, err := tx.Exec(ctx, `UPDATE verificaciones_dni SET estado = $2, motivo = $3, revisada_por = $4, revisada_en = now() WHERE id::text = $1`,
 			id, estado, motivo, equipoID); err != nil {
 			return problema.Conflicto("repetido", "Ese DNI ya está verificado en otra cuenta.")
+		}
+		// Resuelta: las fotos (frente, dorso y selfie) se borran ya (ver fotos_dni.go).
+		if _, err := soltarFotosDNI(ctx, tx, id); err != nil {
+			return err
 		}
 		if !aprobar {
 			return nil

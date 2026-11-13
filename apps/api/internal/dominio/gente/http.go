@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/respuesta"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sesion"
 )
@@ -76,14 +77,13 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 	mux.Handle("POST /v1/invitaciones/{planId}", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		var in struct {
 			Aceptar bool `json:"aceptar"`
-			// Confirma, sólo para este pedido, que es parte de la diversidad (planes «Solo
-			// diversidades»). No se guarda.
-			Diversidad bool `json:"diversidad"`
+			// «Solo mujeres» / «Solo diversidades»: mujer / diversidad, sólo para este pedido.
+			planes.Confirma
 		}
 		if !respuesta.Leer(w, r, &in) {
 			return nil
 		}
-		adentro, err := s.ResponderInvitacion(r.Context(), p.ID, r.PathValue("planId"), in.Aceptar, in.Diversidad)
+		adentro, err := s.ResponderInvitacion(r.Context(), p.ID, r.PathValue("planId"), in.Aceptar, in.Confirma)
 		if err == nil {
 			respuesta.JSON(w, http.StatusOK, map[string]bool{"adentro": adentro})
 		}

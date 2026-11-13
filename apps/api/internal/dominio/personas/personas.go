@@ -66,8 +66,6 @@ type Perfil struct {
 	Telefono string `json:"telefono,omitempty"`
 	// El mail de la cuenta (sólo en /v1/yo): con él se confirma «Borrar mi cuenta».
 	Email string `json:"email,omitempty"`
-	// Autodeclarado y privado (sólo en el propio): "" | mujer | varon | no_binario.
-	Genero *string `json:"genero,omitempty"`
 	// Contacto de confianza (sólo en /v1/yo).
 	ContactoConfianza *string `json:"contactoConfianza,omitempty"`
 	Avisos            *Avisos `json:"avisos,omitempty"`
@@ -157,10 +155,10 @@ func (s *Servicio) Yo(ctx context.Context, usuarioID, clerkID string) (Perfil, e
 			return err
 		}
 		p.EnMiGente, p.Compartidos = false, 0
-		genero, contacto, av := "", "", Avisos{PlanesCerca: true, TuGente: true}
-		err = tx.QueryRow(ctx, `SELECT coalesce(telefono, ''), genero, avisos_cerca, avisos_gente, contacto_confianza, email
-			FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&p.Telefono, &genero, &av.PlanesCerca, &av.TuGente, &contacto, &p.Email)
-		p.Genero, p.Avisos, p.ContactoConfianza = &genero, &av, &contacto
+		contacto, av := "", Avisos{PlanesCerca: true, TuGente: true}
+		err = tx.QueryRow(ctx, `SELECT coalesce(telefono, ''), avisos_cerca, avisos_gente, contacto_confianza, email
+			FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&p.Telefono, &av.PlanesCerca, &av.TuGente, &contacto, &p.Email)
+		p.Avisos, p.ContactoConfianza = &av, &contacto
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -244,12 +242,11 @@ type Cambios struct {
 	Fotos       *[]string `json:"fotos"`
 	// Contacto de confianza para compartir el plan en vivo.
 	ContactoConfianza *string `json:"contactoConfianza"`
-	// Género autodeclarado ("" | mujer | varon | no_binario). Privado: sólo cuenta para los planes
-	// "Solo mujeres".
-	Genero *string `json:"genero"`
-	// Lo mandan las versiones viejas de las apps: se acepta y se ignora. La diversidad ya no se
-	// guarda; se confirma al sumarse a un plan "Solo diversidades" (AAIP 1.2).
-	Diversidad *bool `json:"diversidad"`
+	// Lo mandan las versiones viejas de las apps: se aceptan y se ignoran. Ni el género ni la
+	// diversidad se guardan: se confirman al sumarse a un plan "Solo mujeres" / "Solo diversidades"
+	// (AAIP 1.2).
+	Genero     *string `json:"genero"`
+	Diversidad *bool   `json:"diversidad"`
 	Avisos     *struct {
 		PlanesCerca *bool `json:"planesCerca"`
 		TuGente     *bool `json:"tuGente"`
@@ -315,9 +312,6 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 	if c.Fotos != nil && len(*c.Fotos) > 6 {
 		mal("fotos", "Hasta 6 fotos.")
 	}
-	if c.Genero != nil && *c.Genero != "" && *c.Genero != "mujer" && *c.Genero != "varon" && *c.Genero != "no_binario" {
-		mal("genero", "El género es mujer, varon o no_binario.")
-	}
 	if c.Origen != nil {
 		*c.Origen = strings.TrimSpace(*c.Origen)
 		if len(*c.Origen) > 80 || !reOrigen.MatchString(*c.Origen) {
@@ -359,17 +353,16 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 				return err
 			}
 		}
-		if nacimiento == nil && c.ContactoConfianza == nil && c.Genero == nil && cerca == nil && gente == nil {
+		if nacimiento == nil && c.ContactoConfianza == nil && cerca == nil && gente == nil {
 			return nil
 		}
 		_, err := tx.Exec(ctx, `
-			INSERT INTO usuarios_privado (usuario_id, nacimiento, contacto_confianza, genero, avisos_cerca, avisos_gente)
-			VALUES ($1, $2, coalesce($3, ''), coalesce($4, ''), coalesce($5, true), coalesce($6, true))
+			INSERT INTO usuarios_privado (usuario_id, nacimiento, contacto_confianza, avisos_cerca, avisos_gente)
+			VALUES ($1, $2, coalesce($3, ''), coalesce($4, true), coalesce($5, true))
 			ON CONFLICT (usuario_id) DO UPDATE SET nacimiento = coalesce($2, usuarios_privado.nacimiento),
 				contacto_confianza = coalesce($3, usuarios_privado.contacto_confianza),
-				genero = coalesce($4, usuarios_privado.genero),
-				avisos_cerca = coalesce($5, usuarios_privado.avisos_cerca), avisos_gente = coalesce($6, usuarios_privado.avisos_gente)`,
-			usuarioID, nacimiento, c.ContactoConfianza, c.Genero, cerca, gente)
+				avisos_cerca = coalesce($4, usuarios_privado.avisos_cerca), avisos_gente = coalesce($5, usuarios_privado.avisos_gente)`,
+			usuarioID, nacimiento, c.ContactoConfianza, cerca, gente)
 		return err
 	})
 	if err != nil {

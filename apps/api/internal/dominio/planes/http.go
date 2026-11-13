@@ -126,14 +126,13 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 		var e struct {
 			Cantidad int16  `json:"cantidad"`
 			Mensaje  string `json:"mensaje"`
-			// Confirma, sólo para este pedido, que es parte de la diversidad (planes «Solo
-			// diversidades»). No se guarda.
-			Diversidad bool `json:"diversidad"`
+			// «Solo mujeres» / «Solo diversidades»: mujer / diversidad, sólo para este pedido.
+			Confirma
 		}
 		if !respuesta.Leer(w, r, &e) {
 			return
 		}
-		estado, err := s.Sumarse(r.Context(), p.ID, r.PathValue("id"), e.Cantidad, e.Mensaje, e.Diversidad)
+		estado, err := s.Sumarse(r.Context(), p.ID, r.PathValue("id"), e.Cantidad, e.Mensaje, e.Confirma)
 		if err != nil {
 			mal(w, err)
 			return

@@ -190,7 +190,7 @@ func Purgar(ctx context.Context, app *db.Pool, disco archivos.Disco, veto *vetad
 					// El texto que mandó al pedir sumarse; la asistencia queda (sin nombre) hasta Plazos.
 					`UPDATE solicitudes SET mensaje = '' WHERE usuario_id = $1 AND mensaje <> ''`,
 					`UPDATE usuarios_privado SET telefono = NULL, telefono_verificado_en = NULL, nacimiento = NULL,
-						contacto_confianza = '', genero = '', email = '' WHERE usuario_id = $1`,
+						contacto_confianza = '', email = '' WHERE usuario_id = $1`,
 					`UPDATE usuarios SET clerk_id = 'user_baja' || replace(id::text, '-', ''), nombre = 'Cuenta borrada', edad = NULL,
 						zona = '', ciudad = '', bio = '', trabajo = '', intereses = '{}', intenciones = '{}', prompts = '[]',
 						fotos = '{}', selfie_en = NULL, dni_en = NULL, purgada_en = now(), actualizado_en = now() WHERE id = $1`,
