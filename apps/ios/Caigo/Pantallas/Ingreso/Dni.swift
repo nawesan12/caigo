@@ -266,8 +266,8 @@ struct Dni: View {
             let f = try await c.api.subir(tipo: "dni", jpeg: frente)
             let r = try await c.api.subir(tipo: "dni", jpeg: dorso)
             let s = try await c.api.subir(tipo: "selfie", jpeg: selfie)
-            try await c.api.dni(DatosDNI(frenteId: f.id, dorsoId: r.id, selfieId: s.id, numero: d.numero, apellido: d.apellido,
-                                         nombres: d.nombres, nacimiento: d.nacimiento, tramite: d.tramite))
+            try await c.api.dni(DatosDNI(frenteId: f.id, dorsoId: r.id, selfieId: s.id, numero: d.numero,
+                                         nacimiento: d.nacimiento))
             paso = .enviado
         } catch let e as ErrorApi {
             if e.codigo == "pendiente" {

@@ -572,12 +572,13 @@ public struct EstadoVerificacion: Decodable, Sendable {
     }
 }
 
+/// Lo que se manda para verificar el DNI: las fotos, el número (la API guarda sólo su huella, para
+/// los vetados) y la fecha de nacimiento (la edad). El nombre y el trámite no salen del teléfono.
 public struct DatosDNI: Encodable, Sendable {
-    public var frenteId, dorsoId, selfieId, numero, apellido, nombres, nacimiento, tramite: String
-    public init(frenteId: String, dorsoId: String, selfieId: String, numero: String, apellido: String,
-                nombres: String, nacimiento: String, tramite: String) {
+    public var frenteId, dorsoId, selfieId, numero, nacimiento: String
+    public init(frenteId: String, dorsoId: String, selfieId: String, numero: String, nacimiento: String) {
         self.frenteId = frenteId; self.dorsoId = dorsoId; self.selfieId = selfieId; self.numero = numero
-        self.apellido = apellido; self.nombres = nombres; self.nacimiento = nacimiento; self.tramite = tramite
+        self.nacimiento = nacimiento
     }
 }
 
