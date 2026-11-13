@@ -5,6 +5,7 @@
 //	caigoctl equipo <user_…> [no]   suma (o saca) a una persona del equipo de Caigo
 //	caigoctl recuperar-cuenta <mail|user_…>  reactiva una cuenta borrada hace menos de 30 días
 //	caigoctl semilla <planes.json>  publica planes semilla del equipo (ver docs/semilla.md)
+//	caigoctl cifrar-verificaciones [--probar]  cifra las selfies y DNI viejos (CAIGO_CLAVE_VERIFICACION)
 //
 // Las claves de los roles salen de CAIGO_CLAVE_<ROL> (vacías en desarrollo).
 package main
@@ -17,13 +18,14 @@ import (
 	"strings"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "uso: caigoctl bootstrap|migrar|equipo <user_…> [no]|recuperar-cuenta <mail|user_…>|semilla <planes.json>")
+		fmt.Fprintln(os.Stderr, "uso: caigoctl bootstrap|migrar|equipo <user_…> [no]|recuperar-cuenta <mail|user_…>|semilla <planes.json>|cifrar-verificaciones [--probar]")
 		os.Exit(2)
 	}
 	if err := correr(os.Args[1]); err != nil {
@@ -115,6 +117,42 @@ func correr(cmd string) error {
 			return fmt.Errorf("falta el archivo de planes")
 		}
 		return semilla(ctx, cfg.BaseApp, os.Args[2])
+	case "cifrar-verificaciones":
+		// Pasa las selfies y fotos del DNI guardadas sin cifrar al formato .cif. Se puede repetir.
+		// --probar: no escribe nada, sólo cuenta y prueba la clave.
+		if err := cfg.Exigir("BaseMigrador"); err != nil {
+			return err
+		}
+		probar := len(os.Args) > 2 && os.Args[2] == "--probar"
+		if len(os.Args) > 2 && !probar {
+			return fmt.Errorf("opción desconocida: %s (la única es --probar)", os.Args[2])
+		}
+		if cfg.ClaveVerificacion == "" {
+			return fmt.Errorf("falta CAIGO_CLAVE_VERIFICACION (generala con: openssl rand -base64 32)")
+		}
+		clave, err := archivos.NuevaClave(cfg.ClaveVerificacion)
+		if err != nil {
+			return err
+		}
+		if st, err := os.Stat(cfg.Archivos); err != nil || !st.IsDir() {
+			return fmt.Errorf("no está la carpeta de archivos %s (CAIGO_ARCHIVOS)", cfg.Archivos)
+		}
+		conn, err := db.Abrir(ctx, cfg.BaseMigrador)
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		inf, err := confianza.CifrarVerificaciones(ctx, conn, archivos.Disco{Raiz: cfg.Archivos, Clave: clave}, probar)
+		verbo := "cifrados"
+		if probar {
+			verbo = "se cifrarían (--probar: no se escribió nada)"
+		}
+		fmt.Printf("revisados: %d, %s: %d, ya cifrados: %d, originales sueltos al lado de su .cif: %d, faltan en el disco: %d\n",
+			inf.Revisados, verbo, inf.Cifrados, inf.YaCifrados, inf.Restos, len(inf.Faltan))
+		for _, id := range inf.Faltan {
+			fmt.Println("  falta en el disco:", id)
+		}
+		return err
 	default:
 		return fmt.Errorf("comando desconocido: %s", cmd)
 	}

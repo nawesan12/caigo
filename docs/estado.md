@@ -74,6 +74,73 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
    con Firebase y firma como secretos), Wallet, NFC con placa, pagos reales de MP, avisos push reales.
 
 
+## Selfies y DNI cifrados, y quién los mira (12/11, sin commitear ni desplegar)
+
+Lo pedía la AAIP (`~/Trabajo/vimo/legales/aaip/pendientes.md` › 5. Seguridad): las selfies y las fotos
+del DNI estaban sin cifrar en `/opt/caigo/archivos` y no quedaba registro de quién del equipo las miraba.
+
+- **Cifrado** (`internal/plataforma/archivos/verificacion.go`): AES-256-GCM con la clave de
+  `CAIGO_CLAVE_VERIFICACION` (32 bytes en base64). Archivo = `CGV1` + nonce al azar (12 bytes) + cifrado;
+  el nombre termina en `.cif` (`dni/2026-11/<azar>.jpg.cif`) y va como dato asociado (un archivo copiado
+  encima de otro no abre). Sólo selfie y DNI: las fotos de perfil y de planes siguen igual, públicas y
+  con caché. Se descifra en memoria y se sirve sólo por `GET /v1/archivos/{id}` (dueña o equipo), con
+  `Cache-Control: private, no-store`. Los archivos viejos sin `.cif` se siguen leyendo hasta migrarlos.
+- **Sin la clave** (o mal cargada): la API y el worker arrancan; el log dice `sin CAIGO_CLAVE_VERIFICACION`
+  (o `inválida`) y subir o ver una selfie o un DNI responde 503 `sin_clave_verificacion`. Todo lo demás anda.
+- **Auditoría** (migración `00019_accesos_verificacion.sql`): tabla `accesos_verificacion` (equipo_id,
+  usuario_id, archivo_id, tipo, ip, visto_en), con RLS por `usuario_id` y la app con SELECT/INSERT/DELETE
+  (sin UPDATE). Cada vez que alguien del equipo abre una selfie o un DNI ajeno se anota **antes** de
+  mostrarlo (si no se puede anotar, no se muestra). La dueña viendo lo suyo no se anota. IP: `Cf-Connecting-Ip`
+  (el proxy `/archivo/[id]` del backoffice web ahora la reenvía). El worker borra los de más de 2 años.
+  Consultar: `SELECT * FROM accesos_verificacion ORDER BY visto_en DESC` (con `app.sistema = 'si'`, hay RLS forzada).
+- **Migración de lo que ya hay**: `caigoctl cifrar-verificaciones [--probar]`. Por archivo: escribe el `.cif`,
+  lo relee y confirma que descifra igual, cambia la ruta en la base y recién ahí borra el original.
+  Idempotente (lo ya cifrado no se toca; si un corte dejó el original al lado del `.cif`, lo compara y lo
+  borra). `--probar` no escribe nada. Imprime `revisados / cifrados / ya cifrados / originales sueltos /
+  faltan en el disco` (y el id de los que faltan). Va con el migrador (la app no puede cambiar `archivos.ruta`).
+- **Purga a los 30 días**: sigue igual y no necesita la clave; `Disco.Borrar` borra el `.cif` y, si quedó,
+  el original al lado.
+
+### Desplegarlo (lo hace Nahuel, en este orden: clave → deploy → comando → verificar)
+
+1. **Clave** (en el VPS, una sola vez; no la generes en otro lado ni la pegues en un chat):
+   ```bash
+   ssh deploy@187.41.102.190
+   cd /opt/caigo && cp -p api.conf api.conf.antes-verificacion
+   printf 'CAIGO_CLAVE_VERIFICACION=%s\n' "$(openssl rand -base64 32)" >> api.conf
+   chmod 600 api.conf && grep -c CAIGO_CLAVE_VERIFICACION api.conf   # tiene que dar 1
+   ```
+   Guardá una copia de la clave **fuera del VPS** (en `CREDENCIALES.md` › Caigo): sin ella, los DNI y
+   selfies cifrados no se recuperan nunca. No va al repo ni a las copias de la base.
+   api y worker leen `/opt/caigo/api.conf` (`env_file` del compose); el deploy los recrea abajo.
+2. **Deploy** desde la copia limpia (`~/Trabajo/vimo/.wt/desplegar` en main), con migración (hace pg_dump antes):
+   ```bash
+   infra/vps/desplegar-api.sh --migrar
+   ssh deploy@187.41.102.190 'cd /opt/caigo && docker compose up -d --force-recreate api worker'
+   infra/vps/desplegar-web.sh        # el proxy del backoffice que reenvía la IP
+   ```
+   (`restart` no relee api.conf: por eso el `--force-recreate`.) Comprobar que no diga «sin
+   CAIGO_CLAVE_VERIFICACION»: `docker compose logs api --since 5m | grep -i verificacion` (vacío = bien).
+3. **Comando**, primero en seco y después de verdad:
+   ```bash
+   ssh deploy@187.41.102.190 'cd /opt/caigo && docker compose run --rm --no-deps -T api /app/bin/caigoctl cifrar-verificaciones --probar'
+   ssh deploy@187.41.102.190 'cd /opt/caigo && docker compose run --rm --no-deps -T api /app/bin/caigoctl cifrar-verificaciones'
+   ```
+   «faltan en el disco» > 0 no frena: son filas cuyo archivo ya no estaba (se listan los ids para revisar).
+4. **Verificar**:
+   - Correr el comando otra vez: `cifrados: 0`.
+   - En el disco no queda nada sin cifrar: `find /opt/caigo/archivos/selfie /opt/caigo/archivos/dni -type f ! -name '*.cif' | wc -l` → 0.
+   - Desde `/equipo` (web) abrir un DNI pendiente: se ve; y queda la fila:
+     `docker compose exec -T postgres psql -U postgres caigo -c "SET app.sistema = 'si'; SELECT equipo_id, usuario_id, tipo, ip, visto_en FROM accesos_verificacion ORDER BY visto_en DESC LIMIT 5"`.
+   - Subir una selfie desde la app: el archivo nuevo termina en `.cif`.
+
+**Copias de seguridad:** las copias guardan los archivos tal cual están en el disco, así que desde la
+migración guardan selfies y DNI **cifrados** (y la clave no está en ellas, sólo en api.conf y en
+CREDENCIALES.md). Las copias locales de los 14 días anteriores en el VPS siguen teniendo los originales
+sin cifrar hasta que roten: si se quiere cerrar eso ya, borrarlas a mano después de verificar el paso 4.
+Las de GitHub sólo llevan bases (no archivos). Para restaurar archivos en otro servidor hace falta la
+misma `CAIGO_CLAVE_VERIFICACION`.
+
 ## 31/10/2026 — arranque
 Decisiones de Nahuel y plan por etapas: ver `docs/decisiones.md`.
 

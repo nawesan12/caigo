@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk/clerkfalso"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
@@ -31,8 +33,9 @@ type entorno struct {
 	app   *db.Pool
 	// Dueño del esquema: para lo que la app no puede hacer (dar de alta al equipo).
 	migrador *db.Pool
-	// Carpeta de los archivos subidos (la purga de cuentas los borra).
+	// Carpeta de los archivos subidos (la purga de cuentas los borra) y la clave de las selfies y DNI.
 	archivos string
+	clave    *archivos.Clave
 }
 
 func nuevoEntorno(t *testing.T) *entorno { return nuevoEntornoCon(t, nil) }
@@ -71,11 +74,18 @@ func nuevoEntornoAjustado(t *testing.T, ajustar func(*servidor.Dependencias)) *e
 	}
 	f := clerkfalso.Nuevo(t)
 	c := &clerk.Cliente{Secreto: clerkfalso.Secreto, Emisor: clerkfalso.Emisor, API: f.URL, HTTP: f.Client()}
+	k := make([]byte, 32)
+	_, _ = rand.Read(k)
+	clave, err := archivos.NuevaClave(base64.StdEncoding.EncodeToString(k))
+	if err != nil {
+		t.Fatal(err)
+	}
 	d := servidor.Dependencias{App: app, Clerk: c, Secreto: "secreto-de-prueba",
-		Sitio: "https://caigo.test", APIPublica: "https://api.caigo.test", Panel: "https://lugares.caigo.test", Archivos: t.TempDir()}
+		Sitio: "https://caigo.test", APIPublica: "https://api.caigo.test", Panel: "https://lugares.caigo.test", Archivos: t.TempDir(),
+		ClaveVerificacion: clave}
 	ajustar(&d)
 	h := servidor.Nuevo(d)
-	return &entorno{t: t, h: h, clerk: f, app: app, migrador: mig, archivos: d.Archivos}
+	return &entorno{t: t, h: h, clerk: f, app: app, migrador: mig, archivos: d.Archivos, clave: d.ClaveVerificacion}
 }
 
 // persona da de alta a alguien en el Clerk falso y devuelve su token y su id de Caigo.

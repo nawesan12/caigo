@@ -111,7 +111,8 @@ func programados(ctx context.Context, app *db.Pool) {
 }
 
 // limpiar borra cada hora lo que ya no sirve: topes viejos, sesiones vencidas, estados de OAuth
-// usados o vencidos, códigos de teléfono vencidos y eventos del outbox publicados hace más de 30 días.
+// usados o vencidos, códigos de teléfono vencidos, eventos del outbox publicados hace más de 30 días y
+// los accesos del equipo a DNI y selfies de más de 2 años.
 // Y purga los datos personales de las cuentas borradas hace más de 30 días (confianza.Purgar).
 func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string) {
 	t := time.NewTicker(time.Hour)
@@ -124,6 +125,8 @@ func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string) {
 		`DELETE FROM outbox WHERE publicado_en < now() - interval '30 days'`,
 		// Política de privacidad: reportes cerrados, 2 años.
 		`DELETE FROM reportes WHERE estado <> 'abierto' AND creado_en < now() - interval '2 years'`,
+		// Quién del equipo miró un DNI o una selfie: 2 años, como los reportes.
+		`DELETE FROM accesos_verificacion WHERE visto_en < now() - interval '2 years'`,
 	}
 	for {
 		// Cada una por separado: si una falla, las demás se hacen igual.
@@ -146,7 +149,7 @@ func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string) {
 }
 
 // purgar corre la purga de las cuentas borradas. Necesita la carpeta de archivos (las fotos, la
-// selfie y el DNI se borran del disco): si el worker no la tiene montada, no purga nada (mejor tarde
+// selfie y el DNI se borran del disco; los cifrados no necesitan la clave para borrarse): si el worker no la tiene montada, no purga nada (mejor tarde
 // que dejar fotos huérfanas en el disco).
 func purgar(ctx context.Context, app *db.Pool, carpeta string) {
 	if st, err := os.Stat(carpeta); err != nil || !st.IsDir() {

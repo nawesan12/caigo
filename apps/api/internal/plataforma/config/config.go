@@ -35,6 +35,9 @@ type Config struct {
 	WalletPassType, WalletCert, WalletClave, GoogleWalletEmisor string
 	// Clave maestra (32 bytes en base64) para cifrar los tokens de Mercado Pago de los lugares.
 	ClaveCifrado string
+	// Clave (32 bytes en base64) de las selfies y las fotos del DNI en el disco. Sin ella la API
+	// arranca, pero no acepta ni muestra esos archivos (ver archivos.ErrSinClave).
+	ClaveVerificacion string
 	// Clave para firmar QR de check-in, placas y links en vivo (32+ bytes al azar en producción).
 	Secreto string
 	// URL pública de la API (para armar las URLs de las fotos) y del panel de lugares.
@@ -80,6 +83,7 @@ func Leer() (Config, error) {
 		MPToken:            os.Getenv("CAIGO_MP_TOKEN"),
 		MPSecretoWebhook:   os.Getenv("CAIGO_MP_SECRETO_WEBHOOK"),
 		ClaveCifrado:       os.Getenv("CAIGO_CLAVE_CIFRADO"),
+		ClaveVerificacion:  os.Getenv("CAIGO_CLAVE_VERIFICACION"),
 		WalletPassType:     valor("CAIGO_WALLET_PASS_TYPE", "pass.ar.com.caigo"),
 		WalletCert:         os.Getenv("CAIGO_WALLET_CERT"),
 		WalletClave:        os.Getenv("CAIGO_WALLET_CLAVE"),

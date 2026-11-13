@@ -14,6 +14,9 @@ CAIGO_CLAVE_MIGRADOR=CLAVE_MIGRADOR
 CAIGO_SECRETO=
 # 32 bytes en base64 (tokens de Mercado Pago y claves de placas cifrados).
 CAIGO_CLAVE_CIFRADO=
+# 32 bytes en base64 (openssl rand -base64 32): selfies y fotos del DNI cifradas en el disco. Sin ella
+# la API arranca pero no acepta ni muestra esos archivos. Copia fuera del VPS: sin ella no se recuperan.
+CAIGO_CLAVE_VERIFICACION=
 # Clerk producción (instancia compartida de Grupo Vimo).
 CAIGO_CLERK_SECRETO=
 CAIGO_CLERK_PUBLICABLE=

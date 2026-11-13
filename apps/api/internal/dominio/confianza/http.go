@@ -6,8 +6,10 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/limite"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/respuesta"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sesion"
@@ -34,32 +36,42 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		}
 		return err
 	}))
-	// Las fotos son públicas (perfiles y planes); selfie y DNI, sólo para el dueño y el equipo.
+	// Las fotos son públicas (perfiles y planes); selfie y DNI, sólo para el dueño y el equipo, descifrados
+	// en memoria y sin caché. Cada vez que alguien del equipo abre uno ajeno queda en accesos_verificacion.
 	mux.HandleFunc("GET /v1/archivos/{id}", func(w http.ResponseWriter, r *http.Request) {
 		a, err := s.Buscar(r.Context(), r.PathValue("id"))
 		if err != nil {
 			respuesta.Error(w, log, err)
 			return
 		}
-		if a.Tipo != "foto" {
-			p, err := ses.Resolver(r.Context(), sesion.Token(r))
-			if err != nil || (p.ID != a.Dueno && !p.Equipo) {
+		if a.Tipo == "foto" {
+			f, err := s.Disco.Abrir(a.Ruta)
+			if err != nil {
 				problema.Escribir(w, problema.NoEncontrado("Ese archivo no existe."))
 				return
 			}
-			w.Header().Set("Cache-Control", "private, no-store")
-		} else {
+			defer f.Close()
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			w.Header().Set("Content-Type", a.Contenido)
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			_, _ = io.Copy(w, f)
+			return
 		}
-		f, err := s.Disco.Abrir(a.Ruta)
-		if err != nil {
+		p, err := ses.Resolver(r.Context(), sesion.Token(r))
+		if err != nil || (p.ID != a.Dueno && !p.Equipo) {
 			problema.Escribir(w, problema.NoEncontrado("Ese archivo no existe."))
 			return
 		}
-		defer f.Close()
+		b, err := s.VerPrivado(r.Context(), a, p, limite.IP(r))
+		if err != nil {
+			respuesta.Error(w, log, err)
+			return
+		}
+		w.Header().Set("Cache-Control", "private, no-store")
 		w.Header().Set("Content-Type", a.Contenido)
+		w.Header().Set("Content-Length", strconv.Itoa(len(b)))
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		_, _ = io.Copy(w, f)
+		_, _ = w.Write(b)
 	})
 
 	mux.Handle("GET /v1/verificacion", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {

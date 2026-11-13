@@ -64,7 +64,16 @@ func (s *Servicio) Subir(ctx context.Context, usuarioID, tipo string, r io.Reade
 	if tipo != "foto" && tipo != "selfie" && tipo != "dni" {
 		return Archivo{}, problema.Invalido("Tipo de archivo desconocido.")
 	}
-	ruta, contenido, n, err := s.Disco.Guardar(tipo, r)
+	guardar := s.Disco.Guardar
+	if tipo != "foto" {
+		// Selfie y DNI van cifrados (CAIGO_CLAVE_VERIFICACION).
+		guardar = s.Disco.GuardarCifrado
+	}
+	ruta, contenido, n, err := guardar(tipo, r)
+	if errors.Is(err, archivos.ErrSinClave) {
+		s.log().Error("verificación: no se puede guardar la foto", "tipo", tipo, "error", err)
+		return Archivo{}, errSinClave
+	}
 	if errors.Is(err, archivos.ErrTipo) || errors.Is(err, archivos.ErrGrande) {
 		return Archivo{}, problema.Invalido(strings.TrimPrefix(err.Error(), "archivos: "))
 	}
@@ -82,15 +91,15 @@ func (s *Servicio) Subir(ctx context.Context, usuarioID, tipo string, r io.Reade
 
 // ArchivoGuardado para servir.
 type ArchivoGuardado struct {
-	Ruta, Contenido, Tipo, Dueno string
+	ID, Ruta, Contenido, Tipo, Dueno string
 }
 
 // Buscar devuelve el archivo para servirlo (como sistema: quién puede verlo lo decide el handler).
 func (s *Servicio) Buscar(ctx context.Context, id string) (ArchivoGuardado, error) {
 	var a ArchivoGuardado
 	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT ruta, contenido, tipo, usuario_id FROM archivos WHERE id::text = $1`, id).
-			Scan(&a.Ruta, &a.Contenido, &a.Tipo, &a.Dueno)
+		return tx.QueryRow(ctx, `SELECT id::text, ruta, contenido, tipo, usuario_id FROM archivos WHERE id::text = $1`, id).
+			Scan(&a.ID, &a.Ruta, &a.Contenido, &a.Tipo, &a.Dueno)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return a, problema.NoEncontrado("Ese archivo no existe.")

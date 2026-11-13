@@ -16,6 +16,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
 	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/cifrado"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
@@ -97,6 +98,7 @@ func correr() error {
 			return err
 		}
 	}
+	deps.ClaveVerificacion = claveVerificacion(cfg.ClaveVerificacion)
 	if cfg.ClerkSecreto != "" {
 		c, err := clerk.Nuevo(cfg.ClerkSecreto, cfg.ClerkPublicable, cfg.ClerkOrigenes)
 		if err != nil {
@@ -130,4 +132,20 @@ func correr() error {
 	apagar, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancelar()
 	return srv.Shutdown(apagar)
+}
+
+// claveVerificacion lee CAIGO_CLAVE_VERIFICACION. Si falta o está mal, la API arranca igual (el
+// resto de Caigo no depende de ella) y lo deja en el log: subir o ver una selfie o un DNI responde
+// 503 sin_clave_verificacion hasta que se cargue.
+func claveVerificacion(b64 string) *archivos.Clave {
+	if b64 == "" {
+		slog.Error("sin CAIGO_CLAVE_VERIFICACION: no se pueden subir ni ver selfies ni DNI")
+		return nil
+	}
+	c, err := archivos.NuevaClave(b64)
+	if err != nil {
+		slog.Error("CAIGO_CLAVE_VERIFICACION inválida: no se pueden subir ni ver selfies ni DNI", "error", err)
+		return nil
+	}
+	return c
 }

@@ -58,6 +58,9 @@ type Dependencias struct {
 	MinAndroid, MinIos int
 	// Correo del código de verificación del teléfono. nil: simulado (vuelve en codigoDePrueba).
 	Correo correo.Correo
+	// Clave de las selfies y los DNI en el disco (CAIGO_CLAVE_VERIFICACION). nil: no se aceptan ni
+	// se muestran (503 sin_clave_verificacion).
+	ClaveVerificacion *archivos.Clave
 }
 
 // Nuevo arma el handler con todas las rutas.
@@ -96,7 +99,7 @@ func Nuevo(d Dependencias) http.Handler {
 		pls := &planes.Servicio{App: d.App, Reloj: d.Reloj, Firma: firma.Firmador{Clave: []byte(d.Secreto)}, Sitio: d.Sitio}
 		planes.Rutas(mux, pls, ses.Exigir, d.Log)
 		equipo.Rutas(mux, &equipo.Servicio{App: d.App, Publicador: pls, Reloj: d.Reloj}, ses, d.Log)
-		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos}, Correo: d.Correo, Casillas: d.Clerk,
+		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos, Clave: d.ClaveVerificacion}, Correo: d.Correo, Casillas: d.Clerk,
 			Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj}, ses, d.Log)
 		personas.Rutas(mux, &personas.Servicio{App: d.App, Casillas: d.Clerk}, ses.Exigir, d.Log)
 		avisos.Rutas(mux, d.App, ses.Exigir, d.Log)

@@ -2,7 +2,7 @@
 
 Generado desde el código (`apps/api/internal/*/http.go`). Base: `https://api.caigo.com.ar`.
 Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem+json `{title, detail, code, issues[]}`.
-«Pública» = sin la sesión de Caigo; varias se autentican solas: `/v1/sesion` (JWT de Clerk), `/v1/tiempo-real` (token en ?token=), `/v1/wallet/...` (ApplePass), webhooks (firma o clave), `/v1/archivos/{id}` (selfie y DNI piden sesión del dueño o del equipo).
+«Pública» = sin la sesión de Caigo; varias se autentican solas: `/v1/sesion` (JWT de Clerk), `/v1/tiempo-real` (token en ?token=), `/v1/wallet/...` (ApplePass), webhooks (firma o clave), `/v1/archivos/{id}` (selfie y DNI piden sesión del dueño o del equipo; van cifrados en el disco, se sirven con `no-store`, sin `CAIGO_CLAVE_VERIFICACION` responden 503 `sin_clave_verificacion`, y cada vez que el equipo abre uno ajeno queda en `accesos_verificacion`).
 
 | Método | Ruta | Acceso | Paquete |
 |---|---|---|---|
