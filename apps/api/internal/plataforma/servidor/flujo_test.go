@@ -56,7 +56,7 @@ func nuevoEntornoAjustado(t *testing.T, ajustar func(*servidor.Dependencias)) *e
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := db.Migrar(ctx, cfg.BaseMigrador); err != nil {
+	if err := db.Migrar(ctx, cfg.BaseMigrador, cfg.ClaveVerificacion); err != nil {
 		t.Skipf("sin base de desarrollo: %v", err)
 	}
 	app, err := db.Abrir(ctx, cfg.BaseApp)

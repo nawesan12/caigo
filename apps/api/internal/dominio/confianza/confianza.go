@@ -270,19 +270,21 @@ func (s *Servicio) Selfie(ctx context.Context, usuarioID, archivoID string) erro
 	})
 }
 
-// DatosDNI es lo que la app leyó del código PDF417 del frente.
+// DatosDNI es lo que la app leyó del código PDF417 del frente. Del número sólo se guarda la huella
+// (vetados.Huella: HMAC con la clave derivada de CAIGO_CLAVE_VERIFICACION), para la lista de
+// vetados y para que un DNI no se apruebe en dos cuentas; de la fecha, la edad.
 type DatosDNI struct {
 	FrenteID   string `json:"frenteId"`
 	DorsoID    string `json:"dorsoId"`
 	SelfieID   string `json:"selfieId"`
 	Numero     string `json:"numero"`
-	Apellido   string `json:"apellido"`
-	Nombres    string `json:"nombres"`
 	Nacimiento string `json:"nacimiento"`
-	Tramite    string `json:"tramite"`
-	// Lo mandan las versiones viejas de las apps: se acepta y se descarta. Del DNI sólo se valida
-	// la edad; el sexo no se guarda (AAIP 1.2).
-	Sexo string `json:"sexo"`
+	// Lo mandan las versiones viejas de las apps: se aceptan y se descartan. Del DNI no se guarda
+	// el nombre, el trámite ni el sexo (AAIP 1.2).
+	Apellido string `json:"apellido"`
+	Nombres  string `json:"nombres"`
+	Tramite  string `json:"tramite"`
+	Sexo     string `json:"sexo"`
 }
 
 var reDNI = regexp.MustCompile(`^[0-9]{7,9}$`)
@@ -296,17 +298,21 @@ func (s *Servicio) PedirDNI(ctx context.Context, usuarioID string, d DatosDNI) e
 		return problema.Invalido("No pudimos leer el número de DNI.")
 	case err != nil:
 		return problema.Invalido("No pudimos leer la fecha de nacimiento.")
-	case strings.TrimSpace(d.Apellido) == "" || strings.TrimSpace(d.Nombres) == "":
-		return problema.Invalido("No pudimos leer el nombre del DNI.")
 	case nac.AddDate(18, 0, 0).After(s.ahora()):
 		return problema.NoProcesable("menor", "Caigo es sólo para mayores de 18.")
+	}
+	// El número no se guarda: sólo su huella. Sin la clave no hay huella (ni fotos cifradas).
+	huella := s.Vetados.Huella(vetados.DNI, d.Numero)
+	if huella == nil {
+		s.log().Error("verificación: sin la clave de las huellas, no se puede verificar el DNI")
+		return errSinClave
 	}
 	// Un DNI vetado (de alguien suspendido) no se verifica en otra cuenta. Como sistema: la lista no
 	// es de nadie.
 	var veto bool
 	if err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		var err error
-		veto, err = s.Vetados.Vetado(ctx, tx, vetados.DNI, d.Numero)
+		veto, err = vetados.VetadaHuella(ctx, tx, vetados.DNI, huella)
 		return err
 	}); err != nil {
 		return err
@@ -331,10 +337,9 @@ func (s *Servicio) PedirDNI(ctx context.Context, usuarioID string, d DatosDNI) e
 		if pendiente {
 			return problema.Conflicto("pendiente", "Ya estamos revisando tu DNI.")
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO verificaciones_dni (usuario_id, frente_id, dorso_id, selfie_id, numero,
-			apellido, nombres, nacimiento, tramite) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			usuarioID, d.FrenteID, d.DorsoID, d.SelfieID, d.Numero, strings.TrimSpace(d.Apellido),
-			strings.TrimSpace(d.Nombres), nac, strings.TrimSpace(d.Tramite))
+		_, err := tx.Exec(ctx, `INSERT INTO verificaciones_dni (usuario_id, frente_id, dorso_id, selfie_id, huella,
+			nacimiento) VALUES ($1, $2, $3, $4, $5, $6)`,
+			usuarioID, d.FrenteID, d.DorsoID, d.SelfieID, huella, nac)
 		return err
 	})
 }

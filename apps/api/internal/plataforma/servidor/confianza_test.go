@@ -1,6 +1,7 @@
 package servidor_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/servidor"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/vetados"
 )
 
 // Con correo, el código del teléfono va al mail verificado de la cuenta y no vuelve en la respuesta.
@@ -117,17 +119,25 @@ func TestVerificacion(t *testing.T) {
 
 	// Sólo el equipo ve la cola.
 	e.pedir(mar, "GET", "/v1/equipo/dni", nil, http.StatusForbidden, nil)
-	var cola struct {
-		Pendientes []struct {
-			ID, UsuarioID, Numero string
-		}
-	}
+	var cola struct{ Pendientes []map[string]any }
 	e.pedir(equipo, "GET", "/v1/equipo/dni", nil, http.StatusOK, &cola)
 	var id string
 	for _, p := range cola.Pendientes {
-		if p.UsuarioID == mar.id {
-			id = p.ID
+		if p["usuarioId"] == mar.id {
+			id, _ = p["id"].(string)
+			// Del DNI, el equipo ve sólo la fecha de nacimiento (y las fotos mientras está pendiente).
+			for _, k := range []string{"numero", "apellido", "nombres", "tramite", "sexo"} {
+				if _, ok := p[k]; ok {
+					t.Fatalf("la cola muestra %s: %v", k, p)
+				}
+			}
 		}
+	}
+	// Del número queda sólo la huella (la de la lista de vetados).
+	var huella []byte
+	e.valor(`SELECT huella FROM verificaciones_dni WHERE id::text = $1`, &huella, id)
+	if !bytes.Equal(huella, e.vetados.Huella(vetados.DNI, dni["numero"])) {
+		t.Fatal("la huella del DNI no es la de vetados")
 	}
 	if id == "" {
 		t.Fatalf("no está en la cola: %+v", cola)

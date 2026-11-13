@@ -20,9 +20,6 @@ type DNIPendiente struct {
 	UsuarioID    string    `json:"usuarioId"`
 	NombrePerfil string    `json:"nombrePerfil"`
 	EdadPerfil   *int16    `json:"edadPerfil,omitempty"`
-	Numero       string    `json:"numero"`
-	Apellido     string    `json:"apellido"`
-	Nombres      string    `json:"nombres"`
 	Nacimiento   time.Time `json:"nacimiento"`
 	FrenteID     string    `json:"frenteId"`
 	DorsoID      string    `json:"dorsoId"`
@@ -39,11 +36,11 @@ func (s *Servicio) DNIPendientes(ctx context.Context) ([]DNIPendiente, error) {
 	out := []DNIPendiente{}
 	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `
-			SELECT v.id, v.usuario_id, u.nombre, u.edad, v.numero, v.apellido, v.nombres, v.nacimiento,
+			SELECT v.id, v.usuario_id, u.nombre, u.edad, v.nacimiento,
 				v.frente_id, v.dorso_id, v.selfie_id,
 				coalesce((SELECT a.id::text FROM archivos a WHERE a.usuario_id = u.id AND a.tipo = 'selfie'
 					AND a.id <> v.selfie_id ORDER BY a.creado_en LIMIT 1), ''),
-				EXISTS (SELECT 1 FROM verificaciones_dni o WHERE o.numero = v.numero AND o.estado = 'aprobada'),
+				EXISTS (SELECT 1 FROM verificaciones_dni o WHERE o.huella = v.huella AND o.estado = 'aprobada'),
 				v.creada_en
 			FROM verificaciones_dni v JOIN usuarios u ON u.id = v.usuario_id
 			WHERE v.estado = 'pendiente' ORDER BY v.creada_en LIMIT 100`)
@@ -53,8 +50,8 @@ func (s *Servicio) DNIPendientes(ctx context.Context) ([]DNIPendiente, error) {
 		defer rows.Close()
 		for rows.Next() {
 			var d DNIPendiente
-			if err := rows.Scan(&d.ID, &d.UsuarioID, &d.NombrePerfil, &d.EdadPerfil, &d.Numero, &d.Apellido,
-				&d.Nombres, &d.Nacimiento, &d.FrenteID, &d.DorsoID, &d.SelfieID, &d.SelfieIngresoID,
+			if err := rows.Scan(&d.ID, &d.UsuarioID, &d.NombrePerfil, &d.EdadPerfil,
+				&d.Nacimiento, &d.FrenteID, &d.DorsoID, &d.SelfieID, &d.SelfieIngresoID,
 				&d.Repetido, &d.CreadaEn); err != nil {
 				return err
 			}

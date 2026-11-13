@@ -105,7 +105,11 @@ func (c *Clave) Huella(tipo, valor string) []byte {
 // Vetado dice si el valor está en la lista (vigente). tx tiene que ser como sistema (EnSistema).
 // Sin clave, nunca.
 func (c *Clave) Vetado(ctx context.Context, tx pgx.Tx, tipo, valor string) (bool, error) {
-	h := c.Huella(tipo, valor)
+	return VetadaHuella(ctx, tx, tipo, c.Huella(tipo, valor))
+}
+
+// VetadaHuella es Vetado con la huella ya calculada (nil: nunca).
+func VetadaHuella(ctx context.Context, tx pgx.Tx, tipo string, h []byte) (bool, error) {
 	if h == nil {
 		return false, nil
 	}
@@ -116,31 +120,41 @@ func (c *Clave) Vetado(ctx context.Context, tx pgx.Tx, tipo, valor string) (bool
 }
 
 // Anotar agrega las huellas de una persona suspendida: su mail (el de Clerk que se copió al
-// entrar) y los números de DNI que el equipo le aprobó (los rechazados pueden ser de otra persona).
-// Devuelve cuántas quedaron. Si ya estaban, no las repite. tx como sistema.
+// entrar) y las huellas de los DNI que el equipo le aprobó (los rechazados pueden ser de otra
+// persona). La verificación del DNI no guarda el número, sólo su huella (la misma de acá). Devuelve
+// cuántas quedaron. Si ya estaban, no las repite. tx como sistema.
 func (c *Clave) Anotar(ctx context.Context, tx pgx.Tx, usuarioID string) (int, error) {
 	if c == nil {
 		return 0, nil
 	}
-	rows, err := tx.Query(ctx, `
-		SELECT 'email', email FROM usuarios_privado WHERE usuario_id = $1 AND email <> ''
-		UNION SELECT 'dni', numero FROM verificaciones_dni WHERE usuario_id = $1 AND estado = 'aprobada'`, usuarioID)
+	type huella struct {
+		Tipo string
+		H    []byte
+	}
+	var hs []huella
+	var email string
+	err := tx.QueryRow(ctx, `SELECT email FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&email)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return 0, err
+	}
+	if h := c.Huella(Email, email); h != nil {
+		hs = append(hs, huella{Email, h})
+	}
+	rows, err := tx.Query(ctx, `SELECT DISTINCT huella FROM verificaciones_dni WHERE usuario_id = $1 AND estado = 'aprobada'`, usuarioID)
 	if err != nil {
 		return 0, err
 	}
-	type valor struct{ Tipo, Valor string }
-	vs, err := pgx.CollectRows(rows, pgx.RowToStructByPos[valor])
+	dnis, err := pgx.CollectRows(rows, pgx.RowTo[[]byte])
 	if err != nil {
 		return 0, err
+	}
+	for _, h := range dnis {
+		hs = append(hs, huella{DNI, h})
 	}
 	n := 0
-	for _, v := range vs {
-		h := c.Huella(v.Tipo, v.Valor)
-		if h == nil {
-			continue
-		}
+	for _, h := range hs {
 		if _, err := tx.Exec(ctx, `INSERT INTO vetados (huella, tipo, usuario_id) VALUES ($1, $2, $3)
-			ON CONFLICT (huella, usuario_id) DO NOTHING`, h, v.Tipo, usuarioID); err != nil {
+			ON CONFLICT (huella, usuario_id) DO NOTHING`, h.H, h.Tipo, usuarioID); err != nil {
 			return n, err
 		}
 		n++

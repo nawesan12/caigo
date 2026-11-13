@@ -11,8 +11,9 @@ import (
 	esquema "github.com/nawesan12/caigo/apps/api/db"
 )
 
-// Migrar aplica las migraciones pendientes con el rol dueño del esquema.
-func Migrar(ctx context.Context, migradorURL string) error {
+// Migrar aplica las migraciones pendientes con el rol dueño del esquema. claveVerificacion es
+// CAIGO_CLAVE_VERIFICACION: la usan las migraciones en Go (esquema.Go), como las huellas del DNI.
+func Migrar(ctx context.Context, migradorURL, claveVerificacion string) error {
 	conn, err := sql.Open("pgx", migradorURL)
 	if err != nil {
 		return err
@@ -23,7 +24,8 @@ func Migrar(ctx context.Context, migradorURL string) error {
 		return err
 	}
 	// Fuera de orden: varias ramas suman migraciones en paralelo y se mergean en cualquier orden.
-	prov, err := goose.NewProvider(goose.DialectPostgres, conn, archivos, goose.WithAllowOutofOrder(true))
+	prov, err := goose.NewProvider(goose.DialectPostgres, conn, archivos, goose.WithAllowOutofOrder(true),
+		goose.WithGoMigrations(esquema.Go(claveVerificacion)...))
 	if err != nil {
 		return err
 	}

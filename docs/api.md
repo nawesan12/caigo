@@ -215,7 +215,9 @@ empiezaEn, foto}`). `GET /v1/bloqueos` → `{bloqueos: [{id, nombre, foto}]}`; `
 00022). A un plan `mujeres` o `diversidades`, el pedido (`/sumarme`, `/entradas`,
 `/v1/invitaciones/{planId}`) lleva `mujer: true` o `diversidad: true`, que la persona confirma en ese
 momento; sin eso, 422 `confirmar_mujer` | `confirmar_diversidad`. No se guarda en ningún lado. Del DNI
-sólo se valida la edad: el `sexo` que mandan las versiones viejas se descarta. Las fotos de la
+sólo se valida la edad: `POST /v1/verificacion/dni` lleva `numero` y `nacimiento` (y las fotos); se guarda
+la huella del número (`vetados.Huella`, migración 00023 en Go: `db/huellas_dni.go`) y la fecha. `apellido`,
+`nombres`, `tramite` y `sexo`, de las versiones viejas, se aceptan y se descartan. Las fotos de la
 verificación (frente, dorso y selfie) se borran al resolverla (aprobada o rechazada); el equipo las ve
 sólo mientras está pendiente, y el worker purga cada hora lo que quede (`confianza.PurgarFotosDNI`).
 

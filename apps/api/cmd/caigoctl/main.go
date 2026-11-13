@@ -61,7 +61,7 @@ func correr(cmd string) error {
 		if err := cfg.Exigir("BaseMigrador"); err != nil {
 			return err
 		}
-		if err := db.Migrar(ctx, cfg.BaseMigrador); err != nil {
+		if err := db.Migrar(ctx, cfg.BaseMigrador, cfg.ClaveVerificacion); err != nil {
 			return err
 		}
 		fmt.Println("migraciones aplicadas")
