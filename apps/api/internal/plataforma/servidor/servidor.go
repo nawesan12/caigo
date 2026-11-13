@@ -27,6 +27,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/limite"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sesion"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/vetados"
 )
 
 // Dependencias del servidor. App puede ser nil en tests que no tocan la base (y entonces sólo
@@ -61,6 +62,9 @@ type Dependencias struct {
 	// Clave de las selfies y los DNI en el disco (CAIGO_CLAVE_VERIFICACION). nil: no se aceptan ni
 	// se muestran (503 sin_clave_verificacion).
 	ClaveVerificacion *archivos.Clave
+	// Huellas de la lista de vetados (derivada de CAIGO_CLAVE_VERIFICACION). nil: el alta y el DNI
+	// no se cruzan con la lista y suspender no anota huellas.
+	Vetados *vetados.Clave
 }
 
 // Nuevo arma el handler con todas las rutas.
@@ -94,13 +98,13 @@ func Nuevo(d Dependencias) http.Handler {
 		escribirJSON(w, http.StatusOK, map[string]any{"version": d.Version, "minAndroid": d.MinAndroid, "minIos": d.MinIos})
 	})
 	if d.App != nil {
-		ses := &sesion.Resolvedor{Clerk: d.Clerk, App: d.App, Log: d.Log}
+		ses := &sesion.Resolvedor{Clerk: d.Clerk, App: d.App, Log: d.Log, Vetados: d.Vetados}
 		ses.Rutas(mux)
 		pls := &planes.Servicio{App: d.App, Reloj: d.Reloj, Firma: firma.Firmador{Clave: []byte(d.Secreto)}, Sitio: d.Sitio}
 		planes.Rutas(mux, pls, ses.Exigir, d.Log)
-		equipo.Rutas(mux, &equipo.Servicio{App: d.App, Publicador: pls, Reloj: d.Reloj}, ses, d.Log)
+		equipo.Rutas(mux, &equipo.Servicio{App: d.App, Publicador: pls, Reloj: d.Reloj, Vetados: d.Vetados}, ses, d.Log)
 		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos, Clave: d.ClaveVerificacion}, Correo: d.Correo, Casillas: d.Clerk,
-			Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj}, ses, d.Log)
+			Vetados: d.Vetados, Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj}, ses, d.Log)
 		personas.Rutas(mux, &personas.Servicio{App: d.App, Casillas: d.Clerk}, ses.Exigir, d.Log)
 		avisos.Rutas(mux, d.App, ses.Exigir, d.Log)
 		if d.Hub == nil {

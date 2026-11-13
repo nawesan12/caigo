@@ -24,6 +24,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/fcm"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/vetados"
 )
 
 func main() {
@@ -79,8 +80,21 @@ func correr() error {
 	for k, m := range (&wallet.Servicio{App: app, Apple: wa}).Manejadores() {
 		manejadores[k] = m
 	}
+	// Las fotos que se sacan de un perfil, un plan o un lugar se borran del disco acá.
+	disco := archivos.Disco{Raiz: cfg.Archivos}
+	manejadores[archivos.EventoBorrar] = func(ctx context.Context, ev outbox.Evento) error { return disco.ManejadorBorrar(ctx, ev.Datos) }
+	// La clave de las huellas de los vetados (de CAIGO_CLAVE_VERIFICACION): la purga de una cuenta
+	// suspendida las anota si faltan. Sin ella, esas cuentas esperan.
+	var veto *vetados.Clave
+	if cfg.ClaveVerificacion != "" {
+		if veto, err = vetados.NuevaClave(cfg.ClaveVerificacion); err != nil {
+			slog.Error("CAIGO_CLAVE_VERIFICACION inválida: la purga no purga cuentas suspendidas sin huellas", "error", err)
+		}
+	} else {
+		slog.Warn("sin CAIGO_CLAVE_VERIFICACION: la purga no purga cuentas suspendidas sin huellas")
+	}
 	w := &outbox.Worker{Pool: app, Manejadores: manejadores}
-	go limpiar(ctx, app, cfg.Archivos)
+	go limpiar(ctx, app, cfg.Archivos, veto)
 	go programados(ctx, app)
 	return w.Correr(ctx)
 }
@@ -112,9 +126,10 @@ func programados(ctx context.Context, app *db.Pool) {
 
 // limpiar borra cada hora lo que ya no sirve: topes viejos, sesiones vencidas, estados de OAuth
 // usados o vencidos, códigos de teléfono vencidos, eventos del outbox publicados hace más de 30 días y
-// los accesos del equipo a DNI y selfies de más de 2 años.
+// los accesos del equipo a DNI y selfies de más de 2 años; los plazos de lo que queda de las cuentas
+// purgadas y de los intereses (confianza.Plazos), y las fotos sueltas (archivos.BarrerFotos).
 // Y purga los datos personales de las cuentas borradas hace más de 30 días (confianza.Purgar).
-func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string) {
+func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string, veto *vetados.Clave) {
 	t := time.NewTicker(time.Hour)
 	defer t.Stop()
 	consultas := []string{
@@ -128,6 +143,7 @@ func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string) {
 		// Quién del equipo miró un DNI o una selfie: 2 años, como los reportes.
 		`DELETE FROM accesos_verificacion WHERE visto_en < now() - interval '2 years'`,
 	}
+	consultas = append(consultas, confianza.Plazos...)
 	for {
 		// Cada una por separado: si una falla, las demás se hacen igual.
 		for _, q := range consultas {
@@ -139,7 +155,8 @@ func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string) {
 				slog.Warn("limpieza fallida", "consulta", q, "error", err)
 			}
 		}
-		purgar(ctx, app, carpetaArchivos)
+		barrerFotos(ctx, app, carpetaArchivos)
+		purgar(ctx, app, carpetaArchivos, veto)
 		select {
 		case <-ctx.Done():
 			return
@@ -148,15 +165,33 @@ func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string) {
 	}
 }
 
+// barrerFotos borra las fotos que ya no usa nadie (de la base ahora, del disco con archivo.borrar).
+// Sin la carpeta montada no barre: el evento no podría borrar el archivo.
+func barrerFotos(ctx context.Context, app *db.Pool, carpeta string) {
+	if st, err := os.Stat(carpeta); err != nil || !st.IsDir() {
+		return
+	}
+	err := app.EnSistema(ctx, func(tx pgx.Tx) error {
+		n, err := archivos.BarrerFotos(ctx, tx)
+		if n > 0 {
+			slog.Info("fotos sueltas borradas", "cantidad", n)
+		}
+		return err
+	})
+	if err != nil && ctx.Err() == nil {
+		slog.Warn("fotos sueltas", "error", err)
+	}
+}
+
 // purgar corre la purga de las cuentas borradas. Necesita la carpeta de archivos (las fotos, la
 // selfie y el DNI se borran del disco; los cifrados no necesitan la clave para borrarse): si el worker no la tiene montada, no purga nada (mejor tarde
 // que dejar fotos huérfanas en el disco).
-func purgar(ctx context.Context, app *db.Pool, carpeta string) {
+func purgar(ctx context.Context, app *db.Pool, carpeta string, veto *vetados.Clave) {
 	if st, err := os.Stat(carpeta); err != nil || !st.IsDir() {
 		slog.Warn("purga de cuentas: sin la carpeta de archivos, no se purga", "carpeta", carpeta)
 		return
 	}
-	n, err := confianza.Purgar(ctx, app, archivos.Disco{Raiz: carpeta}, time.Now().AddDate(0, 0, -confianza.DiasParaPurgar))
+	n, err := confianza.Purgar(ctx, app, archivos.Disco{Raiz: carpeta}, veto, time.Now().AddDate(0, 0, -confianza.DiasParaPurgar))
 	if err != nil && ctx.Err() == nil {
 		slog.Warn("purga de cuentas", "error", err)
 	}

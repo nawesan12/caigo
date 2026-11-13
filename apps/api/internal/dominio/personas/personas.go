@@ -9,11 +9,13 @@ import (
 	"errors"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
@@ -333,6 +335,13 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 		prompts, _ = json.Marshal(*c.Prompts)
 	}
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		// Las fotos que saca del perfil se borran ahora (dejan de verse por su URL).
+		var antes []string
+		if c.Fotos != nil {
+			if err := tx.QueryRow(ctx, `SELECT fotos FROM usuarios WHERE id = $1 FOR UPDATE`, usuarioID).Scan(&antes); err != nil {
+				return err
+			}
+		}
 		if _, err := tx.Exec(ctx, `
 			UPDATE usuarios SET nombre = coalesce($2, nombre), edad = coalesce($3, edad),
 				zona = coalesce($4, zona), ciudad = coalesce($5, ciudad), bio = coalesce($6, bio),
@@ -344,6 +353,13 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 			c.Intereses, c.Intenciones, prompts, c.Fotos, c.Origen); err != nil {
 			return err
 		}
+		if c.Fotos != nil {
+			if err := archivos.SoltarFotos(ctx, tx, sacadas(antes, *c.Fotos)...); err != nil {
+				return err
+			}
+		}
+		// PENDIENTE (decisión del dueño, AAIP 1.2): género y diversidad (datos sensibles o cerca) siguen
+		// como están hasta que Nahuel decida qué se pide y con qué consentimiento. No tocar.
 		if nacimiento == nil && c.ContactoConfianza == nil && c.Genero == nil && c.Diversidad == nil && cerca == nil && gente == nil {
 			return nil
 		}
@@ -510,4 +526,15 @@ func (s *Servicio) GuardarUbicacion(ctx context.Context, usuarioID string, lat, 
 			usuarioID, redondear(*lat), redondear(*lng))
 		return err
 	})
+}
+
+// sacadas: las fotos de antes que ya no están.
+func sacadas(antes, ahora []string) []string {
+	var out []string
+	for _, a := range antes {
+		if !slices.Contains(ahora, a) {
+			out = append(out, a)
+		}
+	}
+	return out
 }

@@ -69,6 +69,14 @@ import ar.com.caigo.app.tema.interna
 import ar.com.caigo.app.tema.px
 import ar.com.caigo.app.tema.rgba
 import ar.com.caigo.app.tema.vertical
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 
 /** Rutas del alta (las de Navegacion.kt). */
 internal const val ingresoRutaApp = "principal?tab=Ahora&modo="
@@ -311,3 +319,26 @@ internal fun Modifier.ingresoFondoVioleta(): Modifier = this
     .background(radial(.85f, 0f, 1.2f, .7f, 0f to Color(0xFFA38FFF), .45f to C.violeta, 1f to Color(0xFF5A3DD8)))
     .ingresoGrano()
 
+/** Los legales de Caigo en la web (los mismos que enlaza /ingresar). */
+object Legales {
+    const val TERMINOS = "https://caigo.com.ar/terminos"
+    const val PRIVACIDAD = "https://caigo.com.ar/privacidad"
+}
+
+/**
+ * «Al entrar aceptás los términos y la política de privacidad», como la web (/ingresar: 600 12px/1.45,
+ * centrado). Los dos links abren caigo.com.ar en el navegador.
+ */
+@Composable
+internal fun ingresoLegal(modifier: Modifier = Modifier) {
+    val link = TextLinkStyles(SpanStyle(color = C.blanco.copy(alpha = .85f), textDecoration = TextDecoration.Underline))
+    val texto = buildAnnotatedString {
+        append("Al entrar aceptás los ")
+        withLink(LinkAnnotation.Url(Legales.TERMINOS, link)) { append("términos") }
+        append(" y la ")
+        // Sin renglones viudos: «privacidad» no queda sola abajo.
+        withLink(LinkAnnotation.Url(Legales.PRIVACIDAD, link)) { append("política de\u00A0privacidad") }
+        append(".")
+    }
+    BasicText(texto, modifier.fillMaxWidth(), style = estilo(12f, 600, C.blanco.copy(alpha = .65f), 1.45f, alinear = TextAlign.Center))
+}

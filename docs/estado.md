@@ -141,6 +141,30 @@ sin cifrar hasta que roten: si se quiere cerrar eso ya, borrarlas a mano despué
 Las de GitHub sólo llevan bases (no archivos). Para restaurar archivos en otro servidor hace falta la
 misma `CAIGO_CLAVE_VERIFICACION`.
 
+## Privacidad AAIP 3.5: vetados, plazos, fotos y legales en las apps (12/11, sin commitear ni desplegar)
+
+Lo de `~/Trabajo/vimo/legales/aaip/pendientes.md` › 1.3 y 3.5 (menos el género y la diversidad: decisión pendiente
+de Nahuel, marcada con «PENDIENTE (decisión del dueño, AAIP 1.2)» en `personas.go`, `confianza.go`, `baja.go` y la
+política).
+
+- **Vetados** (`internal/plataforma/vetados`, migración `00020_vetados_y_plazos.sql`): al suspender, HMAC del mail y
+  del DNI aprobado; el alta y el DNI los consultan. Sin variable nueva: la clave sale de `CAIGO_CLAVE_VERIFICACION`
+  por HKDF (si se rota, la lista vuelve a cero). El worker ahora también la lee. Detalle en `docs/api.md`.
+- **Plazos** (`internal/dominio/confianza/plazos.go`, en el worker): mensajes, privados, asistencia, «¿Volverías?»,
+  reportes de cuentas purgadas, y `intereses` a los 6 meses. Son los de la política: cambian juntos.
+- **Fotos sacadas** (`internal/plataforma/archivos/fotos.go`): se borran en el momento y del disco con `archivo.borrar`;
+  las sueltas, a partir del día. Ojo: las fotos se sirven con `Cache-Control: public, max-age=31536000, immutable`,
+  así que un navegador (o Cloudflare, si tiene una regla de caché para `/v1/archivos`) puede seguir mostrando su copia.
+- **Arreglo de la purga:** borraba `archivos` antes que `verificaciones_dni` (FK): con un DNI cargado, la purga fallaba
+  entera. Ahora va primero el DNI.
+- **Web:** política reescrita (ingreso con mail, prueba de vida real, el código por mail, cookies, Hostinger en Brasil,
+  Cloudflare, GitHub, OSM/OpenFreeMap, geocodificadores, el texto en los push, Citas, plazos, cifrado y accesos);
+  `/borrar-cuenta` con los plazos; la nota de la selfie web ya no dice «Prueba de vida».
+- **Apps:** «Al entrar aceptás los términos y la política de privacidad» en Ingresar y dos filas en Perfil › Tu
+  cuenta (iOS y Android a la par). Sin pantallas nuevas (paridad.txt igual).
+- **Desplegar:** `infra/vps/desplegar-api.sh --migrar` (pg_dump antes), recrear api y worker, y `desplegar-web.sh`.
+  Las apps, en el próximo build.
+
 ## 31/10/2026 — arranque
 Decisiones de Nahuel y plan por etapas: ver `docs/decisiones.md`.
 

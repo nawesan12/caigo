@@ -40,6 +40,7 @@ struct Ingresar: View {
                                 .buttonStyle(EstiloPlano())
                             #endif
                         }
+                        IngresoLegal().padding(.top, 6)
                     }
                     .padding(.horizontal, 24)
                     .padding(.bottom, 34 + g.safeAreaInsets.bottom)

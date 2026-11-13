@@ -16,6 +16,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/cifrado"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
@@ -263,13 +264,21 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, lugarID string, e Edic
 		if err := miembro(ctx, tx, lugarID, usuarioID, false); err != nil {
 			return err
 		}
+		var fotoAntes string
+		if err := tx.QueryRow(ctx, `SELECT foto FROM lugares WHERE id::text = $1 FOR UPDATE`, lugarID).Scan(&fotoAntes); err != nil {
+			return err
+		}
 		_, err := tx.Exec(ctx, `UPDATE lugares SET nombre = $2, rubro = $3, ciudad = $4, zona = $5, direccion = $6,
 			lat = $7, lng = $8, foto = $9, instagram = $10, telefono = $11,
 			socio_activo = coalesce($12, socio_activo), socio_visitas = coalesce($13, socio_visitas),
 			socio_beneficio = coalesce($14, socio_beneficio) WHERE id::text = $1`,
 			lugarID, e.Nombre, e.Rubro, e.Ciudad, e.Zona, e.Direccion, e.Lat, e.Lng, e.Foto, e.Instagram, e.Telefono,
 			e.SocioActivo, e.SocioVisitas, e.SocioBeneficio)
-		return err
+		if err != nil || fotoAntes == e.Foto {
+			return err
+		}
+		// La foto que se sacó se borra ahora (si la subió otra persona del lugar, la barre el worker).
+		return archivos.SoltarFotos(ctx, tx, fotoAntes)
 	})
 	if err != nil {
 		return Lugar{}, err

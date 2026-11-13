@@ -4,6 +4,7 @@ package equipo
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/vetados"
 )
 
 // Servicio del backoffice.
@@ -20,6 +22,9 @@ type Servicio struct {
 	App        *db.Pool
 	Publicador *planes.Servicio
 	Reloj      func() time.Time
+	// Lista de vetados: al suspender se anotan las huellas del mail y del DNI. nil: no se anotan
+	// (la purga las anota después si el worker tiene la clave).
+	Vetados *vetados.Clave
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -74,7 +79,10 @@ func (s *Servicio) Usuarios(ctx context.Context, q string) ([]Usuario, error) {
 	return out, err
 }
 
-// Suspender o reactivar a una persona. Suspendida, la API le contesta 403 en todo.
+// Suspender o reactivar a una persona. Suspendida, la API le contesta 403 en todo, y su mail y su DNI
+// quedan en la lista de vetados (sólo las huellas) para que no vuelva con otra cuenta. También se
+// puede suspender una cuenta dada de baja que todavía no se purgó: quien se borra para zafar de un
+// reporte queda vetado igual.
 func (s *Servicio) Suspender(ctx context.Context, usuarioID string, suspender bool, motivo string) error {
 	motivo = strings.TrimSpace(motivo)
 	if suspender && motivo == "" {
@@ -84,18 +92,25 @@ func (s *Servicio) Suspender(ctx context.Context, usuarioID string, suspender bo
 		return problema.Invalido("El motivo puede tener hasta 300 letras.")
 	}
 	return s.App.EnSistema(ctx, func(tx pgx.Tx) error {
-		q := `UPDATE usuarios SET suspendido_en = now(), suspension_motivo = $2 WHERE id::text = $1 AND baja_en IS NULL AND NOT equipo`
+		q := `UPDATE usuarios SET suspendido_en = now(), suspension_motivo = $2 WHERE id::text = $1 AND purgada_en IS NULL AND NOT equipo
+			RETURNING id::text`
 		if !suspender {
-			q = `UPDATE usuarios SET suspendido_en = NULL, suspension_motivo = left($2, 0) WHERE id::text = $1 AND baja_en IS NULL`
+			q = `UPDATE usuarios SET suspendido_en = NULL, suspension_motivo = left($2, 0) WHERE id::text = $1 AND purgada_en IS NULL
+				RETURNING id::text`
 		}
-		tag, err := tx.Exec(ctx, q, usuarioID, motivo)
+		var id string
+		err := tx.QueryRow(ctx, q, usuarioID, motivo).Scan(&id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return problema.NoEncontrado("Esa persona no existe (o es del equipo).")
+		}
 		if err != nil {
 			return err
 		}
-		if tag.RowsAffected() == 0 {
-			return problema.NoEncontrado("Esa persona no existe (o es del equipo).")
+		if !suspender {
+			return vetados.Quitar(ctx, tx, id)
 		}
-		return nil
+		_, err = s.Vetados.Anotar(ctx, tx, id)
+		return err
 	})
 }
 

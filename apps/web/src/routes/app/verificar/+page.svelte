@@ -280,8 +280,8 @@
 			</div>
 			<div class="pie">
 				<span class="nota"
-					><Icono nombre="escudo" tam={16} color="var(--c-acento)" trazo={2} />Prueba de vida · tus
-					datos viajan encriptados</span
+					><Icono nombre="escudo" tam={16} color="var(--c-acento)" trazo={2} />Tu selfie viaja
+					encriptada y no es pública</span
 				>
 				{#if camara === 'sin'}
 					<label class="gel gel-lima cta">

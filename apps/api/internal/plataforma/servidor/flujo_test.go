@@ -23,6 +23,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/servidor"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/vetados"
 )
 
 // entorno levanta la API contra el Postgres de desarrollo (infra/compose.dev.yml). Sin base, se saltea.
@@ -36,6 +37,9 @@ type entorno struct {
 	// Carpeta de los archivos subidos (la purga de cuentas los borra) y la clave de las selfies y DNI.
 	archivos string
 	clave    *archivos.Clave
+	// Huellas de la lista de vetados, derivadas de la misma clave (nueva en cada entorno: lo que una
+	// corrida vetó no veta a la siguiente en la base compartida).
+	vetados *vetados.Clave
 }
 
 func nuevoEntorno(t *testing.T) *entorno { return nuevoEntornoCon(t, nil) }
@@ -80,12 +84,16 @@ func nuevoEntornoAjustado(t *testing.T, ajustar func(*servidor.Dependencias)) *e
 	if err != nil {
 		t.Fatal(err)
 	}
+	veto, err := vetados.NuevaClave(base64.StdEncoding.EncodeToString(k))
+	if err != nil {
+		t.Fatal(err)
+	}
 	d := servidor.Dependencias{App: app, Clerk: c, Secreto: "secreto-de-prueba",
 		Sitio: "https://caigo.test", APIPublica: "https://api.caigo.test", Panel: "https://lugares.caigo.test", Archivos: t.TempDir(),
-		ClaveVerificacion: clave}
+		ClaveVerificacion: clave, Vetados: veto}
 	ajustar(&d)
 	h := servidor.Nuevo(d)
-	return &entorno{t: t, h: h, clerk: f, app: app, migrador: mig, archivos: d.Archivos, clave: d.ClaveVerificacion}
+	return &entorno{t: t, h: h, clerk: f, app: app, migrador: mig, archivos: d.Archivos, clave: d.ClaveVerificacion, vetados: d.Vetados}
 }
 
 // persona da de alta a alguien en el Clerk falso y devuelve su token y su id de Caigo.

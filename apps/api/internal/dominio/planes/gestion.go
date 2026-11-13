@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
@@ -48,6 +49,7 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, planID string, cuerpo 
 		if err != nil {
 			return err
 		}
+		fotoAntes := e.Foto
 		switch {
 		case deLugar:
 			return problema.Conflicto("de_un_lugar", "Este plan es de un lugar: se edita desde el panel.")
@@ -103,6 +105,12 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, planID string, cuerpo 
 			e.LugarNombre, lat, lng, e.Somos+e.Faltan, e.Ingreso, e.Visibilidad, verdad(e.SoloVerificados, true), ocultar,
 			e.EdadMin, e.EdadMax, e.Genero, strings.TrimSpace(e.Nivel), e.CostoCentavos, strings.TrimSpace(e.Foto)); err != nil {
 			return err
+		}
+		// La foto que se sacó del plan se borra ahora (si no la usa otro plan, como uno repetido).
+		if fotoAntes != strings.TrimSpace(e.Foto) {
+			if err := archivos.SoltarFotos(ctx, tx, fotoAntes); err != nil {
+				return err
+			}
 		}
 		if _, err := tx.Exec(ctx, `UPDATE planes_direccion SET direccion = $2, lat = $3, lng = $4 WHERE plan_id = $1`,
 			planID, e.Direccion, e.Lat, e.Lng); err != nil {

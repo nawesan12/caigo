@@ -304,6 +304,14 @@ struct MiPerfil: View {
                 MiosFila(icono: I.campana, titulo: "Avisos") { opciones = false; ir.ajustesAvisos() }
                 MiosFila(icono: I.escudo, titulo: "Verificación y seguridad", ultima: true) { opciones = false; ir.verificacion() }
             }
+            // Los legales, en la web (como el «Al entrar aceptás…» del ingreso).
+            MiosGrupo {
+                MiosFila(icono: I.candado, titulo: "Términos y condiciones") { opciones = false; Sistema.abrir(Legales.terminos) }
+                MiosFila(icono: I.escudoCheck, titulo: "Política de privacidad", ultima: true) {
+                    opciones = false
+                    Sistema.abrir(Legales.privacidad)
+                }
+            }
             MiosGrupo {
                 MiosFila(icono: I.flecha, titulo: "Salir", colorIcono: C.coral2, ultima: true) {
                     opciones = false

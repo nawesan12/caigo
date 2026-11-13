@@ -165,6 +165,7 @@ fun Ingresar(ir: Ir) {
                             Box(Modifier.tocable { ir.debug() }.padding(4.dp)) { T("Entrar con token", 15f, 700, C.blanco) }
                         }
                     }
+                    ingresoLegal(Modifier.padding(top = 6.dp))
                 }
             }
         }

@@ -75,7 +75,9 @@ la landing. Los límites de caracteres están al lado de cada campo.
 | Compras | Sí | Plus y entradas | Mercado Pago / Google Play procesan el pago |
 | Identificadores del dispositivo | Sí | Avisos (FCM) | No |
 Cifrado en tránsito: sí. Borrar la cuenta: sí, desde Perfil en la app y en la web.
-**Link para borrar la cuenta** (lo pide Play): https://caigo.com.ar/app/borrar (pide ingresar y borra todo: `DELETE /v1/yo`).
+**Link para borrar la cuenta** (lo pide Play; es el que está cargado en Play Console): https://caigo.com.ar/borrar-cuenta
+(página pública: explica qué se borra y en cuánto tiempo, y lleva a ingresar para confirmar con `DELETE /v1/yo`; es el
+mismo link que da la política de privacidad). `/app/borrar` redirige ahí (links viejos).
 
 ## App Store
 

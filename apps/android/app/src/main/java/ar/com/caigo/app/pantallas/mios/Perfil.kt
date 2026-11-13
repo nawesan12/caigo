@@ -77,7 +77,9 @@ import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import ar.com.caigo.app.app.altoTabBar
+import ar.com.caigo.app.pantallas.ingreso.Legales
 import ar.com.caigo.app.piezas.Avatar
+import ar.com.caigo.app.piezas.Sistema
 import ar.com.caigo.app.piezas.BotonIcono
 import ar.com.caigo.app.piezas.Chip
 import ar.com.caigo.app.piezas.Cta
@@ -151,6 +153,7 @@ fun Perfil(ir: Ir) {
     val p = LocalPaleta.current
     val alcance = rememberCoroutineScope()
     val avisos = LocalAvisos.current
+    val ctx = LocalContext.current
     val yo by c.yo.collectAsState()
     var opciones by remember { mutableStateOf(false) }
     var borrando by remember { mutableStateOf(false) }
@@ -353,6 +356,14 @@ fun Perfil(ir: Ir) {
                 // PARA LA NAVEGACIÓN: Ir.ajustesAvisos() → ruta "avisos" → AjustesDeAvisos(ir) (Ajustes.kt).
                 MiosFila(I.campana, "Avisos") { opciones = false; ir.ajustesAvisos() }
                 MiosFila(I.escudo, "Verificación y seguridad", ultima = true) { opciones = false; ir.verificacion() }
+            }
+            // Los legales, en la web (como el «Al entrar aceptás…» del ingreso).
+            MiosGrupo {
+                MiosFila(I.candado, "Términos y condiciones") { opciones = false; Sistema.abrir(ctx, Legales.TERMINOS) }
+                MiosFila(I.escudoCheck, "Política de privacidad", ultima = true) {
+                    opciones = false
+                    Sistema.abrir(ctx, Legales.PRIVACIDAD)
+                }
             }
             MiosGrupo {
                 MiosFila(I.flecha, "Salir", colorIcono = C.coral2, ultima = true) {

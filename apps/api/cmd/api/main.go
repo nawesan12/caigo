@@ -25,6 +25,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/google"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/servidor"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/tiendas"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/vetados"
 )
 
 // version la pone el build: -ldflags "-X main.version=<commit>".
@@ -99,6 +100,11 @@ func correr() error {
 		}
 	}
 	deps.ClaveVerificacion = claveVerificacion(cfg.ClaveVerificacion)
+	// La misma clave, derivada para otra cosa: las huellas de la lista de vetados (sin ella, el alta y
+	// el DNI no se cruzan con la lista y suspender no anota huellas; lo deja dicho claveVerificacion).
+	if cfg.ClaveVerificacion != "" {
+		deps.Vetados, _ = vetados.NuevaClave(cfg.ClaveVerificacion)
+	}
 	if cfg.ClerkSecreto != "" {
 		c, err := clerk.Nuevo(cfg.ClerkSecreto, cfg.ClerkPublicable, cfg.ClerkOrigenes)
 		if err != nil {

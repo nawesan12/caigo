@@ -179,6 +179,24 @@ Los pagos y el historial de planes quedan atados al id sin datos. En los 30 día
 `caigoctl recuperar-cuenta <mail|user_…>`. La cuenta de Clerk no se toca (es de todo Grupo Vimo). Plus
 hay que cancelarlo en la tienda. Página pública de los pasos (la URL de Play): `https://caigo.com.ar/borrar-cuenta`.
 
+**Después de la purga** (`confianza.Plazos`, el worker cada hora): los mensajes del chat de un plan (firmados
+«Cuenta borrada») se borran al año de que terminó el plan (o de la purga, lo último); los privados, la asistencia
+(`solicitudes`) y «¿Volverías?», al año de la purga; los reportes que hizo o le hicieron, a los 2 años. El texto de
+sus solicitudes se vacía en la purga. Los `intereses` de todos duran 6 meses (un match, mientras se escriban y 6
+meses después del último privado).
+
+**Vetados (12/11):** suspender a alguien (`POST /v1/equipo/usuarios/{id}/suspender` o resolver un reporte con
+`suspender`) anota en `vetados` un HMAC-SHA256 de su mail y de los DNI que se le aprobaron (clave derivada con HKDF
+de `CAIGO_CLAVE_VERIFICACION`, propósito `caigo:vetados:v1`; nada en claro). Mientras exista la cuenta quedan atados a
+ella (reactivar los borra); la purga los suelta y vencen a los 2 años. Un alta con un mail vetado (normalizado:
+minúsculas, sin `+algo`, y sin puntos en Gmail) responde **403** como una suspendida; un `POST /v1/verificacion/dni`
+con un número vetado, **422** `code: "dni_vetado"`. Se puede suspender una cuenta dada de baja que todavía no se purgó.
+Sin la clave, la purga no purga una suspendida que no tenga huellas (espera).
+
+**Fotos que se sacan:** al sacar una foto del perfil (`PATCH /v1/yo` `fotos`), de un plan o de un lugar, si no la usa
+otro perfil, plan o lugar, se borra de `archivos` en el momento (`GET /v1/archivos/{id}` da 404) y el worker la borra
+del disco (evento `archivo.borrar`). Las fotos sueltas con más de un día (subidas que nunca se usaron) las barre el worker.
+
 **Compras de Google:** el aviso de Google (`POST /v1/webhooks/google`, RTDN) además confirma
 (acknowledge) la compra si Google todavía lo espera, está vigente y trae el id de la persona: no depende
 de que la app llegue a mandar `POST /v1/plus/google`.

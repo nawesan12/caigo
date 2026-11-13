@@ -243,7 +243,7 @@ func TestCifrarVerificacionesIdempotente(t *testing.T) {
 	// La purga (sin la clave: el worker no la necesita) borra los cifrados del disco.
 	e.pedir(lu, "DELETE", "/v1/cuenta", nil, http.StatusNoContent, nil)
 	e.sistema(`UPDATE usuarios SET baja_en = now() - interval '31 days' WHERE id = $1`, lu.id)
-	if _, err := confianza.Purgar(ctx, e.app, archivos.Disco{Raiz: e.archivos}, time.Now().AddDate(0, 0, -confianza.DiasParaPurgar)); err != nil {
+	if _, err := confianza.Purgar(ctx, e.app, archivos.Disco{Raiz: e.archivos}, e.vetados, time.Now().AddDate(0, 0, -confianza.DiasParaPurgar)); err != nil {
 		t.Fatal(err)
 	}
 	for _, ruta := range ids {

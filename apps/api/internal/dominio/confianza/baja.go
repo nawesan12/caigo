@@ -15,6 +15,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/vetados"
 )
 
 // MotivoBaja es lo que leen los que iban a los planes de quien se dio de baja.
@@ -123,24 +124,48 @@ func (s *Servicio) Baja(ctx context.Context, usuarioID, clerkID, confirmar strin
 // DiasParaPurgar días), de a tandas, y devuelve cuántas purgó. La fila de usuarios queda anónima para
 // que el historial de planes, pagos y chats no se rompa: sin nombre, edad, bio, fotos, selfie, DNI,
 // teléfono, mail ni intereses, y con el clerk_id liberado (si vuelve a entrar, arranca de cero). Sus
-// mensajes quedan en los chats de los demás pero firmados por «Cuenta borrada». Los archivos se
-// borran del disco después de confirmar: si falla, quedan huérfanos, no al revés.
-func Purgar(ctx context.Context, app *db.Pool, disco archivos.Disco, antes time.Time) (int, error) {
+// mensajes quedan en los chats de los demás pero firmados por «Cuenta borrada» (los plazos de lo que
+// queda están en Plazos). Los archivos se borran del disco después de confirmar: si falla, quedan
+// huérfanos, no al revés.
+//
+// Si estaba suspendida, antes de borrar el DNI y el mail se asegura de que sus huellas estén en la
+// lista de vetados (las anota con veto si faltan) y las suelta para que venzan a los 2 años. Sin la
+// clave (veto nil), una suspendida sin huellas no se purga: espera a que el worker tenga la clave
+// (si no, volvería sin que nadie lo note).
+func Purgar(ctx context.Context, app *db.Pool, disco archivos.Disco, veto *vetados.Clave, antes time.Time) (int, error) {
 	total := 0
 	for {
 		var rutas []string
 		n := 0
 		err := app.EnSistema(ctx, func(tx pgx.Tx) error {
-			rows, err := tx.Query(ctx, `SELECT id::text FROM usuarios WHERE baja_en < $1 AND purgada_en IS NULL
-				ORDER BY baja_en LIMIT 50 FOR UPDATE SKIP LOCKED`, antes)
+			rows, err := tx.Query(ctx, `SELECT id::text, suspendido_en IS NOT NULL FROM usuarios u WHERE baja_en < $1 AND purgada_en IS NULL
+				AND ($2 OR suspendido_en IS NULL OR EXISTS (SELECT 1 FROM vetados v WHERE v.usuario_id = u.id))
+				ORDER BY baja_en LIMIT 50 FOR UPDATE SKIP LOCKED`, antes, veto != nil)
 			if err != nil {
 				return err
 			}
-			ids, err := pgx.CollectRows(rows, pgx.RowTo[string])
+			type cuenta struct {
+				ID         string
+				Suspendida bool
+			}
+			cuentas, err := pgx.CollectRows(rows, pgx.RowToStructByPos[cuenta])
 			if err != nil {
 				return err
 			}
-			for _, id := range ids {
+			for _, cu := range cuentas {
+				id := cu.ID
+				if cu.Suspendida {
+					if _, err := veto.Anotar(ctx, tx, id); err != nil {
+						return err
+					}
+				}
+				if err := vetados.Soltar(ctx, tx, id, time.Now()); err != nil {
+					return err
+				}
+				// Primero el DNI: sus fotos son archivos (con FK), y se borran abajo.
+				if _, err := tx.Exec(ctx, `DELETE FROM verificaciones_dni WHERE usuario_id = $1`, id); err != nil {
+					return err
+				}
 				rows, err := tx.Query(ctx, `DELETE FROM archivos WHERE usuario_id = $1 RETURNING ruta`, id)
 				if err != nil {
 					return err
@@ -155,7 +180,6 @@ func Purgar(ctx context.Context, app *db.Pool, disco archivos.Disco, antes time.
 					`DELETE FROM intereses WHERE usuario_id = $1 OR otro_id = $1`,
 					`DELETE FROM invitaciones WHERE de_id = $1 OR a_id = $1`,
 					`DELETE FROM bloqueos WHERE usuario_id = $1`,
-					`DELETE FROM verificaciones_dni WHERE usuario_id = $1`,
 					`DELETE FROM telefono_codigos WHERE usuario_id = $1`,
 					`DELETE FROM ubicaciones WHERE usuario_id = $1`,
 					`DELETE FROM avisos_enviados WHERE usuario_id = $1`,
@@ -163,6 +187,10 @@ func Purgar(ctx context.Context, app *db.Pool, disco archivos.Disco, antes time.
 					// Lo que la baja ya borró, por si quedó algo (un pedido en el mismo instante).
 					`DELETE FROM dispositivos WHERE usuario_id = $1`,
 					`DELETE FROM sesiones WHERE usuario_id = $1`,
+					// El texto que mandó al pedir sumarse; la asistencia queda (sin nombre) hasta Plazos.
+					`UPDATE solicitudes SET mensaje = '' WHERE usuario_id = $1 AND mensaje <> ''`,
+					// PENDIENTE (decisión del dueño, AAIP 1.2): género y diversidad se vacían con la cuenta,
+					// pero qué se pide y cómo se consiente está sin decidir. No tocar sin Nahuel.
 					`UPDATE usuarios_privado SET telefono = NULL, telefono_verificado_en = NULL, nacimiento = NULL,
 						contacto_confianza = '', genero = '', diversidad = false, email = '' WHERE usuario_id = $1`,
 					`UPDATE usuarios SET clerk_id = 'user_baja' || replace(id::text, '-', ''), nombre = 'Cuenta borrada', edad = NULL,
@@ -174,7 +202,7 @@ func Purgar(ctx context.Context, app *db.Pool, disco archivos.Disco, antes time.
 					}
 				}
 			}
-			n = len(ids)
+			n = len(cuentas)
 			return nil
 		})
 		if err != nil {

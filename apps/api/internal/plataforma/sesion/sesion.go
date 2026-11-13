@@ -22,6 +22,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/vetados"
 )
 
 // Verificador es lo que se usa de Clerk (en los tests, el servidor falso).
@@ -54,6 +55,9 @@ type Resolvedor struct {
 	Clerk Verificador
 	App   *db.Pool
 	Log   *slog.Logger
+	// Lista de vetados (huellas de los suspendidos): un alta con un mail vetado no entra. nil: no se
+	// consulta.
+	Vetados *vetados.Clave
 }
 
 // ErrSuspendida: la cuenta está suspendida por moderación.
@@ -135,6 +139,20 @@ func (s *Resolvedor) copiarEmail(ctx context.Context, p Persona) {
 	}
 }
 
+// vetado dice si el mail está en la lista de vetados.
+func (s *Resolvedor) vetado(ctx context.Context, email string) (bool, error) {
+	if s.Vetados == nil || email == "" {
+		return false, nil
+	}
+	var veto bool
+	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		var err error
+		veto, err = s.Vetados.Vetado(ctx, tx, vetados.Email, email)
+		return err
+	})
+	return veto, err
+}
+
 // Cerrar borra la sesión del token.
 func (s *Resolvedor) Cerrar(ctx context.Context, token string) error {
 	return s.App.EnSistema(ctx, func(tx pgx.Tx) error {
@@ -199,6 +217,14 @@ func (s *Resolvedor) Resolver(ctx context.Context, token string) (Persona, error
 		}
 		u, err := s.Clerk.Usuario(ctx, sujeto)
 		if err != nil {
+			return err
+		}
+		// Alguien suspendido que vuelve con una cuenta nueva (o con la misma, después de la purga):
+		// entra como suspendido. La consulta va aparte, como sistema (sólo él lee la lista).
+		if veto, err := s.vetado(ctx, u.Email); err != nil || veto {
+			if err == nil {
+				err = ErrSuspendida
+			}
 			return err
 		}
 		nombre := strings.TrimSpace(u.Nombre)

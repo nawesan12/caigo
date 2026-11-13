@@ -228,3 +228,41 @@ struct IngresoMancha: View {
             .allowsHitTesting(false)
     }
 }
+
+/// Los legales de Caigo en la web (los mismos que enlaza /ingresar).
+enum Legales {
+    static let terminos = "https://caigo.com.ar/terminos"
+    static let privacidad = "https://caigo.com.ar/privacidad"
+}
+
+/// «Al entrar aceptás los términos y la política de privacidad», como la web (/ingresar: 600 12px/1.45,
+/// centrado). Los dos links abren caigo.com.ar en el navegador.
+struct IngresoLegal: View {
+    var body: some View {
+        Text(texto)
+            .font(Geist.fuente(12, 600))
+            .lineSpacing(max(0, 12 * 1.45 - 12 * 1.2))
+            .foregroundStyle(C.blanco.opacity(0.65))
+            .tint(C.blanco.opacity(0.85))
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var texto: AttributedString {
+        var a = AttributedString("Al entrar aceptás los ")
+        a += link("términos", Legales.terminos)
+        a += AttributedString(" y la ")
+        // Sin renglones viudos: «privacidad» no queda sola abajo.
+        a += link("política de\u{00A0}privacidad", Legales.privacidad)
+        a += AttributedString(".")
+        return a
+    }
+
+    private func link(_ t: String, _ url: String) -> AttributedString {
+        var l = AttributedString(t)
+        l.link = URL(string: url)
+        l.underlineStyle = .single
+        return l
+    }
+}

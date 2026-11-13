@@ -10,6 +10,7 @@ import (
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
@@ -39,6 +40,7 @@ func (s *Servicio) EditarPlan(ctx context.Context, usuarioID, lugarID, planID st
 		if err != nil {
 			return err
 		}
+		fotoAntes := p.Foto
 		if precio != nil {
 			p.PrecioCentavos = *precio
 		}
@@ -94,6 +96,12 @@ func (s *Servicio) EditarPlan(ctx context.Context, usuarioID, lugarID, planID st
 			p.DuracionMin, p.Cupo, p.AceptaGrupos, p.Cobro, nulo(p.PrecioCentavos), nulo(p.SenaPct), p.Incluye, p.Cancelacion,
 			p.Beneficio, p.Quien == "verificados", genero); err != nil {
 			return err
+		}
+		// La foto que se sacó del plan se borra ahora (si no la usa otro plan, como uno repetido).
+		if fotoAntes != p.Foto {
+			if err := archivos.SoltarFotos(ctx, tx, fotoAntes); err != nil {
+				return err
+			}
 		}
 		if p.EmpiezaEn.Equal(orig.EmpiezaEn) && p.DuracionMin == orig.DuracionMin {
 			return nil

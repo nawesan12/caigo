@@ -319,7 +319,7 @@ func TestBajaDeCuenta(t *testing.T) {
 	}
 	// Antes de los 30 días, la purga no la toca: sus datos siguen (por si la recupera).
 	ctx := context.Background()
-	if _, err := confianza.Purgar(ctx, e.app, archivos.Disco{Raiz: e.archivos}, time.Now().AddDate(0, 0, -confianza.DiasParaPurgar)); err != nil {
+	if _, err := confianza.Purgar(ctx, e.app, archivos.Disco{Raiz: e.archivos}, e.vetados, time.Now().AddDate(0, 0, -confianza.DiasParaPurgar)); err != nil {
 		t.Fatal(err)
 	}
 	var nombre string
@@ -328,7 +328,7 @@ func TestBajaDeCuenta(t *testing.T) {
 		t.Fatalf("purgada antes de tiempo: %q", nombre)
 	}
 	// A los 30 días: sin nombre, fotos, selfie ni teléfono; su mensaje queda firmado por «Cuenta borrada».
-	if _, err := confianza.Purgar(ctx, e.app, archivos.Disco{Raiz: e.archivos}, time.Now().Add(time.Minute)); err != nil {
+	if _, err := confianza.Purgar(ctx, e.app, archivos.Disco{Raiz: e.archivos}, e.vetados, time.Now().Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	var selfie, purgada bool

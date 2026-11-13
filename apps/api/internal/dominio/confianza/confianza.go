@@ -25,6 +25,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/vetados"
 )
 
 // Casillas lee a la persona en Clerk (de ahí sale su mail verificado).
@@ -41,6 +42,9 @@ type Servicio struct {
 	Correo   correo.Correo
 	Casillas Casillas
 	Log      *slog.Logger
+	// Lista de vetados: el DNI de alguien suspendido no se puede volver a verificar, y suspender
+	// desde un reporte anota las huellas. nil: no se consulta ni se anota.
+	Vetados *vetados.Clave
 	// URL pública de la API, para armar la URL de las fotos.
 	APIPublica string
 	Reloj      func() time.Time
@@ -295,6 +299,21 @@ func (s *Servicio) PedirDNI(ctx context.Context, usuarioID string, d DatosDNI) e
 	case nac.AddDate(18, 0, 0).After(s.ahora()):
 		return problema.NoProcesable("menor", "Caigo es sólo para mayores de 18.")
 	}
+	// Un DNI vetado (de alguien suspendido) no se verifica en otra cuenta. Como sistema: la lista no
+	// es de nadie.
+	var veto bool
+	if err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		var err error
+		veto, err = s.Vetados.Vetado(ctx, tx, vetados.DNI, d.Numero)
+		return err
+	}); err != nil {
+		return err
+	}
+	if veto {
+		return problema.NoProcesable("dni_vetado", "No podemos verificar este DNI. Si creés que es un error, escribinos a soporte@caigo.com.ar.")
+	}
+	// PENDIENTE (decisión del dueño, AAIP 1.2): el sexo del DNI (con la X) y el género y la diversidad
+	// del perfil son datos sensibles o cerca. No se tocan hasta que Nahuel decida qué se guarda.
 	if d.Sexo != "M" && d.Sexo != "F" && d.Sexo != "X" {
 		d.Sexo = ""
 	}

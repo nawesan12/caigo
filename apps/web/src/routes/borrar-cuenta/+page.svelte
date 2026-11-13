@@ -89,14 +89,17 @@
 
 		<h2>Qué se guarda</h2>
 		<p>
-			Los registros de pagos y de los planes a los que fuiste, sin tus datos personales, porque la
-			ley nos pide conservar las operaciones. Los reportes de moderación cerrados se guardan hasta 2
-			años, como dice la <a href="/privacidad">política de privacidad</a>.
+			Los registros de pagos, sin tus datos personales, porque la ley nos pide conservar las
+			operaciones (10 años). Sin tu nombre ni tus fotos, tus mensajes en el chat de un plan quedan hasta
+			un año después de que el plan terminó; tus privados, tu asistencia a los planes y lo que
+			contestaste en «¿Volverías?», un año; los reportes, 2 años. Si la cuenta estaba suspendida,
+			guardamos sólo una huella cifrada de tu mail y de tu DNI por 2 años, para que no vuelva con otra
+			cuenta. Todo está en la <a href="/privacidad">política de&nbsp;privacidad</a>.
 		</p>
 		<p>
 			Durante los 30 días tus datos quedan guardados sin que nadie los vea, por si fue un error:
 			escribinos a <a href="mailto:hola@caigo.com.ar">hola@caigo.com.ar</a> y recuperamos tu cuenta. Pasado
-			ese plazo, si volvés a entrar, empezás una cuenta&nbsp;nueva.
+			ese plazo, si volvés a entrar, empezás una cuenta&nbsp;nueva (salvo que estuviera&nbsp;suspendida).
 		</p>
 
 		<h2>Caigo Plus</h2>

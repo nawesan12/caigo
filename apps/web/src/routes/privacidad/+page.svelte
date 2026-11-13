@@ -2,6 +2,13 @@
 	import Legal from '#lib/ui/Legal.svelte';
 </script>
 
+<!--
+	Los plazos de la sección 6 son los del worker (apps/api/internal/dominio/confianza/plazos.go y
+	cmd/worker): si cambia uno, cambia el otro.
+	PENDIENTE (decisión del dueño, AAIP 1.2): el género, la diversidad y el sexo X del DNI no están
+	explicados acá ni tienen un consentimiento expreso. No tocar hasta que Nahuel decida.
+-->
+
 <Legal
 	titulo="Política de&nbsp;privacidad"
 	ruta="/privacidad"
@@ -24,17 +31,30 @@
 	<h2>2. Qué datos usamos</h2>
 	<ul>
 		<li>
-			<b>Tu cuenta.</b> Entrás con Google o Apple. Recibimos tu nombre, tu mail y, si la tiene, tu foto.
+			<b>Tu cuenta.</b> Entrás con Google, con Apple o con tu mail y una contraseña. Recibimos tu nombre,
+			tu mail y, si la tiene, tu foto. La contraseña la guarda Clerk, nuestro proveedor de ingreso: Caigo
+			no la ve.
 		</li>
 		<li>
 			<b>Tu perfil.</b> Nombre, edad, ciudad y zona, fotos, bio, trabajo, intereses, lo que buscás (planes,
 			gente, citas) y tus respuestas a las preguntas del perfil.
 		</li>
 		<li>
-			<b>Verificación.</b> Tu teléfono y una selfie. La prueba de vida (que seas una persona y no una
-			foto) se hace en tu teléfono; a nuestros servidores sólo llega la selfie. Si elegís verificar tu
-			DNI, guardamos las fotos del frente y el dorso y los datos que lee la app del código del DNI: número,
-			apellido, nombres, sexo, fecha de nacimiento y número de trámite.
+			<b>Verificación.</b> Tu número de celular y una selfie. El número lo confirmás con un código que te
+			mandamos al mail de tu cuenta, no por SMS: eso confirma que lo cargaste vos, no que la línea esté a
+			tu nombre. En la app para iPhone y Android, la prueba de vida (que seas una persona y no una foto)
+			la hace tu teléfono: detecta tu cara mientras girás la cabeza a un lado y al otro, y saca la selfie
+			solo. Ese análisis no sale del teléfono; a nuestros servidores llega sólo la foto. En la web no hay
+			prueba de vida automática: sacás la selfie con la cámara o subís una foto, y el equipo de Caigo la
+			puede revisar. Si elegís verificar tu DNI, guardamos las fotos del frente y el dorso y los datos que
+			lee la app del código del DNI: número, apellido, nombres, sexo, fecha de nacimiento y número de
+			trámite.
+		</li>
+		<li>
+			<b>Modo Citas.</b> Si elegís «Algo más romántico — Citas» en lo que buscás, se ve en tu perfil y
+			te mostramos personas para conocer. Guardamos a quién le diste «me interesa», «me encanta» o
+			«paso» (y lo mismo en el modo Gente con «me prendo»), para no mostrarte dos veces a la misma persona
+			y abrir el chat cuando el interés es mutuo. No guardamos qué género buscás.
 		</li>
 		<li>
 			<b>Planes y actividad.</b> Los planes que publicás, a los que te sumás y tu asistencia (check-in),
@@ -44,7 +64,8 @@
 		<li>
 			<b>Ubicación.</b> Si nos das permiso, tu ubicación aproximada para mostrarte planes cerca, y tu
 			ubicación en el momento del check-in para confirmar que llegaste. No seguimos tu ubicación en segundo
-			plano.
+			plano. Para mostrar el nombre de una calle o de una zona, la app le pregunta al servicio de mapas
+			de tu teléfono (Apple en el iPhone, Google en Android).
 		</li>
 		<li>
 			<b>Pagos.</b> Qué compraste (entradas, señas, Caigo Plus), cuándo y por cuánto. Los datos de tu
@@ -100,14 +121,33 @@
 		obligación de cuidarlos:
 	</p>
 	<ul>
-		<li>Clerk (ingreso con Google o Apple), en Estados Unidos.</li>
+		<li>
+			Hostinger, el servidor donde están la base de datos y los archivos (un servidor privado
+			virtual en Brasil).
+		</li>
+		<li>
+			Cloudflare (red y protección del sitio): todo lo que va y viene entre tu teléfono o tu navegador y
+			nuestro servidor pasa por su red, en Estados Unidos y otros países.
+		</li>
+		<li>Clerk (ingreso con Google, Apple o mail y contraseña), en Estados Unidos.</li>
 		<li>Mercado Pago (cobros de entradas, señas y Caigo Plus en la web).</li>
 		<li>
 			Apple y Google (compras en la app, avisos y pases de Wallet), en Estados Unidos y otros
-			países.
+			países. Los avisos push viajan por sus servidores y llevan el texto que ves en la pantalla: si te
+			escriben, el aviso lleva quién te escribió y el mensaje.
 		</li>
-		<li>Cloudflare (red y protección del sitio), en Estados Unidos y otros países.</li>
-		<li>El proveedor del servidor donde guardamos la base de datos y los archivos.</li>
+		<li>
+			Apple y Google también convierten coordenadas en nombres de calles o zonas (y al revés) cuando
+			creás un plan o buscás planes cerca. Les llega ese punto del mapa, no tu cuenta.
+		</li>
+		<li>
+			OpenStreetMap y OpenFreeMap, que dibujan los mapas de la web y de la app de Android (en el iPhone
+			los dibuja Apple). Reciben qué parte del mapa mirás y tu IP, como cualquier sitio que abrís.
+		</li>
+		<li>
+			GitHub, en Estados Unidos, donde guardamos las copias de seguridad diarias de la base de datos,
+			cifradas antes de salir de nuestro servidor: GitHub no puede leerlas.
+		</li>
 	</ul>
 	<p>
 		Algunos de estos proveedores están fuera de la Argentina. En esos casos la transferencia se hace
@@ -119,13 +159,32 @@
 	<ul>
 		<li>Tu perfil, tu verificación y tu actividad: mientras tengas la cuenta.</li>
 		<li>
+			Los «me interesa», «me encanta», «me prendo» y «paso»: 6 meses. Si el interés fue mutuo, mientras
+			se sigan escribiendo y hasta 6 meses después del último mensaje.
+		</li>
+		<li>
 			Los registros de pagos: 10 años, porque lo pide la ley contable (sin tu perfil, sólo el
 			movimiento).
 		</li>
 		<li>
-			Los reportes y las suspensiones: hasta 2 años, para evitar que alguien suspendido vuelva.
+			Lo que queda después de borrar tu cuenta, ya sin tu nombre ni tus fotos: tus mensajes en el chat
+			de un plan, hasta un año después de que el plan terminó; tus mensajes privados, tu asistencia a los
+			planes y lo que contestaste en «¿Volverías?», un año; los reportes que hiciste o te hicieron, 2
+			años.
 		</li>
-		<li>Las direcciones IP: 2 días. Los códigos de verificación del teléfono: 1 día.</li>
+		<li>
+			Las suspensiones: si suspendemos una cuenta, guardamos una huella cifrada de su mail y de su número
+			de DNI (no el dato: una clave que no se puede dar vuelta) para que no vuelva con otra cuenta,
+			mientras exista la cuenta y hasta 2 años después de borrarla.
+		</li>
+		<li>
+			El registro de quién del equipo abrió tu selfie o tu DNI: 2 años. Las direcciones IP: 2 días. Los
+			códigos de verificación del teléfono: 1 día.
+		</li>
+		<li>
+			Las fotos que sacás de tu perfil o de un plan: se borran en el momento (dejan de verse en su
+			link y se borran del servidor).
+		</li>
 	</ul>
 
 	<h2>7. Borrar tu cuenta</h2>
@@ -155,9 +214,11 @@
 
 	<h2>9. Seguridad</h2>
 	<p>
-		Todo viaja cifrado. La selfie y el DNI no son públicos: los ven sólo vos y el equipo de Caigo
-		que revisa las verificaciones. Cada persona accede sólo a sus propios datos privados, y eso lo
-		controla la base de datos, no sólo la app.
+		Todo viaja cifrado. La selfie y las fotos del DNI se guardan cifradas en el servidor, con una clave
+		que no está en la base de datos ni en las copias de seguridad. No son públicas: las ven sólo vos y el
+		equipo de Caigo que revisa las verificaciones, y cada vez que alguien del equipo abre una queda
+		registrado quién, cuándo y desde dónde. Cada persona accede sólo a sus propios datos privados, y eso
+		lo controla la base de datos, no sólo la app.
 	</p>
 
 	<h2>10. Menores de edad</h2>
@@ -168,8 +229,30 @@
 
 	<h2>11. Cookies</h2>
 	<p>
-		caigo.com.ar usa sólo las cookies necesarias para mantener tu sesión, recordar tu zona y volver
-		a donde estabas después de ingresar. No usamos cookies de publicidad.
+		caigo.com.ar usa sólo cookies propias y necesarias para que funcione. No usamos cookies de
+		publicidad ni de seguimiento de terceros.
+	</p>
+	<ul>
+		<li><b>caigo_sesion:</b> tu sesión, 60 días (se renueva con el uso).</li>
+		<li><b>caigo_volver:</b> la página a la que volvés después de ingresar, 15 minutos.</li>
+		<li>
+			<b>caigo_origen:</b> de dónde llegaste la primera vez (el link de un plan o una campaña, por
+			ejemplo utm_source), 30 días. Se guarda una sola vez en tu perfil cuando entrás.
+		</li>
+		<li>
+			<b>caigo_ubic:</b> tu ubicación, redondeada a unos 11 metros, para buscar planes cerca. Dura 6
+			horas y sólo si diste permiso.
+		</li>
+		<li><b>caigo_tema:</b> si elegiste el modo claro, el oscuro o el del sistema, 1 año.</li>
+		<li><b>caigo_bienvenida:</b> que ya viste la bienvenida, 1 año.</li>
+		<li><b>caigo_intereses:</b> que ya elegiste qué buscás, 1 año.</li>
+		<li>
+			<b>caigo_lugar:</b> en el panel de lugares, cuál de tus lugares tenés abierto, 1 año.
+		</li>
+	</ul>
+	<p>
+		Mientras ingresás, el navegador guarda un dato de Clerk (caigo-clerk, en el almacenamiento de la
+		pestaña) que se borra al terminar o al cerrar la pestaña.
 	</p>
 
 	<h2>12. Cambios</h2>

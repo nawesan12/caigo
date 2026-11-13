@@ -151,7 +151,7 @@ func (s *Servicio) Reportes(ctx context.Context) ([]ReporteAbierto, error) {
 	return out, err
 }
 
-// Resolver cierra un reporte. suspender: además suspende a la persona reportada.
+// Resolver cierra un reporte. suspender: además suspende a la persona reportada (y la veta).
 func (s *Servicio) Resolver(ctx context.Context, equipoID, id string, descartar, suspender bool, resolucion string) error {
 	estado := "resuelto"
 	if descartar {
@@ -167,7 +167,11 @@ func (s *Servicio) Resolver(ctx context.Context, equipoID, id string, descartar,
 		if err != nil || !suspender || sobre == nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `UPDATE usuarios SET suspendido_en = now(), suspension_motivo = $2 WHERE id = $1`, *sobre, strings.TrimSpace(resolucion))
+		if _, err := tx.Exec(ctx, `UPDATE usuarios SET suspendido_en = now(), suspension_motivo = $2 WHERE id = $1`, *sobre, strings.TrimSpace(resolucion)); err != nil {
+			return err
+		}
+		// Y su mail y su DNI quedan vetados (sólo las huellas): no vuelve con otra cuenta.
+		_, err = s.Vetados.Anotar(ctx, tx, *sobre)
 		return err
 	})
 }
