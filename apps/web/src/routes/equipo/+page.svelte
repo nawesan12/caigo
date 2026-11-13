@@ -574,8 +574,6 @@
 							{#if d.repetido}<span class="chip-dato alerta">DNI usado en otra cuenta</span>{/if}
 						</div>
 						<div class="datos">
-							<span><b>DNI:</b> {d.numero}</span>
-							<span><b>Apellido y nombres:</b> {d.apellido}, {d.nombres}</span>
 							<span><b>Nacimiento:</b> {d.nacimiento.slice(0, 10)}</span>
 						</div>
 						<div class="fotos">

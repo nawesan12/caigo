@@ -6,8 +6,9 @@
 	Los plazos de la sección 6 son los del worker (apps/api/internal/dominio/confianza/plazos.go y
 	cmd/worker): si cambia uno, cambia el otro.
 	AAIP 1.2: ni el género ni la diversidad se guardan (se confirman al sumarse a un plan «Solo
-	mujeres» / «Solo diversidades»), del DNI no se guarda el sexo y sus fotos y la selfie se borran al
-	resolver la verificación (migraciones 00021 y 00022, confianza/fotos_dni.go).
+	mujeres» / «Solo diversidades»), del DNI se guarda sólo el resultado, la fecha de nacimiento y la
+	huella del número (no el número ni el nombre), y sus fotos y la selfie se borran al resolver la
+	verificación (migraciones 00021, 00022 y 00023, confianza/fotos_dni.go).
 -->
 
 <Legal
@@ -51,13 +52,15 @@
 		</li>
 		<li>
 			<b>DNI, si elegís verificarlo.</b> Sacás fotos del frente y el dorso y una selfie, y la app
-			lee del código del DNI tu número, apellido, nombres, fecha de nacimiento y número de trámite.
-			Del DNI sólo validamos tu edad y que sea tuyo: no guardamos el sexo que figura en él.
+			lee del código del DNI tu número y tu fecha de nacimiento. Del DNI sólo validamos tu edad y
+			que sea tuyo. Guardamos sólo el resultado, tu fecha de nacimiento y una huella cifrada del
+			número (una clave que no se puede dar vuelta) para la lista de vetados y para que un DNI no se
+			use en dos cuentas.
+			<b>No guardamos tu número de DNI, tu nombre ni el sexo que figura en él.</b>
 			<b
 				>Las fotos del DNI y esa selfie las borramos apenas la verificación queda resuelta, aprobada
 				o rechazada.</b
-			> Mientras está pendiente, sólo las ve el equipo que la revisa. Después queda el resultado, tu fecha
-			de nacimiento y los datos del código.
+			> Mientras está pendiente, sólo las ve el equipo que la revisa.
 		</li>
 		<li>
 			<b>Planes «Solo mujeres» y «Solo diversidades».</b> No guardamos tu género, tu orientación ni tu

@@ -247,9 +247,6 @@ export type DNIPendiente = {
 	usuarioId: string;
 	nombrePerfil: string;
 	edadPerfil?: number;
-	numero: string;
-	apellido: string;
-	nombres: string;
 	nacimiento: string;
 	frenteId: string;
 	dorsoId: string;
