@@ -73,7 +73,6 @@ class Pdf417DniTest {
         assertEquals("00654321987", d.tramite)
         assertEquals("GARCIA LOPEZ", d.apellido)
         assertEquals("MARIA SOL", d.nombres)
-        assertEquals("F", d.sexo)
         assertEquals("35123456", d.numero)
         assertEquals("B", d.ejemplar)
         assertEquals("1994-03-14", d.nacimiento)
@@ -84,7 +83,6 @@ class Pdf417DniTest {
         assertEquals("17463537", d.numero)
         assertEquals("PEREZ", d.apellido)
         assertEquals("JUAN CARLOS", d.nombres)
-        assertEquals("M", d.sexo)
         assertEquals("1965-07-08", d.nacimiento)
         assertEquals("00065327459", d.tramite)
     }

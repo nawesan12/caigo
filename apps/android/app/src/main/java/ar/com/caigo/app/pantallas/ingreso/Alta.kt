@@ -103,7 +103,6 @@ fun Datos(ir: Ir) {
     var ciudad by remember { mutableStateOf(yo?.ciudad?.takeIf { it.isNotBlank() } ?: "Mar del Plata") }
     var zona by remember { mutableStateOf(yo?.zona.orEmpty()) }
     var genero by remember { mutableStateOf(yo?.genero.orEmpty()) }
-    var diversidad by remember { mutableStateOf(yo?.diversidad == true) }
     var cargando by remember { mutableStateOf(false) }
     val fecha = ingresoFecha(nacimiento)
     val listo = nombre.isNotBlank() && fecha != null && zona.isNotBlank()
@@ -134,7 +133,7 @@ fun Datos(ir: Ir) {
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     T("¿Cómo te identificás?", 14f, 700, C.carbon)
-                    ElegirGenero(genero, diversidad, { genero = it }, { diversidad = it })
+                    ElegirGenero(genero) { genero = it }
                 }
             }
             Column(
@@ -155,7 +154,7 @@ fun Datos(ir: Ir) {
                             c.yo.value = c.api.actualizarYo(
                                 CambiosPerfil(
                                     nombre = nombre.trim(), nacimiento = f.toString(), ciudad = ciudad, zona = zona.trim(),
-                                    genero = genero, diversidad = diversidad,
+                                    genero = genero,
                                 ),
                             )
                             ir.alta(ingresoRutaDeAlta(c))

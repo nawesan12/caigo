@@ -72,7 +72,8 @@ object Plata {
 }
 
 /**
- * Lo que trae el PDF417 del frente del DNI argentino. Formato nuevo (desde 2012):
+ * Lo que se usa del PDF417 del frente del DNI argentino. El sexo que trae no se lee: del DNI sólo se
+ * valida la edad (AAIP 1.2). Formato nuevo (desde 2012):
  * `trámite@apellido@nombres@sexo@número@ejemplar@nacimiento@emisión@…`.
  * Formato viejo: `@número@ejemplar@?@apellido@nombres@nacionalidad@nacimiento@sexo@emisión@trámite@…`.
  */
@@ -80,7 +81,6 @@ data class DatosDni(
     val tramite: String,
     val apellido: String,
     val nombres: String,
-    val sexo: String,
     val numero: String,
     val ejemplar: String,
     /** YYYY-MM-DD */
@@ -102,7 +102,7 @@ object Pdf417Dni {
             val numero = c[4].filter(Char::isDigit)
             if (numero.length !in 7..8) return null
             return DatosDni(
-                tramite = c[0], apellido = limpio(c[1]), nombres = limpio(c[2]), sexo = c[3].uppercase(),
+                tramite = c[0], apellido = limpio(c[1]), nombres = limpio(c[2]),
                 numero = numero, ejemplar = c[5], nacimiento = iso(c[6])!!,
             )
         }
@@ -113,7 +113,7 @@ object Pdf417Dni {
             if (numero.length !in 7..8) return null
             val tramite = c.drop(8).firstOrNull { it.length >= 9 && it.all(Char::isDigit) }.orEmpty()
             return DatosDni(
-                tramite = tramite, apellido = limpio(c[3]), nombres = limpio(c[4]), sexo = c[7].uppercase(),
+                tramite = tramite, apellido = limpio(c[3]), nombres = limpio(c[4]),
                 numero = numero, ejemplar = c[2], nacimiento = nacimiento,
             )
         }

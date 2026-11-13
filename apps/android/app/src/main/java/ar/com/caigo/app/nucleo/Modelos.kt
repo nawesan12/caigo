@@ -205,8 +205,6 @@ data class Perfil(
     val email: String = "",
     /** Autodeclarado, no se muestra a nadie: "" | mujer | varon | no_binario. */
     val genero: String = "",
-    /** «Me identifico como parte de la diversidad». */
-    val diversidad: Boolean = false,
     val avisos: AjustesAvisos = AjustesAvisos(),
     /** Teléfono o mail del contacto de confianza. */
     val contactoConfianza: String = "",
@@ -227,10 +225,13 @@ data class AjustesAvisos(val planesCerca: Boolean = true, val tuGente: Boolean =
 object Generos {
     val todos: List<Pair<String, String>> = listOf("mujer" to "Mujer", "varon" to "Varón", "no_binario" to "No binario")
 
-    /** Si la persona cumple con lo que pide el plan (`cualquiera` | `mujeres` | `diversidades`). */
+    /**
+     * Si la persona cumple con lo que pide el plan (`cualquiera` | `mujeres` | `diversidades`).
+     * `diversidad`: lo confirmó al sumarse (no se guarda ni se deduce del género).
+     */
     fun puedeSumarse(genero: String, miGenero: String, diversidad: Boolean): Boolean = when (genero) {
         "mujeres" -> miGenero == "mujer"
-        "diversidades" -> diversidad || miGenero == "no_binario"
+        "diversidades" -> diversidad
         else -> true
     }
 }
@@ -248,7 +249,6 @@ data class CambiosPerfil(
     val prompts: List<Prompt>? = null,
     val fotos: List<String>? = null,
     val genero: String? = null,
-    val diversidad: Boolean? = null,
     val avisos: AjustesAvisos? = null,
     val contactoConfianza: String? = null,
 )
@@ -463,7 +463,6 @@ data class DatosDNI(
     val numero: String,
     val apellido: String,
     val nombres: String,
-    val sexo: String,
     val nacimiento: String,
     val tramite: String,
 )

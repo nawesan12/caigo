@@ -33,33 +33,29 @@ import kotlinx.coroutines.launch
 val generos = listOf("mujer" to "Mujer", "varon" to "Varón", "no_binario" to "No binario")
 
 /**
- * Género autodeclarado (contrato §1): chips Mujer / Varón / No binario y la casilla de diversidad.
- * No se muestra a nadie; sólo sirve para los planes «Solo mujeres» y «Solo diversidades».
- * No está en el handoff: se arma con los chips y el interruptor del alta.
+ * Género autodeclarado (contrato §1): chips Mujer / Varón / No binario. No se muestra a nadie; sólo
+ * sirve para los planes «Solo mujeres». La diversidad no se pregunta acá ni se guarda: se confirma al
+ * sumarse a un plan «Solo diversidades» ([HojaDiversidad], AAIP 1.2).
+ * No está en el handoff: se arma con los chips del alta.
  */
 @Composable
-fun ElegirGenero(genero: String, diversidad: Boolean, onGenero: (String) -> Unit, onDiversidad: (Boolean) -> Unit) {
+fun ElegirGenero(genero: String, onGenero: (String) -> Unit) {
     val p = LocalPaleta.current
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             generos.forEach { (k, l) -> Chip(l, genero == k, { onGenero(if (genero == k) "" else k) }) }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            T("Me identifico como parte de la diversidad", 14f, 600, p.texto, Modifier.weight(1f))
-            Interruptor(diversidad, onDiversidad)
-        }
-        T("No se lo mostramos a nadie. Sólo sirve para sumarte a planes de mujeres o de diversidades.", 12f, 400, p.texto2, alto = 1.4f)
+        T("No se lo mostramos a nadie. Sólo sirve para sumarte a planes de mujeres.", 12f, 400, p.texto2, alto = 1.4f)
     }
 }
 
 /** El nombre viejo (lo usa Editar perfil): es [ElegirGenero]. */
 @Composable
-fun CamposGenero(genero: String, diversidad: Boolean, onGenero: (String) -> Unit, onDiversidad: (Boolean) -> Unit) =
-    ElegirGenero(genero, diversidad, onGenero, onDiversidad)
+fun CamposGenero(genero: String, onGenero: (String) -> Unit) = ElegirGenero(genero, onGenero)
 
 /**
- * La hoja que pide el género cuando la API dice `falta_genero` (plan «solo mujeres» o «solo
- * diversidades»). Responde a [Contenedor.preguntarGenero]: true si se guardó, y quien preguntó reintenta.
+ * La hoja que pide el género cuando la API dice `falta_genero` (plan «Solo mujeres»). Responde a
+ * [Contenedor.preguntarGenero]: true si se guardó, y quien preguntó reintenta.
  */
 @Composable
 fun BoxScope.HojaGenero(c: Contenedor) {
@@ -67,22 +63,18 @@ fun BoxScope.HojaGenero(c: Contenedor) {
     val alcance = rememberCoroutineScope()
     val pregunta by c.preguntaGenero.collectAsState()
     var genero by remember { mutableStateOf("") }
-    var diversidad by remember { mutableStateOf(false) }
     var guardando by remember { mutableStateOf(false) }
     LaunchedEffect(pregunta) {
-        if (pregunta != null) {
-            genero = c.yo.value?.genero.orEmpty()
-            diversidad = c.yo.value?.diversidad == true
-        }
+        if (pregunta != null) genero = c.yo.value?.genero.orEmpty()
     }
     MiosHoja(pregunta != null, { if (!guardando) pregunta?.complete(false) }, "Antes de sumarte") {
-        T("Este plan es sólo para mujeres o diversidades. Contanos cómo te identificás.", 15f, 400, LocalPaleta.current.texto, alto = 1.45f)
-        ElegirGenero(genero, diversidad, { genero = it }, { diversidad = it })
+        T("Este plan es sólo para mujeres. Contanos con qué género te identificás.", 15f, 400, LocalPaleta.current.texto, alto = 1.45f)
+        ElegirGenero(genero) { genero = it }
         Cta("Guardar y seguir", {
             alcance.launch {
                 guardando = true
                 try {
-                    c.yo.value = c.api.actualizarYo(CambiosPerfil(genero = genero, diversidad = diversidad))
+                    c.yo.value = c.api.actualizarYo(CambiosPerfil(genero = genero))
                     pregunta?.complete(true)
                 } catch (e: Throwable) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
@@ -91,16 +83,45 @@ fun BoxScope.HojaGenero(c: Contenedor) {
                     guardando = false
                 }
             }
-        }, Modifier.fillMaxWidth(), habilitado = genero.isNotEmpty() || diversidad, cargando = guardando)
+        }, Modifier.fillMaxWidth(), habilitado = genero.isNotEmpty(), cargando = guardando)
     }
 }
 
 /**
- * Corre [f] y, si la API responde `falta_genero`, pregunta el género y prueba una vez más. Los demás
- * errores pasan tal cual.
+ * La hoja que aparece cuando la API dice `confirmar_diversidad` (plan «Solo diversidades»): la
+ * persona lo confirma (el interruptor arranca apagado) y se reintenta el pedido con
+ * `diversidad: true`. Responde a [Contenedor.confirmarDiversidad]. No se guarda en ningún lado.
  */
-suspend fun <R> conGenero(c: Contenedor, f: suspend () -> R): R = try {
-    f()
+@Composable
+fun BoxScope.HojaDiversidad(c: Contenedor) {
+    val p = LocalPaleta.current
+    val pregunta by c.preguntaDiversidad.collectAsState()
+    var soy by remember { mutableStateOf(false) }
+    LaunchedEffect(pregunta) {
+        if (pregunta != null) soy = false
+    }
+    MiosHoja(pregunta != null, { pregunta?.complete(false) }, "Antes de sumarte") {
+        T("Este plan es sólo para la diversidad LGBTIQ+.", 15f, 400, p.texto, alto = 1.45f)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            T("Soy parte de la diversidad LGBTIQ+", 14f, 600, p.texto, Modifier.weight(1f))
+            Interruptor(soy, { soy = it })
+        }
+        T("No lo guardamos: sólo vale para sumarte a este plan.", 12f, 400, p.texto2, alto = 1.4f)
+        Cta("Sumarme", { pregunta?.complete(true) }, Modifier.fillMaxWidth(), habilitado = soy)
+    }
+}
+
+/**
+ * Corre [f] y, si la API responde `falta_genero`, pregunta el género y prueba una vez más; si
+ * responde `confirmar_diversidad`, pide la confirmación y prueba una vez más con `diversidad = true`
+ * (vale sólo para ese pedido). Los demás errores pasan tal cual.
+ */
+suspend fun <R> conGenero(c: Contenedor, f: suspend (diversidad: Boolean) -> R): R = try {
+    f(false)
 } catch (e: ar.com.caigo.app.nucleo.ErrorApi) {
-    if (e.codigo == "falta_genero" && c.preguntarGenero()) f() else throw e
+    when {
+        e.codigo == "falta_genero" && c.preguntarGenero() -> f(false)
+        e.codigo == "confirmar_diversidad" && c.confirmarDiversidad() -> f(true)
+        else -> throw e
+    }
 }

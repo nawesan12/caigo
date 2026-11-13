@@ -146,6 +146,19 @@ class Contenedor(val ctx: Context) {
         return try { d.await() } finally { if (preguntaGenero.value === d) preguntaGenero.value = null }
     }
 
+    /**
+     * Confirmación pendiente para un plan «Solo diversidades» (ante `confirmar_diversidad`): la hoja
+     * la responde con true si la persona lo confirmó. No se guarda.
+     */
+    val preguntaDiversidad = MutableStateFlow<kotlinx.coroutines.CompletableDeferred<Boolean>?>(null)
+
+    /** Abre la hoja de diversidad y espera la respuesta. */
+    suspend fun confirmarDiversidad(): Boolean {
+        val d = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        preguntaDiversidad.value = d
+        return try { d.await() } finally { if (preguntaDiversidad.value === d) preguntaDiversidad.value = null }
+    }
+
     /** Cierra la sesión sólo en el teléfono (sin avisarle a la API). */
     suspend fun salirLocal() {
         tiempoReal.apagar()

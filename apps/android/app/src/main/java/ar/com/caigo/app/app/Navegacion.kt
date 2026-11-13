@@ -211,6 +211,7 @@ fun CaigoNav(c: Contenedor) {
                     composable("ajustesavisos") { AjustesDeAvisos(ir) }
                 }
                 HojaGenero(c)
+                HojaDiversidad(c)
                 if (actualizar) ActualizarApp()
                 CapaAvisos(avisos, WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
             }

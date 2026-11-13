@@ -271,8 +271,9 @@ private fun PerfilPersonaClaro(ir: Ir, id: String, desde: String) {
                         {
                             accion {
                                 if (planInvita != null) {
-                                    // 422 `falta_genero`: conGenero pregunta y reintenta (la HojaGenero de iOS).
-                                    ar.com.caigo.app.pantallas.ingreso.conGenero(c) { c.api.responderInvitacion(planInvita, true) }
+                                    // 422 `falta_genero` / `confirmar_diversidad`: conGenero pregunta y reintenta
+                                    // (la HojaGenero / HojaDiversidad de iOS).
+                                    ar.com.caigo.app.pantallas.ingreso.conGenero(c) { d -> c.api.responderInvitacion(planInvita, true, d) }
                                     avisos.ok("Te sumaste al plan. ${p.nombre} ya sabe que vas.")
                                     ir.plan(planInvita)
                                 } else {

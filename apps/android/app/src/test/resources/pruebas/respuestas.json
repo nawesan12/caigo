@@ -48,7 +48,6 @@
   "equipo": false,
   "telefono": "+5492235550142",
   "genero": "mujer",
-  "diversidad": false,
   "avisos": {
    "planesCerca": true,
    "tuGente": true
@@ -105,7 +104,6 @@
   "equipo": false,
   "telefono": "+5492235550142",
   "genero": "mujer",
-  "diversidad": false,
   "avisos": {
    "planesCerca": true,
    "tuGente": true

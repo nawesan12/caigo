@@ -165,15 +165,16 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
         pagando = true
         try {
             val m = if (plan.cobro == "sena" && plan.senaPct != null) modo else "entrada"
-            // Plan «Solo mujeres / Solo diversidades» sin género cargado: se pregunta y se reintenta.
-            val r = ar.com.caigo.app.pantallas.ingreso.conGenero(c) { c.api.comprarEntradas(plan.id, q, m) }
+            // Plan «Solo mujeres» sin género cargado: se pregunta y se reintenta. «Solo diversidades»:
+            // se confirma y se reintenta (no se guarda).
+            val r = ar.com.caigo.app.pantallas.ingreso.conGenero(c) { d -> c.api.comprarEntradas(plan.id, q, m, d) }
             when {
                 r.link.isNotEmpty() -> { compra = r; abrirPestana(ctx, r.link) }
                 r.entradaId.isNotEmpty() -> ir.entrada(r.entradaId, plan.id)
                 else -> { avisos.ok("Ya tenés tu lugar en este plan."); ir.atras() }
             }
         } catch (e: ErrorApi) {
-            if (e.codigo != "falta_genero") {
+            if (e.codigo != "falta_genero" && e.codigo != "confirmar_diversidad") {
                 avisos.error(e.detalle)
                 if (e.codigo == "falta_selfie") ir.selfie(true)
                 if (e.codigo == "falta_dni") ir.dni(plan.id)
