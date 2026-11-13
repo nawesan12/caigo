@@ -467,16 +467,17 @@ data class EstadoVerificacion(
     val dniMotivo: String = "",
 )
 
+/**
+ * Lo que se manda para verificar el DNI: las fotos, el número (la API guarda sólo su huella, para
+ * los vetados) y la fecha de nacimiento (la edad). El nombre y el trámite no salen del teléfono.
+ */
 @Serializable
 data class DatosDNI(
     val frenteId: String,
     val dorsoId: String,
     val selfieId: String,
     val numero: String,
-    val apellido: String,
-    val nombres: String,
     val nacimiento: String,
-    val tramite: String,
 )
 
 // ——— Sesión ———

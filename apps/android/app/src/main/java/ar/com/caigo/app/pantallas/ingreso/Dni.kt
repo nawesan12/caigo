@@ -183,7 +183,7 @@ fun Dni(ir: Ir, planId: String?) {
                 val f = c.api.subir("dni", frente!!)
                 val r = c.api.subir("dni", dorso!!)
                 val s = c.api.subir("selfie", selfie!!)
-                c.api.dni(DatosDNI(f.id, r.id, s.id, d.numero, d.apellido, d.nombres, d.nacimiento, d.tramite))
+                c.api.dni(DatosDNI(f.id, r.id, s.id, d.numero, d.nacimiento))
                 paso = PasoDni.ENVIADO
             } catch (e: ErrorApi) {
                 if (e.codigo == "pendiente") paso = PasoDni.ENVIADO
