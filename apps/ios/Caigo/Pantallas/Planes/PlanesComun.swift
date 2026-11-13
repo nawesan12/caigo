@@ -85,11 +85,13 @@ struct PlanesChipPlus: View {
 /// al DNI (y vuelven); el resto se muestra tal cual en el toast. Devuelve el estado nuevo.
 @MainActor
 /// Con `faltaGenero`, el 422 `falta_genero` no se muestra: se llama para preguntarlo y reintentar.
-/// Sin él (la tarjeta de una lista), se abre el detalle, que tiene la hoja.
-func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensaje: String = "",
-                   faltaGenero: (() -> Void)? = nil) async -> String? {
+/// Igual con `confirmarDiversidad` y el 422 `confirmar_diversidad` (plan «Solo diversidades»: se
+/// reintenta con `diversidad: true`, que no se guarda). Sin ellos (la tarjeta de una lista), se abre
+/// el detalle, que tiene las hojas.
+func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensaje: String = "", diversidad: Bool = false,
+                   faltaGenero: (() -> Void)? = nil, confirmarDiversidad: (() -> Void)? = nil) async -> String? {
     do {
-        let e = try await c.api.sumarme(plan.id, cantidad: cantidad, mensaje: mensaje).estado
+        let e = try await c.api.sumarme(plan.id, cantidad: cantidad, mensaje: mensaje, diversidad: diversidad).estado
         let quien = plan.organizador.nombre.isEmpty ? "quien organiza" : plan.organizador.nombre
         c.avisos.ok(e == "aceptada" ? "¡Estás adentro!" : "Le pediste a \(quien) sumarte.")
         Sistema.vibrar()
@@ -97,6 +99,10 @@ func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensa
     } catch let e as ErrorApi {
         if e.codigo == "falta_genero" {
             if let faltaGenero { faltaGenero() } else { ir.plan(plan.id) }
+            return nil
+        }
+        if e.codigo == "confirmar_diversidad" {
+            if let confirmarDiversidad { confirmarDiversidad() } else { ir.plan(plan.id) }
             return nil
         }
         c.avisos.error(e.detalle)

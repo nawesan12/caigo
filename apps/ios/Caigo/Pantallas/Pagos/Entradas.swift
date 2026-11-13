@@ -29,6 +29,7 @@ struct Checkout: View {
     @State private var compra: Compra?
     @State private var revisando = false
     @State private var preguntarGenero = false
+    @State private var preguntarDiversidad = false
 
     var body: some View {
         Pantalla {
@@ -43,9 +44,13 @@ struct Checkout: View {
                 }
                 .padding(.horizontal, 20).padding(.top, 8)
             }
-            // Plan «Solo mujeres / Solo diversidades» sin género cargado: se pregunta y se reintenta.
+            // Plan «Solo mujeres» sin género cargado: se pregunta y se reintenta.
             HojaGenero(abierta: preguntarGenero, cerrar: { preguntarGenero = false }) {
                 if let plan { Task { await pagar(plan) } }
+            }
+            // Plan «Solo diversidades»: se confirma y se reintenta (no se guarda).
+            HojaDiversidad(abierta: preguntarDiversidad, cerrar: { preguntarDiversidad = false }) {
+                if let plan { Task { await pagar(plan, diversidad: true) } }
             }
         }
         .environment(\.paleta, .clara)
@@ -79,12 +84,13 @@ struct Checkout: View {
         return ok
     }
 
-    private func pagar(_ plan: Plan) async {
+    /// `diversidad`: lo confirmó en la HojaDiversidad (vale sólo para este pedido).
+    private func pagar(_ plan: Plan, diversidad: Bool = false) async {
         pagando = true
         defer { pagando = false }
         do {
             let m = plan.cobro == "sena" && plan.senaPct != nil ? modo : "entrada"
-            let r = try await c.api.comprarEntradas(plan.id, cantidad: q, modo: m)
+            let r = try await c.api.comprarEntradas(plan.id, cantidad: q, modo: m, diversidad: diversidad)
             if !r.link.isEmpty {
                 compra = r
                 Sistema.abrir(r.link)
@@ -96,6 +102,7 @@ struct Checkout: View {
             }
         } catch let e as ErrorApi {
             if e.codigo == "falta_genero" { preguntarGenero = true; return }
+            if e.codigo == "confirmar_diversidad" { preguntarDiversidad = true; return }
             c.avisos.error(e.detalle)
             if e.codigo == "falta_selfie" { ir.selfie(volver: true) }
             if e.codigo == "falta_dni" { ir.dni(plan: plan.id) }

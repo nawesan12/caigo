@@ -168,9 +168,11 @@ public final class Api: @unchecked Sendable {
     public func sacarPersona(plan: String, usuario: String) async throws { try await sinCuerpo("DELETE", "/v1/planes/\(plan)/personas/\(usuario)") }
     public func destacar(_ id: String) async throws { try await sinCuerpo("POST", "/v1/planes/\(id)/destacar") }
 
-    struct Sumarse: Encodable { var cantidad: Int; var mensaje: String }
-    public func sumarme(_ id: String, cantidad: Int, mensaje: String = "") async throws -> Estado {
-        try await enviar("POST", "/v1/planes/\(id)/sumarme", Sumarse(cantidad: cantidad, mensaje: mensaje))
+    /// `diversidad`: confirma, sólo para este pedido, que es parte de la diversidad (planes «Solo
+    /// diversidades»; si falta, 422 `confirmar_diversidad`). No se guarda.
+    struct Sumarse: Encodable { var cantidad: Int; var mensaje: String; var diversidad: Bool }
+    public func sumarme(_ id: String, cantidad: Int, mensaje: String = "", diversidad: Bool = false) async throws -> Estado {
+        try await enviar("POST", "/v1/planes/\(id)/sumarme", Sumarse(cantidad: cantidad, mensaje: mensaje, diversidad: diversidad))
     }
     public func salir(_ id: String) async throws { try await sinCuerpo("DELETE", "/v1/planes/\(id)/sumarme") }
     public func solicitudes(_ id: String) async throws -> Solicitudes { try await get("/v1/planes/\(id)/solicitudes") }
@@ -211,9 +213,9 @@ public final class Api: @unchecked Sendable {
     struct Invitar: Encodable { var usuarioId: String }
     public func invitar(plan: String, usuario: String) async throws { try await mandar("POST", "/v1/planes/\(plan)/invitar", Invitar(usuarioId: usuario)) }
     public func invitaciones() async throws -> Invitaciones { try await get("/v1/invitaciones") }
-    struct Respuesta: Encodable { var aceptar: Bool }
-    public func responderInvitacion(_ planId: String, aceptar: Bool) async throws -> Adentro {
-        try await enviar("POST", "/v1/invitaciones/\(planId)", Respuesta(aceptar: aceptar))
+    struct Respuesta: Encodable { var aceptar: Bool; var diversidad: Bool }
+    public func responderInvitacion(_ planId: String, aceptar: Bool, diversidad: Bool = false) async throws -> Adentro {
+        try await enviar("POST", "/v1/invitaciones/\(planId)", Respuesta(aceptar: aceptar, diversidad: diversidad))
     }
 
     // MARK: Chat
@@ -257,10 +259,10 @@ public final class Api: @unchecked Sendable {
 
     // MARK: Entradas, pases y tap
 
-    struct CompraEntradas: Encodable { var cantidad: Int; var modo: String }
-    /// modo: `entrada` (pagar todo) o `sena` (sólo si el plan tiene seña).
-    public func comprarEntradas(_ planId: String, cantidad: Int, modo: String) async throws -> Compra {
-        try await enviar("POST", "/v1/planes/\(planId)/entradas", CompraEntradas(cantidad: cantidad, modo: modo))
+    struct CompraEntradas: Encodable { var cantidad: Int; var modo: String; var diversidad: Bool }
+    /// modo: `entrada` (pagar todo) o `sena` (sólo si el plan tiene seña). `diversidad`: como en `sumarme`.
+    public func comprarEntradas(_ planId: String, cantidad: Int, modo: String, diversidad: Bool = false) async throws -> Compra {
+        try await enviar("POST", "/v1/planes/\(planId)/entradas", CompraEntradas(cantidad: cantidad, modo: modo, diversidad: diversidad))
     }
     public func pases() async throws -> Pases { try await get("/v1/pases") }
     /// Cancela mi entrada según la política del plan (409 `sin_reembolso` si es estricta).

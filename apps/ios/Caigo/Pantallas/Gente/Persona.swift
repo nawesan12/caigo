@@ -18,6 +18,8 @@ struct PerfilPersona: View {
     @State private var invitando = false
     /// 422 `falta_genero` al aceptar una invitación: se pregunta y se reintenta.
     @State private var faltaGenero = false
+    /// 422 `confirmar_diversidad` (plan «Solo diversidades»): se confirma y se reintenta.
+    @State private var confirmarDiversidad = false
 
     private var esCitas: Bool { desde.hasSuffix("citas") }
     private var modo: String { esCitas ? "citas" : "gente" }
@@ -42,6 +44,9 @@ struct PerfilPersona: View {
                 HojaGenero(abierta: faltaGenero, cerrar: { faltaGenero = false }) {
                     Task { do { try await aceptarInvitacion(pi, p) } catch { c.avisos.error(error) } }
                 }
+                HojaDiversidad(abierta: confirmarDiversidad, cerrar: { confirmarDiversidad = false }) {
+                    Task { do { try await aceptarInvitacion(pi, p, diversidad: true) } catch { c.avisos.error(error) } }
+                }
             }
         }
         .environment(\.paleta, .clara)
@@ -59,13 +64,15 @@ struct PerfilPersona: View {
         }
     }
 
-    private func aceptarInvitacion(_ pi: String, _ p: Perfil) async throws {
+    private func aceptarInvitacion(_ pi: String, _ p: Perfil, diversidad: Bool = false) async throws {
         do {
-            _ = try await c.api.responderInvitacion(pi, aceptar: true)
+            _ = try await c.api.responderInvitacion(pi, aceptar: true, diversidad: diversidad)
             c.avisos.ok("Te sumaste al plan. \(p.nombre) ya sabe que vas.")
             ir.plan(pi)
         } catch let e as ErrorApi where e.codigo == "falta_genero" {
             faltaGenero = true
+        } catch let e as ErrorApi where e.codigo == "confirmar_diversidad" {
+            confirmarDiversidad = true
         }
     }
 

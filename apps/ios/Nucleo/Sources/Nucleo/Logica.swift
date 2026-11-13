@@ -63,9 +63,10 @@ public enum Plata {
     }
 }
 
-/// Lo que trae el PDF417 del frente del DNI argentino.
+/// Lo que se usa del PDF417 del frente del DNI argentino. El sexo que trae no se lee: del DNI sólo
+/// se valida la edad (AAIP 1.2).
 public struct DatosDni: Equatable, Sendable {
-    public var tramite, apellido, nombres, sexo, numero, ejemplar: String
+    public var tramite, apellido, nombres, numero, ejemplar: String
     /// YYYY-MM-DD
     public var nacimiento: String
 }
@@ -92,14 +93,14 @@ public enum Pdf417Dni {
         if !c[0].isEmpty, c[0].allSatisfy(\.isASCIIDigit), let nac = iso(c[6]) {
             let numero = digitos(c[4])
             guard (7...8).contains(numero.count) else { return nil }
-            return DatosDni(tramite: c[0], apellido: limpio(c[1]), nombres: limpio(c[2]), sexo: c[3].uppercased(),
+            return DatosDni(tramite: c[0], apellido: limpio(c[1]), nombres: limpio(c[2]),
                             numero: numero, ejemplar: c[5], nacimiento: nac)
         }
         if c[0].isEmpty, c.count >= 10 {
             let numero = digitos(c[1])
             guard let nac = iso(c[6]), (7...8).contains(numero.count) else { return nil }
             let tramite = c.dropFirst(8).first { $0.count >= 9 && $0.allSatisfy(\.isASCIIDigit) } ?? ""
-            return DatosDni(tramite: tramite, apellido: limpio(c[3]), nombres: limpio(c[4]), sexo: c[7].uppercased(),
+            return DatosDni(tramite: tramite, apellido: limpio(c[3]), nombres: limpio(c[4]),
                             numero: numero, ejemplar: c[2], nacimiento: nac)
         }
         return nil

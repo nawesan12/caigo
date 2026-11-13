@@ -64,7 +64,6 @@ import Testing
         #expect(d.tramite == "00654321987")
         #expect(d.apellido == "GARCIA LOPEZ")
         #expect(d.nombres == "MARIA SOL")
-        #expect(d.sexo == "F")
         #expect(d.numero == "35123456")
         #expect(d.ejemplar == "B")
         #expect(d.nacimiento == "1994-03-14")
@@ -75,7 +74,6 @@ import Testing
         #expect(d.numero == "17463537")
         #expect(d.apellido == "PEREZ")
         #expect(d.nombres == "JUAN CARLOS")
-        #expect(d.sexo == "M")
         #expect(d.nacimiento == "1965-07-08")
         #expect(d.tramite == "00065327459")
     }
@@ -259,7 +257,8 @@ import Testing
     @Test func genero() {
         #expect(Generos.puedeSumarse(genero: "mujeres", miGenero: "mujer", diversidad: false))
         #expect(!Generos.puedeSumarse(genero: "mujeres", miGenero: "varon", diversidad: true))
-        #expect(Generos.puedeSumarse(genero: "diversidades", miGenero: "no_binario", diversidad: false))
+        // «Solo diversidades» sólo con la confirmación del pedido: no se deduce del género.
+        #expect(!Generos.puedeSumarse(genero: "diversidades", miGenero: "no_binario", diversidad: false))
         #expect(Generos.puedeSumarse(genero: "diversidades", miGenero: "varon", diversidad: true))
         #expect(Generos.puedeSumarse(genero: "cualquiera", miGenero: "", diversidad: false))
     }
@@ -267,7 +266,7 @@ import Testing
     @Test func perfilNuevo() throws {
         let json = #"{"id":"u1","genero":"mujer","diversidad":true,"avisos":{"planesCerca":false},"proximos":[{"id":"p1","titulo":"Truco"}]}"#
         let p = try JSON.leer(Perfil.self, Data(json.utf8))
-        #expect(p.genero == "mujer" && p.diversidad)
+        #expect(p.genero == "mujer")
         #expect(!p.avisos.planesCerca && p.avisos.tuGente)
         #expect(p.proximos.first?.titulo == "Truco")
     }

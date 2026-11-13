@@ -31,7 +31,6 @@ struct Datos: View {
     @State private var ciudad = "Mar del Plata"
     @State private var zona = ""
     @State private var genero = ""
-    @State private var diversidad = false
     @State private var cargando = false
     @State private var listoInicial = false
 
@@ -66,7 +65,7 @@ struct Datos: View {
                         }
                         VStack(alignment: .leading, spacing: 12) {
                             T("¿Cómo te identificás?", 14, 700, C.carbon)
-                            ElegirGenero(genero: $genero, diversidad: $diversidad)
+                            ElegirGenero(genero: $genero)
                         }
                     }
                     .padding(.horizontal, 24).padding(.top, 88)
@@ -87,7 +86,6 @@ struct Datos: View {
             if !yo.ciudad.isEmpty { ciudad = yo.ciudad }
             zona = yo.zona
             genero = yo.genero
-            diversidad = yo.diversidad
         }
     }
 
@@ -105,7 +103,6 @@ struct Datos: View {
         cambios.ciudad = ciudad
         cambios.zona = zona.trimmingCharacters(in: .whitespaces)
         cambios.genero = genero
-        cambios.diversidad = diversidad
         cargando = true
         Task {
             defer { cargando = false }

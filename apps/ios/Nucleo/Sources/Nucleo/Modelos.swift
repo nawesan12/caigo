@@ -253,8 +253,6 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
     public var email = ""
     /// "" | mujer | varon | no_binario (autodeclarado, no se muestra a nadie).
     public var genero = ""
-    /// «Me identifico como parte de la diversidad».
-    public var diversidad = false
     public var avisos = AjustesAvisos()
     public var contactoConfianza = ""
     /// Sus próximos planes que quien mira puede ver (GET /v1/personas/{id}).
@@ -272,7 +270,7 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
         asistencia = c.v("asistencia", Asist()); planes = c.v("planes", 0); organizados = c.v("organizados", 0)
         miGente = c.v("miGente", 0); enMiGente = c.v("enMiGente", false); compartidos = c.v("compartidos", 0)
         equipo = c.v("equipo", false); telefono = c.v("telefono", ""); email = c.v("email", "")
-        genero = c.v("genero", ""); diversidad = c.v("diversidad", false); avisos = c.v("avisos", AjustesAvisos())
+        genero = c.v("genero", ""); avisos = c.v("avisos", AjustesAvisos())
         contactoConfianza = c.v("contactoConfianza", ""); proximos = c.v("proximos", []); faltan = c.v("faltan", [])
     }
 
@@ -292,7 +290,6 @@ public struct CambiosPerfil: Encodable, Sendable {
     public var prompts: [Prompt]?
     public var fotos: [String]?
     public var genero: String?
-    public var diversidad: Bool?
     public var avisos: AjustesAvisos?
     public var contactoConfianza: String?
     public init() {}
@@ -310,10 +307,11 @@ public struct AjustesAvisos: Codable, Hashable, Sendable {
 public enum Generos {
     public static let todos: [(String, String)] = [("mujer", "Mujer"), ("varon", "Varón"), ("no_binario", "No binario")]
     /// Si la persona cumple con lo que pide el plan (`cualquiera` | `mujeres` | `diversidades`).
+    /// `diversidad`: lo confirmó al sumarse (no se guarda ni se deduce del género).
     public static func puedeSumarse(genero planGenero: String, miGenero: String, diversidad: Bool) -> Bool {
         switch planGenero {
         case "mujeres": return miGenero == "mujer"
-        case "diversidades": return diversidad || miGenero == "no_binario"
+        case "diversidades": return diversidad
         default: return true
         }
     }
@@ -558,11 +556,11 @@ public struct EstadoVerificacion: Decodable, Sendable {
 }
 
 public struct DatosDNI: Encodable, Sendable {
-    public var frenteId, dorsoId, selfieId, numero, apellido, nombres, sexo, nacimiento, tramite: String
+    public var frenteId, dorsoId, selfieId, numero, apellido, nombres, nacimiento, tramite: String
     public init(frenteId: String, dorsoId: String, selfieId: String, numero: String, apellido: String,
-                nombres: String, sexo: String, nacimiento: String, tramite: String) {
+                nombres: String, nacimiento: String, tramite: String) {
         self.frenteId = frenteId; self.dorsoId = dorsoId; self.selfieId = selfieId; self.numero = numero
-        self.apellido = apellido; self.nombres = nombres; self.sexo = sexo; self.nacimiento = nacimiento; self.tramite = tramite
+        self.apellido = apellido; self.nombres = nombres; self.nacimiento = nacimiento; self.tramite = tramite
     }
 }
 

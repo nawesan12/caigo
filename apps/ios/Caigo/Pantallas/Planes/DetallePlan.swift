@@ -114,6 +114,7 @@ private struct ContenidoDetalle: View {
     @State private var reportando = false
     @State private var sena = false
     @State private var preguntarGenero = false
+    @State private var preguntarDiversidad = false
     @State private var cancelandoPlan = false
     @State private var cancelandoEntrada = false
 
@@ -212,6 +213,7 @@ private struct ContenidoDetalle: View {
                 try await cancelarMiEntrada()
             }
             HojaGenero(abierta: preguntarGenero, cerrar: { preguntarGenero = false }) { sumarme() }
+            HojaDiversidad(abierta: preguntarDiversidad, cerrar: { preguntarDiversidad = false }) { sumarme(diversidad: true) }
         }
         .onAppear {
             sena = UserDefaults.standard.string(forKey: claveModoCheckout(p.id)) == "sena" && p.cobro == "sena"
@@ -226,12 +228,14 @@ private struct ContenidoDetalle: View {
         return p.lugar != nil ? base + " A quienes pagaron entrada les devolvemos todo, cargo incluido." : base
     }
 
-    private func sumarme() {
+    /// `diversidad`: lo confirmó en la HojaDiversidad (vale sólo para este pedido).
+    private func sumarme(diversidad: Bool = false) {
         let n = grupo == 1 && p.aceptaGrupos && p.faltan > 1 ? cantidad : 1
         Task {
             enviando = true
-            if await planesSumarse(c, ir, p, cantidad: n, mensaje: mensaje.trimmingCharacters(in: .whitespaces),
-                                   faltaGenero: { preguntarGenero = true }) != nil { recargar() }
+            if await planesSumarse(c, ir, p, cantidad: n, mensaje: mensaje.trimmingCharacters(in: .whitespaces), diversidad: diversidad,
+                                   faltaGenero: { preguntarGenero = true },
+                                   confirmarDiversidad: { preguntarDiversidad = true }) != nil { recargar() }
             enviando = false
         }
     }
