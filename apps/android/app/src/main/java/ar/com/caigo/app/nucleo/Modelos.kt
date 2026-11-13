@@ -203,8 +203,6 @@ data class Perfil(
     val telefono: String = "",
     /** El mail de la cuenta (GET /v1/yo): con él se confirma «Borrar mi cuenta». */
     val email: String = "",
-    /** Autodeclarado, no se muestra a nadie: "" | mujer | varon | no_binario. */
-    val genero: String = "",
     val avisos: AjustesAvisos = AjustesAvisos(),
     /** Teléfono o mail del contacto de confianza. */
     val contactoConfianza: String = "",
@@ -221,17 +219,32 @@ data class Perfil(
 @Serializable
 data class AjustesAvisos(val planesCerca: Boolean = true, val tuGente: Boolean = true)
 
-/** Géneros que se pueden declarar (contrato §1). */
-object Generos {
-    val todos: List<Pair<String, String>> = listOf("mujer" to "Mujer", "varon" to "Varón", "no_binario" to "No binario")
+/**
+ * Lo que la persona confirma, sólo para un pedido (sumarse, comprar entrada, aceptar una
+ * invitación), en un plan «Solo mujeres» o «Solo diversidades». No se guarda en ningún lado: Caigo
+ * no guarda género, orientación ni identidad de género (AAIP 1.2).
+ */
+data class Confirma(val mujer: Boolean = false, val diversidad: Boolean = false)
 
+/** Planes «Solo mujeres» / «Solo diversidades» (contrato §1). */
+object Generos {
     /**
-     * Si la persona cumple con lo que pide el plan (`cualquiera` | `mujeres` | `diversidades`).
-     * `diversidad`: lo confirmó al sumarse (no se guarda ni se deduce del género).
+     * Qué pide confirmar un 422 de la API: `mujer` (`confirmar_mujer`), `diversidad`
+     * (`confirmar_diversidad`) o null si es otro error.
      */
-    fun puedeSumarse(genero: String, miGenero: String, diversidad: Boolean): Boolean = when (genero) {
-        "mujeres" -> miGenero == "mujer"
-        "diversidades" -> diversidad
+    fun pide(codigo: String): String? = when (codigo) {
+        "confirmar_mujer" -> "mujer"
+        "confirmar_diversidad" -> "diversidad"
+        else -> null
+    }
+
+    /** La confirmación de lo que se pidió (`mujer` | `diversidad`). */
+    fun confirma(pide: String): Confirma = Confirma(mujer = pide == "mujer", diversidad = pide == "diversidad")
+
+    /** Si con lo confirmado alcanza para el plan (`cualquiera` | `mujeres` | `diversidades`). */
+    fun puedeSumarse(genero: String, c: Confirma): Boolean = when (genero) {
+        "mujeres" -> c.mujer
+        "diversidades" -> c.diversidad
         else -> true
     }
 }
@@ -248,7 +261,6 @@ data class CambiosPerfil(
     val intenciones: List<String>? = null,
     val prompts: List<Prompt>? = null,
     val fotos: List<String>? = null,
-    val genero: String? = null,
     val avisos: AjustesAvisos? = null,
     val contactoConfianza: String? = null,
 )

@@ -383,8 +383,8 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
             cancelandoEntrada, if (p.cancelacion == "strict") "Tu entrada no tiene reembolso" else "¿Cancelar tu entrada?",
             planesPolitica(p.cancelacion), if (p.cancelacion == "strict") null else "Cancelar mi entrada", { cancelandoEntrada = false },
         ) { cancelarMiEntrada() }
-        // «Antes de sumarte» (falta_genero / confirmar_diversidad): en Android son las hojas globales
-        // de Genero.kt (conGenero).
+        // «Antes de sumarte» (confirmar_mujer / confirmar_diversidad): en Android es la hoja global
+        // de Genero.kt (conConfirmacion).
     }
 }
 

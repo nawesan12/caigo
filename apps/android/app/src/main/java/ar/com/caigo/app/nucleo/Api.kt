@@ -183,14 +183,14 @@ class Api(
     suspend fun destacar(id: String) = sinCuerpo("POST", "/v1/planes/$id/destacar")
 
     @kotlinx.serialization.Serializable
-    data class Sumarse(val cantidad: Int, val mensaje: String = "", val diversidad: Boolean = false)
+    data class Sumarse(val cantidad: Int, val mensaje: String = "", val mujer: Boolean = false, val diversidad: Boolean = false)
 
     /**
-     * `diversidad`: confirma, sólo para este pedido, que es parte de la diversidad (planes «Solo
-     * diversidades»; si falta, 422 `confirmar_diversidad`). No se guarda.
+     * `confirma`: lo que confirma, sólo para este pedido, en un plan «Solo mujeres» / «Solo
+     * diversidades» (si falta, 422 `confirmar_mujer` / `confirmar_diversidad`). No se guarda.
      */
-    suspend fun sumarme(id: String, cantidad: Int, mensaje: String = "", diversidad: Boolean = false): Estado =
-        enviar("POST", "/v1/planes/$id/sumarme", Sumarse(cantidad, mensaje, diversidad))
+    suspend fun sumarme(id: String, cantidad: Int, mensaje: String = "", confirma: Confirma = Confirma()): Estado =
+        enviar("POST", "/v1/planes/$id/sumarme", Sumarse(cantidad, mensaje, confirma.mujer, confirma.diversidad))
     suspend fun salir(id: String) = sinCuerpo("DELETE", "/v1/planes/$id/sumarme")
     suspend fun solicitudes(id: String): Solicitudes = get("/v1/planes/$id/solicitudes")
     suspend fun responder(solicitudId: String, aceptar: Boolean) = sinCuerpo("POST", "/v1/solicitudes/$solicitudId/${if (aceptar) "aceptar" else "rechazar"}")
@@ -225,10 +225,10 @@ class Api(
     suspend fun invitaciones(): Invitaciones = get("/v1/invitaciones")
 
     @kotlinx.serialization.Serializable
-    data class Respuesta(val aceptar: Boolean, val diversidad: Boolean = false)
+    data class Respuesta(val aceptar: Boolean, val mujer: Boolean = false, val diversidad: Boolean = false)
 
-    suspend fun responderInvitacion(planId: String, aceptar: Boolean, diversidad: Boolean = false): Adentro =
-        enviar("POST", "/v1/invitaciones/$planId", Respuesta(aceptar, diversidad))
+    suspend fun responderInvitacion(planId: String, aceptar: Boolean, confirma: Confirma = Confirma()): Adentro =
+        enviar("POST", "/v1/invitaciones/$planId", Respuesta(aceptar, confirma.mujer, confirma.diversidad))
 
     // ——— Chat ———
 
@@ -284,14 +284,14 @@ class Api(
     // ——— Entradas, pases y tap ———
 
     @kotlinx.serialization.Serializable
-    data class Cantidad(val cantidad: Int, val modo: String = "", val diversidad: Boolean = false)
+    data class Cantidad(val cantidad: Int, val modo: String = "", val mujer: Boolean = false, val diversidad: Boolean = false)
 
     /**
      * modo: `entrada` (pagar todo) o `sena` (sólo si el plan tiene seña); vacío, lo que diga el plan.
-     * `diversidad`: como en [sumarme].
+     * `confirma`: como en [sumarme].
      */
-    suspend fun comprarEntradas(planId: String, cantidad: Int, modo: String = "", diversidad: Boolean = false): Compra =
-        enviar("POST", "/v1/planes/$planId/entradas", Cantidad(cantidad, modo, diversidad))
+    suspend fun comprarEntradas(planId: String, cantidad: Int, modo: String = "", confirma: Confirma = Confirma()): Compra =
+        enviar("POST", "/v1/planes/$planId/entradas", Cantidad(cantidad, modo, confirma.mujer, confirma.diversidad))
     suspend fun pases(): Pases = get("/v1/pases")
 
     /** Cancela la entrada según la política del plan; `strict` responde 409 `sin_reembolso`. */

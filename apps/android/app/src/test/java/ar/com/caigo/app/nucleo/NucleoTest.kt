@@ -88,7 +88,7 @@ class ModelosTest {
 
     @Test fun perfilNuevo() {
         val p = json.decodeFromString<Perfil>("""{"id":"u1","genero":"mujer","diversidad":true,"avisos":{"planesCerca":false},"proximos":[{"id":"p1","titulo":"Truco"}]}""")
-        assertTrue(p.genero == "mujer")
+        assertTrue(p.id == "u1")
         assertTrue(!p.avisos.planesCerca && p.avisos.tuGente)
         assertEquals("Truco", p.proximos.firstOrNull()?.titulo)
         assertTrue(p.altaIncompleta)
@@ -114,12 +114,16 @@ class ModelosTest {
     }
 
     @Test fun genero() {
-        assertTrue(Generos.puedeSumarse("mujeres", "mujer", false))
-        assertFalse(Generos.puedeSumarse("mujeres", "varon", true))
-        // «Solo diversidades» sólo con la confirmación del pedido: no se deduce del género.
-        assertFalse(Generos.puedeSumarse("diversidades", "no_binario", false))
-        assertTrue(Generos.puedeSumarse("diversidades", "varon", true))
-        assertTrue(Generos.puedeSumarse("cualquiera", "", false))
+        // «Solo mujeres» / «Solo diversidades» sólo con la confirmación del pedido (no se guarda nada).
+        assertTrue(Generos.puedeSumarse("mujeres", Confirma(mujer = true)))
+        assertFalse(Generos.puedeSumarse("mujeres", Confirma(diversidad = true)))
+        assertFalse(Generos.puedeSumarse("diversidades", Confirma(mujer = true)))
+        assertTrue(Generos.puedeSumarse("diversidades", Confirma(diversidad = true)))
+        assertTrue(Generos.puedeSumarse("cualquiera", Confirma()))
+        assertEquals("mujer", Generos.pide("confirmar_mujer"))
+        assertEquals("diversidad", Generos.pide("confirmar_diversidad"))
+        assertNull(Generos.pide("falta_selfie"))
+        assertEquals(Confirma(mujer = true), Generos.confirma("mujer"))
     }
 }
 

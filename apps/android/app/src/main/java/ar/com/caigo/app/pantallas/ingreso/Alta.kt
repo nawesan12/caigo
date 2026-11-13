@@ -102,7 +102,6 @@ fun Datos(ir: Ir) {
     var nacimiento by remember { mutableStateOf("") }
     var ciudad by remember { mutableStateOf(yo?.ciudad?.takeIf { it.isNotBlank() } ?: "Mar del Plata") }
     var zona by remember { mutableStateOf(yo?.zona.orEmpty()) }
-    var genero by remember { mutableStateOf(yo?.genero.orEmpty()) }
     var cargando by remember { mutableStateOf(false) }
     val fecha = ingresoFecha(nacimiento)
     val listo = nombre.isNotBlank() && fecha != null && zona.isNotBlank()
@@ -131,10 +130,6 @@ fun Datos(ir: Ir) {
                     }
                     ingresoCampo(zona, { zona = it.take(60) }, Modifier.fillMaxWidth(), pista = if (ciudad == "Villa Gesell") "Zona" else "Güemes")
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    T("¿Cómo te identificás?", 14f, 700, C.carbon)
-                    ElegirGenero(genero) { genero = it }
-                }
             }
             Column(
                 Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 36.dp + abajo, top = 12.dp),
@@ -154,7 +149,6 @@ fun Datos(ir: Ir) {
                             c.yo.value = c.api.actualizarYo(
                                 CambiosPerfil(
                                     nombre = nombre.trim(), nacimiento = f.toString(), ciudad = ciudad, zona = zona.trim(),
-                                    genero = genero,
                                 ),
                             )
                             ir.alta(ingresoRutaDeAlta(c))

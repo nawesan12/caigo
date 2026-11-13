@@ -299,19 +299,18 @@ class PantallasTest {
         contenedor(mapOf("/v1/verificacion" to """{"telefono": "+5492235550142", "selfie": true, "dni": "ninguna"}"""))) { Verificacion(it) }
     @Test fun dni() = montar("Dni") { Dni(it, null) }
     // Suelta, como las demás piezas: con el margen de la pantalla (pegada al borde parecía rota).
-    @Test fun elegirGenero() = montar("ElegirGenero", espera = 500) { Piezas { ElegirGenero("mujer") {} } }
-    @Test fun hojaGenero() {
+    @Test fun hojaAntesDeSumarteMujer() {
         val c = contenedor()
-        montar("HojaGenero", c) {
-            androidx.compose.runtime.LaunchedEffect(Unit) { c.preguntarGenero() }
-            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) { HojaGenero(c) }
+        montar("HojaAntesDeSumarteMujer", c) {
+            androidx.compose.runtime.LaunchedEffect(Unit) { c.confirmar("mujer") }
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) { HojaAntesDeSumarte(c) }
         }
     }
-    @Test fun hojaDiversidad() {
+    @Test fun hojaAntesDeSumarteDiversidad() {
         val c = contenedor()
-        montar("HojaDiversidad", c) {
-            androidx.compose.runtime.LaunchedEffect(Unit) { c.confirmarDiversidad() }
-            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) { HojaDiversidad(c) }
+        montar("HojaAntesDeSumarteDiversidad", c) {
+            androidx.compose.runtime.LaunchedEffect(Unit) { c.confirmar("diversidad") }
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) { HojaAntesDeSumarte(c) }
         }
     }
     @Ignore("Falta en Android: las piezas de IngresoComun (IngresoTitulo, IngresoCampo, IngresoCasillas…) como funciones públicas")

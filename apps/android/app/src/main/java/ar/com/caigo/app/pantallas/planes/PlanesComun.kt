@@ -157,21 +157,21 @@ internal fun PlanesChipPlus(texto: String = "Plus") {
  * Sumarse a un plan desde la tarjeta o el detalle. Los errores de verificación llevan a la selfie o
  * al DNI (y vuelven); el resto se muestra tal cual en el toast. Devuelve el estado nuevo.
  *
- * `falta_genero` y `confirmar_diversidad`: en Android los resuelve
- * [ar.com.caigo.app.pantallas.ingreso.conGenero] (las hojas globales de Genero.kt preguntan y se
- * reintenta una vez), en vez del `faltaGenero` / `confirmarDiversidad` de iOS.
+ * `confirmar_mujer` y `confirmar_diversidad`: en Android los resuelve
+ * [ar.com.caigo.app.pantallas.ingreso.conConfirmacion] (la hoja global «Antes de sumarte» de
+ * Genero.kt pregunta y se reintenta una vez), en vez del `pedirConfirmacion` de iOS.
  */
 internal suspend fun planesSumarse(
     c: Contenedor, ir: Ir, avisos: Avisos, plan: Plan, cantidad: Int, mensaje: String = "", vibrar: () -> Unit = {},
 ): String? = try {
-    val e = ar.com.caigo.app.pantallas.ingreso.conGenero(c) { d -> c.api.sumarme(plan.id, cantidad, mensaje, d) }.estado
+    val e = ar.com.caigo.app.pantallas.ingreso.conConfirmacion(c) { conf -> c.api.sumarme(plan.id, cantidad, mensaje, conf) }.estado
     val quien = plan.organizador.nombre.ifEmpty { "quien organiza" }
     avisos.ok(if (e == "aceptada") "¡Estás adentro!" else "Le pediste a $quien sumarte.")
     vibrar()
     e
 } catch (e: ErrorApi) {
-    if (e.codigo == "falta_genero" || e.codigo == "confirmar_diversidad") {
-        // La hoja ya se cerró sin guardar ni confirmar: como en iOS, no se muestra el error.
+    if (ar.com.caigo.app.nucleo.Generos.pide(e.codigo) != null) {
+        // La hoja ya se cerró sin confirmar: como en iOS, no se muestra el error.
         null
     } else {
         avisos.error(e.detalle)

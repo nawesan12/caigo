@@ -136,27 +136,17 @@ class Contenedor(val ctx: Context) {
         if (v.pideActualizar(BuildConfig.VERSION_CODE)) actualizar.value = true
     }
 
-    /** Pregunta de género pendiente (ante `falta_genero`): la hoja la responde con true si se guardó. */
-    val preguntaGenero = MutableStateFlow<kotlinx.coroutines.CompletableDeferred<Boolean>?>(null)
+    /** «Antes de sumarte» pendiente: lo que pide confirmar (`mujer` | `diversidad`) y la respuesta. */
+    data class Pregunta(val pide: String, val respuesta: kotlinx.coroutines.CompletableDeferred<Boolean>)
 
-    /** Abre la hoja de género y espera la respuesta. */
-    suspend fun preguntarGenero(): Boolean {
-        val d = kotlinx.coroutines.CompletableDeferred<Boolean>()
-        preguntaGenero.value = d
-        return try { d.await() } finally { if (preguntaGenero.value === d) preguntaGenero.value = null }
-    }
+    /** La hoja «Antes de sumarte» la responde con true si la persona lo confirmó. No se guarda. */
+    val pregunta = MutableStateFlow<Pregunta?>(null)
 
-    /**
-     * Confirmación pendiente para un plan «Solo diversidades» (ante `confirmar_diversidad`): la hoja
-     * la responde con true si la persona lo confirmó. No se guarda.
-     */
-    val preguntaDiversidad = MutableStateFlow<kotlinx.coroutines.CompletableDeferred<Boolean>?>(null)
-
-    /** Abre la hoja de diversidad y espera la respuesta. */
-    suspend fun confirmarDiversidad(): Boolean {
-        val d = kotlinx.coroutines.CompletableDeferred<Boolean>()
-        preguntaDiversidad.value = d
-        return try { d.await() } finally { if (preguntaDiversidad.value === d) preguntaDiversidad.value = null }
+    /** Abre «Antes de sumarte» (ante `confirmar_mujer` / `confirmar_diversidad`) y espera la respuesta. */
+    suspend fun confirmar(pide: String): Boolean {
+        val p = Pregunta(pide, kotlinx.coroutines.CompletableDeferred())
+        pregunta.value = p
+        return try { p.respuesta.await() } finally { if (pregunta.value === p) pregunta.value = null }
     }
 
     /** Cierra la sesión sólo en el teléfono (sin avisarle a la API). */

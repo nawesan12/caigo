@@ -488,12 +488,11 @@ fun EditarPerfil(ir: Ir, completar: Boolean = false) {
     val gustos = remember { mutableStateListOf<String>() }
     var subiendo by remember { mutableStateOf(false) }
     var guardando by remember { mutableStateOf(false) }
-    var genero by remember { mutableStateOf("") }
 
     LaunchedEffect(y) {
         if (y != null && !listo) {
             fotos.addAll(y.fotos); nombre = y.nombre; bio = y.bio; trabajo = y.trabajo; zona = y.zona
-            prompts.addAll(y.prompts); gustos.addAll(y.intereses); genero = y.genero; listo = true
+            prompts.addAll(y.prompts); gustos.addAll(y.intereses); listo = true
         }
     }
 
@@ -582,9 +581,6 @@ fun EditarPerfil(ir: Ir, completar: Boolean = false) {
                 Etiquetado("Sobre mí") { MiosCampo(bio, { bio = it }, renglones = 3, maximo = 300) }
                 Etiquetado("Trabajo") { MiosCampo(trabajo, { trabajo = it }, maximo = 60) }
                 Etiquetado("Zona") { MiosCampo(zona, { zona = it }, placeholder = "Güemes", maximo = 60, mayusculas = KeyboardCapitalization.Words) }
-                Etiquetado("Género") {
-                    ar.com.caigo.app.pantallas.ingreso.CamposGenero(genero) { genero = it }
-                }
 
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     MiosSeccion("Preguntas")
@@ -629,7 +625,7 @@ fun EditarPerfil(ir: Ir, completar: Boolean = false) {
                             c.yo.value = c.api.actualizarYo(
                                 CambiosPerfil(
                                     nombre = nombre.trim(), bio = bio.trim(), trabajo = trabajo.trim(), zona = zona.trim(),
-                                    fotos = fotos.toList(), intereses = gustos.toList(), genero = genero,
+                                    fotos = fotos.toList(), intereses = gustos.toList(),
                                     prompts = prompts.filter { it.r.isNotBlank() }.map { it.copy(r = it.r.trim()) },
                                 ),
                             )
