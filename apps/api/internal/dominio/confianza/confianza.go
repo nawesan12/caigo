@@ -278,9 +278,11 @@ type DatosDNI struct {
 	Numero     string `json:"numero"`
 	Apellido   string `json:"apellido"`
 	Nombres    string `json:"nombres"`
-	Sexo       string `json:"sexo"`
 	Nacimiento string `json:"nacimiento"`
 	Tramite    string `json:"tramite"`
+	// Lo mandan las versiones viejas de las apps: se acepta y se descarta. Del DNI sólo se valida
+	// la edad; el sexo no se guarda (AAIP 1.2).
+	Sexo string `json:"sexo"`
 }
 
 var reDNI = regexp.MustCompile(`^[0-9]{7,9}$`)
@@ -312,11 +314,6 @@ func (s *Servicio) PedirDNI(ctx context.Context, usuarioID string, d DatosDNI) e
 	if veto {
 		return problema.NoProcesable("dni_vetado", "No podemos verificar este DNI. Si creés que es un error, escribinos a soporte@caigo.com.ar.")
 	}
-	// PENDIENTE (decisión del dueño, AAIP 1.2): el sexo del DNI (con la X) y el género y la diversidad
-	// del perfil son datos sensibles o cerca. No se tocan hasta que Nahuel decida qué se guarda.
-	if d.Sexo != "M" && d.Sexo != "F" && d.Sexo != "X" {
-		d.Sexo = ""
-	}
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var n int
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM archivos WHERE usuario_id = $1 AND (
@@ -335,9 +332,9 @@ func (s *Servicio) PedirDNI(ctx context.Context, usuarioID string, d DatosDNI) e
 			return problema.Conflicto("pendiente", "Ya estamos revisando tu DNI.")
 		}
 		_, err := tx.Exec(ctx, `INSERT INTO verificaciones_dni (usuario_id, frente_id, dorso_id, selfie_id, numero,
-			apellido, nombres, sexo, nacimiento, tramite) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			apellido, nombres, nacimiento, tramite) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 			usuarioID, d.FrenteID, d.DorsoID, d.SelfieID, d.Numero, strings.TrimSpace(d.Apellido),
-			strings.TrimSpace(d.Nombres), d.Sexo, nac, strings.TrimSpace(d.Tramite))
+			strings.TrimSpace(d.Nombres), nac, strings.TrimSpace(d.Tramite))
 		return err
 	})
 }

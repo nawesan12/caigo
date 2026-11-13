@@ -103,7 +103,7 @@ func TestVerificacion(t *testing.T) {
 	e.pedir(mar, "GET", "/v1/archivos/"+selfie.ID, nil, http.StatusOK, nil)
 	e.pedir(mar, "POST", "/v1/verificacion/selfie", map[string]string{"archivoId": selfie.ID}, http.StatusNoContent, nil)
 
-	// DNI: frente, dorso y selfie + lo leído del PDF417.
+	// DNI: frente, dorso y selfie + lo leído del PDF417 (el "sexo" lo mandan las versiones viejas: se descarta).
 	var frente, dorso, s2 struct{ ID string }
 	e.pedir(mar, "POST", "/v1/archivos?tipo=dni", jpeg, http.StatusCreated, &frente)
 	e.pedir(mar, "POST", "/v1/archivos?tipo=dni", jpeg, http.StatusCreated, &dorso)

@@ -229,11 +229,14 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		var in struct {
 			Cantidad int16  `json:"cantidad"`
 			Modo     string `json:"modo"`
+			// Confirma, sólo para este pedido, que es parte de la diversidad (planes «Solo
+			// diversidades»). No se guarda.
+			Diversidad bool `json:"diversidad"`
 		}
 		if !respuesta.Leer(w, r, &in) {
 			return nil
 		}
-		c, err := s.Comprar(r.Context(), p.ID, r.PathValue("id"), in.Cantidad, in.Modo)
+		c, err := s.Comprar(r.Context(), p.ID, r.PathValue("id"), in.Cantidad, in.Modo, in.Diversidad)
 		if err != nil {
 			return err
 		}

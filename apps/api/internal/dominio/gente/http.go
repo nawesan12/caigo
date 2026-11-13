@@ -76,11 +76,14 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 	mux.Handle("POST /v1/invitaciones/{planId}", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		var in struct {
 			Aceptar bool `json:"aceptar"`
+			// Confirma, sólo para este pedido, que es parte de la diversidad (planes «Solo
+			// diversidades»). No se guarda.
+			Diversidad bool `json:"diversidad"`
 		}
 		if !respuesta.Leer(w, r, &in) {
 			return nil
 		}
-		adentro, err := s.ResponderInvitacion(r.Context(), p.ID, r.PathValue("planId"), in.Aceptar)
+		adentro, err := s.ResponderInvitacion(r.Context(), p.ID, r.PathValue("planId"), in.Aceptar, in.Diversidad)
 		if err == nil {
 			respuesta.JSON(w, http.StatusOK, map[string]bool{"adentro": adentro})
 		}

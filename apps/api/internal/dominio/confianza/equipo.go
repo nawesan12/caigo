@@ -23,7 +23,6 @@ type DNIPendiente struct {
 	Numero       string    `json:"numero"`
 	Apellido     string    `json:"apellido"`
 	Nombres      string    `json:"nombres"`
-	Sexo         string    `json:"sexo"`
 	Nacimiento   time.Time `json:"nacimiento"`
 	FrenteID     string    `json:"frenteId"`
 	DorsoID      string    `json:"dorsoId"`
@@ -40,7 +39,7 @@ func (s *Servicio) DNIPendientes(ctx context.Context) ([]DNIPendiente, error) {
 	out := []DNIPendiente{}
 	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `
-			SELECT v.id, v.usuario_id, u.nombre, u.edad, v.numero, v.apellido, v.nombres, v.sexo, v.nacimiento,
+			SELECT v.id, v.usuario_id, u.nombre, u.edad, v.numero, v.apellido, v.nombres, v.nacimiento,
 				v.frente_id, v.dorso_id, v.selfie_id,
 				coalesce((SELECT a.id::text FROM archivos a WHERE a.usuario_id = u.id AND a.tipo = 'selfie'
 					AND a.id <> v.selfie_id ORDER BY a.creado_en LIMIT 1), ''),
@@ -55,7 +54,7 @@ func (s *Servicio) DNIPendientes(ctx context.Context) ([]DNIPendiente, error) {
 		for rows.Next() {
 			var d DNIPendiente
 			if err := rows.Scan(&d.ID, &d.UsuarioID, &d.NombrePerfil, &d.EdadPerfil, &d.Numero, &d.Apellido,
-				&d.Nombres, &d.Sexo, &d.Nacimiento, &d.FrenteID, &d.DorsoID, &d.SelfieID, &d.SelfieIngresoID,
+				&d.Nombres, &d.Nacimiento, &d.FrenteID, &d.DorsoID, &d.SelfieID, &d.SelfieIngresoID,
 				&d.Repetido, &d.CreadaEn); err != nil {
 				return err
 			}

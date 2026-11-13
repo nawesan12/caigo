@@ -58,7 +58,7 @@ func (e *entorno) pedirDNI(p persona, numero string, estado int) string {
 		out = nil
 	}
 	e.pedir(p, "POST", "/v1/verificacion/dni", map[string]string{"frenteId": frente.ID, "dorsoId": dorso.ID, "selfieId": selfie.ID,
-		"numero": numero, "apellido": "PEREZ", "nombres": "ROCIO", "sexo": "F", "nacimiento": "1998-05-04"}, estado, out)
+		"numero": numero, "apellido": "PEREZ", "nombres": "ROCIO", "nacimiento": "1998-05-04"}, estado, out)
 	return pr.Code
 }
 
