@@ -58,8 +58,10 @@ export const actions: Actions = {
 			// Sin selfie: a verificarse y de vuelta al plan (en Caigo desde la web).
 			if (e.codigo === 'falta_selfie')
 				redirect(303, `/app/verificar?volver=${encodeURIComponent(`/app/plan/${plan.id}`)}`);
-			// Plan sólo para mujeres o diversidades y sin género cargado: lo pregunta el detalle de /app.
-			if (e.codigo === 'falta_genero') redirect(303, `/app/plan/${plan.id}`);
+			// Plan sólo para mujeres sin género cargado, o sólo para diversidades (se confirma al
+			// sumarse): lo pregunta el detalle de /app.
+			if (e.codigo === 'falta_genero' || e.codigo === 'confirmar_diversidad')
+				redirect(303, `/app/plan/${plan.id}`);
 			return fail(e.estado === 400 ? 400 : 409, { error: mensajeDe(e), codigo: e.codigo });
 		}
 	}

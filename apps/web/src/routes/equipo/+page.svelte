@@ -576,7 +576,7 @@
 						<div class="datos">
 							<span><b>DNI:</b> {d.numero}</span>
 							<span><b>Apellido y nombres:</b> {d.apellido}, {d.nombres}</span>
-							<span><b>Sexo:</b> {d.sexo} · <b>Nacimiento:</b> {d.nacimiento.slice(0, 10)}</span>
+							<span><b>Nacimiento:</b> {d.nacimiento.slice(0, 10)}</span>
 						</div>
 						<div class="fotos">
 							{#each [['Frente', d.frenteId], ['Dorso', d.dorsoId], ['Selfie', d.selfieId], ['Selfie de ingreso', d.selfieIngresoId]] as [l, f] (l)}

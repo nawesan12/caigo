@@ -25,8 +25,7 @@ export const actions: Actions = {
 		const f = await event.request.formData();
 		const genero = String(f.get('genero') ?? '');
 		if (!GENEROS.includes(genero)) return fail(400, { error: 'Elegí una opción.' });
-		const diversidad = f.get('diversidad') === '1';
-		return guardar(event, { genero, diversidad }, { genero, diversidad });
+		return guardar(event, { genero }, { genero });
 	},
 	intenciones: async (event) => {
 		const f = await event.request.formData();

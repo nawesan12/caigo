@@ -17,7 +17,6 @@
 
 	const yo = untrack(() => data.yo as YoCompleto);
 	let genero = $state<string>(yo.genero ?? '');
-	let diversidad = $state(!!yo.diversidad);
 	let intenciones = $state<string[]>([...(yo.intenciones ?? [])]);
 	let contacto = $state(yo.contactoConfianza ?? '');
 	let editandoContacto = $state(false);
@@ -107,31 +106,15 @@
 			class="bloque"
 			use:enhance={enviar((d) => {
 				genero = String(d.genero ?? genero);
-				diversidad = !!d.diversidad;
 			}, 'Guardado. No se lo mostramos a nadie.')}
 		>
-			<input type="hidden" name="diversidad" value={diversidad ? '1' : '0'} />
 			<div class="chips">
 				{#each GENEROS as [k, l] (k)}
 					<button class="chip" name="genero" value={k} aria-pressed={genero === k}>{l}</button>
 				{/each}
 			</div>
-			<button
-				class="fila tarjeta-plana"
-				name="genero"
-				value={genero}
-				role="switch"
-				aria-checked={diversidad}
-				onclick={() => flushSync(() => (diversidad = !diversidad))}
-			>
-				<span class="ft"
-					><b>Soy parte de la diversidad</b><span>Para sumarte a planes «Solo diversidades»</span
-					></span
-				>
-				<span class="toggle" class:on={diversidad}></span>
-			</button>
 			<span class="ayuda"
-				>No se lo mostramos a nadie. Sirve para los planes «Solo mujeres» y «Solo diversidades».</span
+				>No se lo mostramos a nadie. Sólo sirve para los planes «Solo mujeres».</span
 			>
 		</form>
 
@@ -290,10 +273,6 @@
 	.ft span {
 		font-size: 12px;
 		color: var(--texto-2);
-	}
-	.tarjeta-plana.fila {
-		background: var(--c-tarjeta);
-		border-radius: 22px;
 	}
 	.chips {
 		display: flex;

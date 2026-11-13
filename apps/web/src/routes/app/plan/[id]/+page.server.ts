@@ -41,8 +41,8 @@ export const actions: Actions = {
 			// Sin selfie: a verificarse y de vuelta acá.
 			if (e.codigo === 'falta_selfie')
 				redirect(303, `/app/verificar?volver=${encodeURIComponent(`/app/plan/${id}`)}`);
-			// Plan «Solo mujeres» / «Solo diversidades» y todavía no dijo su género: se pregunta y se
-			// reintenta desde esa pantalla.
+			// Plan «Solo mujeres» y todavía no dijo su género: se pregunta y se reintenta desde esa
+			// pantalla. («Solo diversidades» se confirma en el mismo formulario y no se guarda.)
 			if (e.codigo === 'falta_genero') redirect(303, aGenero(id, pedido));
 			return fail(e.estado === 400 ? 400 : 409, { error: mensajeDe(e), codigo: e.codigo });
 		}

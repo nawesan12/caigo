@@ -4,14 +4,13 @@
 	import Icono from '#lib/ui/Icono.svelte';
 
 	/*
-	 * Género, para los planes «Solo mujeres» / «Solo diversidades» (contrato §1). No está en el
-	 * handoff: se arma como la verificación (01d) con los radios de 06c y el interruptor de 06a.
+	 * Género, para los planes «Solo mujeres» (contrato §1). No está en el handoff: se arma como la
+	 * verificación (01d) con los radios de 06c. La diversidad no se pregunta acá ni se guarda: se
+	 * confirma al sumarse a un plan «Solo diversidades» (AAIP 1.2).
 	 */
 	let { data, form } = $props();
 
-	const ini = untrack(() => ({ genero: data.genero, diversidad: data.diversidad }));
-	let genero = $state(ini.genero);
-	let diversidad = $state(ini.diversidad);
+	let genero = $state(untrack(() => data.genero));
 	let enviando = $state(false);
 	const OPCIONES: [string, string][] = [
 		['mujer', 'Mujer'],
@@ -40,10 +39,7 @@
 		</div>
 		<div class="txt">
 			<h1>¿Con qué género te identificás?</h1>
-			<p>
-				Lo pedimos para los planes «Solo mujeres» y «Solo diversidades». No se muestra en tu perfil
-				ni a&nbsp;nadie.
-			</p>
+			<p>Lo pedimos para los planes «Solo mujeres». No se muestra en tu perfil ni a&nbsp;nadie.</p>
 		</div>
 
 		<div class="radios" role="radiogroup" aria-label="Género">
@@ -60,21 +56,8 @@
 				</button>
 			{/each}
 		</div>
-		<button
-			type="button"
-			class="tg"
-			role="switch"
-			aria-checked={diversidad}
-			onclick={() => (diversidad = !diversidad)}
-		>
-			<span class="tg-txt"
-				><b>Soy parte de la diversidad</b><span>LGBTIQ+ · también es privado</span></span
-			>
-			<span class="tog" class:on={diversidad}></span>
-		</button>
 
 		<input type="hidden" name="genero" value={genero} />
-		<input type="hidden" name="diversidad" value={diversidad ? 'si' : ''} />
 		<input type="hidden" name="plan" value={data.plan} />
 		<input type="hidden" name="cantidad" value={data.pedido.cantidad} />
 		<input type="hidden" name="modo" value={data.pedido.modo} />
@@ -165,53 +148,6 @@
 	}
 	.on .anillo {
 		border: 7px solid var(--violeta);
-	}
-	.tg {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-		padding: 4px 2px;
-		text-align: left;
-		color: var(--carbon);
-	}
-	.tg-txt {
-		display: flex;
-		flex-direction: column;
-	}
-	.tg-txt b {
-		font-size: 15px;
-		font-weight: 700;
-	}
-	.tg-txt span {
-		font-size: 12px;
-		color: var(--texto-2);
-	}
-	.tog {
-		flex: none;
-		position: relative;
-		width: 48px;
-		height: 28px;
-		border-radius: 14px;
-		background: #ddd8ea;
-		transition: background 0.15s;
-	}
-	.tog::after {
-		content: '';
-		position: absolute;
-		top: 3px;
-		left: 3px;
-		width: 22px;
-		height: 22px;
-		border-radius: 50%;
-		background: var(--c-tarjeta);
-		transition: left 0.15s;
-	}
-	.tog.on {
-		background: var(--violeta);
-	}
-	.tog.on::after {
-		left: 23px;
 	}
 	.error {
 		padding: 12px 14px;

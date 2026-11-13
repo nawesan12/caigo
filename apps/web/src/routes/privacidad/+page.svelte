@@ -5,14 +5,14 @@
 <!--
 	Los plazos de la sección 6 son los del worker (apps/api/internal/dominio/confianza/plazos.go y
 	cmd/worker): si cambia uno, cambia el otro.
-	PENDIENTE (decisión del dueño, AAIP 1.2): el género, la diversidad y el sexo X del DNI no están
-	explicados acá ni tienen un consentimiento expreso. No tocar hasta que Nahuel decida.
+	AAIP 1.2: la diversidad no se guarda (se confirma al sumarse a un plan «Solo diversidades») y del
+	DNI no se guarda el sexo (migración 00021).
 -->
 
 <Legal
 	titulo="Política de&nbsp;privacidad"
 	ruta="/privacidad"
-	vigencia="12 de noviembre de 2026"
+	vigencia="13 de noviembre de 2026"
 	descripcion="Qué datos usa Caigo (teléfono, selfie, ubicación), para qué, con quién los compartimos y cómo pedís verlos, corregirlos o borrarlos cuando quieras."
 >
 	<p>
@@ -47,8 +47,15 @@
 			la selfie solo. Ese análisis no sale del teléfono; a nuestros servidores llega sólo la foto. En
 			la web no hay prueba de vida automática: sacás la selfie con la cámara o subís una foto, y el equipo
 			de Caigo la puede revisar. Si elegís verificar tu DNI, guardamos las fotos del frente y el dorso
-			y los datos que lee la app del código del DNI: número, apellido, nombres, sexo, fecha de nacimiento
-			y número de trámite.
+			y los datos que lee la app del código del DNI: número, apellido, nombres, fecha de nacimiento y
+			número de trámite. Del DNI sólo validamos tu edad y que sea tuyo: no guardamos el sexo que figura
+			en&nbsp;él.
+		</li>
+		<li>
+			<b>Género, si lo contás.</b> Para sumarte a un plan «Solo mujeres» te preguntamos con qué género
+			te identificás. Es optativo, no se lo mostramos a nadie y sólo sirve para esos planes. Para un plan
+			«Solo diversidades» te pedimos que confirmes, en el momento de sumarte, que sos parte de la diversidad
+			LGBTIQ+: esa confirmación no la guardamos en ningún&nbsp;lado.
 		</li>
 		<li>
 			<b>Modo Citas.</b> Si elegís «Algo más romántico — Citas» en lo que buscás, se ve en tu perfil y

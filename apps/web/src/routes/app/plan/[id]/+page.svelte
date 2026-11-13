@@ -67,6 +67,9 @@
 	const otros = $derived(p.van.filter((v) => !v.organizador).length);
 	let cantidad = $state(2);
 	let enviando = $state(false);
+	/** Plan «Solo diversidades»: se confirma acá, sin premarcar, y no se guarda (AAIP 1.2). */
+	const pideDiversidad = $derived(p.genero === 'diversidades');
+	let diversidad = $state(false);
 	/** Con seña se elige: pagar todo (como en el Prototipo, lo primero) o señar. */
 	let modo = $state<'entrada' | 'sena'>('entrada');
 	const pago = $derived(
@@ -344,8 +347,25 @@
 					placeholder="Mandale un mensaje (opcional)"
 				/>
 			{/if}
+			{#if pideDiversidad}
+				<button
+					type="button"
+					class="confirma"
+					role="switch"
+					aria-checked={diversidad}
+					onclick={() => (diversidad = !diversidad)}
+				>
+					<span class="confirma-txt"
+						><b>Soy parte de la diversidad LGBTIQ+</b><span
+							>No lo guardamos: sólo vale para sumarte a este&nbsp;plan.</span
+						></span
+					>
+					<span class="tog" class:on={diversidad}></span>
+				</button>
+				<input type="hidden" name="diversidad" value={diversidad ? 'si' : ''} />
+			{/if}
 			<input type="hidden" name="cantidad" value={grupo ? cantidad : 1} />
-			<button class="gel gel-lima cta" disabled={enviando}>
+			<button class="gel gel-lima cta" disabled={enviando || (pideDiversidad && !diversidad)}>
 				<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"
 					><path
 						d="M12 4v16M4 12h16"
@@ -739,6 +759,53 @@
 		background: var(--c-input-2);
 		padding: 0 14px;
 		font-size: 15px;
+	}
+	.confirma {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 4px 2px;
+		text-align: left;
+		color: var(--carbon);
+	}
+	.confirma-txt {
+		display: flex;
+		flex-direction: column;
+	}
+	.confirma-txt b {
+		font-size: 15px;
+		font-weight: 700;
+	}
+	.confirma-txt span {
+		font-size: 12px;
+		color: var(--texto-2);
+	}
+	.tog {
+		flex: none;
+		position: relative;
+		width: 48px;
+		height: 28px;
+		border-radius: 14px;
+		background: #ddd8ea;
+		transition: background 0.15s;
+	}
+	.tog::after {
+		content: '';
+		position: absolute;
+		top: 3px;
+		left: 3px;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		background: var(--c-tarjeta);
+		transition: left 0.15s;
+	}
+	.tog.on {
+		background: var(--violeta);
+	}
+	.tog.on::after {
+		left: 23px;
 	}
 	.cta,
 	.estado,

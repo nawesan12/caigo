@@ -2,11 +2,21 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { conSesion } from './api.ts';
 import type { Plan } from '#lib/tipos.ts';
 
-export type PedidoSumarse = { cantidad: number; mensaje: string; modo: 'entrada' | 'sena' };
+/**
+ * diversidad: la persona confirma, sólo para este pedido, que es parte de la diversidad (planes «Solo
+ * diversidades»). No se guarda en ningún lado (AAIP 1.2).
+ */
+export type PedidoSumarse = {
+	cantidad: number;
+	mensaje: string;
+	modo: 'entrada' | 'sena';
+	diversidad: boolean;
+};
 
-/** Lee cantidad, mensaje y modo de un formulario o de la URL (detalle del plan o pantalla de género). */
+/** Lee el pedido de un formulario o de la URL (detalle del plan o pantalla de género). */
 export function leerPedido(f: FormData | URLSearchParams): PedidoSumarse {
 	return {
+		diversidad: f.get('diversidad') === 'si',
 		cantidad: Math.min(10, Math.max(1, Number(f.get('cantidad')) || 1)),
 		mensaje: String(f.get('mensaje') ?? '')
 			.trim()
@@ -27,12 +37,12 @@ export async function sumarse(
 	const plan = await conSesion<Plan>(event, 'GET', `/v1/planes/${id}`);
 	if (plan.lugar && plan.cobro !== 'gratis') {
 		const c = await conSesion<{ link?: string }>(event, 'POST', `/v1/planes/${id}/entradas`, {
-			cuerpo: { cantidad: p.cantidad, modo: p.modo }
+			cuerpo: { cantidad: p.cantidad, modo: p.modo, diversidad: p.diversidad }
 		});
 		return c?.link ? { link: c.link } : { estado: 'aceptada' };
 	}
 	const r = await conSesion<{ estado: string }>(event, 'POST', `/v1/planes/${id}/sumarme`, {
-		cuerpo: { cantidad: p.cantidad, mensaje: p.mensaje }
+		cuerpo: { cantidad: p.cantidad, mensaje: p.mensaje, diversidad: p.diversidad }
 	});
 	return { estado: r.estado };
 }

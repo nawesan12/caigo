@@ -250,7 +250,6 @@ export type DNIPendiente = {
 	numero: string;
 	apellido: string;
 	nombres: string;
-	sexo: string;
 	nacimiento: string;
 	frenteId: string;
 	dorsoId: string;
@@ -334,7 +333,6 @@ export type YoCompleto = Yo & {
 	prompts: Prompt[];
 	telefono?: string;
 	genero?: Genero;
-	diversidad?: boolean;
 	contactoConfianza?: string;
 	avisos?: { planesCerca: boolean; tuGente: boolean };
 	origen?: string;
