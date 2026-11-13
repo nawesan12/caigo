@@ -323,7 +323,6 @@ export type SemanaMetricas = {
 
 /** Perfil propio completo (GET /v1/yo): lo que suma el contrato (§1, §3, §4) llega opcional. */
 export type Prompt = { p: string; r: string };
-export type Genero = '' | 'mujer' | 'varon' | 'no_binario';
 export type YoCompleto = Yo & {
 	/** Lo que le falta al perfil (GET /v1/yo): edad, ciudad, zona, bio, fotos, intereses. */
 	faltan?: string[];
@@ -332,7 +331,6 @@ export type YoCompleto = Yo & {
 	intenciones: string[];
 	prompts: Prompt[];
 	telefono?: string;
-	genero?: Genero;
 	contactoConfianza?: string;
 	avisos?: { planesCerca: boolean; tuGente: boolean };
 	origen?: string;

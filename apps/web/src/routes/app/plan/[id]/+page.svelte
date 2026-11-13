@@ -67,9 +67,18 @@
 	const otros = $derived(p.van.filter((v) => !v.organizador).length);
 	let cantidad = $state(2);
 	let enviando = $state(false);
-	/** Plan «Solo diversidades»: se confirma acá, sin premarcar, y no se guarda (AAIP 1.2). */
-	const pideDiversidad = $derived(p.genero === 'diversidades');
-	let diversidad = $state(false);
+	/**
+	 * Plan «Solo mujeres» / «Solo diversidades»: se confirma acá, sin premarcar, y no se guarda en
+	 * ningún lado (AAIP 1.2). Mismo texto que la hoja «Antes de sumarte» de las apps.
+	 */
+	const confirmar = $derived(
+		p.genero === 'mujeres'
+			? { campo: 'mujer', texto: 'Soy mujer' }
+			: p.genero === 'diversidades'
+				? { campo: 'diversidad', texto: 'Soy parte de la diversidad LGBTIQ+' }
+				: null
+	);
+	let confirmado = $state(false);
 	/** Con seña se elige: pagar todo (como en el Prototipo, lo primero) o señar. */
 	let modo = $state<'entrada' | 'sena'>('entrada');
 	const pago = $derived(
@@ -347,25 +356,25 @@
 					placeholder="Mandale un mensaje (opcional)"
 				/>
 			{/if}
-			{#if pideDiversidad}
+			{#if confirmar}
 				<button
 					type="button"
 					class="confirma"
 					role="switch"
-					aria-checked={diversidad}
-					onclick={() => (diversidad = !diversidad)}
+					aria-checked={confirmado}
+					onclick={() => (confirmado = !confirmado)}
 				>
 					<span class="confirma-txt"
-						><b>Soy parte de la diversidad LGBTIQ+</b><span
+						><b>{confirmar.texto}</b><span
 							>No lo guardamos: sólo vale para sumarte a este&nbsp;plan.</span
 						></span
 					>
-					<span class="tog" class:on={diversidad}></span>
+					<span class="tog" class:on={confirmado}></span>
 				</button>
-				<input type="hidden" name="diversidad" value={diversidad ? 'si' : ''} />
+				<input type="hidden" name={confirmar.campo} value={confirmado ? 'si' : ''} />
 			{/if}
 			<input type="hidden" name="cantidad" value={grupo ? cantidad : 1} />
-			<button class="gel gel-lima cta" disabled={enviando || (pideDiversidad && !diversidad)}>
+			<button class="gel gel-lima cta" disabled={enviando || (!!confirmar && !confirmado)}>
 				<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"
 					><path
 						d="M12 4v16M4 12h16"

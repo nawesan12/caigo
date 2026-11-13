@@ -10,13 +10,12 @@
 	/*
 	 * Ajustes del perfil. No hay pantalla en el handoff: se arma con la lista "Herramientas para
 	 * salir tranqui" de la verificación del Prototipo (filas con ícono, título y bajada), los chips,
-	 * el segmented y los toggles de Crear. Lo que la API todavía no devuelve (avisos, género) arranca
+	 * el segmented y los toggles de Crear. Lo que la API todavía no devuelve (avisos) arranca
 	 * con lo de por defecto y queda como lo dejaste.
 	 */
 	let { data } = $props();
 
 	const yo = untrack(() => data.yo as YoCompleto);
-	let genero = $state<string>(yo.genero ?? '');
 	let intenciones = $state<string[]>([...(yo.intenciones ?? [])]);
 	let contacto = $state(yo.contactoConfianza ?? '');
 	let editandoContacto = $state(false);
@@ -36,11 +35,6 @@
 			else await update();
 		};
 
-	const GENEROS = [
-		['mujer', 'Mujer'],
-		['varon', 'Varón'],
-		['no_binario', 'No binario']
-	];
 	const TEMAS = [
 		['claro', 'Claro'],
 		['oscuro', 'Oscuro'],
@@ -97,25 +91,6 @@
 						)}>{it.corto}</button
 				>
 			{/each}
-		</form>
-
-		<h2>Género</h2>
-		<form
-			method="POST"
-			action="?/genero"
-			class="bloque"
-			use:enhance={enviar((d) => {
-				genero = String(d.genero ?? genero);
-			}, 'Guardado. No se lo mostramos a nadie.')}
-		>
-			<div class="chips">
-				{#each GENEROS as [k, l] (k)}
-					<button class="chip" name="genero" value={k} aria-pressed={genero === k}>{l}</button>
-				{/each}
-			</div>
-			<span class="ayuda"
-				>No se lo mostramos a nadie. Sólo sirve para los planes «Solo mujeres».</span
-			>
 		</form>
 
 		<h2>Herramientas para salir tranqui</h2>
@@ -278,17 +253,6 @@
 		display: flex;
 		gap: 8px;
 		flex-wrap: wrap;
-	}
-	.bloque {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-	.ayuda {
-		text-align: center;
-		font-size: 12px;
-		line-height: 1.5;
-		color: var(--texto-2);
 	}
 	.contacto {
 		display: flex;

@@ -5,8 +5,9 @@
 <!--
 	Los plazos de la sección 6 son los del worker (apps/api/internal/dominio/confianza/plazos.go y
 	cmd/worker): si cambia uno, cambia el otro.
-	AAIP 1.2: la diversidad no se guarda (se confirma al sumarse a un plan «Solo diversidades») y del
-	DNI no se guarda el sexo (migración 00021).
+	AAIP 1.2: ni el género ni la diversidad se guardan (se confirman al sumarse a un plan «Solo
+	mujeres» / «Solo diversidades»), del DNI no se guarda el sexo y sus fotos y la selfie se borran al
+	resolver la verificación (migraciones 00021 y 00022, confianza/fotos_dni.go).
 -->
 
 <Legal
@@ -46,16 +47,23 @@
 			una foto) la hace tu teléfono: detecta tu cara mientras girás la cabeza a un lado y al otro, y saca
 			la selfie solo. Ese análisis no sale del teléfono; a nuestros servidores llega sólo la foto. En
 			la web no hay prueba de vida automática: sacás la selfie con la cámara o subís una foto, y el equipo
-			de Caigo la puede revisar. Si elegís verificar tu DNI, guardamos las fotos del frente y el dorso
-			y los datos que lee la app del código del DNI: número, apellido, nombres, fecha de nacimiento y
-			número de trámite. Del DNI sólo validamos tu edad y que sea tuyo: no guardamos el sexo que figura
-			en&nbsp;él.
+			de Caigo la puede revisar.
 		</li>
 		<li>
-			<b>Género, si lo contás.</b> Para sumarte a un plan «Solo mujeres» te preguntamos con qué género
-			te identificás. Es optativo, no se lo mostramos a nadie y sólo sirve para esos planes. Para un plan
-			«Solo diversidades» te pedimos que confirmes, en el momento de sumarte, que sos parte de la diversidad
-			LGBTIQ+: esa confirmación no la guardamos en ningún&nbsp;lado.
+			<b>DNI, si elegís verificarlo.</b> Sacás fotos del frente y el dorso y una selfie, y la app
+			lee del código del DNI tu número, apellido, nombres, fecha de nacimiento y número de trámite.
+			Del DNI sólo validamos tu edad y que sea tuyo: no guardamos el sexo que figura en él.
+			<b
+				>Las fotos del DNI y esa selfie las borramos apenas la verificación queda resuelta, aprobada
+				o rechazada.</b
+			> Mientras está pendiente, sólo las ve el equipo que la revisa. Después queda el resultado, tu fecha
+			de nacimiento y los datos del código.
+		</li>
+		<li>
+			<b>Planes «Solo mujeres» y «Solo diversidades».</b> No guardamos tu género, tu orientación ni tu
+			identidad de género. Para sumarte a uno de esos planes, confirmás en ese momento que sos mujer o
+			que sos parte de la diversidad LGBTIQ+: esa confirmación vale sólo para ese plan y no la guardamos
+			en ningún&nbsp;lado.
 		</li>
 		<li>
 			<b>Modo Citas.</b> Si elegís «Algo más romántico — Citas» en lo que buscás, se ve en tu perfil y
@@ -192,6 +200,10 @@
 		<li>
 			Las fotos que sacás de tu perfil o de un plan: se borran en el momento (dejan de verse en su
 			link y se borran del servidor).
+		</li>
+		<li>
+			Las fotos del DNI y la selfie de la verificación del DNI: hasta que la verificación queda
+			resuelta. En ese momento se borran.
 		</li>
 	</ul>
 

@@ -2,7 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { conSesion, ErrorApi, mensajeDe, quizasConSesion } from '#lib/server/api.ts';
 import { conUbicacion } from '#lib/server/app.ts';
 import { uuid } from '#lib/server/panel.ts';
-import { aGenero, leerPedido, sumarse } from '#lib/server/sumarse.ts';
+import { leerPedido, sumarse } from '#lib/server/sumarse.ts';
 import type { Plan } from '#lib/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -41,9 +41,6 @@ export const actions: Actions = {
 			// Sin selfie: a verificarse y de vuelta acá.
 			if (e.codigo === 'falta_selfie')
 				redirect(303, `/app/verificar?volver=${encodeURIComponent(`/app/plan/${id}`)}`);
-			// Plan «Solo mujeres» y todavía no dijo su género: se pregunta y se reintenta desde esa
-			// pantalla. («Solo diversidades» se confirma en el mismo formulario y no se guarda.)
-			if (e.codigo === 'falta_genero') redirect(303, aGenero(id, pedido));
 			return fail(e.estado === 400 ? 400 : 409, { error: mensajeDe(e), codigo: e.codigo });
 		}
 		redirect(303, link, { external: true });

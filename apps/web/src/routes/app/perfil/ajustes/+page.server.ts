@@ -4,8 +4,6 @@ import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
 import { INTENCIONES } from '#lib/app.ts';
 import type { Actions } from './$types';
 
-const GENEROS = ['', 'mujer', 'varon', 'no_binario'];
-
 /** PATCH /v1/yo con lo que cambió; los errores vuelven como { error } para el toast. */
 async function guardar(event: RequestEvent, cuerpo: Record<string, unknown>, ok: object) {
 	try {
@@ -13,7 +11,7 @@ async function guardar(event: RequestEvent, cuerpo: Record<string, unknown>, ok:
 		return ok;
 	} catch (e) {
 		if (!(e instanceof ErrorApi)) throw e;
-		// La API vieja rechaza los campos que todavía no conoce (genero, avisos…).
+		// La API vieja rechaza los campos que todavía no conoce (avisos…).
 		if (e.estado === 400 && /unknown field/i.test(e.detalle))
 			return fail(400, { error: 'Todavía no podemos guardar esto. Probá en un rato.' });
 		return fail(400, { error: mensajeDe(e) });
@@ -21,12 +19,6 @@ async function guardar(event: RequestEvent, cuerpo: Record<string, unknown>, ok:
 }
 
 export const actions: Actions = {
-	genero: async (event) => {
-		const f = await event.request.formData();
-		const genero = String(f.get('genero') ?? '');
-		if (!GENEROS.includes(genero)) return fail(400, { error: 'Elegí una opción.' });
-		return guardar(event, { genero }, { genero });
-	},
 	intenciones: async (event) => {
 		const f = await event.request.formData();
 		const validas = new Set(INTENCIONES.map((i) => i.valor));

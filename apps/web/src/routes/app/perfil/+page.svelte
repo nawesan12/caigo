@@ -9,7 +9,7 @@
 	/*
 	 * Perfil propio (Mockups v5, 11): foto, datos, asistencia, planes, "Le copa", Mi gente y los
 	 * planes compartidos. "Sobre mí" y las preguntas salen del perfil de persona del Prototipo. La
-	 * rueda lleva a los ajustes (editar perfil, género, seguridad, avisos, tema).
+	 * rueda lleva a los ajustes (editar perfil, seguridad, avisos, tema).
 	 */
 	let { data } = $props();
 
