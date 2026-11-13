@@ -251,8 +251,6 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
     public var telefono = ""
     /// El mail de la cuenta (GET /v1/yo): con él se confirma «Borrar mi cuenta».
     public var email = ""
-    /// "" | mujer | varon | no_binario (autodeclarado, no se muestra a nadie).
-    public var genero = ""
     public var avisos = AjustesAvisos()
     public var contactoConfianza = ""
     /// Sus próximos planes que quien mira puede ver (GET /v1/personas/{id}).
@@ -270,7 +268,7 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
         asistencia = c.v("asistencia", Asist()); planes = c.v("planes", 0); organizados = c.v("organizados", 0)
         miGente = c.v("miGente", 0); enMiGente = c.v("enMiGente", false); compartidos = c.v("compartidos", 0)
         equipo = c.v("equipo", false); telefono = c.v("telefono", ""); email = c.v("email", "")
-        genero = c.v("genero", ""); avisos = c.v("avisos", AjustesAvisos())
+        avisos = c.v("avisos", AjustesAvisos())
         contactoConfianza = c.v("contactoConfianza", ""); proximos = c.v("proximos", []); faltan = c.v("faltan", [])
     }
 
@@ -289,7 +287,6 @@ public struct CambiosPerfil: Encodable, Sendable {
     public var intenciones: [String]?
     public var prompts: [Prompt]?
     public var fotos: [String]?
-    public var genero: String?
     public var avisos: AjustesAvisos?
     public var contactoConfianza: String?
     public init() {}
@@ -303,15 +300,35 @@ public struct AjustesAvisos: Codable, Hashable, Sendable {
     public init(from d: Decoder) throws { let c = try d.lector(); planesCerca = c.v("planesCerca", true); tuGente = c.v("tuGente", true) }
 }
 
-/// Géneros que se pueden declarar (contrato §1).
+/// Lo que la persona confirma, sólo para un pedido (sumarse, comprar entrada, aceptar una
+/// invitación), en un plan «Solo mujeres» o «Solo diversidades». No se guarda en ningún lado: Caigo
+/// no guarda género, orientación ni identidad de género (AAIP 1.2).
+public struct Confirma: Encodable, Equatable, Sendable {
+    public var mujer = false
+    public var diversidad = false
+    public init(mujer: Bool = false, diversidad: Bool = false) { self.mujer = mujer; self.diversidad = diversidad }
+}
+
+/// Planes «Solo mujeres» / «Solo diversidades» (contrato §1).
 public enum Generos {
-    public static let todos: [(String, String)] = [("mujer", "Mujer"), ("varon", "Varón"), ("no_binario", "No binario")]
-    /// Si la persona cumple con lo que pide el plan (`cualquiera` | `mujeres` | `diversidades`).
-    /// `diversidad`: lo confirmó al sumarse (no se guarda ni se deduce del género).
-    public static func puedeSumarse(genero planGenero: String, miGenero: String, diversidad: Bool) -> Bool {
+    /// Qué pide confirmar un 422 de la API: `mujer` (`confirmar_mujer`), `diversidad`
+    /// (`confirmar_diversidad`) o nil si es otro error.
+    public static func pide(_ codigo: String) -> String? {
+        switch codigo {
+        case "confirmar_mujer": return "mujer"
+        case "confirmar_diversidad": return "diversidad"
+        default: return nil
+        }
+    }
+    /// La confirmación de lo que se pidió (`mujer` | `diversidad`).
+    public static func confirma(_ pide: String) -> Confirma {
+        Confirma(mujer: pide == "mujer", diversidad: pide == "diversidad")
+    }
+    /// Si con lo confirmado alcanza para el plan (`cualquiera` | `mujeres` | `diversidades`).
+    public static func puedeSumarse(genero planGenero: String, _ c: Confirma) -> Bool {
         switch planGenero {
-        case "mujeres": return miGenero == "mujer"
-        case "diversidades": return diversidad
+        case "mujeres": return c.mujer
+        case "diversidades": return c.diversidad
         default: return true
         }
     }

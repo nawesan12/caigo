@@ -113,8 +113,8 @@ private struct ContenidoDetalle: View {
     @State private var opciones = false
     @State private var reportando = false
     @State private var sena = false
-    @State private var preguntarGenero = false
-    @State private var preguntarDiversidad = false
+    /// «Antes de sumarte» abierta: lo que pide confirmar (`mujer` | `diversidad`).
+    @State private var pide: String?
     @State private var cancelandoPlan = false
     @State private var cancelandoEntrada = false
 
@@ -212,8 +212,7 @@ private struct ContenidoDetalle: View {
                           cuerpo: planesPolitica(p.cancelacion), accion: p.cancelacion == "strict" ? nil : "Cancelar mi entrada", cerrar: { cancelandoEntrada = false }) {
                 try await cancelarMiEntrada()
             }
-            HojaGenero(abierta: preguntarGenero, cerrar: { preguntarGenero = false }) { sumarme() }
-            HojaDiversidad(abierta: preguntarDiversidad, cerrar: { preguntarDiversidad = false }) { sumarme(diversidad: true) }
+            HojaAntesDeSumarte(pide: pide, cerrar: { pide = nil }) { sumarme(confirma: $0) }
         }
         .onAppear {
             sena = UserDefaults.standard.string(forKey: claveModoCheckout(p.id)) == "sena" && p.cobro == "sena"
@@ -228,14 +227,13 @@ private struct ContenidoDetalle: View {
         return p.lugar != nil ? base + " A quienes pagaron entrada les devolvemos todo, cargo incluido." : base
     }
 
-    /// `diversidad`: lo confirmó en la HojaDiversidad (vale sólo para este pedido).
-    private func sumarme(diversidad: Bool = false) {
+    /// `confirma`: lo que confirmó en «Antes de sumarte» (vale sólo para este pedido).
+    private func sumarme(confirma: Confirma = Confirma()) {
         let n = grupo == 1 && p.aceptaGrupos && p.faltan > 1 ? cantidad : 1
         Task {
             enviando = true
-            if await planesSumarse(c, ir, p, cantidad: n, mensaje: mensaje.trimmingCharacters(in: .whitespaces), diversidad: diversidad,
-                                   faltaGenero: { preguntarGenero = true },
-                                   confirmarDiversidad: { preguntarDiversidad = true }) != nil { recargar() }
+            if await planesSumarse(c, ir, p, cantidad: n, mensaje: mensaje.trimmingCharacters(in: .whitespaces), confirma: confirma,
+                                   pedirConfirmacion: { pide = $0 }) != nil { recargar() }
             enviando = false
         }
     }

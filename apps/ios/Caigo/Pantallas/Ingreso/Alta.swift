@@ -30,7 +30,6 @@ struct Datos: View {
     @State private var nacimiento = ""
     @State private var ciudad = "Mar del Plata"
     @State private var zona = ""
-    @State private var genero = ""
     @State private var cargando = false
     @State private var listoInicial = false
 
@@ -63,10 +62,6 @@ struct Datos: View {
                             IngresoCampo(valor: Binding(get: { zona }, set: { zona = String($0.prefix(60)) }),
                                          pista: ciudad == "Villa Gesell" ? "Zona" : "Güemes")
                         }
-                        VStack(alignment: .leading, spacing: 12) {
-                            T("¿Cómo te identificás?", 14, 700, C.carbon)
-                            ElegirGenero(genero: $genero)
-                        }
                     }
                     .padding(.horizontal, 24).padding(.top, 88)
                 }
@@ -85,7 +80,6 @@ struct Datos: View {
             nombre = yo.nombre
             if !yo.ciudad.isEmpty { ciudad = yo.ciudad }
             zona = yo.zona
-            genero = yo.genero
         }
     }
 
@@ -102,7 +96,6 @@ struct Datos: View {
         cambios.nacimiento = String(format: "%04d-%02d-%02d", d.year ?? 0, d.month ?? 0, d.day ?? 0)
         cambios.ciudad = ciudad
         cambios.zona = zona.trimmingCharacters(in: .whitespaces)
-        cambios.genero = genero
         cargando = true
         Task {
             defer { cargando = false }

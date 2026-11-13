@@ -196,9 +196,8 @@ final class PantallasTests: XCTestCase {
         montar(Verificacion())
     }
     func testDni() { montar(Dni(plan: nil)) }
-    func testElegirGenero() { montar(ElegirGenero(genero: .constant("mujer")), segundos: 1) }
-    func testHojaGenero() { montar(HojaGenero(abierta: true, cerrar: {}, reintentar: {})) }
-    func testHojaDiversidad() { montar(HojaDiversidad(abierta: true, cerrar: {}, confirmar: {})) }
+    func testHojaAntesDeSumarteMujer() { montar(HojaAntesDeSumarte(pide: "mujer", cerrar: {}, confirmar: { _ in })) }
+    func testHojaAntesDeSumarteDiversidad() { montar(HojaAntesDeSumarte(pide: "diversidad", cerrar: {}, confirmar: { _ in })) }
     func testPiezasIngreso() {
         let jpeg = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 30)).jpegData(withCompressionQuality: 0.8) { ctx in
             UIColor.systemPurple.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: 40, height: 30))

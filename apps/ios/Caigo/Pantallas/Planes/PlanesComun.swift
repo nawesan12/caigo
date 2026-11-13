@@ -84,25 +84,20 @@ struct PlanesChipPlus: View {
 /// Sumarse a un plan desde la tarjeta o el detalle. Los errores de verificación llevan a la selfie o
 /// al DNI (y vuelven); el resto se muestra tal cual en el toast. Devuelve el estado nuevo.
 @MainActor
-/// Con `faltaGenero`, el 422 `falta_genero` no se muestra: se llama para preguntarlo y reintentar.
-/// Igual con `confirmarDiversidad` y el 422 `confirmar_diversidad` (plan «Solo diversidades»: se
-/// reintenta con `diversidad: true`, que no se guarda). Sin ellos (la tarjeta de una lista), se abre
-/// el detalle, que tiene las hojas.
-func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensaje: String = "", diversidad: Bool = false,
-                   faltaGenero: (() -> Void)? = nil, confirmarDiversidad: (() -> Void)? = nil) async -> String? {
+/// Con `pedirConfirmacion`, el 422 `confirmar_mujer` / `confirmar_diversidad` no se muestra: se llama
+/// con lo que pide (Generos.pide) para abrir «Antes de sumarte» y reintentar con `confirma`, que no se
+/// guarda. Sin él (la tarjeta de una lista), se abre el detalle, que tiene la hoja.
+func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensaje: String = "", confirma: Confirma = Confirma(),
+                   pedirConfirmacion: ((String) -> Void)? = nil) async -> String? {
     do {
-        let e = try await c.api.sumarme(plan.id, cantidad: cantidad, mensaje: mensaje, diversidad: diversidad).estado
+        let e = try await c.api.sumarme(plan.id, cantidad: cantidad, mensaje: mensaje, confirma: confirma).estado
         let quien = plan.organizador.nombre.isEmpty ? "quien organiza" : plan.organizador.nombre
         c.avisos.ok(e == "aceptada" ? "¡Estás adentro!" : "Le pediste a \(quien) sumarte.")
         Sistema.vibrar()
         return e
     } catch let e as ErrorApi {
-        if e.codigo == "falta_genero" {
-            if let faltaGenero { faltaGenero() } else { ir.plan(plan.id) }
-            return nil
-        }
-        if e.codigo == "confirmar_diversidad" {
-            if let confirmarDiversidad { confirmarDiversidad() } else { ir.plan(plan.id) }
+        if let pide = Generos.pide(e.codigo) {
+            if let pedirConfirmacion { pedirConfirmacion(pide) } else { ir.plan(plan.id) }
             return nil
         }
         c.avisos.error(e.detalle)

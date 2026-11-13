@@ -255,18 +255,21 @@ import Testing
     }
 
     @Test func genero() {
-        #expect(Generos.puedeSumarse(genero: "mujeres", miGenero: "mujer", diversidad: false))
-        #expect(!Generos.puedeSumarse(genero: "mujeres", miGenero: "varon", diversidad: true))
-        // «Solo diversidades» sólo con la confirmación del pedido: no se deduce del género.
-        #expect(!Generos.puedeSumarse(genero: "diversidades", miGenero: "no_binario", diversidad: false))
-        #expect(Generos.puedeSumarse(genero: "diversidades", miGenero: "varon", diversidad: true))
-        #expect(Generos.puedeSumarse(genero: "cualquiera", miGenero: "", diversidad: false))
+        // «Solo mujeres» / «Solo diversidades» sólo con la confirmación del pedido (no se guarda nada).
+        #expect(Generos.puedeSumarse(genero: "mujeres", Confirma(mujer: true)))
+        #expect(!Generos.puedeSumarse(genero: "mujeres", Confirma(diversidad: true)))
+        #expect(!Generos.puedeSumarse(genero: "diversidades", Confirma(mujer: true)))
+        #expect(Generos.puedeSumarse(genero: "diversidades", Confirma(diversidad: true)))
+        #expect(Generos.puedeSumarse(genero: "cualquiera", Confirma()))
+        #expect(Generos.pide("confirmar_mujer") == "mujer")
+        #expect(Generos.pide("confirmar_diversidad") == "diversidad")
+        #expect(Generos.pide("falta_selfie") == nil)
+        #expect(Generos.confirma("mujer") == Confirma(mujer: true))
     }
 
     @Test func perfilNuevo() throws {
         let json = #"{"id":"u1","genero":"mujer","diversidad":true,"avisos":{"planesCerca":false},"proximos":[{"id":"p1","titulo":"Truco"}]}"#
         let p = try JSON.leer(Perfil.self, Data(json.utf8))
-        #expect(p.genero == "mujer")
         #expect(!p.avisos.planesCerca && p.avisos.tuGente)
         #expect(p.proximos.first?.titulo == "Truco")
     }

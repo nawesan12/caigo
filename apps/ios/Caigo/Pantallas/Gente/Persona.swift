@@ -16,10 +16,9 @@ struct PerfilPersona: View {
     @State private var opciones = false
     @State private var reportando = false
     @State private var invitando = false
-    /// 422 `falta_genero` al aceptar una invitación: se pregunta y se reintenta.
-    @State private var faltaGenero = false
-    /// 422 `confirmar_diversidad` (plan «Solo diversidades»): se confirma y se reintenta.
-    @State private var confirmarDiversidad = false
+    /// 422 `confirmar_mujer` / `confirmar_diversidad` al aceptar una invitación: lo que pide
+    /// confirmar; se confirma y se reintenta.
+    @State private var pide: String?
 
     private var esCitas: Bool { desde.hasSuffix("citas") }
     private var modo: String { esCitas ? "citas" : "gente" }
@@ -41,11 +40,8 @@ struct PerfilPersona: View {
         }
         .overlay {
             if let p = persona, let pi = planInvita {
-                HojaGenero(abierta: faltaGenero, cerrar: { faltaGenero = false }) {
-                    Task { do { try await aceptarInvitacion(pi, p) } catch { c.avisos.error(error) } }
-                }
-                HojaDiversidad(abierta: confirmarDiversidad, cerrar: { confirmarDiversidad = false }) {
-                    Task { do { try await aceptarInvitacion(pi, p, diversidad: true) } catch { c.avisos.error(error) } }
+                HojaAntesDeSumarte(pide: pide, cerrar: { pide = nil }) { conf in
+                    Task { do { try await aceptarInvitacion(pi, p, confirma: conf) } catch { c.avisos.error(error) } }
                 }
             }
         }
@@ -64,15 +60,13 @@ struct PerfilPersona: View {
         }
     }
 
-    private func aceptarInvitacion(_ pi: String, _ p: Perfil, diversidad: Bool = false) async throws {
+    private func aceptarInvitacion(_ pi: String, _ p: Perfil, confirma: Confirma = Confirma()) async throws {
         do {
-            _ = try await c.api.responderInvitacion(pi, aceptar: true, diversidad: diversidad)
+            _ = try await c.api.responderInvitacion(pi, aceptar: true, confirma: confirma)
             c.avisos.ok("Te sumaste al plan. \(p.nombre) ya sabe que vas.")
             ir.plan(pi)
-        } catch let e as ErrorApi where e.codigo == "falta_genero" {
-            faltaGenero = true
-        } catch let e as ErrorApi where e.codigo == "confirmar_diversidad" {
-            confirmarDiversidad = true
+        } catch let e as ErrorApi where Generos.pide(e.codigo) != nil {
+            pide = Generos.pide(e.codigo)
         }
     }
 
