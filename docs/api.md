@@ -17,6 +17,7 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | PUT | `/v1/dispositivos` | sesión | dominio/avisos |
 | DELETE | `/v1/dispositivos/{token}` | sesión | dominio/avisos |
 | DELETE | `/v1/entradas/{id}` | sesión | dominio/lugares |
+| GET | `/v1/equipo/apartados` | equipo | dominio/equipo |
 | GET | `/v1/equipo/arrepentimientos` | equipo | dominio/confianza |
 | POST | `/v1/equipo/arrepentimientos/{id}` | equipo | dominio/confianza |
 | GET | `/v1/equipo/dni` | equipo | dominio/confianza |
@@ -163,6 +164,58 @@ Con esto, `soloVerificados` de un plan ya no filtra a nadie (todos tienen DNI): 
 
 **`PATCH /v1/yo` con `nacimiento`:** con el DNI aprobado se ignora (la edad sale del DNI). Sin DNI: una fecha que da
 más de 120 años → 422 `nacimiento` (antes, 500).
+
+## Arreglos de QA (16/11, rama `qa-api`)
+
+Cambios de contrato para las apps y la web (además de «Sin DNI no se usa Caigo», arriba):
+
+- **Ids:** un `{id}`, `{usuarioId}`, `{planId}`, `{plan}` o `{lugar}` que no es uuid → **404** antes de tocar la
+  base (antes 500). `GET /v1/planes/{id}` sigue aceptando el slug.
+- **Errores nuevos:** `POST|DELETE /v1/planes/{id}/sumarme`: 422 `falta_edad` (plan con rango y la persona sin edad),
+  409 `sin_grupos` (cantidad > 1 y el plan no acepta grupos), 409 `con_entrada` al salir con una entrada paga
+  («Para irte, cancelá tu entrada.»). Un plan de una cuenta suspendida o dada de baja: 404, y no sale en
+  Ahora/Explorar ni lo repite la recurrencia. `POST /v1/solicitudes/{id}/aceptar|rechazar`: 409 `cancelado` | `paso`.
+  `DELETE /v1/planes/{id}` y `DELETE /v1/planes/{id}/personas/{usuarioId}` de un plan terminado: 409 `paso`.
+  `POST /v1/invitaciones/{planId}` (aceptar): 409 `cancelado` | `paso` | `rechazada`, y la del organizador pide
+  selfie, rango de edad y género como sumarse (422 `falta_selfie` | `falta_edad`, 409 `edad`); en planes con entrada
+  ya no te deja adentro: se compra. `POST /v1/planes/{id}/entradas`: 409 `lugar_suspendido`, 409 `rechazada` (te
+  sacaron), 404 con un bloqueo; ya no da 422 `falta_dni` por «sólo verificados». Una compra nueva anula la pendiente
+  anterior de la misma persona en el mismo plan.
+- **Validación:** `PATCH /v1/yo`: cada interés de 1 a 40 letras; preguntas hasta 120 y respuestas hasta 200; `fotos`
+  sólo URLs `<API>/v1/archivos/<uuid>` de fotos subidas por la persona (las que ya tenía, como la de Google,
+  quedan): si no, 400 `issues[].path = "fotos"`. Lo mismo `foto` de `POST/PATCH /v1/planes` (subida por quien
+  organiza) y de lugares y planes de lugares (subida por alguien del lugar). `POST /v1/planes`: `nivel` ≤ 30,
+  `lugarNombre` ≤ 80, `zona` y `ciudad` ≤ 60, `foto` ≤ 500 → 400 (antes 500). `PUT /v1/gente/{propio id}` → 400;
+  `PUT /v1/bloqueos/{id}` de alguien que no existe → 404; `POST /v1/reportes` con un id que no existe → 404.
+- **Teléfono:** `POST /v1/verificacion/telefono` con un número ya verificado en otra cuenta → 409 `telefono_en_uso`.
+- **Chat y bloqueos:** si quien organiza bloquea a alguien del plan (que no terminó y sin entrada paga), sale del plan
+  (`rechazada`, sin aviso) y deja de leer y escribir el chat (403). Un privado entre dos con bloqueo: `GET
+  /v1/privados/{id}` vuelve vacío. Los privados por «Mi gente» piden que se tengan los dos (con «Me prendo» de un
+  solo lado ya no se puede escribir), salvo que hayan compartido un plan o sean un match de Citas.
+- **Rutas públicas** (`/v1/publico/planes/*`): de quien organiza y de `van[]` sólo `nombre` (el primero) y `foto`;
+  sin `id`, `edad`, asistencia ni `llego`. El `id` y el `slug` del plan siguen.
+- **Entradas y Mercado Pago:** el código pasa a `TK-` + 6 cifras (`POST /v1/lugares/{id}/validar` acepta los de 4).
+  Si se paga una compra ya anulada (plan cancelado, o reemplazada por otra) o el plan se llenó mientras tanto, la
+  entrada queda pagada y se devuelve entera (`entrada.reembolsar`). Una segunda entrada paga suma su cantidad.
+  `DELETE /v1/lugares/{id}/mercadopago` con entradas pagas o pendientes de planes que no terminaron → 409
+  `con_entradas`. Webhook de Mercado Pago: el `data.id` firmado (URL) y el del cuerpo tienen que ser el mismo (si no,
+  401).
+- **Plus:** `POST /v1/plus/apple` con una compra de sandbox (TestFlight, Xcode) → 409 `compra_de_prueba`, salvo
+  cuentas del equipo; los avisos de Apple de sandbox sólo actualizan suscripciones existentes. Una compra
+  registrada a nombre de una persona no pasa a otra: 409 `otra_cuenta` (los avisos de las tiendas sólo actualizan el
+  estado). Los topes de «Me prendo», «Me encanta» y destacar se cuentan con un candado por persona.
+- **«¿Repetimos? Sí»:** dos a la vez dan el mismo plan; de un plan viejo, el nuevo es la próxima semana que no pasó.
+- **Topes por ruta:** con sesión cuentan por persona (`u:<usuario>`), no por token.
+- **Worker:** toma los eventos con una transacción corta (los reserva 5 min) y guarda el resultado de cada uno en
+  la suya: un evento lento o fallido no traba ni deshace a los demás. Un push que falla en un dispositivo se reintenta
+  sólo para ese (`aviso.dispositivo`). Un evento que agota los 8 intentos queda en el log como error («evento
+  apartado») y en **`GET /v1/equipo/apartados`** → `{apartados: [{id, tipo, datos, intentos, error, creadoEn}]}` (un
+  `entrada.reembolsar` ahí es plata que hay que devolver a mano).
+- **Arrepentimiento:** además del push al equipo, salen dos mails por el SMTP de siempre (`CAIGO_SMTP*`, mismo
+  remitente): el acuse a quien lo pidió (código, lo que dijo que compró y que le respondemos a ese mail; responder va a
+  hola@) y los datos del pedido a hola@caigo.com.ar (responder le llega a la persona). Por outbox
+  (`arrepentimiento.acuse`, `arrepentimiento.aviso`), con reintentos; cada mail se marca antes de salir
+  (`arrepentimientos.acuse_en` / `aviso_en`, migración 00025), así no sale dos veces.
 
 ## Entradas con la API de Orders de Mercado Pago (7/11)
 - `POST /v1/planes/{id}/entradas` responde igual que antes (`{entradaId, link, totalCentavos, cargoCentavos,
