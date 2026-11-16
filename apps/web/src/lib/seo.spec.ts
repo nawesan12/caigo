@@ -137,12 +137,18 @@ describe('textos', () => {
 		expect(isoArgentina('2026-11-06T00:30:00Z')).toBe('2026-11-05T21:30:00-03:00');
 	});
 	it('descripción del plan entre 100 y 160 caracteres', () => {
-		const d = descripcionPlan(planDePrueba());
+		const d = descripcionPlan(planDePrueba(), Date.parse('2026-10-30T12:00:00-03:00'));
 		expect(d).toBe(
 			'Nahuel te invita a Previa al atardecer en Playa Grande el domingo 1 de noviembre a las 18:30, Zona Playa Grande, Mar del Plata. Faltan 4: sumate en Caigo.'
 		);
 		expect(d.length).toBeLessThanOrEqual(160);
-		expect(descripcionPlan(planDePrueba({ faltan: 0 }))).toContain('completo');
+		expect(
+			descripcionPlan(planDePrueba({ faltan: 0 }), Date.parse('2026-10-30T12:00:00-03:00'))
+		).toContain('completo');
+		// Un plan que ya pasó no invita a sumarse.
+		const viejo = descripcionPlan(planDePrueba({ empiezaEn: '2020-01-10T21:30:00-03:00' }));
+		expect(viejo).toContain('Ya pasó');
+		expect(viejo).not.toContain('Faltan');
 	});
 	it('la versión de la OG cambia con el cupo', () => {
 		expect(versionOgPlan(planDePrueba())).not.toBe(versionOgPlan(planDePrueba({ faltan: 3 })));

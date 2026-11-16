@@ -74,20 +74,23 @@ export function dondeDe(p: Plan): string {
  * La descripción de /p/<slug> (meta description y og:description): quién invita, qué, cuándo,
  * dónde y cuánta gente falta. Hasta 160 caracteres.
  */
-export function descripcionPlan(p: Plan): string {
+export function descripcionPlan(p: Plan, ahora = Date.now()): string {
 	const quien = anfitrionDe(p);
 	const d = partes(p.empiezaEn);
 	const corto = `el ${DIAS[d.semana].slice(0, 3)} ${d.dia}/${d.mes + 1} a las ${d.hora}`;
 	const frase = (cuando: string) => `${quien} te invita a ${p.titulo} ${cuando}, ${dondeDe(p)}.`;
+	const paso = new Date(p.empiezaEn).getTime() + (p.duracionMin || 60) * 60_000 < ahora;
 	const cierres = p.cancelado
 		? ['El plan se canceló: mirá otros en Caigo.', 'Se canceló.']
-		: p.faltan <= 0
-			? ['Ya está completo: mirá otros planes en Caigo.', 'Ya está completo.']
-			: [
-					`${faltanTexto(p.faltan)}: sumate desde la web, sin bajar la app.`,
-					`${faltanTexto(p.faltan)}: sumate en Caigo.`,
-					`${faltanTexto(p.faltan)}.`
-				];
+		: paso
+			? ['Ya pasó: mirá otros planes en Caigo.', 'Ya pasó.']
+			: p.faltan <= 0
+				? ['Ya está completo: mirá otros planes en Caigo.', 'Ya está completo.']
+				: [
+						`${faltanTexto(p.faltan)}: sumate desde la web, sin bajar la app.`,
+						`${faltanTexto(p.faltan)}: sumate en Caigo.`,
+						`${faltanTexto(p.faltan)}.`
+					];
 	// La más completa que entre en 160; si ninguna entra (título muy largo), se recorta.
 	for (const cuando of [cuandoTexto(p.empiezaEn), corto])
 		for (const cierre of cierres) {

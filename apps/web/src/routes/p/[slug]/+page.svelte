@@ -54,12 +54,12 @@
 	// SEO: la imagen OG versionada, el Event de schema.org y las migas.
 	const sitio = $derived(PUBLIC_SITIO.replace(/\/+$/, ''));
 	const og = $derived(urlOgPlan(plan));
-	const ogAlt = $derived(
-		`${anfitrion} te invita a ${plan.titulo}: ${plan.cancelado ? 'se canceló' : faltanTexto(plan.faltan)}, somos ${plan.somos} de ${plan.total}.`
-	);
 	// Un plan cancelado o que ya terminó no se indexa (el link sigue andando para quien lo tenga).
 	const terminado = $derived(
 		new Date(plan.empiezaEn).getTime() + (plan.duracionMin || 60) * 60_000 < Date.now()
+	);
+	const ogAlt = $derived(
+		`${anfitrion} te invita a ${plan.titulo}: ${plan.cancelado ? 'se canceló' : terminado ? 'ya pasó' : faltanTexto(plan.faltan)}, somos ${plan.somos} de ${plan.total}.`
 	);
 	const ld = $derived([
 		ldPlan(plan, { sitio, imagen: sitio + og }),
