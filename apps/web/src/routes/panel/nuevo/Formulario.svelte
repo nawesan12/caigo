@@ -49,7 +49,6 @@
 	];
 	const QUIEN = [
 		{ k: 'cualquiera', l: 'Cualquiera' },
-		{ k: 'verificados', l: 'Solo verificados con DNI' },
 		{ k: 'mujeres', l: 'Solo mujeres' }
 	];
 	const PASOS = ['Qué', 'Cuándo y cupo', 'Entrada', 'Beneficio y publicar'];
@@ -78,7 +77,7 @@
 			incluye: e.incluye,
 			cancel: e.cancelacion || 'flex',
 			perkOn: !!e.beneficio,
-			perk: e.beneficio || 'Café de regalo',
+			perk: e.beneficio || '',
 			quien: e.quien
 		};
 	}
@@ -105,7 +104,7 @@
 					incluye: '',
 					cancel: 'flex',
 					perkOn: true,
-					perk: 'Café de regalo',
+					perk: '',
 					quien: 'cualquiera'
 				}
 	);
@@ -145,6 +144,7 @@
 		incluye: pago ? f.incluye.trim() : '',
 		cancelacion: f.cancel,
 		beneficio: f.perkOn ? f.perk.trim() : '',
+		// «Solo verificados» ya no existe (toda cuenta tiene el DNI verificado).
 		quien: f.quien
 	});
 
@@ -176,7 +176,9 @@
 		}
 	}
 
-	const publicado = $derived(form?.publicado ?? null);
+	/** Lo publicado: del form o, por las dudas, de la respuesta de la acción (el éxito siempre se ve). */
+	let publicadoAhora = $state<{ id: string; titulo: string; link: string } | null>(null);
+	const publicado = $derived(form?.publicado ?? publicadoAhora);
 	/** El link del plan; si la API no lo trajo, el de Mis planes en la app. */
 	const linkPublicado = $derived(
 		publicado?.link ||
@@ -583,7 +585,7 @@
 					</div>
 					<div>
 						<dt>Beneficio</dt>
-						<dd>{f.perkOn ? f.perk || '—' : 'Sin beneficio'}</dd>
+						<dd>{f.perkOn && f.perk.trim() ? f.perk.trim() : 'Sin beneficio'}</dd>
 					</div>
 				</dl>
 			</div>
@@ -601,7 +603,11 @@
 					return;
 				}
 				enviando = true;
-				return async ({ update }) => {
+				return async ({ result, update }) => {
+					if (result.type === 'success' && result.data?.publicado)
+						publicadoAhora = result.data.publicado as typeof publicadoAhora;
+					else if (result.type === 'failure')
+						avisar(String(result.data?.error ?? 'No se pudo publicar.'));
 					await update({ reset: false });
 					enviando = false;
 				};
@@ -662,10 +668,9 @@
 					</div>
 					<span class="pv-cta">{pago ? (esSena ? 'Señar' : 'Comprar entrada') : 'Sumarme'}</span>
 				</div>
-				{#if f.perkOn}
+				{#if f.perkOn && f.perk.trim()}
 					<div class="pv-perk">
-						<Icono nombre="regalo" tam={18} color="#5B43C9" />Con check-in: {f.perk ||
-							'tu beneficio'}
+						<Icono nombre="regalo" tam={18} color="#5B43C9" />Con check-in: {f.perk.trim()}
 					</div>
 				{/if}
 			</div>

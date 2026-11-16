@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
 	import Icono, { type NombreIcono } from '#lib/ui/Icono.svelte';
 	import Avatar from '#lib/app-ui/Avatar.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
@@ -16,13 +17,24 @@
 	 */
 	let { data, form } = $props();
 
+	/**
+	 * La URL de una acción con la pestaña y los filtros de ahora: después de aprobar o suspender se
+	 * queda en la misma pestaña (antes, con «?/dni» a secas, volvía a Métricas).
+	 */
+	const accion = (nombre: string) => {
+		const q = new URLSearchParams(
+			[...page.url.searchParams].filter(([k]) => !k.startsWith('/'))
+		).toString();
+		return `?/${nombre}${q ? `&${q}` : ''}`;
+	};
+
 	const TABS: { k: string; l: string; icono: NombreIcono; n: number }[] = $derived([
 		{ k: 'metricas', l: 'Métricas', icono: 'cobros', n: 0 },
 		{ k: 'usuarios', l: 'Usuarios', icono: 'personas', n: 0 },
 		{ k: 'planes', l: 'Planes', icono: 'calendario', n: 0 },
 		{ k: 'locales', l: 'Lugares', icono: 'pin', n: 0 },
 		{ k: 'lugares', l: 'Lugares pendientes', icono: 'pin', n: data.lugares.length },
-		{ k: 'dni', l: 'DNI', icono: 'usuario', n: data.dni.length },
+		{ k: 'dni', l: 'DNI para revisar', icono: 'usuario', n: data.dni.length },
 		{ k: 'reportes', l: 'Reportes', icono: 'escudo', n: data.reportes.length },
 		{
 			k: 'arrepentimientos',
@@ -54,9 +66,14 @@
 	};
 	const DNI: Record<string, string> = {
 		pendiente: 'DNI en revisión',
-		aprobado: 'DNI verificado',
-		rechazado: 'DNI rechazado'
+		aprobada: 'DNI verificado',
+		rechazada: 'DNI rechazado'
 	};
+	/**
+	 * Las fotos de un DNI se cargan sólo al tocar «Ver fotos»: cada vez que alguien del equipo abre
+	 * una queda anotado en `accesos_verificacion`, y no hace falta abrir las de todos.
+	 */
+	let conFotos = $state<string[]>([]);
 	/** Pega las dos últimas palabras: nombres y datos que vienen de la API, sin renglones viudos. */
 	const pegar = (t: string) => t.replace(/ (\S+)\s*$/, '\u00a0$1');
 	const fecha = (f: string) => {
@@ -266,7 +283,7 @@
 					{#each data.usuarios.datos ?? [] as u (u.id)}
 						<form
 							method="POST"
-							action="?/usuario"
+							action={accion('usuario')}
 							class="tarjeta-plana item"
 							use:enhance={confirmar(`¿Suspender a ${u.nombre}? No va a poder entrar a Caigo.`)}
 						>
@@ -365,7 +382,7 @@
 					{#each data.planes.datos ?? [] as p (p.id)}
 						<form
 							method="POST"
-							action="?/plan"
+							action={accion('plan')}
 							class="tarjeta-plana item"
 							use:enhance={confirmar(
 								`¿Cancelar «${p.titulo}»? Avisamos a todos y devolvemos lo que pagaron.`
@@ -443,7 +460,7 @@
 					{#each data.locales.datos ?? [] as l (l.id)}
 						<form
 							method="POST"
-							action="?/local"
+							action={accion('local')}
 							class="tarjeta-plana item"
 							use:enhance={confirmar(`¿Suspender ${l.nombre}? Sus planes dejan de verse.`)}
 						>
@@ -522,7 +539,12 @@
 			<h1>Lugares pendientes</h1>
 			<div class="lista">
 				{#each data.lugares as l (l.id)}
-					<form method="POST" action="?/lugar" class="tarjeta-plana item" use:enhance={resultado}>
+					<form
+						method="POST"
+						action={accion('lugar')}
+						class="tarjeta-plana item"
+						use:enhance={resultado}
+					>
 						<input type="hidden" name="id" value={l.id} />
 						<div class="cab">
 							<div>
@@ -561,40 +583,64 @@
 				{/each}
 			</div>
 		{:else if data.tab === 'dni'}
-			<h1>DNI</h1>
+			<h1>DNI para revisar</h1>
+			<p class="ayuda-dni">
+				Se aprobaron solos al subirlos. Si algo no cierra (la selfie no es la del DNI, la foto es de
+				otro documento), suspendé la cuenta: no va a poder entrar y su DNI no se usa en
+				otra&nbsp;cuenta.
+			</p>
 			<div class="lista">
 				{#each data.dni as d (d.id)}
-					<form method="POST" action="?/dni" class="tarjeta-plana item" use:enhance={resultado}>
+					{@const fotos = [
+						['Frente', d.frenteId],
+						['Dorso', d.dorsoId],
+						['Selfie', d.selfieId],
+						['Selfie de ingreso', d.selfieIngresoId]
+					].filter((x) => !!x[1])}
+					<form
+						method="POST"
+						action={accion('dni')}
+						class="tarjeta-plana item"
+						use:enhance={confirmar(`¿Suspender a ${d.nombrePerfil}? No va a poder entrar a Caigo.`)}
+					>
 						<input type="hidden" name="id" value={d.id} />
 						<div class="cab">
 							<div>
 								<span class="t">{d.nombrePerfil}{d.edadPerfil ? `, ${d.edadPerfil}` : ''}</span>
-								<span class="s">Perfil · {fecha(d.creadaEn)}</span>
+								<span class="s">Subido el {fecha(d.creadaEn)}</span>
 							</div>
 							{#if d.repetido}<span class="chip-dato alerta">DNI usado en otra cuenta</span>{/if}
 						</div>
 						<div class="datos">
 							<span><b>Nacimiento:</b> {d.nacimiento.slice(0, 10)}</span>
 						</div>
-						<div class="fotos">
-							{#each [['Frente', d.frenteId], ['Dorso', d.dorsoId], ['Selfie', d.selfieId], ['Selfie de ingreso', d.selfieIngresoId]] as [l, f] (l)}
-								{#if f}
+						{#if !fotos.length}
+							<p class="s">Las fotos ya se borraron (pasaron 30 días).</p>
+						{:else if conFotos.includes(d.id)}
+							<div class="fotos">
+								{#each fotos as [l, f] (l)}
 									<a href="/archivo/{f}" target="_blank" rel="noopener" class="foto">
-										<img src="/archivo/{f}" alt={l} loading="lazy" />
+										<img src="/archivo/{f}" alt={l} />
 										<span>{l}</span>
 									</a>
-								{/if}
-							{/each}
-						</div>
+								{/each}
+							</div>
+						{:else}
+							<button
+								type="button"
+								class="b ver-fotos"
+								onclick={() => (conFotos = [...conFotos, d.id])}>Ver fotos</button
+							>
+						{/if}
 						<input
 							class="input"
 							name="motivo"
 							maxlength="200"
-							placeholder="Motivo (si lo rechazás)"
+							placeholder="Motivo (si suspendés la cuenta)"
 						/>
 						<div class="acc">
-							<button class="gel gel-lima b" name="decision" value="aprobar">Aprobar</button>
-							<button class="b rechazar" name="decision" value="rechazar">Rechazar</button>
+							<button class="gel gel-lima b" name="decision" value="ok">Está bien</button>
+							<button class="b rechazar" name="decision" value="suspender">Suspender cuenta</button>
 						</div>
 					</form>
 				{:else}
@@ -607,7 +653,7 @@
 				{#each data.arrepentimientos as a (a.id)}
 					<form
 						method="POST"
-						action="?/arrepentimiento"
+						action={accion('arrepentimiento')}
 						class="tarjeta-plana item"
 						use:enhance={resultado}
 					>
@@ -648,7 +694,12 @@
 			<h1>Placas</h1>
 			<div class="lista">
 				{#each data.placas as x (x.id)}
-					<form method="POST" action="?/placas" class="tarjeta-plana item" use:enhance={resultado}>
+					<form
+						method="POST"
+						action={accion('placas')}
+						class="tarjeta-plana item"
+						use:enhance={resultado}
+					>
 						<input type="hidden" name="id" value={x.id} />
 						<div class="cab">
 							<div>
@@ -690,7 +741,12 @@
 			<h1>Reportes</h1>
 			<div class="lista">
 				{#each data.reportes as r (r.id)}
-					<form method="POST" action="?/reporte" class="tarjeta-plana item" use:enhance={resultado}>
+					<form
+						method="POST"
+						action={accion('reporte')}
+						class="tarjeta-plana item"
+						use:enhance={resultado}
+					>
 						<input type="hidden" name="id" value={r.id} />
 						<div class="cab">
 							<div>
@@ -1118,5 +1174,16 @@
 		.cab {
 			flex-wrap: wrap;
 		}
+	}
+	.ayuda-dni {
+		margin: -8px 0 16px;
+		max-width: 640px;
+		font-size: 14px;
+		line-height: 1.5;
+		color: var(--texto-2);
+		text-wrap: pretty;
+	}
+	.ver-fotos {
+		align-self: flex-start;
 	}
 </style>

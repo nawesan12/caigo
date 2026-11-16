@@ -1,6 +1,8 @@
 import { CAIGO_API } from '$app/env/private';
 import { redirect, type RequestEvent } from '@sveltejs/kit';
 import { volverSeguro } from '#lib/hosts.ts';
+import { planPublico } from './publico.ts';
+import type { Plan } from '#lib/tipos.ts';
 
 /**
  * Cliente de la API de Caigo (Go). Todas las llamadas salen del servidor de SvelteKit: el token de
@@ -118,6 +120,16 @@ export function exigirToken(event: RequestEvent): string {
 	return t;
 }
 
+/** Sin sesión, de cada plan (suelto o en `planes`) sólo el primer nombre y la foto de la gente. */
+function sinDatosPersonales<T>(r: T): T {
+	const esPlan = (x: unknown): x is Plan =>
+		!!x && typeof x === 'object' && 'organizador' in x && 'van' in x;
+	if (esPlan(r)) return planPublico(r) as T;
+	if (r && typeof r === 'object' && 'planes' in r && Array.isArray(r.planes))
+		return { ...r, planes: r.planes.map((p: unknown) => (esPlan(p) ? planPublico(p) : p)) };
+	return r;
+}
+
 /**
  * Para mirar sin cuenta: con sesión llama a `ruta`; sin sesión, a `publica` (la versión de
  * /v1/publico/..., que sólo muestra planes públicos). Lo que convierte es dejar ver antes de pedir
@@ -129,10 +141,22 @@ export async function quizasConSesion<T = unknown>(
 	publica: string
 ): Promise<T> {
 	if (event.locals.token) return conSesion<T>(event, 'GET', ruta);
-	return api<T>('GET', publica, { ip: ipDe(event) });
+	return sinDatosPersonales(await api<T>('GET', publica, { ip: ipDe(event) }));
 }
 
-/** Como `api`, con la sesión de la cookie. Si la sesión venció (401), borra la cookie y manda a ingresar. */
+/** Si el pedido es de una página (GET, datos o una form action) y no de un +server.ts. */
+export function esDePagina(event: RequestEvent): boolean {
+	const m = event.request.method;
+	if (m === 'GET' || m === 'HEAD') return true;
+	if (event.request.headers.get('x-sveltekit-action')) return true;
+	const tipo = event.request.headers.get('content-type') ?? '';
+	return tipo.startsWith('application/x-www-form-urlencoded') || tipo.startsWith('multipart/');
+}
+
+/**
+ * Como `api`, con la sesión de la cookie. Si la sesión venció (401), borra la cookie y manda a
+ * ingresar; si a la cuenta le falta el DNI (403 `falta_dni`), una página va a /app/verificar.
+ */
 export async function conSesion<T = unknown>(
 	event: RequestEvent,
 	metodo: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
@@ -147,6 +171,11 @@ export async function conSesion<T = unknown>(
 			event.cookies.delete('caigo_sesion', { path: '/' });
 			event.locals.token = null;
 			aIngresar(event);
+		}
+		if (e instanceof ErrorApi && e.codigo === 'falta_dni' && esDePagina(event)) {
+			const v =
+				event.request.method === 'GET' ? event.url.pathname + event.url.search : event.url.pathname;
+			redirect(303, `/app/verificar?volver=${encodeURIComponent(volverSeguro(v, '/app'))}`);
 		}
 		throw e;
 	}

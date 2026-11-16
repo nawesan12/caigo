@@ -7,13 +7,12 @@
 	import Icono from '#lib/ui/Icono.svelte';
 	import Avatar from '#lib/app-ui/Avatar.svelte';
 	import Verificado from '#lib/app-ui/Verificado.svelte';
-	import BajateLaApp from '#lib/app-ui/BajateLaApp.svelte';
 	import Confirmar from '#lib/app-ui/Confirmar.svelte';
 	import Reportar from '#lib/app-ui/Reportar.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { CATEGORIAS, faltanTexto, primerNombre } from '#lib/plan.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
-	import { chipAhora, distancia, horario, reputacion, TINTES } from '#lib/app.ts';
+	import { chipAhora, distancia, horario, reputacion, terminado, TINTES } from '#lib/app.ts';
 	import { desglose, pesos, pesosDeCentavos } from '#lib/precios.ts';
 
 	/*
@@ -30,8 +29,11 @@
 			if (e.tipo === 'plan' && e.planId === p.id) invalidateAll();
 		})
 	);
-	const estado = $derived(form && 'estado' in form ? form.estado : p.miEstado);
-	const ahoraChip = $derived(chipAhora(p.empiezaEn));
+	// Lo que vuelve el plan manda: si después de pedir (form: «pendiente») te aceptan, el plan se
+	// recarga en vivo con «aceptada». La respuesta del form sólo cubre lo que el plan no dice.
+	const estado = $derived(p.miEstado || (form && 'estado' in form ? form.estado : undefined));
+	const ahoraChip = $derived(chipAhora(p.empiezaEn, new Date(), p.duracionMin));
+	const yaPaso = $derived(terminado(p));
 	const conCobro = $derived(!!p.lugar && p.cobro !== 'gratis' && !!p.precioCentavos);
 	const d = $derived(
 		conCobro ? desglose(p.cobro, (p.precioCentavos ?? 0) / 100, p.senaPct ?? 0) : null
@@ -45,7 +47,6 @@
 	const resto = $derived(Math.max(0, p.somos - vistos.length));
 	const requisitos = $derived(
 		[
-			p.soloVerificados && 'Solo verificados',
 			p.ingreso === 'aprobacion' && 'Con aprobación',
 			p.ingreso === 'mi_gente' && 'Solo su gente',
 			p.genero === 'mujeres' && 'Solo mujeres',
@@ -243,13 +244,6 @@
 			</div>
 		{/if}
 
-		{#if form?.codigo === 'falta_dni'}
-			<BajateLaApp
-				titulo="Verificá tu DNI en la app"
-				texto="Este plan es sólo para personas con DNI verificado. El DNI se verifica desde la app."
-			/>
-		{/if}
-
 		{#if !data.anonimo}
 			<div class="acciones">
 				{#if editable}
@@ -259,7 +253,7 @@
 							>{/if}
 						<button onclick={() => (cancelar = true)}>Cancelar el plan</button>
 					</div>
-				{:else if estado === 'aceptada' && !p.cancelado}
+				{:else if estado === 'aceptada' && !p.cancelado && !yaPaso}
 					<button onclick={() => (salir = true)}>Salir del plan</button>
 				{/if}
 				{#if estado !== 'organizador'}
@@ -276,8 +270,27 @@
 	{#if form?.error}<p class="error" role="alert">
 			{form.error}
 		</p>{/if}
+	{#if form?.codigo === 'con_entrada'}
+		<form
+			method="POST"
+			action="?/cancelarEntrada"
+			class="cancelar"
+			use:enhance={() => {
+				enviando = true;
+				return async ({ result, update }) => {
+					if (result.type === 'success') avisar('Cancelaste tu entrada y saliste del plan.');
+					await update({ reset: false });
+					enviando = false;
+				};
+			}}
+		>
+			<button disabled={enviando}>Cancelar mi entrada</button>
+		</form>
+	{/if}
 	{#if p.cancelado}
 		<span class="estado esperando">Este plan se canceló</span>
+	{:else if yaPaso && estado !== 'organizador' && estado !== 'aceptada'}
+		<span class="estado esperando">Ya pasó</span>
 	{:else if estado === 'organizador'}
 		<div class="dos">
 			<a class="gel gel-violeta grande" href="/app/plan/{p.id}/solicitudes"
@@ -294,8 +307,19 @@
 		</div>
 	{:else if estado === 'pendiente'}
 		<span class="estado esperando">Esperando…</span>
-		<form method="POST" action="?/salir" use:enhance class="cancelar">
-			<button>Cancelar el pedido</button>
+		<form
+			method="POST"
+			action="?/salir"
+			class="cancelar"
+			use:enhance={() => {
+				enviando = true;
+				return async ({ update }) => {
+					await update({ reset: false });
+					enviando = false;
+				};
+			}}
+		>
+			<button disabled={enviando}>Cancelar el pedido</button>
 		</form>
 	{:else if p.faltan <= 0}
 		<span class="estado esperando">Completo</span>
@@ -481,6 +505,8 @@
 			700 30px/1.05 'Geist',
 			sans-serif;
 		letter-spacing: -0.8px;
+		overflow-wrap: anywhere;
+		text-wrap: balance;
 	}
 	.contador {
 		padding: 16px;
@@ -618,6 +644,8 @@
 		color: #7456f1;
 	}
 	.desc {
+		overflow-wrap: anywhere;
+		text-wrap: pretty;
 		font-size: 14px;
 		line-height: 1.5;
 		color: var(--texto-2);

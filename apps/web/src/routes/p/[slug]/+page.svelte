@@ -150,6 +150,8 @@
 			{/if}
 			{#if plan.cancelado}
 				<span class="estado esperando">Este plan se canceló</span>
+			{:else if terminado}
+				<span class="estado esperando">Ya pasó</span>
 			{:else if estado === 'aceptada'}
 				<span class="estado adentro"
 					><Icono nombre="check" tam={18} color="#C8F36B" trazo={3.4} />Adentro</span
@@ -187,7 +189,7 @@
 					{#if data.conSesion}
 						Te sumás desde la web, sin bajar la&nbsp;app.
 					{:else}
-						No hace falta bajar la app: entrás con tu teléfono y una&nbsp;selfie.
+						No hace falta bajar la app: entrás con tu teléfono, una selfie y tu&nbsp;DNI.
 					{/if}
 				</span>
 			{/if}
@@ -275,6 +277,8 @@
 			700 28px/1.05 'Geist',
 			sans-serif;
 		letter-spacing: -0.6px;
+		overflow-wrap: anywhere;
+		text-wrap: balance;
 	}
 	.datos {
 		list-style: none;
@@ -295,6 +299,8 @@
 		font-weight: 800;
 	}
 	.descripcion {
+		overflow-wrap: anywhere;
+		text-wrap: pretty;
 		font-size: 14px;
 		line-height: 1.5;
 		color: #5c586b;

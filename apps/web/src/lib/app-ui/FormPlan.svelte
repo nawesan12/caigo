@@ -23,7 +23,7 @@
 	 */
 	type Props = {
 		yo: Yo;
-		centro: { lat: number; lng: number };
+		centro: { lat: number; lng: number; real?: boolean };
 		form: { error?: string; publicado?: { id: string; slug: string; titulo: string } } | null;
 		plan?: Plan | null;
 	};
@@ -135,6 +135,20 @@
 		f.costo && leerPrecio(f.precio) ? leerPrecio(f.precio) * 100 : null
 	);
 	/** PATCH /v1/planes/{id}: sólo los campos que se pueden editar (contrato §2). */
+	const CIUDADES: { nombre: string; centro: [number, number] }[] = [
+		{ nombre: 'Mar del Plata', centro: [-38.0055, -57.5426] },
+		{ nombre: 'Villa Gesell', centro: [-37.2636, -56.9733] }
+	];
+	/**
+	 * Sin lugar elegido, el centro de la ciudad del plan; la ubicación real de quien crea sólo si es
+	 * de esa misma ciudad (crear en Gesell no cae en el centro de Mar del Plata).
+	 */
+	const centroCiudad = $derived<[number, number]>(
+		ini.centro.real && f.ciudad === (ini.yo?.ciudad || 'Mar del Plata')
+			? [ini.centro.lat, ini.centro.lng]
+			: (CIUDADES.find((c) => c.nombre === f.ciudad)?.centro ?? [ini.centro.lat, ini.centro.lng])
+	);
+	const centroMapa = $derived<[number, number]>(f.lat ? [f.lat, f.lng] : centroCiudad);
 	const cambios = $derived({
 		titulo: f.titulo.trim(),
 		descripcion: f.descripcion.trim(),
@@ -144,11 +158,12 @@
 		zona: f.zona.trim(),
 		lugarNombre: f.lugarNombre.trim(),
 		direccion: f.direccion.trim(),
-		lat: f.lat || ini.centro.lat,
-		lng: f.lng || ini.centro.lng,
+		lat: f.lat || centroCiudad[0],
+		lng: f.lng || centroCiudad[1],
 		ingreso: f.ingreso,
 		visibilidad: f.visibilidad,
-		soloVerificados: f.soloVerificados,
+		// Desde el 16/11 toda cuenta tiene el DNI verificado: ya no hay toggle.
+		soloVerificados: true,
 		ocultarDireccion: f.ocultarDireccion,
 		edadMin: f.edad ? f.edadMin : null,
 		edadMax: f.edad ? f.edadMax : null,
@@ -168,13 +183,14 @@
 		zona: f.zona.trim(),
 		lugarNombre: f.lugarNombre.trim(),
 		direccion: f.direccion.trim(),
-		lat: f.lat || ini.centro.lat,
-		lng: f.lng || ini.centro.lng,
+		lat: f.lat || centroCiudad[0],
+		lng: f.lng || centroCiudad[1],
 		somos: f.somos,
 		faltan: f.faltan,
 		ingreso: f.ingreso,
 		visibilidad: f.visibilidad,
-		soloVerificados: f.soloVerificados,
+		// Desde el 16/11 toda cuenta tiene el DNI verificado: ya no hay toggle.
+		soloVerificados: true,
 		ocultarDireccion: f.ocultarDireccion,
 		edadMin: f.edad ? f.edadMin : null,
 		edadMax: f.edad ? f.edadMax : null,
@@ -222,17 +238,6 @@
 			avisar(link);
 		}
 	}
-	const CIUDADES: { nombre: string; centro: [number, number] }[] = [
-		{ nombre: 'Mar del Plata', centro: [-38.0055, -57.5426] },
-		{ nombre: 'Villa Gesell', centro: [-37.2636, -56.9733] }
-	];
-	const centroMapa = $derived<[number, number]>(
-		f.lat
-			? [f.lat, f.lng]
-			: f.ciudad === 'Villa Gesell'
-				? CIUDADES[1].centro
-				: [ini.centro.lat, ini.centro.lng]
-	);
 </script>
 
 <svelte:head><title>{editar ? 'Editar plan' : 'Crear plan'} · Caigo</title></svelte:head>
@@ -539,14 +544,6 @@
 					</div>
 				</div>
 				<div class="opciones">
-					<button
-						class="op"
-						role="switch"
-						aria-checked={f.soloVerificados}
-						onclick={() => (f.soloVerificados = !f.soloVerificados)}
-					>
-						<span>Solo verificados</span><span class="tog" class:on={f.soloVerificados}></span>
-					</button>
 					<button
 						class="op"
 						role="switch"

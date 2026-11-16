@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick, untrack } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Avatar from '#lib/app-ui/Avatar.svelte';
 	import Confirmar from '#lib/app-ui/Confirmar.svelte';
@@ -45,9 +46,18 @@
 	});
 
 	const estadoTxt = $derived(
-		p.faltan <= 0
-			? `${p.somos} de ${p.total} · plan completo`
-			: `${p.somos} de ${p.total} · ${p.faltan === 1 ? 'falta 1' : `faltan ${p.faltan}`}`
+		p.cancelado
+			? 'El plan se canceló'
+			: p.faltan <= 0
+				? `${p.somos} de ${p.total} · plan completo`
+				: `${p.somos} de ${p.total} · ${p.faltan === 1 ? 'falta 1' : `faltan ${p.faltan}`}`
+	);
+	/** El chat se archiva 3 días después de que termina el plan (chat.Archivo en la API). */
+	const ARCHIVO_MS = 3 * 86400_000;
+	let archivadoApi = $state(false);
+	const archivado = $derived(
+		archivadoApi ||
+			new Date(p.empiezaEn).getTime() + (p.duracionMin || 60) * 60_000 + ARCHIVO_MS < Date.now()
 	);
 
 	async function bajar() {
@@ -83,6 +93,10 @@
 				body: JSON.stringify({ texto: t })
 			});
 			const j = await r.json().catch(() => ({}));
+			if (r.status === 409 && j.code === 'archivado') {
+				archivadoApi = true;
+				return;
+			}
 			if (!r.ok) return avisar(j.error || 'No se pudo mandar.');
 			texto = '';
 			mensajes = [...mensajes.filter((m) => m.id !== j.id), j];
@@ -97,11 +111,12 @@
 		// En vivo: cada mensaje nuevo del plan llega por /app/vivo. La consulta cada 30 s queda de
 		// respaldo por si la conexión se corta.
 		const dejar = escucharVivo((e) => {
-			if (
-				(e.tipo === 'mensaje' && e.mensaje?.planId === p.id) ||
-				(e.tipo === 'plan' && e.planId === p.id)
-			)
+			if (e.tipo === 'mensaje' && e.mensaje?.planId === p.id) traer();
+			// Cambió el plan (lo cancelaron, alguien entró o salió): la cabecera también.
+			if (e.tipo === 'plan' && e.planId === p.id) {
 				traer();
+				invalidateAll();
+			}
 		});
 		const t = setInterval(() => {
 			if (document.visibilityState === 'visible') traer();
@@ -165,15 +180,21 @@
 		{/each}
 	</div>
 
+	{#if archivado}
+		<p class="archivado" role="status">
+			Este chat se archivó: se puede leer, pero ya no se mandan&nbsp;mensajes.
+		</p>
+	{/if}
 	<form class="input" onsubmit={enviar}>
 		<input
 			bind:value={texto}
-			placeholder="Escribí algo…"
+			placeholder={archivado ? 'Chat archivado' : 'Escribí algo…'}
 			aria-label="Mensaje"
 			maxlength="1000"
 			enterkeyhint="send"
+			disabled={archivado}
 		/>
-		<button class="enviar" aria-label="Mandar" disabled={enviando || !texto.trim()}>
+		<button class="enviar" aria-label="Mandar" disabled={archivado || enviando || !texto.trim()}>
 			<svg
 				width="18"
 				height="18"
@@ -332,6 +353,19 @@
 		font-size: 13px;
 		font-weight: 700;
 		text-align: center;
+		overflow-wrap: anywhere;
+	}
+	.archivado {
+		flex: none;
+		margin: 0;
+		padding: 10px 20px;
+		font-size: 13px;
+		font-weight: 600;
+		text-align: center;
+		color: var(--texto-2);
+		background: var(--c-tarjeta);
+		border-top: 1px solid var(--c-borde);
+		text-wrap: balance;
 	}
 	.mio {
 		align-self: flex-end;

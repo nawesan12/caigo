@@ -41,8 +41,15 @@
 	const alternar = (l: string[], v: string) =>
 		l.includes(v) ? l.filter((x) => x !== v) : [...l, v];
 
+	/** Lo mismo que pide el perfil completo (personas.Faltantes en la API): 3 cosas que te copen. */
+	const MIN_INTERESES = 3;
+
 	function seguir(e: Event) {
-		if (paso === 2) return;
+		if (paso === 2) {
+			if (intereses.length >= MIN_INTERESES) return;
+			e.preventDefault();
+			return avisar('Elegí al menos 3, así te mostramos planes con lo\u00a0mismo.');
+		}
 		e.preventDefault();
 		if (!intenciones.length) return avisar('Elegí al menos una, después la cambiás.');
 		paso = 2;
@@ -57,6 +64,7 @@
 			><Icono nombre="atras" tam={22} /></button
 		>
 	{/if}
+	<form method="POST" action="/salir" class="salir"><button>Salir</button></form>
 	<div class="scroll-in">
 		{#if paso === 1}
 			<h1>¿Qué buscás en Caigo?</h1>
@@ -95,7 +103,7 @@
 			{/each}
 		{:else}
 			<h1>¿Qué te copa?</h1>
-			<p>Te mostramos primero planes y gente con lo&nbsp;mismo.</p>
+			<p>Elegí 3 o más. Te mostramos primero planes y gente con lo&nbsp;mismo.</p>
 			<div class="likes">
 				{#each INTERESES_SUGERIDOS as l (l)}
 					<button
@@ -139,6 +147,19 @@
 		inset: 0;
 		z-index: 10;
 		background: url(/grain.png), var(--blanco-calido);
+	}
+	.salir {
+		position: absolute;
+		top: calc(16px + env(safe-area-inset-top));
+		right: 20px;
+		z-index: 2;
+	}
+	.salir button {
+		height: 44px;
+		padding: 0 6px;
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--texto-2);
 	}
 	.atras {
 		position: absolute;

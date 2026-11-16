@@ -19,6 +19,10 @@ describe('fechas en hora de Argentina', () => {
 		expect(cuandoCorto('2026-10-31T00:00:00Z', AHORA)).toBe('Vie 30 · 21:00');
 		// 02:30 UTC del 29 es todavía el 28 a las 23:30 en Argentina.
 		expect(cuandoCorto('2026-10-29T02:30:00Z', AHORA)).toBe('Hoy 23:30');
+		// A más de 6 días, con el mes (antes: "Mié 3 · 22:00", sin saber de qué mes).
+		expect(cuandoCorto('2027-03-04T01:00:00Z', AHORA)).toBe('Mié 3 mar · 22:00');
+		expect(cuandoCorto('2026-11-04T23:00:00Z', AHORA)).toBe('Mié 4 nov · 20:00');
+		expect(cuandoCorto('2026-11-03T23:00:00Z', AHORA)).toBe('Mar 3 · 20:00');
 	});
 	it('link público', () => {
 		expect(cuandoLargo('2026-10-29T00:30:00Z', AHORA)).toBe('Hoy, 21:30');

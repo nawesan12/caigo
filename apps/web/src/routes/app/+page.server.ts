@@ -8,7 +8,8 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async (event) => {
 	const c = event.url.searchParams.get('categoria') ?? '';
 	const categoria = FILTROS_AHORA.some((f) => f.valor === c) ? c : '';
-	const q = conUbicacion(event, { categoria });
+	const { yo } = await event.parent();
+	const q = conUbicacion(event, { categoria }, yo?.ciudad);
 	const { planes } = await quizasConSesion<{ planes: Plan[] }>(
 		event,
 		`/v1/planes/ahora?${q}`,

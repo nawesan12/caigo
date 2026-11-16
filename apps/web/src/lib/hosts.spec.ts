@@ -53,5 +53,10 @@ describe('volverSeguro', () => {
 		expect(volverSeguro('https://evil.com')).toBe('/');
 		expect(volverSeguro('')).toBe('/');
 		expect(volverSeguro(null, '/plus')).toBe('/plus');
+		// Con tabs o saltos de línea el navegador arma //evil.com (y antes daba 500).
+		expect(volverSeguro('/\t/evil.com')).toBe('/');
+		expect(volverSeguro('/\n/evil.com')).toBe('/');
+		expect(volverSeguro('/a b')).toBe('/');
+		expect(volverSeguro('/app/plan/1?pago=ok#x')).toBe('/app/plan/1?pago=ok#x');
 	});
 });

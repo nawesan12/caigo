@@ -183,9 +183,8 @@ async function hacer(f: () => Promise<unknown>, ok: string) {
 		return { ok };
 	} catch (e) {
 		if (!(e instanceof ErrorApi)) throw e;
-		return fail(400, {
-			error: e.estado === 404 || e.estado === 405 ? NO_ESTA : mensajeDe(e)
-		});
+		// El detail de la API (un 404 es «ya no existe», no que falte la ruta).
+		return fail(400, { error: mensajeDe(e) });
 	}
 }
 
@@ -201,15 +200,18 @@ export const actions: Actions = {
 			aprobar ? 'Lugar aprobado.' : 'Lugar rechazado.'
 		);
 	},
+	/** DNI ya aprobados (al subirlos): «Está bien» o «Suspender cuenta» (con motivo). */
 	dni: async (event) => {
 		const f = await event.request.formData();
-		const aprobar = f.get('decision') === 'aprobar';
+		const suspender = f.get('decision') === 'suspender';
+		const m = motivo(f);
+		if (suspender && !m) return fail(400, { error: 'Poné el motivo de la suspensión.' });
 		return hacer(
 			() =>
 				conSesion(event, 'POST', `/v1/equipo/dni/${id(f)}`, {
-					cuerpo: { aprobar, motivo: motivo(f) }
+					cuerpo: suspender ? { accion: 'suspender', motivo: m } : { accion: 'ok' }
 				}),
-			aprobar ? 'DNI aprobado.' : 'DNI rechazado.'
+			suspender ? 'Cuenta suspendida.' : 'Listo, DNI revisado.'
 		);
 	},
 	arrepentimiento: async (event) => {
@@ -310,9 +312,7 @@ export const actions: Actions = {
 			return { ok: 'Plan semilla publicado.', semilla: { slug: p.slug, titulo: p.titulo } };
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
-			return fail(400, {
-				error: e.estado === 404 || e.estado === 405 ? NO_ESTA : mensajeDe(e)
-			});
+			return fail(400, { error: mensajeDe(e) });
 		}
 	}
 };

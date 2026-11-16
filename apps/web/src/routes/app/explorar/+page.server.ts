@@ -42,15 +42,19 @@ export const load: PageServerLoad = async (event) => {
 	const z = sp.get('zona') ?? '';
 	const zona = zonas.includes(z) ? z : '';
 
-	const qs = conUbicacion(event, {
-		categoria,
-		verificados: verificados ? '1' : '',
-		faltan,
-		zona,
-		q,
-		desde: rango?.desde ?? '',
-		hasta: rango?.hasta ?? ''
-	});
+	const qs = conUbicacion(
+		event,
+		{
+			categoria,
+			verificados: verificados ? '1' : '',
+			faltan,
+			zona,
+			q,
+			desde: rango?.desde ?? '',
+			hasta: rango?.hasta ?? ''
+		},
+		ciudad
+	);
 	let planes: Plan[];
 	try {
 		({ planes } = await quizasConSesion<{ planes: Plan[] }>(

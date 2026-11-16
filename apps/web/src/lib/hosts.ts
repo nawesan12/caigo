@@ -46,8 +46,25 @@ export function esDelPanel(rutaId: string | null | undefined): boolean {
 	return !!rutaId && (rutaId === '/panel' || rutaId.startsWith('/panel/'));
 }
 
-/** Sólo vuelve a rutas propias: nada de //otro.sitio ni URLs absolutas. */
+/**
+ * Sólo vuelve a rutas propias: nada de //otro.sitio ni URLs absolutas. Tampoco caracteres de
+ * control ni espacios: el navegador los saca ("/\t/evil.com" es "//evil.com") y en un Location
+ * hacían caer el servidor (500).
+ */
 export function volverSeguro(v: string | null | undefined, porDefecto = '/'): string {
-	if (!v || !v.startsWith('/') || v.startsWith('//') || v.startsWith('/\\')) return porDefecto;
-	return v.length > 500 ? porDefecto : v;
+	if (
+		!v ||
+		v.length > 500 ||
+		!v.startsWith('/') ||
+		[...v].some((c) => c.charCodeAt(0) <= 0x20 || c.charCodeAt(0) === 0x7f || c === '\\')
+	)
+		return porDefecto;
+	try {
+		const base = 'http://caigo.invalid';
+		const u = new URL(v, base);
+		if (u.origin !== base) return porDefecto;
+		return u.pathname + u.search + u.hash;
+	} catch {
+		return porDefecto;
+	}
 }

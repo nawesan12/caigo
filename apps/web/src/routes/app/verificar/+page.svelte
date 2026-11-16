@@ -1,16 +1,41 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
+	import { APP_STORE, PLAY_STORE } from '#lib/abrir-app.ts';
+	import { aJpeg } from '#lib/imagen.ts';
+	import {
+		cargarDetector,
+		falta,
+		INICIO,
+		instruccion as textoVida,
+		leer,
+		paso as pasoVida,
+		progreso as progresoVida,
+		type Estado,
+		type Lectura
+	} from '#lib/vida.ts';
 
 	/*
-	 * Verificación de Mockups v5: 01d "¿Cuál es tu número?" (paso 1 de 2) y 01e "Ahora, una selfie"
-	 * (paso 2 de 2). La selfie se saca con la cámara del navegador: una guía de unos 4 s con el anillo
-	 * de progreso del handoff y la foto al final (sin análisis automático). Sin cámara, se sube una foto.
+	 * Verificación de Mockups v5: 01d "¿Cuál es tu número?", 01e "Ahora, una selfie" y el DNI (como
+	 * en las apps: frente, dorso, número y fecha; sin leer el PDF417). La selfie lleva prueba de vida
+	 * de verdad (lib/vida.ts): una cara sola y centrada que gira la cabeza y vuelve; recién ahí se
+	 * saca la foto. Si el modelo no carga o no hay cámara, se hace desde la app.
 	 */
 	let { data, form } = $props();
+
+	/** Qué se muestra: el paso que falta; para el DNI hace falta la selfie de la prueba de vida. */
+	const vista = $derived.by(() => {
+		if (data.paso === 1) return 'telefono';
+		if (data.paso === 2) return 'selfie';
+		if (data.dni === 'rechazada') return 'rechazada';
+		if (data.dni === 'pendiente') return 'pendiente';
+		if (!data.conSelfie || (form && 'selfie' in form && form.selfie)) return 'selfie';
+		return 'dni';
+	});
+	const numeroPaso = $derived(vista === 'telefono' ? 1 : vista === 'selfie' ? 2 : 3);
 
 	// ——— Paso 1 ———
 	let telefono = $state('');
@@ -36,26 +61,27 @@
 		}, 1000);
 	}
 
-	// ——— Paso 2 ———
+	// ——— Paso 2: selfie con prueba de vida ———
 	let video: HTMLVideoElement | undefined = $state();
 	let flujo: MediaStream | null = null;
-	let camara = $state<'apagada' | 'prendida' | 'sin'>('apagada');
-	let progreso = $state(0);
-	let grabando = $state(false);
+	let camara = $state<'apagada' | 'cargando' | 'prendida' | 'sin' | 'sin_modelo'>('apagada');
+	let vida = $state<Estado>(INICIO);
+	let lectura = $state<Lectura | null>(null);
 	let subiendo = $state(false);
 	let anim: number | undefined;
-	const INSTRUCCIONES = [
-		'Mirá de frente a la cámara',
-		'Girá la cabeza despacio a la izquierda',
-		'Volvé despacio al centro'
-	];
+	const progreso = $derived(progresoVida(vida));
 	const instruccion = $derived(
-		!grabando && progreso === 0
-			? 'Girá la cabeza despacio a la izquierda'
-			: progreso >= 1
-				? 'Listo'
-				: INSTRUCCIONES[Math.min(2, Math.floor(progreso * 3))]
+		camara === 'prendida'
+			? textoVida(vida, lectura)
+			: camara === 'cargando'
+				? 'Preparando la cámara…'
+				: 'Mirá de frente a la cámara'
 	);
+	const chips = $derived([
+		{ t: 'Buena luz', ok: !!lectura && lectura.caras > 0 },
+		{ t: 'Cara centrada', ok: vida.fase !== 'buscando' || (!!lectura && falta(lectura) === null) },
+		{ t: 'Girá y volvé', ok: vida.fase === 'listo' }
+	]);
 
 	async function prenderCamara() {
 		try {
@@ -63,15 +89,8 @@
 				video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } },
 				audio: false
 			});
-			camara = 'prendida';
-			await tick();
-			if (video) {
-				video.srcObject = flujo;
-				await video.play().catch(() => undefined);
-			}
 			return true;
 		} catch {
-			camara = 'sin';
 			return false;
 		}
 	}
@@ -80,6 +99,7 @@
 		flujo?.getTracks().forEach((t) => t.stop());
 		flujo = null;
 		if (anim) cancelAnimationFrame(anim);
+		anim = undefined;
 	}
 	onDestroy(() => {
 		apagar();
@@ -87,23 +107,58 @@
 	});
 
 	async function verificarme() {
-		if (grabando || subiendo) return;
-		if (camara !== 'prendida' && !(await prenderCamara())) return;
-		grabando = true;
-		progreso = 0;
-		const ini = performance.now();
-		const DUR = 4000;
-		await new Promise<void>((fin) => {
-			const paso = (t: number) => {
-				progreso = Math.min(1, (t - ini) / DUR);
-				if (progreso < 1) anim = requestAnimationFrame(paso);
-				else fin();
-			};
-			anim = requestAnimationFrame(paso);
-		});
-		const foto = await sacarFoto();
-		grabando = false;
-		if (foto) await subir(foto);
+		if (camara === 'cargando' || camara === 'prendida' || subiendo) return;
+		camara = 'cargando';
+		vida = INICIO;
+		lectura = null;
+		const [hayCamara, detector] = await Promise.all([
+			prenderCamara(),
+			cargarDetector().catch(() => null)
+		]);
+		if (!hayCamara) {
+			apagar();
+			camara = 'sin';
+			return;
+		}
+		if (!detector) {
+			apagar();
+			camara = 'sin_modelo';
+			return;
+		}
+		camara = 'prendida';
+		await tick();
+		if (!video) return;
+		video.srcObject = flujo;
+		await video.play().catch(() => undefined);
+		let ultimo = -1;
+		const cuadro = async () => {
+			if (!video || !flujo) return;
+			// Un cuadro nuevo del video: se mide (detectForVideo pide tiempos crecientes).
+			if (video.readyState >= 2 && video.currentTime !== ultimo) {
+				ultimo = video.currentTime;
+				const t = performance.now();
+				try {
+					lectura = leer(detector, video, t);
+				} catch {
+					apagar();
+					camara = 'sin_modelo';
+					return;
+				}
+				vida = pasoVida(vida, lectura, t);
+				if (vida.fase === 'listo') {
+					const foto = await sacarFoto();
+					apagar();
+					if (foto) await subir(foto);
+					else {
+						camara = 'apagada';
+						avisar('No pudimos sacar la foto. Probá de nuevo.');
+					}
+					return;
+				}
+			}
+			anim = requestAnimationFrame(cuadro);
+		};
+		anim = requestAnimationFrame(cuadro);
 	}
 
 	function sacarFoto(): Promise<Blob | null> {
@@ -129,61 +184,125 @@
 
 	async function subir(foto: Blob) {
 		subiendo = true;
+		let ok = false;
 		try {
-			const r = await fetch('/app/verificar/selfie', {
+			// Con la selfie ya verificada (paso 3 sin la de la prueba de vida), sólo se sube para el DNI.
+			const r = await fetch(`/app/verificar/selfie${data.paso === 3 ? '?para=dni' : ''}`, {
 				method: 'POST',
 				headers: { 'content-type': foto.type || 'image/jpeg' },
 				body: foto
 			});
 			const j = await r.json().catch(() => ({}));
-			if (!r.ok) {
-				progreso = 0;
-				return avisar(j.error || 'No pudimos subir la selfie. Probá de nuevo.');
-			}
-			apagar();
+			if (!r.ok) avisar(j.error || 'No pudimos subir la selfie. Probá de nuevo.');
+			else ok = true;
 		} catch {
-			progreso = 0;
 			avisar('No pudimos subir la selfie. Probá de nuevo.');
 		} finally {
 			subiendo = false;
 		}
-		if (!flujo && progreso >= 1)
-			await goto(data.volver, { replaceState: true, invalidateAll: true }).catch(() => undefined);
+		vida = INICIO;
+		lectura = null;
+		camara = 'apagada';
+		if (ok) {
+			// Recarga: sigue con el DNI.
+			await goto(`/app/verificar?volver=${encodeURIComponent(data.volver)}`, {
+				replaceState: true,
+				invalidateAll: true
+			}).catch(() => undefined);
+		}
 	}
 
-	async function desdeArchivo(e: Event) {
+	// ——— Paso 3: DNI ———
+	type Lado = 'frente' | 'dorso';
+	let fotos = $state<Record<Lado, { id: string; vista: string; subiendo: boolean }>>({
+		frente: { id: '', vista: '', subiendo: false },
+		dorso: { id: '', vista: '', subiendo: false }
+	});
+	let numero = $state('');
+	let nacimiento = $state('');
+	let mandando = $state(false);
+	$effect(() => {
+		if (form && 'numero' in form && form.numero && !numero) numero = String(form.numero);
+		if (form && 'nacimiento' in form && form.nacimiento && !nacimiento)
+			nacimiento = String(form.nacimiento);
+	});
+	/** El máximo del campo de fecha: hoy hace 18 años. */
+	const hace18 = (() => {
+		const hoy = new Date();
+		return `${hoy.getFullYear() - 18}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+	})();
+	const listoDni = $derived(
+		!!fotos.frente.id && !!fotos.dorso.id && numero.replace(/\D/g, '').length >= 7 && !!nacimiento
+	);
+
+	async function elegirFoto(lado: Lado, e: Event) {
 		const input = e.currentTarget as HTMLInputElement;
 		const f = input.files?.[0];
 		input.value = '';
-		if (f) {
-			progreso = 1;
-			await subir(f);
+		if (!f) return;
+		fotos[lado].subiendo = true;
+		try {
+			const jpeg = await aJpeg(f);
+			const r = await fetch('/app/verificar/foto', {
+				method: 'POST',
+				headers: { 'content-type': 'image/jpeg' },
+				body: jpeg
+			});
+			const j = await r.json().catch(() => ({}));
+			if (!r.ok || !j.id) throw new Error(j.error || 'No pudimos subir la foto. Probá de nuevo.');
+			if (fotos[lado].vista) URL.revokeObjectURL(fotos[lado].vista);
+			fotos[lado] = { id: j.id, vista: URL.createObjectURL(jpeg), subiendo: false };
+		} catch (err) {
+			fotos[lado].subiendo = false;
+			avisar(err instanceof Error ? err.message : 'No pudimos subir la foto. Probá de nuevo.');
 		}
 	}
 </script>
 
 <svelte:head><title>Verificación · Caigo</title></svelte:head>
 
+{#snippet salir()}
+	<form method="POST" action="/salir" class="salir">
+		<button>Salir</button>
+	</form>
+{/snippet}
+
+{#snippet desdeLaApp(texto: string)}
+	<div class="app-aviso">
+		<img src="/caigo-icon.png" alt="" width="48" height="48" />
+		<div class="app-txt">
+			<b>Hacelo desde la app</b>
+			<span>{texto}</span>
+			<span class="app-links"
+				><a href={APP_STORE} rel="noopener">App Store</a> ·
+				<a href={PLAY_STORE} rel="noopener">Google Play</a></span
+			>
+		</div>
+	</div>
+{/snippet}
+
 <div class="scroll">
 	<div class="pantalla">
 		<div class="arriba">
-			{#if data.paso === 1}
+			{#if vista === 'telefono'}
 				<a class="icono-btn" href="/" aria-label="Volver a Caigo"
 					><Icono nombre="atras" tam={22} /></a
 				>
 			{:else}
 				<span></span>
 			{/if}
-			<span class="paso">Paso {data.paso} de 2</span>
+			{#if vista !== 'rechazada' && vista !== 'pendiente'}
+				<span class="paso">Paso {numeroPaso} de 3</span>
+			{/if}
 		</div>
 
-		{#if data.paso === 1}
+		{#if vista === 'telefono'}
 			<div class="txt">
 				<h1>¿Cuál es tu número?</h1>
 				<p>
 					{destino
 						? `Te mandamos un código por mail a ${destino}. Tu número no aparece en tu perfil.`
-						: 'Te mandamos un código por mail. Tu número no aparece en tu perfil.'}
+						: 'Te mandamos un código por mail. Tu número no aparece en tu perfil.'}
 				</p>
 			</div>
 			<form
@@ -253,11 +372,16 @@
 			<div class="pie">
 				<span class="nota">Caigo es solo para mayores de 18.</span>
 				<button class="gel gel-lima cta" form="form-tel" disabled={enviando}>Seguir</button>
+				{@render salir()}
 			</div>
-		{:else}
+		{:else if vista === 'selfie'}
 			<div class="txt">
 				<h1>Ahora, una selfie</h1>
-				<p>Es para confirmar que sos una persona real. No se publica.</p>
+				<p>
+					{data.paso === 3
+						? 'La comparamos con la foto de tu DNI. No se publica.'
+						: 'Es para confirmar que sos una persona real. No se publica.'}
+				</p>
 			</div>
 			<div class="aro" style:--p="{Math.round(progreso * 100)}%">
 				<div class="cara">
@@ -268,32 +392,153 @@
 					{/if}
 				</div>
 			</div>
-			<div class="instruccion"><span>{instruccion}</span></div>
+			<div class="instruccion" aria-live="polite"><span>{instruccion}</span></div>
 			<div class="chips">
-				{#each ['Buena luz', 'Cara centrada', 'Sin lentes de sol'] as c, i (c)}
-					{@const ok =
-						progreso > (i + 1) / 3 - 0.01 || (i < 2 && camara === 'prendida' && !grabando)}
-					<span class="chip-v" class:ok>
-						{#if ok}<Icono nombre="check" tam={14} color="#24212D" trazo={3} />{/if}{c}
+				{#each chips as c (c.t)}
+					<span class="chip-v" class:ok={c.ok}>
+						{#if c.ok}<Icono nombre="check" tam={14} color="#24212D" trazo={3} />{/if}{c.t}
 					</span>
 				{/each}
 			</div>
 			<div class="pie">
+				{#if camara === 'sin'}
+					<span class="nota aviso"
+						>No pudimos usar la cámara. Dale permiso en el navegador y probá de&nbsp;nuevo.</span
+					>
+				{:else if camara === 'sin_modelo'}
+					{@render desdeLaApp(
+						'Este navegador no puede hacer la prueba de vida. En la app tarda menos de un minuto.'
+					)}
+				{/if}
 				<span class="nota"
 					><Icono nombre="escudo" tam={16} color="var(--c-acento)" trazo={2} />Tu selfie viaja
 					encriptada y no es pública</span
 				>
-				{#if camara === 'sin'}
-					<label class="gel gel-lima cta">
-						<input type="file" accept="image/*" capture="user" class="sr" onchange={desdeArchivo} />
-						{subiendo ? 'Subiendo…' : 'Sacar una selfie'}
-					</label>
-					<span class="nota">No pudimos usar la cámara: sacate una foto con el celu.</span>
-				{:else}
-					<button class="gel gel-lima cta" onclick={verificarme} disabled={grabando || subiendo}>
-						{subiendo ? 'Verificando…' : grabando ? 'Quedate así…' : 'Verificarme'}
-					</button>
-				{/if}
+				<button
+					class="gel gel-lima cta"
+					onclick={verificarme}
+					disabled={camara === 'cargando' || camara === 'prendida' || subiendo}
+				>
+					{subiendo
+						? 'Subiendo…'
+						: camara === 'cargando'
+							? 'Preparando…'
+							: camara === 'prendida'
+								? 'Seguí las indicaciones'
+								: camara === 'sin' || camara === 'sin_modelo'
+									? 'Probar de nuevo'
+									: 'Verificarme'}
+				</button>
+				{@render salir()}
+			</div>
+		{:else if vista === 'dni'}
+			<div class="txt">
+				<h1>Tu DNI</h1>
+				<p>
+					Sacale una foto al frente y otra al dorso, sin reflejos. Nunca mostramos tu DNI: sólo
+					el&nbsp;badge.
+				</p>
+			</div>
+			<form
+				method="POST"
+				action="?/dni"
+				class="form"
+				id="form-dni"
+				use:enhance={() => {
+					mandando = true;
+					return async ({ result, update }) => {
+						if (result.type === 'failure') avisar(String(result.data?.error ?? 'No se pudo.'));
+						await update({ reset: false });
+						mandando = false;
+					};
+				}}
+			>
+				<div class="lados">
+					{#each ['frente', 'dorso'] as const as lado (lado)}
+						{@const f = fotos[lado]}
+						<label class="lado" class:lleno={!!f.vista}>
+							<input
+								type="file"
+								accept="image/*"
+								class="sr"
+								disabled={f.subiendo}
+								onchange={(e) => elegirFoto(lado, e)}
+							/>
+							{#if f.vista}<img src={f.vista} alt="" />{/if}
+							<span class="lado-txt">
+								{#if f.subiendo}
+									Subiendo…
+								{:else if f.id}
+									<Icono nombre="check" tam={16} color="#24212D" trazo={3} />{lado === 'frente'
+										? 'Frente'
+										: 'Dorso'}
+								{:else}
+									<Icono nombre="mas" tam={18} color="var(--c-acento)" trazo={2.4} />{lado ===
+									'frente'
+										? 'Frente del DNI'
+										: 'Dorso del DNI'}
+								{/if}
+							</span>
+						</label>
+					{/each}
+				</div>
+				<input type="hidden" name="frenteId" value={fotos.frente.id} />
+				<input type="hidden" name="dorsoId" value={fotos.dorso.id} />
+				<label class="campo">
+					<span class="cl">Número de DNI</span>
+					<input
+						class="entrada"
+						name="numero"
+						inputmode="numeric"
+						autocomplete="off"
+						placeholder="35123456"
+						maxlength="10"
+						bind:value={numero}
+						oninput={() => (numero = numero.replace(/\D/g, '').slice(0, 9))}
+					/>
+				</label>
+				<label class="campo">
+					<span class="cl">Fecha de nacimiento</span>
+					<input
+						class="entrada"
+						name="nacimiento"
+						type="date"
+						max={hace18}
+						min="1910-01-01"
+						autocomplete="bday"
+						bind:value={nacimiento}
+					/>
+				</label>
+			</form>
+			<div class="pie">
+				<span class="nota">Caigo es solo para mayores de 18.</span>
+				<button class="gel gel-lima cta" form="form-dni" disabled={mandando || !listoDni}>
+					{mandando ? 'Verificando…' : 'Verificar mi DNI'}
+				</button>
+				<span class="nota"
+					><Icono nombre="escudo" tam={16} color="var(--c-acento)" trazo={2} />Las fotos viajan
+					encriptadas y no son públicas</span
+				>
+				{@render salir()}
+			</div>
+		{:else if vista === 'rechazada'}
+			<div class="txt">
+				<h1>No pudimos verificar tu DNI</h1>
+				<p>{data.motivo || 'El equipo revisó tus datos y no coincidieron.'}</p>
+				<p>
+					Si creés que es un error, escribinos a
+					<a href="mailto:soporte@caigo.com.ar">soporte@caigo.com.ar</a>.
+				</p>
+			</div>
+			<div class="pie">{@render salir()}</div>
+		{:else}
+			<div class="txt">
+				<h1>Ya estamos revisando tu&nbsp;DNI</h1>
+				<p>Lo revisa una persona del equipo, no un bot. Te avisamos por mail.</p>
+			</div>
+			<div class="pie">
+				<button class="gel gel-blanco cta" onclick={() => invalidateAll()}>Ver si ya está</button>
+				{@render salir()}
 			</div>
 		{/if}
 	</div>
@@ -522,5 +767,125 @@
 		color: var(--carbon);
 		background: var(--grad-lima);
 		box-shadow: var(--sh-lima);
+	}
+	.salir button {
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--texto-2);
+		padding: 6px 12px;
+	}
+	.nota.aviso {
+		color: var(--carbon);
+		font-weight: 600;
+		text-wrap: balance;
+	}
+	.txt a {
+		color: #7456f1;
+		font-weight: 700;
+	}
+	h1,
+	.txt p {
+		text-wrap: balance;
+	}
+	/* Hacelo desde la app */
+	.app-aviso {
+		align-self: stretch;
+		display: flex;
+		gap: 12px;
+		align-items: center;
+		padding: 14px;
+		border-radius: 20px;
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-tarjeta-plan);
+	}
+	.app-aviso img {
+		flex: none;
+		filter: drop-shadow(0 8px 10px rgba(116, 86, 241, 0.3));
+	}
+	.app-txt {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		font-size: 13px;
+		line-height: 1.4;
+		color: var(--texto-2);
+		text-wrap: pretty;
+	}
+	.app-txt b {
+		font-size: 16px;
+		color: var(--carbon);
+	}
+	.app-links a {
+		color: #7456f1;
+		font-weight: 700;
+	}
+	/* DNI */
+	.lados {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
+	}
+	.lado {
+		position: relative;
+		aspect-ratio: 1.58;
+		border-radius: 18px;
+		overflow: hidden;
+		background: var(--c-tarjeta);
+		border: 1.5px dashed #c9bff5;
+		display: grid;
+		place-items: center;
+		cursor: pointer;
+	}
+	.lado.lleno {
+		border: 0;
+	}
+	.lado img {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.lado-txt {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding: 6px 10px;
+		border-radius: 12px;
+		font-size: 13px;
+		font-weight: 700;
+		text-align: center;
+	}
+	.lado.lleno .lado-txt {
+		background: var(--grad-lima);
+		box-shadow: var(--sh-lima);
+		color: #24212d;
+	}
+	.lado:focus-within {
+		outline: 2px solid #7456f1;
+		outline-offset: 2px;
+	}
+	.campo {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		font-size: 14px;
+	}
+	.entrada {
+		height: 56px;
+		padding: 0 18px;
+		border-radius: 18px;
+		background: var(--c-tarjeta);
+		border: 1.5px solid #e6e1f2;
+		font-size: 17px;
+		font-weight: 600;
+		color: var(--carbon);
+		min-width: 0;
+		width: 100%;
+	}
+	.entrada:focus {
+		border: 2px solid #7456f1;
+		outline: none;
 	}
 </style>

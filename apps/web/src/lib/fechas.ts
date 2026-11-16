@@ -44,13 +44,44 @@ function diasEntre(a: Date | string, b: Date | string): number {
 	);
 }
 
-/** "Hoy 19:30" · "Mañana 21:00" · "Jue 30 · 21:00" (chips del panel). */
+const MESES_CORTOS = [
+	'ene',
+	'feb',
+	'mar',
+	'abr',
+	'may',
+	'jun',
+	'jul',
+	'ago',
+	'sep',
+	'oct',
+	'nov',
+	'dic'
+];
+
+/** Si cae fuera de esta semana (a 7 días o más, para adelante o para atrás): ahí el día solo no alcanza. */
+function lejos(n: number): boolean {
+	return n >= 7 || n <= -7;
+}
+
+/**
+ * "Hoy 19:30" · "Mañana 21:00" · "Jue 30 · 21:00" (chips del panel). Fuera de esta semana suma el
+ * mes: "Mié 3 mar · 22:00".
+ */
 export function cuandoCorto(f: Date | string, ahora: Date = new Date()): string {
 	const p = partes(f);
 	const n = diasEntre(ahora, f);
 	if (n === 0) return `Hoy ${p.hora}`;
 	if (n === 1) return `Mañana ${p.hora}`;
-	return `${DIAS[p.semana]} ${p.dia} · ${p.hora}`;
+	const mes = lejos(n) ? ` ${MESES_CORTOS[p.mes]}` : '';
+	return `${DIAS[p.semana]} ${p.dia}${mes} · ${p.hora}`;
+}
+
+/** "Miércoles 3" esta semana; "Miércoles 3 de marzo" más lejos (el día del detalle del plan). */
+export function diaLargo(f: Date | string, ahora: Date = new Date()): string {
+	const p = partes(f);
+	const n = diasEntre(ahora, f);
+	return `${DIAS_LARGOS[p.semana]} ${p.dia}${lejos(n) ? ` de ${MESES[p.mes]}` : ''}`;
 }
 
 /** "Hoy, 21:30" · "Mañana, 21:30" · "Jueves 30 de octubre, 21:30" (link público). */

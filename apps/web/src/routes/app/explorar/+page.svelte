@@ -217,12 +217,6 @@
 								data-sveltekit-noscroll>{cu.etiqueta}<span class="plus">Plus</span></a
 							>
 						{/each}
-						<a
-							class="chip"
-							class:sel={data.verificados}
-							href={url({ verificados: data.verificados ? '' : '1' })}
-							data-sveltekit-noscroll>Solo verificados<span class="plus">Plus</span></a
-						>
 					</div>
 					{#if activos}
 						<a
@@ -280,12 +274,7 @@
 						<div class="rec-txt">
 							<span class="rt">{sinViuda(recurrente.titulo)}</span>
 							<span class="rs"
-								>{[
-									recurrente.lugarNombre || recurrente.zona,
-									recurrente.soloVerificados && 'verificados'
-								]
-									.filter(Boolean)
-									.join(' · ')}</span
+								>{[recurrente.lugarNombre || recurrente.zona].filter(Boolean).join(' · ')}</span
 							>
 						</div>
 						<span class={recurrente.faltan > 0 ? 'badge-coral rb' : 'badge-completo rb'}
@@ -313,9 +302,7 @@
 						<span class="ft">{sinViuda(g.titulo)}</span>
 						<span class="fs"
 							>{sinViuda(
-								[g.lugarNombre || (g.zona && `Zona ${g.zona}`), g.soloVerificados && 'Verificados']
-									.filter(Boolean)
-									.join('\u00a0· ')
+								[g.lugarNombre || (g.zona && `Zona ${g.zona}`)].filter(Boolean).join('\u00a0· ')
 							)}</span
 						>
 					</div>
