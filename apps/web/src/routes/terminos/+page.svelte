@@ -32,10 +32,7 @@
 	<h2>3. Tu cuenta</h2>
 	<ul>
 		<li>Caigo es sólo para mayores de 18 años.</li>
-		<li>
-			Una persona, una cuenta. Para sumarte a planes verificás tu teléfono y una selfie; algunos
-			planes piden además tu DNI verificado.
-		</li>
+		<li>Una persona, una cuenta. Para usar Caigo verificás tu teléfono, una selfie y tu DNI.</li>
 		<li>Lo que pongas en tu perfil tiene que ser verdad y tuyo: tus fotos, tu edad, tu nombre.</li>
 		<li>
 			Cuidá el acceso a tu cuenta de Google o Apple: lo que se haga con tu cuenta corre por tu

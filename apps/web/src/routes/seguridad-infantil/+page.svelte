@@ -21,9 +21,9 @@
 
 	<h2>1. Solo para mayores de 18</h2>
 	<p>
-		Caigo es solo para personas de 18 años o más. Pedimos la fecha de nacimiento al crear la cuenta
-		y una selfie para verificar que la persona es real, y el equipo puede pedir el DNI. Si sabemos o
-		sospechamos que una cuenta es de alguien menor de 18, la suspendemos.
+		Caigo es solo para personas de 18 años o más. Pedimos la fecha de nacimiento al crear la cuenta,
+		una selfie para verificar que la persona es real y el DNI, del que validamos la edad. Si sabemos
+		o sospechamos que una cuenta es de alguien menor de 18, la suspendemos.
 	</p>
 
 	<h2>2. Qué está prohibido</h2>

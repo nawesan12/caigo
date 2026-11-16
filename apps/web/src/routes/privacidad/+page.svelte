@@ -7,8 +7,9 @@
 	cmd/worker): si cambia uno, cambia el otro.
 	AAIP 1.2: ni el género ni la diversidad se guardan (se confirman al sumarse a un plan «Solo
 	mujeres» / «Solo diversidades»), del DNI se guarda sólo el resultado, la fecha de nacimiento y la
-	huella del número (no el número ni el nombre), y sus fotos y la selfie se borran al resolver la
-	verificación (migraciones 00021, 00022 y 00023, confianza/fotos_dni.go).
+	huella del número (no el número ni el nombre), y sus fotos y la selfie se borran cuando el equipo
+	revisa la verificación, y como máximo a los 30 días (migraciones 00021, 00022 y 00023,
+	confianza/fotos_dni.go). Desde el 16/11 el DNI es obligatorio y se aprueba al subirlo.
 -->
 
 <Legal
@@ -46,21 +47,21 @@
 			te mandamos al mail de tu cuenta, no por SMS: eso confirma que lo cargaste vos, no que la línea
 			esté a tu nombre. En la app para iPhone y Android, la prueba de vida (que seas una persona y no
 			una foto) la hace tu teléfono: detecta tu cara mientras girás la cabeza a un lado y al otro, y saca
-			la selfie solo. Ese análisis no sale del teléfono; a nuestros servidores llega sólo la foto. En
-			la web no hay prueba de vida automática: sacás la selfie con la cámara o subís una foto, y el equipo
-			de Caigo la puede revisar.
+			la selfie solo. En la web pasa lo mismo en tu navegador: detecta tu cara mientras girás la cabeza
+			y volvés al centro. Ese análisis no sale de tu teléfono ni de tu navegador; a nuestros servidores
+			llega sólo la foto.
 		</li>
 		<li>
-			<b>DNI, si elegís verificarlo.</b> Sacás fotos del frente y el dorso y una selfie, y la app
-			lee del código del DNI tu número y tu fecha de nacimiento. Del DNI sólo validamos tu edad y
-			que sea tuyo. Guardamos sólo el resultado, tu fecha de nacimiento y una huella cifrada del
-			número (una clave que no se puede dar vuelta) para la lista de vetados y para que un DNI no se
-			use en dos cuentas.
+			<b>DNI.</b> Para usar Caigo verificás tu DNI: sacás fotos del frente y el dorso y una selfie,
+			y la app lee del código del DNI tu número y tu fecha de nacimiento (en la web los escribís
+			vos). Del DNI sólo validamos tu edad y que sea tuyo. Guardamos sólo el resultado, tu fecha de
+			nacimiento y una huella cifrada del número (una clave que no se puede dar vuelta) para la
+			lista de vetados y para que un DNI no se use en dos cuentas.
 			<b>No guardamos tu número de DNI, tu nombre ni el sexo que figura en él.</b>
 			<b
-				>Las fotos del DNI y esa selfie las borramos apenas la verificación queda resuelta, aprobada
-				o rechazada.</b
-			> Mientras está pendiente, sólo las ve el equipo que la revisa.
+				>Las fotos del DNI y esa selfie las borramos cuando el equipo revisa la verificación, y como
+				máximo a los 30 días.</b
+			> Hasta entonces, sólo las ve el equipo que la revisa.
 		</li>
 		<li>
 			<b>Planes «Solo mujeres» y «Solo diversidades».</b> No guardamos tu género, tu orientación ni tu
@@ -205,8 +206,8 @@
 			link y se borran del servidor).
 		</li>
 		<li>
-			Las fotos del DNI y la selfie de la verificación del DNI: hasta que la verificación queda
-			resuelta. En ese momento se borran.
+			Las fotos del DNI y la selfie de la verificación del DNI: hasta que el equipo revisa la
+			verificación, y como máximo 30 días. En ese momento se borran.
 		</li>
 	</ul>
 
