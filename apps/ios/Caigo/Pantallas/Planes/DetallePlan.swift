@@ -290,7 +290,7 @@ private struct ContenidoDetalle: View {
                     if o.verificada { Verificado(tam: 16, color: pal.oscuro ? C.lima : C.violeta, tilde: pal.oscuro ? C.carbon : C.blanco) }
                 }
                 T(p.lugar != nil ? "Lugar aliado · verificado por Caigo"
-                    : (o.asistencia.de > 0 ? "Fue a \(o.asistencia.fue) de \(o.asistencia.de) planes · \(asistencia(o.asistencia))" : "Nuevo en Caigo"),
+                    : (o.asistencia.de > 0 ? "Fue a \(o.asistencia.fue) de \(o.asistencia.de) \(o.asistencia.de == 1 ? "plan" : "planes") · \(asistencia(o.asistencia))" : "Nuevo en Caigo"),
                   13, 400, pal.texto2)
             }
             Spacer(minLength: 0)

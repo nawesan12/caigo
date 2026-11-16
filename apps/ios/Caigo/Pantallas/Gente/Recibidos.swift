@@ -89,10 +89,10 @@ struct VistaRecibidos: View {
 
     private var explicacion: String {
         if tab == 0 {
-            return bloqueada ? "\(nR) personas ya te sumaron. Con Plus ves quiénes son y las sumás de vuelta."
+            return bloqueada ? (nR == 1 ? "1 persona ya te sumó. Con Plus ves quién es y la sumás de vuelta." : "\(nR) personas ya te sumaron. Con Plus ves quiénes son y las sumás de vuelta.")
                 : "Tocá un perfil para verlo completo. Si sumás de vuelta, es mutuo y se abre el chat."
         }
-        return bloqueada ? "\(nI) personas te quieren en sus planes. Con Plus ves quién organiza antes de sumarte."
+        return bloqueada ? (nI == 1 ? "1 persona te quiere en sus planes. Con Plus ves quién organiza antes de sumarte." : "\(nI) personas te quieren en sus planes. Con Plus ves quién organiza antes de sumarte.")
             : "Planes a los que te invitaron. Mirá quién organiza y sumate si te copa."
     }
 
