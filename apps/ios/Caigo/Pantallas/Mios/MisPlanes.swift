@@ -97,7 +97,12 @@ private func agrupar(_ planes: [Plan]) -> [(String, [Plan])] {
 func miosSubtitulo(_ pl: Plan) -> String {
     var cuando = ""
     if let t = Fecha.parse(pl.empiezaEn) {
-        cuando = Fecha.diasEntre(Date(), t) == 0 ? Fecha.hora(t) : "\(Fecha.diaCorto(t)) \(Fecha.hora(t))"
+        switch Fecha.diasEntre(Date(), t) {
+        case 0: cuando = Fecha.hora(t)
+        case 1...6: cuando = "\(Fecha.diaCorto(t)) \(Fecha.hora(t))"
+        // Fuera de esta semana, con el día y el mes (Fecha.cuando).
+        default: cuando = Fecha.cuando(pl.empiezaEn)
+        }
     }
     let lugar = pl.lugar?.nombre ?? (pl.lugarNombre.isEmpty ? pl.zona : pl.lugarNombre)
     let donde = pl.recurrente ? "se repite cada semana" : lugar

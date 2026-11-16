@@ -193,6 +193,8 @@ import Testing
         #expect(Fecha.cuando("2026-11-01T00:30:00Z", ahora: ahora) == "Hoy 21:30")
         #expect(Fecha.cuando("2026-11-01T10:00:00-03:00", ahora: ahora) == "Mañana 10:00")
         #expect(Fecha.cuando("2026-11-07T10:00:00-03:00", ahora: ahora) == "Sáb 10:00")
+        #expect(Fecha.cuando("2027-03-03T22:00:00-03:00", ahora: ahora) == "Mié 3/3 22:00")
+        #expect(Fecha.rango("2027-03-03T22:00:00-03:00", duracionMin: 60, ahora: ahora) == "Miércoles 3 de marzo, 22:00 a 23:00")
         #expect(Fecha.enCuanto("2026-10-31T22:00:00-03:00", ahora: ahora) == "Ahora · en 2 h")
         #expect(Fecha.enCuanto("2026-10-31T20:40:00-03:00", ahora: ahora) == "Ahora · en 40 min")
         #expect(Fecha.enCuanto("2026-11-01T02:00:00-03:00", ahora: ahora) == nil)

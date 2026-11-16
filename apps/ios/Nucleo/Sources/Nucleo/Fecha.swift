@@ -58,13 +58,16 @@ public enum Fecha {
         return c.dateComponents([.day], from: c.startOfDay(for: a), to: c.startOfDay(for: b)).day ?? 0
     }
 
-    /// "Hoy 20:30", "Mañana 21:00", "Sáb 10:00".
+    /// "Hoy 20:30", "Mañana 21:00", "Sáb 10:00"; fuera de esta semana, con el día y el mes: "Mié 3/3 22:00".
     public static func cuando(_ iso: String, ahora: Date = Date()) -> String {
         guard let t = parse(iso) else { return "" }
         switch diasEntre(ahora, t) {
         case 0: return "Hoy \(hora(t))"
         case 1: return "Mañana \(hora(t))"
-        default: return "\(diaCorto(t)) \(hora(t))"
+        case 2...6: return "\(diaCorto(t)) \(hora(t))"
+        default:
+            let k = calendario.dateComponents([.day, .month], from: t)
+            return "\(diaCorto(t)) \(k.day ?? 0)/\(k.month ?? 0) \(hora(t))"
         }
     }
 
@@ -86,7 +89,8 @@ public enum Fecha {
         switch diasEntre(ahora, t) {
         case 0: dia = "Hoy"
         case 1: dia = "Mañana"
-        default: dia = "\(diaLargo(t)) \(calendario.component(.day, from: t))"
+        case 2...6: dia = "\(diaLargo(t)) \(calendario.component(.day, from: t))"
+        default: dia = "\(diaLargo(t)) \(calendario.component(.day, from: t)) de \(mes(t))"
         }
         return "\(dia), \(hora(t)) a \(hora(fin))"
     }
