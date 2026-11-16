@@ -92,6 +92,10 @@ revisión de código de API, web, iOS y Android. Copia previa: `/opt/caigo/copia
   Detalle en `docs/api.md` › «Arreglos de QA (16/11)».
 - Después del deploy: `CAIGO_PANEL` no se leía en producción (la vuelta del OAuth de Mercado Pago salía relativa y
   ningún lugar podía conectar MP): arreglado en 64c0276. La conexión con MP anda (probada con la cuenta de Nahuel).
+- Después (16/11, tarde): `POST /v1/dispositivos/olvidar` (pública) y las apps la llaman al perder la sesión, así el
+  teléfono deja de recibir avisos de la cuenta anterior; las rutas públicas vuelven a mandar el badge y la asistencia;
+  un plan que ya pasó no muestra «Faltan N» ni en la página ni en lo que se comparte. API y web 6a72ae6 desplegadas;
+  espejo de Android publicado. TestFlight se cancela por falta de máquinas macOS en GitHub: se reintenta.
 - **Sin probar: un pago real.** La cuenta de MP de Nahuel es la misma que la de la plataforma, así que no puede pagarse a
   sí misma; hace falta que pague otra cuenta (o conectar otra cuenta vendedora). Con precio $1 el cargo da $0.
 - Datos de QA borrados (copia previa `copias/caigo-antes-limpieza-qa-20261116-1807.dump`): planes, lugar, cuentas,
