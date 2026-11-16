@@ -87,7 +87,7 @@
 	);
 </script>
 
-<form method="POST" action="?/semilla" class="semilla" use:enhance={resultado}>
+<form method="POST" action="?/semilla&tab=semilla" class="semilla" use:enhance={resultado}>
 	<input type="hidden" name="datos" value={JSON.stringify(datos)} />
 	<div class="tarjeta-paso">
 		<label class="campo">
