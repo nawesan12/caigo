@@ -15,7 +15,7 @@
 	/*
 	 * Un plan del lugar: "Quiénes vienen" + "Check-in en la puerta" (Panel Lugares, vista "plan").
 	 * El código se valida en la API; "Escanear QR" usa BarcodeDetector si el navegador lo tiene y
-	 * lee tanto el QR de la entrada (TK-xxxx) como el QR de check-in de la app. Copiar link, Editar y
+	 * lee tanto el QR de la entrada (TK-xxxxxx) como el QR de check-in de la app. Copiar link, Editar y
 	 * Cancelar no están dibujados: van con los botones y la tarjeta del mismo panel.
 	 */
 	let { data } = $props();
@@ -123,8 +123,8 @@
 			const v = r[0]?.rawValue;
 			if (!v) return;
 			cerrarCamara();
-			// El QR de la entrada trae el código (TK-1234), solo o dentro de un link.
-			validarCodigo(/TK-\d{4}/i.exec(v)?.[0].toUpperCase() ?? v.trim());
+			// El QR de la entrada trae el código (TK-123456), solo o dentro de un link.
+			validarCodigo(/TK-\d{4,}/i.exec(v)?.[0].toUpperCase() ?? v.trim());
 		}, 300);
 	}
 	onDestroy(cerrarCamara);
@@ -264,7 +264,7 @@
 					name="codigo"
 					class="codigo"
 					bind:value={codigo}
-					placeholder="TK-4821"
+					placeholder="TK-482193"
 					autocomplete="off"
 					autocapitalize="characters"
 				/>

@@ -33,7 +33,7 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions: Actions = {
 	validar: async (event) => {
-		// El código de una entrada (TK-4821, o sólo los números) o el QR de check-in de la app, que es un
+		// El código de una entrada (TK-482193, o sólo los números) o el QR de check-in de la app, que es un
 		// token firmado: ése va tal cual (no se pasa a mayúsculas).
 		let codigo = String((await event.request.formData()).get('codigo') ?? '').trim();
 		if (/^(TK-)?\d{4,}$/i.test(codigo)) codigo = codigo.toUpperCase();
