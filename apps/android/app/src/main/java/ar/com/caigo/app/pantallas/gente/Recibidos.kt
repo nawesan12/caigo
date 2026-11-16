@@ -83,10 +83,10 @@ fun Recibidos(ir: Ir, modo: String, pestana: Int) {
                 Segmentado(listOf("${if (esCitas) "Les interesás" else "Te sumaron"} · $nR", "Te invitan · $nI"), tab, { tab = it }, radio = 20.dp, radioOpcion = 16.dp, alto = 50.dp)
                 T(
                     if (tab == 0) {
-                        if (bloqueada) "$nR personas ya te sumaron. Con Plus ves quiénes son y las sumás de vuelta."
+                        if (bloqueada) (if (nR == 1) "1 persona ya te sumó. Con Plus ves quién es y la sumás de vuelta." else "$nR personas ya te sumaron. Con Plus ves quiénes son y las sumás de vuelta.")
                         else "Tocá un perfil para verlo completo. Si sumás de vuelta, es mutuo y se abre el chat."
                     } else {
-                        if (bloqueada) "$nI personas te quieren en sus planes. Con Plus ves quién organiza antes de sumarte."
+                        if (bloqueada) (if (nI == 1) "1 persona te quiere en sus planes. Con Plus ves quién organiza antes de sumarte." else "$nI personas te quieren en sus planes. Con Plus ves quién organiza antes de sumarte.")
                         else "Planes a los que te invitaron. Mirá quién organiza y sumate si te copa."
                     },
                     14f, 400, C.texto2, alto = 1.45f,

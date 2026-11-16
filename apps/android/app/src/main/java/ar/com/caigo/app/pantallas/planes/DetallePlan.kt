@@ -548,7 +548,7 @@ private fun Organizador(ir: Ir, p: Plan) {
             }
             T(
                 if (p.lugar != null) "Lugar aliado · verificado por Caigo"
-                else if (o.asistencia.de > 0) "Fue a ${o.asistencia.fue} de ${o.asistencia.de} planes · ${asistencia(o.asistencia.fue, o.asistencia.de)}"
+                else if (o.asistencia.de > 0) "Fue a ${o.asistencia.fue} de ${o.asistencia.de} ${if (o.asistencia.de == 1) "plan" else "planes"} · ${asistencia(o.asistencia.fue, o.asistencia.de)}"
                 else "Nuevo en Caigo",
                 13f, 400, pal.texto2,
             )
