@@ -89,6 +89,7 @@ func Leer() (Config, error) {
 		WalletClave:        os.Getenv("CAIGO_WALLET_CLAVE"),
 		GoogleWalletEmisor: os.Getenv("CAIGO_GOOGLE_WALLET_EMISOR"),
 		APIPublica:         valor("CAIGO_API_PUBLICA", "https://api.caigo.com.ar"),
+		Panel:              valor("CAIGO_PANEL", "https://lugares.caigo.com.ar"),
 		SMTP:               os.Getenv("CAIGO_SMTP"),
 		SMTPUsuario:        os.Getenv("CAIGO_SMTP_USUARIO"),
 		SMTPClave:          os.Getenv("CAIGO_SMTP_CLAVE"),
