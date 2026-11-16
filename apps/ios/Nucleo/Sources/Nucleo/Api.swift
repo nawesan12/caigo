@@ -232,7 +232,10 @@ public final class Api: @unchecked Sendable {
     }
     public func escribir(_ planId: String, _ texto: String) async throws -> Mensaje { try await enviar("POST", "/v1/planes/\(planId)/mensajes", Texto(texto: texto)) }
     public func conversaciones() async throws -> Conversaciones { try await get("/v1/privados") }
-    public func privados(_ conId: String) async throws -> Privados { try await get("/v1/privados/\(conId)") }
+    /// De a 100, del más viejo al más nuevo; `antes` trae los anteriores a ese id.
+    public func privados(_ conId: String, antes: Int64? = nil) async throws -> Privados {
+        try await get("/v1/privados/\(conId)", [("antes", antes.map(String.init))])
+    }
     public func escribirPrivado(_ conId: String, _ texto: String) async throws -> Privado { try await enviar("POST", "/v1/privados/\(conId)", Texto(texto: texto)) }
 
     // MARK: Confianza

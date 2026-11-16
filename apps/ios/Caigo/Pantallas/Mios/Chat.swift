@@ -31,11 +31,38 @@ final class MiosHilo {
     var cargado = false
     var error: String?
     var escribe: String?
+    /// La API manda de a 100: si vino una página llena, puede haber mensajes más viejos.
+    var hayMas = false
     @ObservationIgnored var oyente: UUID?
     @ObservationIgnored private var apagarEscribe: Task<Void, Never>?
+    @ObservationIgnored private var cargandoMas = false
+    /// Trae los mensajes anteriores a un id (GET …?antes=).
+    @ObservationIgnored var anteriores: ((Int64) async throws -> [MiosLinea])?
+
+    static let pagina = 100
 
     func agregar(_ l: MiosLinea) {
         if !lineas.contains(where: { $0.id == l.id }) { lineas.append(l) }
+    }
+
+    /// La primera página (la más nueva).
+    func poner(_ ls: [MiosLinea]) {
+        lineas = ls
+        hayMas = ls.count >= Self.pagina
+    }
+
+    /// La página anterior, arriba de todo.
+    func cargarMas() async {
+        guard hayMas, !cargandoMas, let anteriores, let primero = lineas.first?.id else { return }
+        cargandoMas = true
+        defer { cargandoMas = false }
+        do {
+            let viejas = try await anteriores(primero)
+            hayMas = viejas.count >= Self.pagina
+            lineas.insert(contentsOf: viejas.filter { v in !lineas.contains { $0.id == v.id } }, at: 0)
+        } catch {
+            hayMas = false
+        }
     }
 
     /// "Lu está escribiendo…" se apaga a los 4 s.
@@ -73,8 +100,10 @@ struct Chat: View {
             plan = try? await c.api.plan(planId)
         }
         .task(id: planId) {
+            let api = c.api, yo = c.usuarioId, id = planId
+            hilo.anteriores = { antes in try await api.mensajes(id, antes: antes).mensajes.map { $0.linea(yo) } }
             do {
-                hilo.lineas = try await c.api.mensajes(planId).mensajes.map { $0.linea(c.usuarioId) }
+                hilo.poner(try await c.api.mensajes(planId).mensajes.map { $0.linea(c.usuarioId) })
             } catch {
                 hilo.error = mensajeDe(error)
             }
@@ -270,6 +299,18 @@ struct MiosVistaHilo: View {
                 ScrollViewReader { lector in
                     ScrollView(showsIndicators: false) {
                         LazyVStack(spacing: 10) {
+                            // Arriba de todo, los más viejos: se traen al llegar (de a 100).
+                            if hilo.hayMas {
+                                Puntitos(color: p.acento)
+                                    .frame(maxWidth: .infinity).padding(.vertical, 6)
+                                    .onAppear {
+                                        let ancla = hilo.lineas.first?.id
+                                        Task {
+                                            await hilo.cargarMas()
+                                            if let ancla { lector.scrollTo(ancla, anchor: .top) }
+                                        }
+                                    }
+                            }
                             ForEach(hilo.lineas) { l in
                                 MiosBurbuja(l: foto.map { f in var x = l; x.foto = f; return x } ?? l).id(l.id)
                             }
@@ -284,7 +325,8 @@ struct MiosVistaHilo: View {
                     }
                     .defaultScrollAnchor(.bottom)
                     .scrollDismissesKeyboard(.interactively)
-                    .onChange(of: hilo.lineas.count) {
+                    // Sólo al llegar uno nuevo abajo (no al traer los viejos de arriba).
+                    .onChange(of: hilo.lineas.last?.id) {
                         withAnimation { lector.scrollTo(hilo.lineas.last?.id, anchor: .bottom) }
                     }
                     .onChange(of: hilo.escribe) {
@@ -476,8 +518,10 @@ struct VistaPrivado: View {
         .task(id: conId) {
             // Si llega desde un aviso no trae el nombre (ni la foto): salen del perfil.
             persona = try? await c.api.persona(conId)
+            let api = c.api, yo = c.usuarioId, id = conId, n = quien
+            hilo.anteriores = { antes in try await api.privados(id, antes: antes).privados.map { $0.linea(yo, n) } }
             do {
-                hilo.lineas = try await c.api.privados(conId).privados.map { $0.linea(c.usuarioId, quien) }
+                hilo.poner(try await c.api.privados(conId).privados.map { $0.linea(c.usuarioId, quien) })
             } catch {
                 hilo.error = mensajeDe(error)
             }
