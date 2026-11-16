@@ -74,6 +74,26 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
    con Firebase y firma como secretos), Wallet, NFC con placa, pagos reales de MP, avisos push reales.
 
 
+## QA del 16/11 (desplegado: API y web 4d42ce1, TestFlight y espejo de Android)
+
+QA crítico en producción con cuentas qa1–qa4@caigo.com.ar (casillas en Stalwart, usuarios en Clerk; qa4 es del equipo) y
+revisión de código de API, web, iOS y Android. Copia previa: `/opt/caigo/copias/caigo-antes-qa-20261116-1627.dump`.
+
+- **DNI obligatorio** (decisión de Nahuel): sin DNI aprobado la API responde 403 `falta_dni` a todo menos perfil,
+  verificación, archivos, sesión, dispositivos, panel de lugares y equipo. El DNI **se aprueba solo al subirlo**
+  (migración 00024: los pendientes quedaron aprobados) y el equipo lo revisa después en /equipo › «DNI para revisar»
+  (Está bien / Suspender cuenta). Las fotos se borran al revisarse o a los 30 días. Web, iOS y Android lo piden como
+  paso 3 del alta. Sin OCR por ahora.
+- **Prueba de vida real en la web** (MediaPipe FaceLandmarker servido desde la web): antes era una animación.
+- Unos 60 arreglos más: entradas y Mercado Pago (anuladas que se pagan se devuelven, cupo, códigos TK de 6 cifras,
+  salir con entrada paga), Plus (sandbox de Apple sólo para el equipo, compras no cambian de cuenta), bloqueos en el
+  chat, privados sólo con gente mutua, 500 → 4xx, rutas públicas sin ids ni edad, worker por evento (apartados en
+  `GET /v1/equipo/apartados`), mails del arrepentimiento (acuse + hola@), beneficio inventado del panel, fechas con mes.
+  Detalle en `docs/api.md` › «Arreglos de QA (16/11)».
+- Falta: probar un pago real con Nahuel (su MP como vendedor en el lugar QA, paga con otra cuenta) y borrar los datos
+  de QA (cuentas Clerk y Caigo, planes, lugar, casillas). Pendiente en las apps: tras un 401 el teléfono puede seguir
+  recibiendo avisos de la cuenta anterior hasta el próximo ingreso.
+
 ## Landing nueva y análisis contra Chicle y Timeleft (16/11, sin desplegar)
 
 En `docs/propuestas/` (ver su `README.md`):
