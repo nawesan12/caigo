@@ -50,6 +50,12 @@ import ar.com.caigo.app.nucleo.Mensaje
 import ar.com.caigo.app.nucleo.Plan
 import ar.com.caigo.app.nucleo.Privado as PrivadoMsj
 import ar.com.caigo.app.nucleo.mensajeDe
+import ar.com.caigo.app.nucleo.ErrorApi
+import ar.com.caigo.app.nucleo.Problema
+import ar.com.caigo.app.nucleo.Plata
+import ar.com.caigo.app.pantallas.planes.HojaConfirmar
+import ar.com.caigo.app.pantallas.planes.esDeLugar
+import ar.com.caigo.app.pantallas.planes.planesPolitica
 import ar.com.caigo.app.nucleo.Cupo
 import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.piezas.Avatar
@@ -105,6 +111,7 @@ fun Chat(ir: Ir, planId: String) {
     var opciones by remember { mutableStateOf(false) }
     var reportando by remember { mutableStateOf(false) }
     var confirmando by remember { mutableStateOf(false) }
+    var cancelandoEntrada by remember { mutableStateOf(false) }
 
     LaunchedEffect(planId) { plan = runCatching { c.api.plan(planId) }.getOrNull() }
     LaunchedEffect(planId) {
@@ -145,10 +152,28 @@ fun Chat(ir: Ir, planId: String) {
                     avisos.ok("Saliste del plan.")
                 }
                 ir.principal(Pestana.Mis)
+            } catch (e: ErrorApi) {
+                // Tiene una entrada paga: no se sale, se cancela la entrada (desde el detalle del plan).
+                if (e.codigo == "con_entrada") avisos.error(e.problema.detail.ifEmpty { "Tenés una entrada paga: cancelala desde el plan." })
+                else avisos.error(mensajeDe(e))
             } catch (e: Throwable) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 avisos.error(mensajeDe(e))
             }
+        }
+    }
+
+    /** DELETE /v1/entradas/{id} (como el detalle): devuelve según la política o 409 `sin_reembolso`. */
+    suspend fun cancelarMiEntrada() {
+        val e = c.api.pases().entradas.firstOrNull { it.planId == planId && it.estado == "pagada" }
+            ?: throw ErrorApi(0, Problema(detail = "No encontramos tu entrada. Probá en un ratito."))
+        try {
+            val r = c.api.cancelarEntrada(e.id)
+            avisos.ok(if (r.reembolsoCentavos > 0) "Listo. Te devolvemos ${Plata.pesos(r.reembolsoCentavos)} por Mercado Pago." else "Listo, cancelaste tu entrada.")
+            ir.principal(Pestana.Mis)
+        } catch (x: ErrorApi) {
+            if (x.codigo != "sin_reembolso") throw x
+            throw ErrorApi(x.estado, Problema(detail = x.problema.detail.ifEmpty { "El lugar no devuelve entradas de este plan." }))
         }
     }
 
@@ -219,12 +244,21 @@ fun Chat(ir: Ir, planId: String) {
                 }
             }
         }
-        // Menú del chat: reportar el plan y salir (el organizador no sale: cancela el plan).
+        // Menú del chat: reportar el plan y salir (el organizador no sale: cancela el plan). En un plan de lugar con
+        // entrada no se sale: se cancela la entrada, como en el detalle. Mientras el plan no cargó, sólo reportar.
         val organizo = pl?.miEstado == "organizador"
-        if (opciones) HojaOpciones({ opciones = false }, listOf(
-            "Reportar el plan" to { reportando = true },
-            (if (organizo) "Cancelar el plan" else "Salir del plan") to { confirmando = true },
-        ))
+        if (opciones) HojaOpciones({ opciones = false }, buildList<Pair<String, () -> Unit>> {
+            add("Reportar el plan" to { reportando = true })
+            if (pl != null) {
+                if (pl.esMio) add("Cancelar el plan" to { confirmando = true })
+                else if (esDeLugar(pl)) { if (pl.adentro && !pl.cancelado) add("Cancelar mi entrada" to { cancelandoEntrada = true }) }
+                else add("Salir del plan" to { confirmando = true })
+            }
+        })
+        if (pl != null) HojaConfirmar(
+            cancelandoEntrada, if (pl.cancelacion == "strict") "Tu entrada no tiene reembolso" else "¿Cancelar tu entrada?",
+            planesPolitica(pl.cancelacion), if (pl.cancelacion == "strict") null else "Cancelar mi entrada", { cancelandoEntrada = false },
+        ) { cancelarMiEntrada() }
         if (reportando) HojaReporte({ reportando = false }) { motivo ->
             alcance.launch {
                 try {

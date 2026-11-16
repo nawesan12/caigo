@@ -216,7 +216,7 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
 
     /** DELETE /v1/entradas/{id}: devuelve según la política (flex, mod) o 409 `sin_reembolso`. */
     suspend fun cancelarMiEntrada() {
-        val e = c.api.pases().entradas.firstOrNull { it.planId == p.id }
+        val e = c.api.pases().entradas.firstOrNull { it.planId == p.id && it.estado == "pagada" }
             ?: throw ErrorApi(0, Problema(detail = "No encontramos tu entrada. Probá en un ratito."))
         try {
             val r = c.api.cancelarEntrada(e.id)
@@ -330,7 +330,7 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                             if (!p.conEntrada) ir.qrOrganizador(p.id)
                             else alcance.launch {
                                 try {
-                                    val e = c.api.pases().entradas.firstOrNull { it.planId == p.id }
+                                    val e = c.api.pases().entradas.firstOrNull { it.planId == p.id && it.estado == "pagada" }
                                     if (e != null) ir.qrEntrada(e.id) else avisos.error("Todavía no está tu entrada. Probá en un ratito.")
                                 } catch (e: Throwable) {
                                     if (e is kotlinx.coroutines.CancellationException) throw e
