@@ -240,7 +240,7 @@ private struct ContenidoDetalle: View {
 
     /// DELETE /v1/entradas/{id}: devuelve según la política (flex, mod) o 409 `sin_reembolso`.
     private func cancelarMiEntrada() async throws {
-        guard let e = try await c.api.pases().entradas.first(where: { $0.planId == p.id }) else {
+        guard let e = try await c.api.pases().entradas.first(where: { $0.planId == p.id && $0.estado == "pagada" }) else {
             throw ErrorApi(estado: 0, problema: Problema(detail: "No encontramos tu entrada. Probá en un ratito."))
         }
         do {
@@ -406,7 +406,7 @@ private struct ContenidoDetalle: View {
                         if !p.conEntrada { ir.qrOrganizador(p.id); return }
                         Task {
                             do {
-                                if let e = try await c.api.pases().entradas.first(where: { $0.planId == p.id }) {
+                                if let e = try await c.api.pases().entradas.first(where: { $0.planId == p.id && $0.estado == "pagada" }) {
                                     ir.qrEntrada(e.id)
                                 } else {
                                     c.avisos.error("Todavía no está tu entrada. Probá en un ratito.")

@@ -60,6 +60,7 @@ struct Chat: View {
     @State private var opciones = false
     @State private var reportando = false
     @State private var confirmando = false
+    @State private var cancelandoEntrada = false
 
     var body: some View {
         Pantalla {
@@ -86,15 +87,33 @@ struct Chat: View {
         }
     }
 
-    /// Menú del chat: reportar el plan y salir (el organizador no sale: cancela el plan).
+    /// Menú del chat: reportar el plan y salir (el organizador no sale: cancela el plan). En un plan de lugar con
+    /// entrada no se sale: se cancela la entrada, como en el detalle. Mientras el plan no cargó, sólo reportar.
+    private var filasOpciones: [Opcion] {
+        var f = [Opcion(texto: "Reportar el plan") { reportando = true }]
+        guard let pl = plan else { return f }
+        if pl.esMio {
+            f.append(Opcion(texto: "Cancelar el plan") { confirmando = true })
+        } else if esDeLugar(pl) {
+            if pl.adentro && !pl.cancelado { f.append(Opcion(texto: "Cancelar mi entrada") { cancelandoEntrada = true }) }
+        } else {
+            f.append(Opcion(texto: "Salir del plan") { confirmando = true })
+        }
+        return f
+    }
+
     @ViewBuilder
     private var hojas: some View {
         let organizo = plan?.esMio == true
         if opciones {
-            HojaOpciones(cerrar: { opciones = false }, filas: [
-                Opcion(texto: "Reportar el plan") { reportando = true },
-                Opcion(texto: organizo ? "Cancelar el plan" : "Salir del plan") { confirmando = true },
-            ])
+            HojaOpciones(cerrar: { opciones = false }, filas: filasOpciones)
+        }
+        if let pl = plan {
+            HojaConfirmar(abierta: cancelandoEntrada, titulo: pl.cancelacion == "strict" ? "Tu entrada no tiene reembolso" : "¿Cancelar tu entrada?",
+                          cuerpo: planesPolitica(pl.cancelacion), accion: pl.cancelacion == "strict" ? nil : "Cancelar mi entrada",
+                          cerrar: { cancelandoEntrada = false }) {
+                try await cancelarMiEntrada()
+            }
         }
         if reportando {
             HojaReporte(cerrar: { reportando = false }) { motivo in
@@ -127,9 +146,28 @@ struct Chat: View {
                     c.avisos.ok("Saliste del plan.")
                 }
                 ir.principal(.mis)
+            } catch let e as ErrorApi where e.codigo == "con_entrada" {
+                // Tiene una entrada paga: no se sale, se cancela la entrada (desde el detalle del plan).
+                c.avisos.error(e.problema.detail.isEmpty ? "Tenés una entrada paga: cancelala desde el plan." : e.problema.detail)
             } catch {
                 c.avisos.error(error)
             }
+        }
+    }
+
+    /// DELETE /v1/entradas/{id} (como el detalle): devuelve según la política o 409 `sin_reembolso`.
+    private func cancelarMiEntrada() async throws {
+        guard let e = try await c.api.pases().entradas.first(where: { $0.planId == planId && $0.estado == "pagada" }) else {
+            throw ErrorApi(estado: 0, problema: Problema(detail: "No encontramos tu entrada. Probá en un ratito."))
+        }
+        do {
+            let r = try await c.api.cancelarEntrada(e.id)
+            c.avisos.ok(r.reembolsoCentavos > 0 ? "Listo. Te devolvemos \(Plata.pesos(r.reembolsoCentavos)) por Mercado Pago."
+                                                 : "Listo, cancelaste tu entrada.")
+            ir.principal(.mis)
+        } catch let x as ErrorApi where x.codigo == "sin_reembolso" {
+            throw ErrorApi(estado: x.estado, problema: Problema(detail: x.problema.detail.isEmpty
+                ? "El lugar no devuelve entradas de este plan." : x.problema.detail))
         }
     }
 
