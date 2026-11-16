@@ -29,6 +29,7 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import ar.com.caigo.app.app.Contenedor
@@ -47,6 +48,9 @@ import ar.com.caigo.app.tema.PaletaClara
 import ar.com.caigo.app.tema.PaletaOscura
 
 private fun NavBackStackEntry.arg(k: String): String = arguments?.getString(k).orEmpty()
+
+/** La ruta está en la pila (abajo de todo, como la base de iOS, o en cualquier lugar). */
+private fun NavController.tiene(ruta: String): Boolean = runCatching { getBackStackEntry(ruta) }.isSuccess
 
 /** Claro u oscuro según lo elegido en Perfil (auto: el del sistema). */
 @Composable
@@ -93,12 +97,23 @@ fun CaigoNav(c: Contenedor) {
     val entrada by nav.currentBackStackEntryAsState()
     val rutaActual = entrada?.destination?.route
 
-    // Sin sesión (salió, borró la cuenta o la API respondió 401) estando en la app: de vuelta a Ingresar.
+    // Sin sesión (salió, borró la cuenta o la API respondió 401) en la app o en el alta: de vuelta a Ingresar, con la
+    // pestaña de arranque (la próxima cuenta no hereda nada).
     val habiaSesion = remember { booleanArrayOf(token != null) }
     LaunchedEffect(token) {
         val antes = habiaSesion[0]
         habiaSesion[0] = token != null
-        if (antes && token == null && nav.currentBackStackEntry?.destination?.route?.startsWith("principal") == true) ir.alta("ingresar")
+        if (!antes || token != null) return@LaunchedEffect
+        ir.pestana = Pestana.Ahora
+        ir.modoAhora = null
+        if (listOf("arranque", "intro", "ingresar", "debug").none { nav.tiene(it) }) ir.alta("ingresar")
+    }
+
+    // 403 `falta_dni`: sin el DNI aprobado no se usa la app; se va al paso del DNI.
+    val faltaDni by c.faltaDni.collectAsState()
+    LaunchedEffect(faltaDni) {
+        if (faltaDni == 0 || c.sesion.token.value == null) return@LaunchedEffect
+        if (listOf("principal?tab={tab}&modo={modo}", "intenciones?editar={editar}", "completar").any { nav.tiene(it) }) ir.alta(ingresoRutaDni)
     }
 
     val contexto = LocalContext.current
@@ -110,7 +125,7 @@ fun CaigoNav(c: Contenedor) {
         // Se espera a que termine el arranque y el alta: si no, el arranque limpia la pila y se pierde.
         if (rutaActual == null || rutaActual == "arranque" || rutaActual == "intro" || rutaActual == "ingresar" ||
             rutaActual == "debug" || rutaActual == "mail" || rutaActual == "datos" || rutaActual == "telefono" || rutaActual.startsWith("selfie?") ||
-            rutaActual.startsWith("intenciones?") || rutaActual == "completar") return@LaunchedEffect
+            rutaActual.startsWith("intenciones?") || rutaActual == "completar" || rutaActual == ingresoRutaDni) return@LaunchedEffect
         c.destino.value = null
         when (d) {
             is Destino.Plan -> ir.plan(d.id)
@@ -176,6 +191,7 @@ fun CaigoNav(c: Contenedor) {
                     composable("intenciones?editar={editar}") { Intenciones(ir, it.arg("editar") == "true") }
                     hoja("verificacion") { Verificacion(ir) }
                     hoja("dni?plan={plan}") { Dni(ir, it.arg("plan").ifBlank { null }) }
+                    composable(ingresoRutaDni) { Dni(ir, null, alta = true) }
 
                     composable("principal?tab={tab}&modo={modo}", enterTransition = { fadeIn(tween(250)) }) {
                         val tab = runCatching { Pestana.valueOf(it.arg("tab")) }.getOrDefault(Pestana.Ahora)

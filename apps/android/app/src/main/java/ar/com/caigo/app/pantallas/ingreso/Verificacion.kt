@@ -154,13 +154,14 @@ fun Verificacion(ir: Ir) {
                 fila(
                     v.dni == "aprobada", 3, "DNI · badge Verificado",
                     when (v.dni) {
+                        "aprobada" -> "Tu perfil muestra el badge"
                         "pendiente" -> "Ya estamos revisando tu DNI."
-                        "rechazada" -> v.dniMotivo.ifEmpty { "Habilita planes «solo verificados»" }
-                        else -> "Habilita planes «solo verificados»"
+                        "rechazada" -> v.dniMotivo.ifEmpty { "No pudimos verificarlo" }
+                        else -> "Lo pedimos a todos para usar Caigo"
                     },
                 ) { if (v.dni == "ninguna" || v.dni == "rechazada") ir.dni() }
             }
-            if (v.dni == "ninguna" || v.dni == "rechazada") {
+            if (v.dni == "ninguna") {
                 ingresoCtaGrande("Verificar con DNI · 2 minutos", { ir.dni() })
             }
             T("Herramientas para salir tranqui", 20f, 700, C.carbon, modifier = Modifier.padding(top = 4.dp))

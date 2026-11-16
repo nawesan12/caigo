@@ -117,7 +117,7 @@ internal fun ingresoCamaraDni(disparador: Disparador, modifier: Modifier = Modif
     EscanerCodigos(modifier, intArrayOf(Barcode.FORMAT_PDF417), disparador, alLeer)
 }
 
-/** 01e · Selfie con prueba de vida (Paso 2 de 2). */
+/** 01e · Selfie con prueba de vida (Paso 2 de 3). */
 @Composable
 fun Selfie(ir: Ir, volver: Boolean) {
     val c = LocalApp.current
@@ -158,7 +158,7 @@ fun Selfie(ir: Ir, volver: Boolean) {
     ingresoClaro { Pantalla(oscuro = false) { arriba, abajo ->
         Column(Modifier.fillMaxSize().padding(top = arriba), horizontalAlignment = Alignment.CenterHorizontally) {
             ingresoBarraArriba(I.atras, { if (volver) ir.atras() else ir.alta("telefono") }, {
-                if (!volver) T("Paso 2 de 2", 14f, 700, C.texto2)
+                if (!volver) T("Paso 2 de 3", 14f, 700, C.texto2)
             }, Modifier.padding(start = 20.dp, end = 24.dp, top = 12.dp))
             Box(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 32.dp)) {
                 ingresoTitulo("Ahora, una selfie", "Es para confirmar que sos una persona real. No se publica.")

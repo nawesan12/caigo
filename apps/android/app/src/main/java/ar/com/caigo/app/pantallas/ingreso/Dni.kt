@@ -87,6 +87,7 @@ private object PasoDni {
     const val REVISANDO = 4
     const val ENVIADO = 5
     const val APROBADO = 6
+    const val RECHAZADO = 7
 }
 
 /** Barras de progreso de los tres pasos (7 px): hechos violeta, el actual `#B3A3FF`. */
@@ -144,10 +145,11 @@ private fun iconoLatiendo() {
 
 /**
  * Verificación con DNI del prototipo: frente (con lectura del PDF417), dorso, selfie con prueba
- * de vida y el envío. La revisión la hace una persona del equipo: queda pendiente.
+ * de vida y el envío. Se aprueba al subirlo; si después el equipo lo rechaza, se ve el motivo.
+ * Es un paso obligatorio del alta ([alta]): ahí no se puede salir sin hacerlo y al terminar sigue el alta.
  */
 @Composable
-fun Dni(ir: Ir, planId: String?) {
+fun Dni(ir: Ir, planId: String?, alta: Boolean = false) {
     val c = LocalApp.current
     val ctx = LocalContext.current
     val vista = androidx.compose.ui.platform.LocalView.current
@@ -162,13 +164,33 @@ fun Dni(ir: Ir, planId: String?) {
     val vida = remember { IngresoVida() }
     val disparador = remember(paso) { Disparador() }
     val (permiso, pedirPermiso) = rememberIngresoPermisoCamara()
-    val etiquetaFin = if (planId != null) "Seguir con el plan" else "Listo"
+    var motivo by remember { mutableStateOf("") }
+    var siguiendo by remember { mutableStateOf(false) }
+    val etiquetaFin = if (planId != null) "Seguir con el plan" else if (alta) "Seguir" else "Listo"
+
+    // Al terminar: en el alta, el paso que falte; si no, de vuelta a donde estaba.
+    val terminar: () -> Unit = fin@{
+        if (!alta) { ir.atras(); return@fin }
+        if (siguiendo) return@fin
+        siguiendo = true
+        alcance.launch {
+            try {
+                ir.alta(ingresoRutaDeAlta(c))
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                avisos.error(ingresoMensaje(e))
+            } finally {
+                siguiendo = false
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         paso = runCatching { c.api.verificacion() }.getOrNull()?.let {
             when (it.dni) {
                 "pendiente" -> PasoDni.ENVIADO
                 "aprobada" -> PasoDni.APROBADO
+                "rechazada" -> { motivo = it.dniMotivo; PasoDni.RECHAZADO }
                 else -> PasoDni.FRENTE
             }
         } ?: PasoDni.FRENTE
@@ -184,7 +206,9 @@ fun Dni(ir: Ir, planId: String?) {
                 val r = c.api.subir("dni", dorso!!)
                 val s = c.api.subir("selfie", selfie!!)
                 c.api.dni(DatosDNI(f.id, r.id, s.id, d.numero, d.nacimiento))
-                paso = PasoDni.ENVIADO
+                // Se aprueba al subirlo: el badge ya está (el perfil se recarga para que se vea).
+                paso = PasoDni.APROBADO
+                c.recargarYo()
             } catch (e: ErrorApi) {
                 if (e.codigo == "pendiente") paso = PasoDni.ENVIADO
                 else {
@@ -238,7 +262,8 @@ fun Dni(ir: Ir, planId: String?) {
                 .padding(start = 20.dp, end = 20.dp, top = arriba + 8.dp, bottom = 40.dp + abajo),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            ingresoBarraArriba(I.cruz, { ir.atras() }, { ingresoEncriptado() })
+            if (alta) ingresoBarraArriba(I.cruz, null, { T("Paso 3 de 3", 14f, 700, C.texto2) })
+            else ingresoBarraArriba(I.cruz, { ir.atras() }, { ingresoEncriptado() })
             // withAnimation(.easeOut(duration: 0.25)) al pasar de paso: el paso nuevo aparece. Sin
             // AnimatedContent: dos cámaras a la vez se pisan el ProcessCameraProvider.
             val aparece = remember(paso) { androidx.compose.animation.core.Animatable(0f) }
@@ -338,7 +363,7 @@ fun Dni(ir: Ir, planId: String?) {
                         )
                         if (paso == PasoDni.ENVIADO) {
                             Spacer(Modifier.height(12.dp))
-                            ingresoCtaGrande(etiquetaFin, { ir.atras() })
+                            ingresoCtaGrande(etiquetaFin, terminar, cargando = siguiendo)
                         }
                     }
                 }
@@ -360,9 +385,27 @@ fun Dni(ir: Ir, planId: String?) {
                             ) { Icono(I.check, 26.dp, C.lima, 3.2f) }
                         }
                         T("Tu DNI ya está verificado", 34f, 800, C.carbon, alto = 1.02f, espaciado = px(-1f, 34f), alinear = TextAlign.Center)
-                        T("Tu perfil muestra el badge y podés sumarte a planes «solo verificados».", 15f, 400, C.texto2, alto = 1.5f, alinear = TextAlign.Center)
+                        T("Tu perfil ya muestra el badge de verificado.", 15f, 400, C.texto2, alto = 1.5f, alinear = TextAlign.Center)
                         Spacer(Modifier.height(12.dp))
-                        ingresoCtaGrande(etiquetaFin, { ir.atras() })
+                        ingresoCtaGrande(etiquetaFin, terminar, cargando = siguiendo)
+                    }
+                }
+
+                // El equipo rechazó el DNI: el motivo y nada más (la cuenta queda suspendida). En el alta, salir.
+                PasoDni.RECHAZADO -> {
+                    Column(
+                        Modifier.fillMaxWidth().padding(top = 120.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Box(Modifier.size(72.dp).ingresoPop().background(C.coral, RoundedCornerShape(24.dp)), contentAlignment = Alignment.Center) {
+                            Icono(I.cruz, 34.dp, C.carbon, 3.2f)
+                        }
+                        T("No pudimos verificar tu DNI", 30f, 800, C.carbon, alto = 1.05f, espaciado = px(-1f, 30f), alinear = TextAlign.Center)
+                        T(motivo.ifEmpty { "El equipo lo revisó y no lo pudo aprobar." }, 15f, 400, C.texto2, alto = 1.5f, alinear = TextAlign.Center)
+                        Spacer(Modifier.height(12.dp))
+                        if (alta) ingresoCtaGrande("Salir", { alcance.launch { c.salir() } })
+                        else ingresoCtaGrande("Listo", { ir.atras() })
                     }
                 }
             }

@@ -61,7 +61,10 @@ class Contenedor(val ctx: Context) {
     val alcance = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val sesion = Sesion(ctx)
     val http = Api.http()
-    val api = Api(BuildConfig.API, http, { sesion.token.value }, alVencer = { alcance.launch { salirLocal() } })
+    val api = Api(
+        BuildConfig.API, http, { sesion.token.value }, alVencer = { alcance.launch { salirLocal() } },
+        alFaltarDni = { alcance.launch { faltaDni.value += 1 } },
+    )
     val clerk = Clerk(ctx, http, BuildConfig.CLERK_PUBLICABLE)
     val tiempoReal = TiempoReal(BuildConfig.API, http, { sesion.token.value }, alcance)
     /** Los avisos (toasts) de toda la app: los usa también MainActivity al leer placas NFC. */
@@ -72,6 +75,8 @@ class Contenedor(val ctx: Context) {
     /** Estado de Plus (se recarga al entrar a Perfil, al comprar y en el paywall). */
     val plus = MutableStateFlow<EstadoPlus?>(null)
     val destino = MutableStateFlow<Destino?>(null)
+    /** Sube cada vez que la API responde 403 `falta_dni`: la navegación lleva a la verificación con DNI. */
+    val faltaDni = MutableStateFlow(0)
     /** Resultado del último tap en una placa (pantalla "Adentro"). */
     var ultimoTap: ResultadoTap? = null
     /** Placa leída (link o NFC) que la pantalla de Caigo Tap tiene que mandar a la API. */
@@ -155,6 +160,10 @@ class Contenedor(val ctx: Context) {
         sesion.borrar()
         yo.value = null
         plus.value = null
+        // Nada de la cuenta anterior queda para la próxima: links, avisos ni placas pendientes.
+        destino.value = null
+        tapPendiente = null
+        ultimoTap = null
     }
 
     fun tienePermisoUbicacion() =

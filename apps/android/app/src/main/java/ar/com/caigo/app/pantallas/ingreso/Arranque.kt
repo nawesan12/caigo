@@ -61,28 +61,33 @@ fun Arranque(ir: Ir) {
     val progreso = remember { Animatable(.15f) }
     LaunchedEffect(Unit) {
         val minimo = async { progreso.animateTo(.55f, tween(900, easing = LinearEasing)) }
-        val ruta: String = when {
-            c.sesion.token.value == null -> if (c.sesion.vioIntro || c.destino.value is Destino.VueltaClerk) "ingresar" else "intro"
-            else -> try {
+        var ruta: String? = if (c.sesion.token.value == null) {
+            if (c.sesion.vioIntro || c.destino.value is Destino.VueltaClerk) "ingresar" else "intro"
+        } else null
+        var avisado = false
+        while (ruta == null) {
+            ruta = try {
                 ingresoRutaDeAlta(c)
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                if (e is ErrorApi && (e.estado == 401 || e.codigo == "cuenta_borrada")) {
-                    // La sesión ya no sirve (venció o la cuenta se dio de baja): se olvida y se vuelve a ingresar.
+                if (e is ErrorApi && (e.estado == 401 || e.codigo == "cuenta_borrada" || (e.estado == 403 && e.codigo == "sin_permiso"))) {
+                    // La sesión ya no sirve (venció, la cuenta se dio de baja o está suspendida): se olvida y se vuelve a ingresar.
                     c.salirLocal()
-                    if (e.codigo == "cuenta_borrada") avisos.error(e.detalle)
+                    if (e.estado != 401) avisos.error(e.detalle)
                     "ingresar"
                 } else {
-                    // Sin conexión o la API con problemas: se entra con lo guardado y se avisa.
-                    avisos.error(mensajeDe(e))
-                    ingresoRutaApp
+                    // Sin conexión o la API con problemas: no se sabe qué paso del alta falta (el DNI, por ejemplo), así que
+                    // no se entra con lo guardado. Se avisa una vez y se reintenta hasta que vuelva la red.
+                    if (!avisado) { avisos.error(mensajeDe(e)); avisado = true }
+                    delay(3000)
+                    null
                 }
             }
         }
         minimo.await()
         progreso.animateTo(1f, tween(250, easing = androidx.compose.animation.core.EaseOut))
         delay(80)
-        ir.alta(ruta)
+        ir.alta(ruta ?: return@LaunchedEffect)
     }
     Pantalla(fondo = Modifier.ingresoFondoSplash()) { arriba, abajo ->
         ingresoMancha(180.dp + 60.dp, Color(0xFFF2FFC8), C.lima, Color(0xFF9CCB3A), .5f, Modifier.offset((-60 - 30).dp, (120 - 30).dp))

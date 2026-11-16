@@ -40,7 +40,7 @@ class Ir(private val nav: NavController) {
     fun debug() = ir("debug")
     /** Entrar con mail y contraseña (o código) por Clerk. */
     fun ingresoMail() = ir("mail")
-    /** Siguiente paso del alta (datos → teléfono → selfie → intenciones → completar) o la app. */
+    /** Siguiente paso del alta (datos → teléfono → selfie → DNI → intenciones → completar) o la app. */
     fun alta(paso: String) = nav.navigate(paso) { popUpTo(0) { inclusive = true } }
     fun telefono() = ir("telefono")
     fun selfie(volver: Boolean = false) = ir("selfie?volver=$volver")

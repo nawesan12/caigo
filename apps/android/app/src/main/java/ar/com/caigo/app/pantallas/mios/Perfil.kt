@@ -237,7 +237,7 @@ fun Perfil(ir: Ir) {
                             when (dni) {
                                 "aprobada" -> "Tu DNI ya está verificado"
                                 "pendiente" -> "Ya estamos revisando tu DNI."
-                                else -> "Sumá tu DNI y ganás el badge"
+                                else -> "Falta tu DNI para usar Caigo"
                             },
                             12f, 600, p.texto2,
                         )

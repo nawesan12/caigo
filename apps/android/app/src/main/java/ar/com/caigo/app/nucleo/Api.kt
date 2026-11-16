@@ -62,13 +62,15 @@ private suspend fun Call.esperar(): Response = suspendCancellableCoroutine { con
 
 /**
  * Cliente de la API de Caigo. Todo pedido lleva `Authorization: Bearer <token cs_…>`.
- * Si la API responde 401, se avisa a [alVencer] (la sesión se cierra en la app).
+ * Si la API responde 401, se avisa a [alVencer] (la sesión se cierra en la app); si responde 403 `falta_dni`, a
+ * [alFaltarDni] (la app lleva a la verificación con DNI).
  */
 class Api(
     val base: String,
     val http: OkHttpClient,
     private val token: () -> String?,
     private val alVencer: () -> Unit = {},
+    private val alFaltarDni: () -> Unit = {},
 ) {
     private val tipoJson = "application/json; charset=utf-8".toMediaType()
 
@@ -89,6 +91,7 @@ class Api(
                 if (!r.isSuccessful) {
                     val p = runCatching { json.decodeFromString<Problema>(texto) }.getOrElse { Problema(title = "Error ${r.code}") }
                     if (r.code == 401 && autorizacion == null) alVencer()
+                    if (r.code == 403 && p.code == "falta_dni" && autorizacion == null) alFaltarDni()
                     throw ErrorApi(r.code, p.copy(status = r.code))
                 }
                 texto

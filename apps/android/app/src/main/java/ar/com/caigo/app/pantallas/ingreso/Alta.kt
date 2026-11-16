@@ -165,7 +165,7 @@ fun Datos(ir: Ir) {
     } }
 }
 
-/** 01d · Teléfono (Paso 1 de 2): número, código de 6 dígitos por mail y "Reenviar en 0:24". */
+/** 01d · Teléfono (Paso 1 de 3): número, código de 6 dígitos por mail y "Reenviar en 0:24". */
 @Composable
 fun Telefono(ir: Ir) {
     val c = LocalApp.current
@@ -205,7 +205,7 @@ fun Telefono(ir: Ir) {
 
     ingresoClaro { Pantalla(oscuro = false) { arriba, abajo ->
         Column(Modifier.fillMaxSize().padding(top = arriba)) {
-            ingresoBarraArriba(I.atras, { ir.alta("datos") }, { T("Paso 1 de 2", 14f, 700, C.texto2) },
+            ingresoBarraArriba(I.atras, { ir.alta("datos") }, { T("Paso 1 de 3", 14f, 700, C.texto2) },
                 Modifier.padding(start = 20.dp, end = 24.dp, top = 12.dp))
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, top = 32.dp),

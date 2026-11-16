@@ -112,7 +112,7 @@ class ApiFalsa(private val tabla: Map<String, String?>, private val app: Applica
 /** Las rutas de CaigoNav (app/Navegacion.kt), vacías: una pantalla que navega (Arranque, «atrás») no rompe la prueba. */
 private val rutas = listOf(
     "arranque", "intro", "ingresar", "debug", "mail", "datos", "telefono", "selfie?volver={volver}", "intenciones?editar={editar}",
-    "verificacion", "dni?plan={plan}", "principal?tab={tab}&modo={modo}", "plan/{id}", "plan/slug/{slug}", "crear",
+    "verificacion", "dni?plan={plan}", "altadni", "principal?tab={tab}&modo={modo}", "plan/{id}", "plan/slug/{slug}", "crear",
     "editarplan/{id}", "publicado/{id}", "persona/{id}?desde={desde}", "recibidos?modo={modo}&tab={tab}", "solicitudes/{id}",
     "chat/{id}", "privados", "privado/{id}?nombre={nombre}", "checkin/{id}", "repetimos/{id}", "qr/{id}", "escanear/{id}",
     "plus?motivo={motivo}", "checkout/{id}?cantidad={cantidad}", "entrada/{id}?plan={plan}", "qrentrada/{id}", "pases",
@@ -298,6 +298,8 @@ class PantallasTest {
     @Test fun verificacionPendiente() = montar("VerificacionPendiente",
         contenedor(mapOf("/v1/verificacion" to """{"telefono": "+5492235550142", "selfie": true, "dni": "ninguna"}"""))) { Verificacion(it) }
     @Test fun dni() = montar("Dni") { Dni(it, null) }
+    @Test fun dniAlta() = montar("DniAlta",
+        contenedor(mapOf("/v1/verificacion" to """{"telefono": "+5492235550142", "selfie": true, "dni": "rechazada", "dniMotivo": "La foto no coincide con la del DNI."}"""))) { Dni(it, null, alta = true) }
     // Suelta, como las demás piezas: con el margen de la pantalla (pegada al borde parecía rota).
     @Test fun hojaAntesDeSumarteMujer() {
         val c = contenedor()
