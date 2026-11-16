@@ -152,16 +152,18 @@ func TestInvitaciones(t *testing.T) {
 func TestPlusConMercadoPago(t *testing.T) {
 	// Mercado Pago falso: crea el preapproval y después lo devuelve autorizado.
 	var referencia string
+	// Un preapproval por corrida: la base es compartida y una suscripción no pasa de cuenta.
+	pre := fmt.Sprintf("pre-%d", time.Now().UnixNano())
 	mp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "POST" && r.URL.Path == "/preapproval":
 			var in map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&in)
 			referencia = in["external_reference"].(string)
-			_, _ = w.Write([]byte(`{"id":"pre-1","init_point":"https://mp.test/pagar"}`))
-		case r.Method == "GET" && r.URL.Path == "/preapproval/pre-1":
-			fmt.Fprintf(w, `{"id":"pre-1","status":"authorized","external_reference":%q,"next_payment_date":%q}`,
-				referencia, time.Now().Add(30*24*time.Hour).Format(time.RFC3339))
+			fmt.Fprintf(w, `{"id":%q,"init_point":"https://mp.test/pagar"}`, pre)
+		case r.Method == "GET" && r.URL.Path == "/preapproval/"+pre:
+			fmt.Fprintf(w, `{"id":%q,"status":"authorized","external_reference":%q,"next_payment_date":%q}`,
+				pre, referencia, time.Now().Add(30*24*time.Hour).Format(time.RFC3339))
 		default:
 			w.WriteHeader(404)
 		}
@@ -177,24 +179,31 @@ func TestPlusConMercadoPago(t *testing.T) {
 		t.Fatalf("link: %+v ref %q", link, referencia)
 	}
 	// Webhook sin firma: no.
-	aviso := `{"type":"subscription_preapproval","data":{"id":"pre-1"}}`
-	r := httptest.NewRequest("POST", "/v1/webhooks/mercadopago?data.id=pre-1", strings.NewReader(aviso))
+	aviso := `{"type":"subscription_preapproval","data":{"id":"` + pre + `"}}`
+	r := httptest.NewRequest("POST", "/v1/webhooks/mercadopago?data.id="+pre, strings.NewReader(aviso))
 	w := httptest.NewRecorder()
 	e.h.ServeHTTP(w, r)
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("sin firma: %d", w.Code)
 	}
+	firmado := func(idURL, cuerpo string) int {
+		ts := fmt.Sprint(time.Now().UnixMilli())
+		m := hmac.New(sha256.New, []byte("wh"))
+		m.Write([]byte("id:" + idURL + ";request-id:req-1;ts:" + ts + ";"))
+		r := httptest.NewRequest("POST", "/v1/webhooks/mercadopago?data.id="+idURL, strings.NewReader(cuerpo))
+		r.Header.Set("x-signature", "ts="+ts+",v1="+hex.EncodeToString(m.Sum(nil)))
+		r.Header.Set("x-request-id", "req-1")
+		w := httptest.NewRecorder()
+		e.h.ServeHTTP(w, r)
+		return w.Code
+	}
+	// La firma de un id no sirve para procesar otro (el del cuerpo).
+	if c := firmado("otro-1", aviso); c != http.StatusUnauthorized {
+		t.Fatalf("firma de otro id: %d", c)
+	}
 	// Con firma: Plus activo.
-	ts := fmt.Sprint(time.Now().UnixMilli())
-	m := hmac.New(sha256.New, []byte("wh"))
-	m.Write([]byte("id:pre-1;request-id:req-1;ts:" + ts + ";"))
-	r = httptest.NewRequest("POST", "/v1/webhooks/mercadopago?data.id=pre-1", strings.NewReader(aviso))
-	r.Header.Set("x-signature", "ts="+ts+",v1="+hex.EncodeToString(m.Sum(nil)))
-	r.Header.Set("x-request-id", "req-1")
-	w = httptest.NewRecorder()
-	e.h.ServeHTTP(w, r)
-	if w.Code != http.StatusOK {
-		t.Fatalf("con firma: %d %s", w.Code, w.Body)
+	if c := firmado(pre, aviso); c != http.StatusOK {
+		t.Fatalf("con firma: %d", c)
 	}
 	var est struct {
 		Estado struct {

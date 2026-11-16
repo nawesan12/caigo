@@ -4,6 +4,7 @@ package equipo
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -307,4 +308,33 @@ func (s *Servicio) Esperar(ctx context.Context, email, ciudad string) error {
 		_, err := tx.Exec(ctx, `INSERT INTO lista_espera (email, ciudad) VALUES ($1, $2) ON CONFLICT DO NOTHING`, email, ciudad)
 		return err
 	})
+}
+
+// Apartado es un evento del outbox que agotó los reintentos (outbox.MaxIntentos): el worker ya no lo
+// prueba solo. Un entrada.reembolsar apartado es plata que no volvió: hay que devolverla a mano.
+type Apartado struct {
+	ID       int64           `json:"id"`
+	Tipo     string          `json:"tipo"`
+	Datos    json.RawMessage `json:"datos"`
+	Intentos int             `json:"intentos"`
+	Error    string          `json:"error"`
+	CreadoEn time.Time       `json:"creadoEn"`
+}
+
+// Apartados: los eventos apartados, el más nuevo primero.
+func (s *Servicio) Apartados(ctx context.Context) ([]Apartado, error) {
+	out := []Apartado{}
+	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT id, tipo, datos, intentos, coalesce(ultimo_error, ''), creado_en FROM outbox
+			WHERE publicado_en IS NULL AND proximo_intento = 'infinity' ORDER BY id DESC LIMIT 200`)
+		if err != nil {
+			return err
+		}
+		out, err = pgx.CollectRows(rows, pgx.RowToStructByPos[Apartado])
+		if out == nil {
+			out = []Apartado{}
+		}
+		return err
+	})
+	return out, err
 }

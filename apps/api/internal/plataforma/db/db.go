@@ -125,3 +125,10 @@ func EsUnico(err error) bool {
 	var pe *pgconn.PgError
 	return errors.As(err, &pe) && pe.Code == "23505"
 }
+
+// EsReferencia dice si err es una violación de una clave foránea (23503): el id apunta a algo que no
+// existe.
+func EsReferencia(err error) bool {
+	var pe *pgconn.PgError
+	return errors.As(err, &pe) && pe.Code == "23503"
+}

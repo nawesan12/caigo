@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -20,10 +21,16 @@ func Webhook(mux *http.ServeMux, c *Config, manejadores map[string]Manejador, lo
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		// El id firmado es el de la URL (?data.id=), que es el mismo del cuerpo.
+		// El id firmado es el de la URL (?data.id=); el que se procesa, el del cuerpo. Tienen que ser el
+		// mismo (Mercado Pago firma los alfanuméricos en minúsculas): si no, una firma válida de un
+		// recurso serviría para hacer procesar otro.
 		id := r.URL.Query().Get("data.id")
 		if id == "" {
 			id = a.ID()
+		}
+		if !strings.EqualFold(id, a.ID()) {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
 		}
 		if c == nil || !FirmaValida(c.SecretoWebhook, r.Header.Get("x-signature"), r.Header.Get("x-request-id"), id, time.Now()) {
 			w.WriteHeader(http.StatusUnauthorized)

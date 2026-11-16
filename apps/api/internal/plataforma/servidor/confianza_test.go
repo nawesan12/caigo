@@ -28,7 +28,8 @@ func TestCodigoDelTelefonoPorMail(t *testing.T) {
 	e := nuevoEntornoAjustado(t, func(d *servidor.Dependencias) { d.Correo = buzon })
 	mar := e.persona("Martina")
 	var envio struct{ Via, Destino, CodigoDePrueba string }
-	e.pedir(mar, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": "223 555 7788"}, http.StatusOK, &envio)
+	e.pedir(mar, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": fmt.Sprintf("223%07d", time.Now().UnixNano()%10000000)},
+		http.StatusOK, &envio)
 	if envio.Via != "mail" || envio.Destino != "M•••@caigo.test" || envio.CodigoDePrueba != "" {
 		t.Fatalf("respuesta: %+v", envio)
 	}
@@ -95,12 +96,18 @@ func TestVerificacion(t *testing.T) {
 
 	// Teléfono: con SMS simulado el código vuelve en la respuesta.
 	var cod struct{ CodigoDePrueba string }
-	e.pedir(mar, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": "223 555 1234"}, http.StatusOK, &cod)
+	// Un número por corrida: la base es compartida y un teléfono va en una sola cuenta.
+	tel := fmt.Sprintf("223%07d", time.Now().UnixNano()%10000000)
+	e.pedir(mar, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": tel}, http.StatusOK, &cod)
 	if len(cod.CodigoDePrueba) != 6 {
 		t.Fatalf("código: %q", cod.CodigoDePrueba)
 	}
 	e.pedir(mar, "POST", "/v1/verificacion/telefono/confirmar", map[string]string{"codigo": "000000x"}, http.StatusBadRequest, nil)
 	e.pedir(mar, "POST", "/v1/verificacion/telefono/confirmar", map[string]string{"codigo": cod.CodigoDePrueba}, http.StatusNoContent, nil)
+	// El mismo teléfono en otra cuenta, no.
+	if c := codigo(t, e, otro, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": tel}, http.StatusConflict); c != "telefono_en_uso" {
+		t.Fatalf("teléfono de otra cuenta: %s", c)
+	}
 
 	// Selfie: un archivo que no es foto se rechaza; la foto sí.
 	e.pedir(mar, "POST", "/v1/archivos?tipo=selfie", []byte("no soy una foto"), http.StatusBadRequest, nil)
@@ -130,7 +137,7 @@ func TestVerificacion(t *testing.T) {
 		Selfie        bool
 	}
 	e.pedir(mar, "GET", "/v1/verificacion", nil, http.StatusOK, &estado)
-	if estado.Telefono != "+5492235551234" || !estado.Selfie || estado.DNI != "aprobada" {
+	if estado.Telefono != "+549"+tel || !estado.Selfie || estado.DNI != "aprobada" {
 		t.Fatalf("estado: %+v", estado)
 	}
 	var yo struct {
@@ -328,11 +335,19 @@ func TestBajaDeCuenta(t *testing.T) {
 		"ciudad": "Mar del Plata", "zona": "Centro", "lat": -38.0, "lng": -57.55, "somos": 2, "faltan": 2, "ingreso": "libre"},
 		http.StatusCreated, &suyo)
 	e.pedir(fede, "POST", "/v1/planes/"+suyo.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
-	// Y tiene una entrada paga para un plan de un lugar (precio $8.000 + $600 de cargo).
+	// Y tiene una entrada paga para un plan de un lugar (precio $8.000 + $600 de cargo), flex y en dos
+	// días: como si la cancelara, vuelve el precio.
 	var lp struct{ ID string }
 	e.pedir(duena, "POST", "/v1/lugares/"+lugarID+"/planes", map[string]any{"titulo": "Noche de jazz", "categoria": "musica",
-		"empiezaEn": time.Now().Add(3 * time.Hour), "cupo": 20, "cobro": "entrada", "precioCentavos": 800000, "cancelacion": "strict"},
+		"empiezaEn": time.Now().Add(48 * time.Hour), "cupo": 20, "cobro": "entrada", "precioCentavos": 800000, "cancelacion": "flex"},
 		http.StatusCreated, &lp)
+	// Otra, strict: la baja la cancela sin reembolso.
+	var estricto struct{ ID string }
+	e.pedir(duena, "POST", "/v1/lugares/"+lugarID+"/planes", map[string]any{"titulo": "Cata", "categoria": "gastronomia",
+		"empiezaEn": time.Now().Add(48 * time.Hour), "cupo": 20, "cobro": "entrada", "precioCentavos": 800000, "cancelacion": "strict"},
+		http.StatusCreated, &estricto)
+	e.pedir(lu, "POST", "/v1/planes/"+estricto.ID+"/entradas", map[string]int{"cantidad": 1}, http.StatusOK, nil)
+	e.sistema(`UPDATE entradas SET estado = 'pagada', pagada_en = now(), mp_pago = 98 WHERE plan_id = $1 AND usuario_id = $2`, estricto.ID, lu.id)
 	e.pedir(lu, "POST", "/v1/planes/"+lp.ID+"/entradas", map[string]int{"cantidad": 1}, http.StatusOK, nil)
 	if err := ls.ConciliarPago(context.Background(), mp.usuario, 99); err != nil {
 		t.Fatal(err)
@@ -354,8 +369,13 @@ func TestBajaDeCuenta(t *testing.T) {
 	}
 	// Su entrada se le devuelve: el precio, sin el cargo (lo hace el worker; dos veces no duplica).
 	evs := e.eventos("entrada.reembolsar", entrada)
-	if len(evs) != 1 {
-		t.Fatalf("entrada.reembolsar de la baja: %d", len(evs))
+	if len(evs) != 1 || !strings.Contains(string(evs[0].Datos), "800000") {
+		t.Fatalf("entrada.reembolsar de la baja: %+v", evs)
+	}
+	var est string
+	e.valor(`SELECT estado FROM entradas WHERE plan_id = $1 AND usuario_id = $2`, &est, estricto.ID, lu.id)
+	if est != "cancelada" {
+		t.Fatalf("la entrada strict quedó %s", est)
 	}
 	for range 2 {
 		if err := ls.Manejadores()["entrada.reembolsar"](context.Background(), evs[0]); err != nil {
@@ -366,7 +386,7 @@ func TestBajaDeCuenta(t *testing.T) {
 	var devuelto int64
 	e.valor(`SELECT estado FROM entradas WHERE id = $1`, &estado, entrada)
 	e.valor(`SELECT reembolso_centavos FROM entradas WHERE id = $1`, &devuelto, entrada)
-	if estado != "reembolsada" || devuelto != 800000 || len(mp.reembolsos) != 1 || mp.reembolsos[0] != `{"transactions":[{"amount":"8000.00","id":"tx-1"}]}` {
+	if estado != "reembolsada" || devuelto != 800000 || len(mp.reembolsos) != 1 || !strings.HasPrefix(mp.reembolsos[0], `{"transactions":[{"amount":"8000.00","id":"tx-`) {
 		// Pagada por el aviso payment (sin transacción guardada): la devolución la busca en la orden.
 		t.Fatalf("reembolso de la baja: %q %d %q", estado, devuelto, mp.reembolsos)
 	}

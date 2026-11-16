@@ -100,12 +100,13 @@ func Nuevo(d Dependencias) http.Handler {
 	if d.App != nil {
 		ses := &sesion.Resolvedor{Clerk: d.Clerk, App: d.App, Log: d.Log, Vetados: d.Vetados}
 		ses.Rutas(mux)
-		pls := &planes.Servicio{App: d.App, Reloj: d.Reloj, Firma: firma.Firmador{Clave: []byte(d.Secreto)}, Sitio: d.Sitio}
+		pls := &planes.Servicio{App: d.App, Reloj: d.Reloj, Firma: firma.Firmador{Clave: []byte(d.Secreto)}, Sitio: d.Sitio,
+			APIPublica: d.APIPublica}
 		planes.Rutas(mux, pls, ses.Exigir, d.Log)
 		equipo.Rutas(mux, &equipo.Servicio{App: d.App, Publicador: pls, Reloj: d.Reloj, Vetados: d.Vetados}, ses, d.Log)
 		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos, Clave: d.ClaveVerificacion}, Correo: d.Correo, Casillas: d.Clerk,
 			Vetados: d.Vetados, Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj}, ses, d.Log)
-		personas.Rutas(mux, &personas.Servicio{App: d.App, Casillas: d.Clerk}, ses.Exigir, d.Log)
+		personas.Rutas(mux, &personas.Servicio{App: d.App, Casillas: d.Clerk, APIPublica: d.APIPublica}, ses.Exigir, d.Log)
 		avisos.Rutas(mux, d.App, ses.Exigir, d.Log)
 		if d.Hub == nil {
 			d.Hub = &chat.Hub{Servicio: &chat.Servicio{App: d.App, Reloj: d.Reloj}, Log: d.Log}
@@ -135,10 +136,14 @@ func Nuevo(d Dependencias) http.Handler {
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		problema.Escribir(w, problema.NoEncontrado("Esa ruta no existe."))
 	})
-	return recuperar(d.Log, limite.Envolver(mux, d.App, Reglas, d.Log))
+	var quien limite.Quien
+	if d.App != nil {
+		quien = (&sesion.Resolvedor{Clerk: d.Clerk, App: d.App, Log: d.Log}).UsuarioDe
+	}
+	return recuperar(d.Log, limite.Envolver(mux, d.App, Reglas, d.Log, quien))
 }
 
-// Reglas: topes por ruta (por sesión, o por IP si no hay sesión o la regla lo pide).
+// Reglas: topes por ruta (por persona, o por IP si no hay sesión o la regla lo pide).
 var Reglas = map[string]limite.Regla{
 	"POST /v1/sesion":                          {Max: 20, Ventana: 10 * time.Minute, PorIP: true},
 	"POST /v1/verificacion/telefono":           {Max: 5, Ventana: time.Hour},

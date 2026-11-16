@@ -167,6 +167,18 @@ func (s *Servicio) PedirCodigo(ctx context.Context, usuarioID, clerkID, telefono
 			return Envio{}, errSinMail
 		}
 	}
+	// Un teléfono, una cuenta: si no, la verificación no dice nada. Como sistema: con RLS, la persona
+	// no ve los teléfonos de los demás.
+	var otro bool
+	if err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM usuarios_privado WHERE telefono = $1
+			AND telefono_verificado_en IS NOT NULL AND usuario_id <> $2)`, telefono, usuarioID).Scan(&otro)
+	}); err != nil {
+		return Envio{}, err
+	}
+	if otro {
+		return Envio{}, errTelefonoEnUso
+	}
 	n, _ := rand.Int(rand.Reader, big.NewInt(1000000))
 	codigo := fmt.Sprintf("%06d", n.Int64())
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
@@ -178,10 +190,9 @@ func (s *Servicio) PedirCodigo(ctx context.Context, usuarioID, clerkID, telefono
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		var otro bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM usuarios_privado WHERE telefono = $1
-			AND telefono_verificado_en IS NOT NULL AND usuario_id <> $2)`, telefono, usuarioID).Scan(&otro); err != nil {
-			return err
+		// Un teléfono, una cuenta: si no, la verificación no dice nada.
+		if otro {
+			return problema.Conflicto("telefono_en_uso", "Ese teléfono ya está verificado en otra cuenta. Si es tuyo, escribinos a soporte@caigo.com.ar.")
 		}
 		_, err = tx.Exec(ctx, `
 			INSERT INTO telefono_codigos (usuario_id, telefono, codigo_hash, vence_en) VALUES ($1, $2, $3, $4)
@@ -252,6 +263,9 @@ func (s *Servicio) ConfirmarCodigo(ctx context.Context, usuarioID, codigo string
 	}
 	return err
 }
+
+var errTelefonoEnUso = problema.Conflicto("telefono_en_uso",
+	"Ese teléfono ya está verificado en otra cuenta. Si es tuyo, escribinos a soporte@caigo.com.ar.")
 
 var errCodigoMal = problema.Invalido("Ese código no es. Revisalo y probá de nuevo.")
 

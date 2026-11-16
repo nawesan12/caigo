@@ -430,6 +430,9 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 
 // SumarAGente suma a alguien a mi gente. Sólo se puede con quien ya compartí un plan.
 func (s *Servicio) SumarAGente(ctx context.Context, usuarioID, otroID string) error {
+	if otroID == usuarioID {
+		return problema.Invalido("No te podés sumar a vos.")
+	}
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var compartieron bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM solicitudes a JOIN solicitudes b ON a.plan_id = b.plan_id
@@ -483,10 +486,27 @@ func (s *Servicio) Bloquear(ctx context.Context, usuarioID, otroID string) error
 		return problema.Invalido("No te podés bloquear.")
 	}
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		var existe bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM usuarios WHERE id::text = $1)`, otroID).Scan(&existe); err != nil {
+			return err
+		}
+		if !existe {
+			return problema.NoEncontrado("Esa persona no existe.")
+		}
 		if _, err := tx.Exec(ctx, `INSERT INTO bloqueos (usuario_id, bloqueado_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, usuarioID, otroID); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `DELETE FROM mi_gente WHERE (usuario_id = $1 AND otro_id = $2) OR (usuario_id = $2 AND otro_id = $1)`, usuarioID, otroID)
+		if _, err := tx.Exec(ctx, `DELETE FROM mi_gente WHERE (usuario_id = $1 AND otro_id = $2) OR (usuario_id = $2 AND otro_id = $1)`, usuarioID, otroID); err != nil {
+			return err
+		}
+		// Si estaba en un plan mío que no terminó, sale (como si lo sacara, sin avisarle): deja de ver
+		// la dirección y el chat. A quien pagó una entrada no: esa se cancela por su lado.
+		_, err := tx.Exec(ctx, `UPDATE solicitudes s SET estado = 'rechazada', respondida_en = now()
+			FROM planes p WHERE p.id = s.plan_id AND p.organizador_id = $1 AND s.usuario_id = $2
+				AND s.estado IN ('pendiente', 'aceptada') AND p.cancelado_en IS NULL
+				AND p.empieza_en + make_interval(mins => p.duracion_min) > now()
+				AND NOT EXISTS (SELECT 1 FROM entradas e WHERE e.plan_id = p.id AND e.usuario_id = $2 AND e.estado = 'pagada')`,
+			usuarioID, otroID)
 		return err
 	})
 }
@@ -509,6 +529,9 @@ func (s *Servicio) Reportar(ctx context.Context, usuarioID string, r Reporte) er
 	if r.UsuarioID == "" && r.PlanID == "" {
 		return problema.Invalido("Decí a quién o qué plan reportás.")
 	}
+	if (r.UsuarioID != "" && !reUUID.MatchString(r.UsuarioID)) || (r.PlanID != "" && !reUUID.MatchString(r.PlanID)) {
+		return problema.NoEncontrado("Eso que reportás no existe.")
+	}
 	if len([]rune(r.Detalle)) > 1000 {
 		return problema.Invalido("El detalle puede tener hasta 1000 letras.")
 	}
@@ -521,11 +544,16 @@ func (s *Servicio) Reportar(ctx context.Context, usuarioID string, r Reporte) er
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `INSERT INTO reportes (usuario_id, sobre_usuario_id, sobre_plan_id, motivo, detalle)
 			VALUES ($1, $2, $3, $4, $5)`, usuarioID, nulo(r.UsuarioID), nulo(r.PlanID), r.Motivo, strings.TrimSpace(r.Detalle))
+		if db.EsReferencia(err) {
+			return problema.NoEncontrado("Eso que reportás no existe.")
+		}
 		return err
 	})
 }
 
 var reOrigen = regexp.MustCompile(`^[A-Za-z0-9:_./-]*$`)
+
+var reUUID = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 // Bloqueado es alguien que bloqueé.
 type Bloqueado struct {

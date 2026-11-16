@@ -150,6 +150,9 @@ func (s *Servicio) Registrar(ctx context.Context, usuarioID string, d Datos) (Lu
 	if err := d.validar(); err != nil {
 		return Lugar{}, err
 	}
+	if err := s.fotoDelLugar(ctx, "", usuarioID, d.Foto, ""); err != nil {
+		return Lugar{}, err
+	}
 	var id string
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var n int
@@ -210,6 +213,26 @@ func (s *Servicio) Mios(ctx context.Context, usuarioID string) ([]Lugar, error) 
 	return out, err
 }
 
+// fotoDelLugar: la foto de un lugar o de un plan del lugar tiene que estar subida a /v1/archivos por
+// alguien que lo maneja (o ser la que ya tenía). Como sistema: con RLS, cada uno ve sólo sus archivos.
+func (s *Servicio) fotoDelLugar(ctx context.Context, lugarID, usuarioID, foto, antes string) error {
+	return s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		duenos := []string{usuarioID}
+		if lugarID != "" {
+			rows, err := tx.Query(ctx, `SELECT usuario_id::text FROM lugar_miembros WHERE lugar_id::text = $1`, lugarID)
+			if err != nil {
+				return err
+			}
+			miembros, err := pgx.CollectRows(rows, pgx.RowTo[string])
+			if err != nil {
+				return err
+			}
+			duenos = append(duenos, miembros...)
+		}
+		return archivos.ExigirPropias(ctx, tx, s.APIPublica, "foto", duenos, []string{antes}, foto)
+	})
+}
+
 // miembro verifica que la persona maneje el lugar (y, si aprobado, que esté aprobado).
 func miembro(ctx context.Context, tx pgx.Tx, lugarID, usuarioID string, aprobado bool) error {
 	var estado string
@@ -266,6 +289,9 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, lugarID string, e Edic
 		}
 		var fotoAntes string
 		if err := tx.QueryRow(ctx, `SELECT foto FROM lugares WHERE id::text = $1 FOR UPDATE`, lugarID).Scan(&fotoAntes); err != nil {
+			return err
+		}
+		if err := s.fotoDelLugar(ctx, lugarID, usuarioID, e.Foto, fotoAntes); err != nil {
 			return err
 		}
 		_, err := tx.Exec(ctx, `UPDATE lugares SET nombre = $2, rubro = $3, ciudad = $4, zona = $5, direccion = $6,

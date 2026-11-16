@@ -98,16 +98,17 @@ type Aviso struct {
 	Colapso string
 }
 
-// Mandar manda el aviso a todos los dispositivos de la persona. Borra los tokens que ya no sirven.
+// Mandar manda el aviso a todos los dispositivos de la persona. Borra los tokens que ya no sirven. Si
+// un dispositivo falla, no se reintenta todo el evento (los demás ya lo recibieron): su envío queda en
+// el outbox como aviso.dispositivo, que reintenta sólo ese.
 func (e *Enviador) Mandar(ctx context.Context, usuarioID string, a Aviso) error {
-	type disp struct{ Plataforma, Token, Entorno string }
-	var ds []disp
+	var ds []dispositivo
 	err := e.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `SELECT plataforma, token, entorno FROM dispositivos WHERE usuario_id = $1`, usuarioID)
 		if err != nil {
 			return err
 		}
-		ds, err = pgx.CollectRows(rows, pgx.RowToStructByPos[disp])
+		ds, err = pgx.CollectRows(rows, pgx.RowToStructByPos[dispositivo])
 		return err
 	})
 	if err != nil {
@@ -115,29 +116,63 @@ func (e *Enviador) Mandar(ctx context.Context, usuarioID string, a Aviso) error 
 	}
 	var errs []error
 	for _, d := range ds {
-		var err error
-		switch d.Plataforma {
-		case "ios":
-			aps := map[string]any{"aps": map[string]any{"alert": map[string]string{"title": a.Titulo, "body": a.Cuerpo}, "sound": "default"}}
-			for k, v := range a.Datos {
-				aps[k] = v
-			}
-			b, _ := json.Marshal(aps)
-			err = e.APNs.Enviar(ctx, apns.Envio{Token: d.Token, Entorno: d.Entorno, Payload: b, Colapso: a.Colapso})
-			if errors.Is(err, apns.ErrTokenInvalido) {
-				err = e.olvidar(ctx, d.Token)
-			}
-		case "android":
-			err = e.FCM.Enviar(ctx, fcm.Envio{Token: d.Token, Titulo: a.Titulo, Cuerpo: a.Cuerpo, Datos: a.Datos, Colapso: a.Colapso})
-			if errors.Is(err, fcm.ErrTokenInvalido) {
-				err = e.olvidar(ctx, d.Token)
-			}
-		}
-		if err != nil {
-			errs = append(errs, err)
+		if err := e.mandarA(ctx, d, a); err != nil {
+			e.log().Warn("avisos: un dispositivo falló, se reintenta aparte", "plataforma", d.Plataforma, "error", err)
+			errs = append(errs, e.App.EnSistema(ctx, func(tx pgx.Tx) error {
+				return outbox.Publicar(ctx, tx, eventoDispositivo, envioPendiente{Dispositivo: d, Aviso: a})
+			}))
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// eventoDispositivo: el aviso a un solo dispositivo que falló en el primer envío.
+const eventoDispositivo = "aviso.dispositivo"
+
+type dispositivo struct{ Plataforma, Token, Entorno string }
+
+type envioPendiente struct {
+	Dispositivo dispositivo
+	Aviso       Aviso
+}
+
+// mandarA manda el aviso a un dispositivo. Un token que ya no sirve se borra (y no es error).
+func (e *Enviador) mandarA(ctx context.Context, d dispositivo, a Aviso) error {
+	var err error
+	switch d.Plataforma {
+	case "ios":
+		aps := map[string]any{"aps": map[string]any{"alert": map[string]string{"title": a.Titulo, "body": a.Cuerpo}, "sound": "default"}}
+		for k, v := range a.Datos {
+			aps[k] = v
+		}
+		b, _ := json.Marshal(aps)
+		err = e.APNs.Enviar(ctx, apns.Envio{Token: d.Token, Entorno: d.Entorno, Payload: b, Colapso: a.Colapso})
+		if errors.Is(err, apns.ErrTokenInvalido) {
+			err = e.olvidar(ctx, d.Token)
+		}
+	case "android":
+		err = e.FCM.Enviar(ctx, fcm.Envio{Token: d.Token, Titulo: a.Titulo, Cuerpo: a.Cuerpo, Datos: a.Datos, Colapso: a.Colapso})
+		if errors.Is(err, fcm.ErrTokenInvalido) {
+			err = e.olvidar(ctx, d.Token)
+		}
+	}
+	return err
+}
+
+// reintentarDispositivo: el manejador de aviso.dispositivo (si el token ya no está, no se manda).
+func (e *Enviador) reintentarDispositivo(ctx context.Context, ev outbox.Evento) error {
+	var p envioPendiente
+	if err := json.Unmarshal(ev.Datos, &p); err != nil || p.Dispositivo.Token == "" {
+		return nil
+	}
+	var sigue bool
+	if err := e.leer(ctx, `SELECT EXISTS (SELECT 1 FROM dispositivos WHERE token = $1)`, []any{p.Dispositivo.Token}, &sigue); err != nil {
+		return err
+	}
+	if !sigue {
+		return nil
+	}
+	return e.mandarA(ctx, p.Dispositivo, p.Aviso)
 }
 
 func (e *Enviador) olvidar(ctx context.Context, token string) error {
@@ -169,6 +204,8 @@ func (e *Enviador) Manejadores() map[string]outbox.Manejador {
 		"arrepentimiento.nuevo": e.arrepentimientoNuevo,
 		// Al equipo: un lugar pidió placas Caigo Tap.
 		"placas.pedido": e.placasPedido,
+		// El reintento de un aviso a un solo dispositivo.
+		eventoDispositivo: e.reintentarDispositivo,
 	}
 }
 

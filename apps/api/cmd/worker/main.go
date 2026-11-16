@@ -21,6 +21,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/cifrado"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/fcm"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
@@ -78,6 +79,14 @@ func correr() error {
 		return err
 	}
 	for k, m := range (&wallet.Servicio{App: app, Apple: wa}).Manejadores() {
+		manejadores[k] = m
+	}
+	// Los mails del botón de arrepentimiento (acuse a quien lo pidió y aviso a hola@), por el mismo
+	// SMTP que el código del teléfono. Sin SMTP quedan en el log.
+	if cfg.SMTP == "" {
+		slog.Warn("sin SMTP (CAIGO_SMTP): los mails del arrepentimiento quedan en el log")
+	}
+	for k, m := range confianza.ManejadoresCorreo(app, correo.Elegir(cfg.SMTP, cfg.SMTPUsuario, cfg.SMTPClave, cfg.CorreoDe)) {
 		manejadores[k] = m
 	}
 	// Las fotos que se sacan de un perfil, un plan o un lugar se borran del disco acá.

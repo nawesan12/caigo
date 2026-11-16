@@ -19,6 +19,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
@@ -45,6 +46,8 @@ type Servicio struct {
 	Firma firma.Firmador
 	// Sitio público (para el link en vivo).
 	Sitio string
+	// URL pública de la API: la foto de un plan tiene que ser de ahí (…/v1/archivos/<id>).
+	APIPublica string
 	// Ahora (tests). nil: time.Now.
 	Reloj func() time.Time
 }
@@ -58,7 +61,8 @@ func (s *Servicio) ahora() time.Time {
 
 // Persona es la vista corta de alguien en un plan (avatares, organizador, solicitudes).
 type Persona struct {
-	ID          string `json:"id"`
+	// Vacío en las rutas públicas (sin sesión): ahí van sólo el primer nombre y la foto.
+	ID          string `json:"id,omitempty"`
 	Nombre      string `json:"nombre"`
 	Foto        string `json:"foto,omitempty"`
 	Edad        *int16 `json:"edad,omitempty"`
@@ -253,6 +257,16 @@ func (e *Entrada) validar(ahora time.Time) error {
 	if e.Direccion = strings.TrimSpace(e.Direccion); len([]rune(e.Direccion)) > 160 {
 		mal("direccion", "La dirección es muy larga.")
 	}
+	// Los topes de la tabla (si no, el CHECK de Postgres sale como un 500).
+	e.LugarNombre, e.Nivel, e.Foto = strings.TrimSpace(e.LugarNombre), strings.TrimSpace(e.Nivel), strings.TrimSpace(e.Foto)
+	for _, c := range []struct {
+		ruta, valor string
+		max         int
+	}{{"ciudad", e.Ciudad, 60}, {"zona", e.Zona, 60}, {"lugarNombre", e.LugarNombre, 80}, {"nivel", e.Nivel, 30}, {"foto", e.Foto, 500}} {
+		if len([]rune(c.valor)) > c.max {
+			mal(c.ruta, fmt.Sprintf("Puede tener hasta %d letras.", c.max))
+		}
+	}
 	if len(campos) > 0 {
 		return problema.Invalido("Revisá el plan.", campos...)
 	}
@@ -323,6 +337,9 @@ func (s *Servicio) Crear(ctx context.Context, usuarioID string, e Entrada) (Plan
 	}
 	var id string
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		if err := archivos.ExigirPropias(ctx, tx, s.APIPublica, "foto", []string{usuarioID}, nil, e.Foto); err != nil {
+			return err
+		}
 		var serie *string
 		if e.Recurrente {
 			var sid string
@@ -492,8 +509,23 @@ func (s *Servicio) Publico(ctx context.Context, slugPlan string) (Plan, error) {
 		}
 		return s.completar(ctx, tx, "", []*Plan{&p})
 	})
-	p.Organizador.Asistencia = Asist{}
+	anonimo(&p)
 	return p, err
+}
+
+// anonimo deja un plan para las rutas públicas (sin sesión): de quien organiza y de los que van,
+// sólo el primer nombre y la foto (ni id, ni edad, ni asistencia, ni si llegaron). El id y el slug del
+// plan quedan (la web arma los links con ellos).
+func anonimo(p *Plan) {
+	corto := func(x Persona) Persona {
+		nombre, _, _ := strings.Cut(strings.TrimSpace(x.Nombre), " ")
+		return Persona{Nombre: nombre, Foto: x.Foto, Organizador: x.Organizador}
+	}
+	p.Organizador = corto(p.Organizador)
+	for i := range p.Van {
+		p.Van[i] = corto(p.Van[i])
+	}
+	p.MiEstado, p.MiCantidad, p.Direccion, p.Pendientes = "ninguno", 0, nil, 0
 }
 
 // completar suma los que van (avatares) de cada plan.
@@ -580,12 +612,20 @@ func (s *Servicio) Ahora(ctx context.Context, usuarioID string, f Filtro) ([]Pla
 // AhoraPublico y ExplorarPublico: lo mismo sin sesión (para mirar antes de entrar). Sólo planes
 // públicos; nunca la dirección ni el estado de nadie.
 func (s *Servicio) AhoraPublico(ctx context.Context, f Filtro) ([]Plan, error) {
-	return s.Ahora(ctx, nadie, f)
+	ps, err := s.Ahora(ctx, nadie, f)
+	for i := range ps {
+		anonimo(&ps[i])
+	}
+	return ps, err
 }
 
 // ExplorarPublico es Explorar sin sesión.
 func (s *Servicio) ExplorarPublico(ctx context.Context, f Filtro) ([]Plan, error) {
-	return s.Explorar(ctx, nadie, f)
+	ps, err := s.Explorar(ctx, nadie, f)
+	for i := range ps {
+		anonimo(&ps[i])
+	}
+	return ps, err
 }
 
 // Explorar: la agenda, por fecha.
@@ -608,7 +648,9 @@ func (s *Servicio) listar(ctx context.Context, usuarioID string, f Filtro) ([]Pl
 		f.Limite = 60
 	}
 	args := []any{usuarioID, f.Desde, f.Hasta}
-	where := []string{"p.cancelado_en IS NULL", "p.empieza_en BETWEEN $2 AND $3", "p.visibilidad <> 'link'", visible}
+	// Los de una cuenta suspendida (o dada de baja) no salen.
+	where := []string{"p.cancelado_en IS NULL", "p.empieza_en BETWEEN $2 AND $3", "p.visibilidad <> 'link'", visible,
+		"o.suspendido_en IS NULL", "o.baja_en IS NULL"}
 	arg := func(v any) string { args = append(args, v); return fmt.Sprintf("$%d", len(args)) }
 	if f.Lat != nil && f.Lng != nil {
 		dLat := f.RadioKm / 111.0
@@ -755,6 +797,9 @@ func (s *Servicio) Destacar(ctx context.Context, usuarioID, planID string) (Plan
 	}
 	t := s.ahora()
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		if err := plus.Bloquear(ctx, tx, usuarioID); err != nil {
+			return err
+		}
 		e, err := plus.Leer(ctx, tx, usuarioID, t)
 		if err != nil {
 			return err

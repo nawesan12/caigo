@@ -24,7 +24,7 @@ import (
 // número para los vetados. Lo dice la política de privacidad.
 
 // sueltas: las verificaciones cuyas fotos ya no hacen falta: revisadas (o resueltas antes de que se
-// aprobaran solas), o sin revisar desde hace más de 30 días. $1: una verificación o todas ('').
+// aprobaran solas), o sin revisar desde hace más de 30 días. $1: una verificación o todas (”).
 const sueltas = `($1 = '' OR id::text = $1) AND estado <> 'pendiente'
 	AND (revisada_en IS NOT NULL OR creada_en < now() - interval '30 days')
 	AND (frente_id IS NOT NULL OR dorso_id IS NOT NULL OR selfie_id IS NOT NULL)`

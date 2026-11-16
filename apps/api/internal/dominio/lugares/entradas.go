@@ -125,6 +125,9 @@ func (s *Servicio) CrearPlan(ctx context.Context, usuarioID, lugarID string, p P
 		if err := miembro(ctx, tx, lugarID, usuarioID, true); err != nil {
 			return err
 		}
+		if err := s.fotoDelLugar(ctx, lugarID, usuarioID, p.Foto, ""); err != nil {
+			return err
+		}
 		var l struct {
 			nombre, ciudad, zona, direccion string
 			lat, lng                        float64
@@ -299,9 +302,11 @@ type Compra struct {
 	SaldoCentavos int64  `json:"saldoCentavos"`
 }
 
+// nuevoCodigo: TK- y 6 cifras (900.000 códigos; con 4 se agotaban a las 9.000 entradas y el alta
+// daba 500). Validar acepta también los de 4 de antes.
 func nuevoCodigo() string {
-	n, _ := rand.Int(rand.Reader, big.NewInt(9000))
-	return fmt.Sprintf("TK-%04d", 1000+n.Int64())
+	n, _ := rand.Int(rand.Reader, big.NewInt(900000))
+	return fmt.Sprintf("TK-%06d", 100000+n.Int64())
 }
 
 // Comprar reserva entradas de un plan de lugar y devuelve el link de pago. modo: entrada (pagar
@@ -322,20 +327,24 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var total int16
 		var sumados int
-		var selfie, dni, cancelado, grupos bool
+		var selfie, cancelado, grupos, activo, bloqueo bool
 		var empieza time.Time
-		var soloVerif bool
-		var generoPlan string
+		var generoPlan, estadoLugar string
 		var lid *string
 		var prec *int32
+		var edadMin, edadMax, edad *int16
 		err := tx.QueryRow(ctx, `SELECT p.lugar_id, p.titulo, p.slug, p.cobro, p.precio_centavos, p.sena_pct, p.total,
-				p.cancelado_en IS NOT NULL, p.empieza_en, p.solo_verificados, p.acepta_grupos, coalesce(l.nombre, ''), p.genero,
+				p.cancelado_en IS NOT NULL, p.empieza_en, p.acepta_grupos, coalesce(l.nombre, ''), p.genero,
+				coalesce(l.estado, ''), p.edad_min, p.edad_max, `+planes.OrganizaActivo+`,
+				EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $2 AND b.bloqueado_id = p.organizador_id)
+					OR (b.usuario_id = p.organizador_id AND b.bloqueado_id = $2)),
 				coalesce((SELECT sum(cantidad) FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'aceptada'), 0)::integer
 					-- Las compras sin pagar reservan su lugar mientras vale la orden (30 min).
 					+ coalesce((SELECT sum(cantidad) FROM entradas y WHERE y.plan_id = p.id AND y.estado = 'pendiente'
 						AND y.usuario_id <> $2 AND y.creada_en > now() - interval '30 minutes'), 0)::integer
 			FROM planes p LEFT JOIN lugares l ON l.id = p.lugar_id WHERE p.id::text = $1 FOR UPDATE OF p`, planID, usuarioID).
-			Scan(&lid, &titulo, &slug, &cobro, &prec, &senaPct, &total, &cancelado, &empieza, &soloVerif, &grupos, &lugarNombre, &generoPlan, &sumados)
+			Scan(&lid, &titulo, &slug, &cobro, &prec, &senaPct, &total, &cancelado, &empieza, &grupos, &lugarNombre, &generoPlan,
+				&estadoLugar, &edadMin, &edadMax, &activo, &bloqueo, &sumados)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && lid == nil) {
 			return problema.NoEncontrado("Ese plan no tiene entradas.")
 		}
@@ -346,33 +355,44 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 		if prec != nil {
 			precio = int64(*prec)
 		}
-		if err := tx.QueryRow(ctx, `SELECT selfie_en IS NOT NULL, dni_en IS NOT NULL FROM usuarios WHERE id = $1`, usuarioID).Scan(&selfie, &dni); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT selfie_en IS NOT NULL, edad FROM usuarios WHERE id = $1`, usuarioID).Scan(&selfie, &edad); err != nil {
 			return err
 		}
 		switch {
+		case bloqueo || !activo:
+			return problema.NoEncontrado("Ese plan no tiene entradas.")
+		case estadoLugar != "aprobado":
+			return problema.Conflicto("lugar_suspendido", "Este lugar no está vendiendo entradas por ahora.")
 		case cancelado:
 			return problema.Conflicto("cancelado", "Este plan se canceló.")
 		case empieza.Before(s.ahora()):
 			return problema.Conflicto("paso", "Este plan ya arrancó.")
-		case !selfie:
-			return problema.NoProcesable("falta_selfie", "Antes de sumarte, verificá tu identidad con una selfie.")
-		case soloVerif && !dni:
-			return problema.NoProcesable("falta_dni", "Este plan es sólo para personas con DNI verificado.")
 		case cantidad > 1 && !grupos:
 			return problema.Conflicto("sin_grupos", "Este plan es de a una persona.")
 		case sumados+int(cantidad) > int(total):
 			return problema.Conflicto("completo", "No quedan tantos lugares (puede que se liberen si alguien no termina de pagar).")
 		}
-		if err := planes.ChequearGenero(generoPlan, conf); err != nil {
+		// Lo mismo que al sumarse (selfie, rango de edad y género); el DNI lo pidió la sesión.
+		if err := planes.Admitir(selfie, edad, edadMin, edadMax, generoPlan, conf); err != nil {
 			return err
 		}
-		var ya bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM solicitudes WHERE plan_id::text = $1 AND usuario_id = $2 AND estado = 'aceptada')`,
-			planID, usuarioID).Scan(&ya); err != nil {
+		var previo string
+		err = tx.QueryRow(ctx, `SELECT estado FROM solicitudes WHERE plan_id::text = $1 AND usuario_id = $2`, planID, usuarioID).Scan(&previo)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		if ya {
+		switch previo {
+		case "aceptada":
 			return problema.Conflicto("ya_esta", "Ya tenés tu lugar en este plan.")
+		case "rechazada":
+			// La sacó quien organiza (o la bloqueó): no vuelve por la entrada, como con Sumarme.
+			return problema.Conflicto("rechazada", "Esta vez el organizador no te sumó.")
+		}
+		// Una compra sin pagar de antes en el mismo plan se anula: queda una sola esperando el pago (si
+		// igual se paga, aplicar la devuelve).
+		if _, err := tx.Exec(ctx, `UPDATE entradas SET estado = 'cancelada', actualizada_en = now()
+			WHERE plan_id::text = $1 AND usuario_id = $2 AND estado = 'pendiente'`, planID, usuarioID); err != nil {
+			return err
 		}
 		switch {
 		case modo == "sena" && cobro != "sena":
@@ -401,7 +421,7 @@ func (s *Servicio) Comprar(ctx context.Context, usuarioID, planID string, cantid
 		c.TotalCentavos = (lugarPP + cargo) * q
 		c.SaldoCentavos = (precio - lugarPP) * q
 		ref = "CAI" + strings.ToUpper(azar4()+azar4()+azar4())
-		// El código puede chocar (4 dígitos): se reintenta.
+		// El código puede chocar: se reintenta.
 		for i := 0; ; i++ {
 			err := tx.QueryRow(ctx, `INSERT INTO entradas (codigo, plan_id, usuario_id, cantidad, modo, lugar_centavos, cargo_centavos,
 				saldo_centavos, referencia) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (codigo) DO NOTHING RETURNING id`,
@@ -574,8 +594,9 @@ func (s *Servicio) aplicar(ctx context.Context, ob observado) error {
 		var orden *string
 		var cantidad int16
 		var total int64
-		err := tx.QueryRow(ctx, `SELECT id, plan_id, usuario_id, estado, cantidad, lugar_centavos + cargo_centavos, mp_orden
-			FROM entradas WHERE referencia = $1 FOR UPDATE`, ob.Ref).Scan(&id, &planID, &usuarioID, &actual, &cantidad, &total, &orden)
+		var pagadaEn *time.Time
+		err := tx.QueryRow(ctx, `SELECT id, plan_id, usuario_id, estado, cantidad, lugar_centavos + cargo_centavos, mp_orden, pagada_en
+			FROM entradas WHERE referencia = $1 FOR UPDATE`, ob.Ref).Scan(&id, &planID, &usuarioID, &actual, &cantidad, &total, &orden, &pagadaEn)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -588,9 +609,12 @@ func (s *Servicio) aplicar(ctx context.Context, ob observado) error {
 		}
 		switch ob.Estado {
 		case "approved":
-			// Sólo una entrada que espera el pago: una ya pagada, cancelada o devuelta no vuelve atrás
-			// (un pago devuelto en parte sigue «approved» en Mercado Pago).
-			if actual != "pendiente" {
+			// Sólo una entrada que espera el pago, o una compra anulada antes de pagarse (el plan se
+			// canceló, la reemplazó otra compra): esa se cobró igual y se devuelve entera. Una ya pagada,
+			// devuelta o cancelada después de pagar no vuelve atrás (un pago devuelto en parte sigue
+			// «approved» en Mercado Pago).
+			anulada := actual == "cancelada" && pagadaEn == nil
+			if actual != "pendiente" && !anulada {
 				return nil
 			}
 			if ob.Pagado < total {
@@ -601,17 +625,34 @@ func (s *Servicio) aplicar(ctx context.Context, ob observado) error {
 				id, pago, transaccion); err != nil {
 				return err
 			}
-			var cancelado bool
-			if err := tx.QueryRow(ctx, `SELECT cancelado_en IS NOT NULL FROM planes WHERE id = $1`, planID).Scan(&cancelado); err != nil {
-				return err
-			}
-			if cancelado {
-				// Pagó después de que se canceló el plan: se le devuelve todo.
+			devolver := func() error {
 				return outbox.Publicar(ctx, tx, "entrada.reembolsar", map[string]any{"entradaId": id, "total": true})
 			}
+			if anulada {
+				return devolver()
+			}
+			// El plan bloqueado: el cupo se cuenta con el de los demás pagos que lleguen a la vez.
+			var cancelado bool
+			var lugarTotal int16
+			var otros, propia int
+			if err := tx.QueryRow(ctx, `SELECT p.cancelado_en IS NOT NULL, p.total,
+					coalesce((SELECT sum(cantidad) FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'aceptada'
+						AND x.usuario_id <> $2), 0)::integer,
+					coalesce((SELECT cantidad FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'aceptada'
+						AND x.usuario_id = $2), 0)::integer
+				FROM planes p WHERE p.id = $1 FOR UPDATE`, planID, usuarioID).Scan(&cancelado, &lugarTotal, &otros, &propia); err != nil {
+				return err
+			}
+			// Pagó después de que se canceló el plan, o cuando su reserva ya había vencido y el lugar se
+			// lo llevó otra persona: se le devuelve todo.
+			if cancelado || otros+propia+int(cantidad) > int(lugarTotal) {
+				return devolver()
+			}
+			// Si ya tenía lugar (otra entrada paga), se suma; no se pisa la cantidad.
 			if _, err := tx.Exec(ctx, `INSERT INTO solicitudes (plan_id, usuario_id, cantidad, estado, respondida_en)
 				VALUES ($1, $2, $3, 'aceptada', now()) ON CONFLICT (plan_id, usuario_id) DO UPDATE SET
-				cantidad = excluded.cantidad, estado = 'aceptada', respondida_en = now()`, planID, usuarioID, cantidad); err != nil {
+				cantidad = CASE WHEN solicitudes.estado = 'aceptada' THEN solicitudes.cantidad + excluded.cantidad
+					ELSE excluded.cantidad END, estado = 'aceptada', respondida_en = now()`, planID, usuarioID, cantidad); err != nil {
 				return err
 			}
 			return outbox.Publicar(ctx, tx, "entrada.pagada", map[string]string{"entradaId": id})

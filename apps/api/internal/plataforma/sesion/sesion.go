@@ -250,6 +250,30 @@ func (s *Resolvedor) Resolver(ctx context.Context, token string) (Persona, error
 	return p, nil
 }
 
+// UsuarioDe dice de qué persona es el token (para los topes por ruta), sin crearla ni renovar la
+// sesión. Vacío si no es válido o no se sabe.
+func (s *Resolvedor) UsuarioDe(ctx context.Context, token string) string {
+	var id string
+	var err error
+	if strings.HasPrefix(token, prefijo) {
+		err = s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+			return tx.QueryRow(ctx, `SELECT usuario_id::text FROM sesiones WHERE token_hash = $1 AND vence_en > now()`,
+				hashToken(token)).Scan(&id)
+		})
+	} else if s.Clerk != nil {
+		var sujeto string
+		if sujeto, err = s.Clerk.Verificar(ctx, token); err == nil {
+			err = s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+				return tx.QueryRow(ctx, `SELECT id::text FROM usuarios WHERE clerk_id = $1`, sujeto).Scan(&id)
+			})
+		}
+	}
+	if err != nil {
+		return ""
+	}
+	return id
+}
+
 // Exigir corta con 401 los pedidos sin una sesión válida.
 func (s *Resolvedor) Exigir(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

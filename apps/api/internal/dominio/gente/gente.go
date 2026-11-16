@@ -197,6 +197,11 @@ func (s *Servicio) Reaccionar(ctx context.Context, usuarioID, otroID, modo, acci
 	}
 	var r Resultado
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		// Los topes del día (sumadas y «me encanta») se cuentan y se gastan con la persona bloqueada:
+		// dos reacciones a la vez no pasan las dos con el último lugar del día.
+		if err := plus.Bloquear(ctx, tx, usuarioID); err != nil {
+			return err
+		}
 		var existe bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM usuarios u WHERE u.id::text = $2 AND u.baja_en IS NULL
 			AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $1 AND b.bloqueado_id = u.id)
@@ -396,10 +401,21 @@ var ErrResponder = problema.NoEncontrado("Esa invitación ya no está.")
 func (s *Servicio) ResponderInvitacion(ctx context.Context, usuarioID, planID string, aceptar bool, conf planes.Confirma) (bool, error) {
 	adentro := false
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
-		var de, org, genero string
+		var de, org, genero, cobro string
 		var total int16
-		err := tx.QueryRow(ctx, `SELECT i.de_id, p.organizador_id, p.total, p.genero FROM invitaciones i JOIN planes p ON p.id = i.plan_id
-			WHERE i.plan_id::text = $1 AND i.a_id = $2 AND i.estado = 'pendiente' FOR UPDATE OF p`, planID, usuarioID).Scan(&de, &org, &total, &genero)
+		var cancelado, activo, selfie, bloqueo bool
+		var empieza time.Time
+		var edadMin, edadMax, edad *int16
+		var previo *string
+		err := tx.QueryRow(ctx, `SELECT i.de_id, p.organizador_id, p.total, p.genero, p.cobro, p.cancelado_en IS NOT NULL,
+				p.empieza_en, p.edad_min, p.edad_max, `+planes.OrganizaActivo+`,
+				u.selfie_en IS NOT NULL, u.edad,
+				EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $2 AND b.bloqueado_id IN (i.de_id, p.organizador_id))
+					OR (b.bloqueado_id = $2 AND b.usuario_id IN (i.de_id, p.organizador_id))),
+				(SELECT s.estado FROM solicitudes s WHERE s.plan_id = p.id AND s.usuario_id = $2)
+			FROM invitaciones i JOIN planes p ON p.id = i.plan_id JOIN usuarios u ON u.id = i.a_id
+			WHERE i.plan_id::text = $1 AND i.a_id = $2 AND i.estado = 'pendiente' FOR UPDATE OF p`, planID, usuarioID).
+			Scan(&de, &org, &total, &genero, &cobro, &cancelado, &empieza, &edadMin, &edadMax, &activo, &selfie, &edad, &bloqueo, &previo)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrResponder
 		}
@@ -409,16 +425,30 @@ func (s *Servicio) ResponderInvitacion(ctx context.Context, usuarioID, planID st
 		estado := "descartada"
 		if aceptar {
 			estado = "aceptada"
-			// Un plan "Solo mujeres" o "Solo diversidades" pide lo mismo que al sumarse.
-			if err := planes.ChequearGenero(genero, conf); err != nil {
+			switch {
+			case cancelado:
+				return problema.Conflicto("cancelado", "Este plan se canceló.")
+			case !empieza.After(s.ahora()):
+				return problema.Conflicto("paso", "Este plan ya arrancó.")
+			case bloqueo || !activo:
+				return ErrResponder
+			}
+			// Lo mismo que al sumarse: selfie, rango de edad y el género que confirma (el DNI lo pidió
+			// la sesión). Aunque invite el organizador.
+			if err := planes.Admitir(selfie, edad, edadMin, edadMax, genero, conf); err != nil {
 				return err
 			}
 		}
 		if _, err := tx.Exec(ctx, `UPDATE invitaciones SET estado = $3 WHERE plan_id::text = $1 AND a_id = $2`, planID, usuarioID, estado); err != nil {
 			return err
 		}
-		if !aceptar || de != org {
+		// Entra directo sólo si la invitó el organizador, a un plan gratis sin lugar (los de entrada se
+		// compran) y si no la habían sacado antes.
+		if !aceptar || de != org || cobro != "gratis" {
 			return nil
+		}
+		if previo != nil && *previo == "rechazada" {
+			return problema.Conflicto("rechazada", "Esta vez el organizador no te sumó.")
 		}
 		var sumados int
 		if err := tx.QueryRow(ctx, `SELECT coalesce(sum(cantidad), 0) FROM solicitudes WHERE plan_id::text = $1 AND estado = 'aceptada'`, planID).Scan(&sumados); err != nil {

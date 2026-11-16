@@ -41,7 +41,7 @@ func Rutas(mux *http.ServeMux, s *Servicio, t *Tiendas, ses *sesion.Resolvedor, 
 		if !respuesta.Leer(w, r, &in) {
 			return nil
 		}
-		e, err := s.Apple(r.Context(), t, p.ID, in.JWS)
+		e, err := s.Apple(r.Context(), t, p.ID, p.Equipo, in.JWS)
 		if err == nil {
 			respuesta.JSON(w, http.StatusOK, e)
 		}

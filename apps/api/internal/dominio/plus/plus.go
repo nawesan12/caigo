@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
 
 // LimiteDiario de sumadas sin Plus.
@@ -113,6 +114,14 @@ func Leer(ctx context.Context, tx pgx.Tx, usuarioID string, ahora time.Time) (Es
 	return e, err
 }
 
+// Bloquear toma el candado de Plus de la persona hasta el final de tx: lo que lee y gasta los topes
+// (sumadas, «me encanta», destacar) va de a uno, así dos pedidos a la vez no pasan los dos con el
+// último del día.
+func Bloquear(ctx context.Context, tx pgx.Tx, usuarioID string) error {
+	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, "plus:"+usuarioID)
+	return err
+}
+
 // Servicio de Plus.
 type Servicio struct {
 	App   *db.Pool
@@ -137,17 +146,24 @@ func (s *Servicio) Ver(ctx context.Context, usuarioID string) (Estado, error) {
 	return e, err
 }
 
-// Guardar registra (o actualiza) una suscripción de una tienda. Corre como sistema: el
-// externo puede haber quedado de otra cuenta (la misma compra restaurada en otro usuario).
+// ErrOtraCuenta: la compra ya está registrada a nombre de otra persona de Caigo.
+var ErrOtraCuenta = problema.Conflicto("otra_cuenta", "Esta compra es de otra cuenta de Caigo.")
+
+// Guardar registra (o actualiza) una suscripción de una tienda. Corre como sistema: el externo puede
+// ser de otra cuenta (la misma compra restaurada en otro usuario). Una compra no pasa de cuenta: si ya
+// es de otra persona, no se toca y vuelve ErrOtraCuenta.
 func (s *Servicio) Guardar(ctx context.Context, usuarioID, origen, externo, plan, estado string, vence time.Time, renueva bool) error {
 	return s.App.EnSistema(ctx, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `
+		tag, err := tx.Exec(ctx, `
 			INSERT INTO suscripciones (usuario_id, origen, externo, plan, estado, vence_en, renueva)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
-			ON CONFLICT (origen, externo) DO UPDATE SET usuario_id = coalesce(excluded.usuario_id, suscripciones.usuario_id),
-				plan = excluded.plan, estado = excluded.estado, vence_en = excluded.vence_en,
-				renueva = excluded.renueva, actualizada_en = now()`,
+			ON CONFLICT (origen, externo) DO UPDATE SET plan = excluded.plan, estado = excluded.estado,
+				vence_en = excluded.vence_en, renueva = excluded.renueva, actualizada_en = now()
+			WHERE suscripciones.usuario_id = excluded.usuario_id`,
 			usuarioID, origen, externo, plan, estado, nulo(vence), renueva)
+		if err == nil && tag.RowsAffected() == 0 {
+			return ErrOtraCuenta
+		}
 		return err
 	})
 }
