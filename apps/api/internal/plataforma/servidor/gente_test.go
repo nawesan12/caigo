@@ -18,9 +18,11 @@ import (
 
 // perfilCompleto deja a la persona lista para aparecer en el mazo.
 func (e *entorno) perfilCompleto(p persona, ciudad string, intenciones ...string) {
-	e.verificar(p, false)
+	e.verificar(p, true)
+	var foto struct{ URL string }
+	e.pedir(p, "POST", "/v1/archivos?tipo=foto", jpeg, http.StatusCreated, &foto)
 	e.pedir(p, "PATCH", "/v1/yo", map[string]any{"ciudad": ciudad, "intenciones": intenciones,
-		"intereses": []string{"Truco", "Pádel"}, "fotos": []string{"https://api.caigo.test/v1/archivos/x"}}, http.StatusOK, nil)
+		"intereses": []string{"Truco", "Pádel"}, "fotos": []string{foto.URL}}, http.StatusOK, nil)
 }
 
 func ciudadUnica() string { return fmt.Sprintf("Ciudad %d", time.Now().UnixNano()) }

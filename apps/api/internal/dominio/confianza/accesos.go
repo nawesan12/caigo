@@ -38,13 +38,13 @@ func (s *Servicio) VerPrivado(ctx context.Context, a ArchivoGuardado, quien sesi
 	if quien.ID == a.Dueno {
 		return b, nil
 	}
-	// El equipo ve las fotos del DNI sólo mientras la verificación está pendiente (al resolverla se
+	// El equipo ve las fotos del DNI sólo mientras la verificación espera su revisión (al revisarla se
 	// borran; esto cubre el rato hasta que el worker las saca del disco).
 	if a.Tipo == "dni" {
 		var pendiente bool
 		if err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
-			return tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM verificaciones_dni v WHERE v.estado = 'pendiente'
-				AND $1::uuid IN (v.frente_id, v.dorso_id, v.selfie_id))`, a.ID).Scan(&pendiente)
+			return tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM verificaciones_dni v WHERE (v.estado = 'pendiente'
+				OR (v.estado = 'aprobada' AND v.revisada_en IS NULL)) AND $1::uuid IN (v.frente_id, v.dorso_id, v.selfie_id))`, a.ID).Scan(&pendiente)
 		}); err != nil {
 			return nil, err
 		}

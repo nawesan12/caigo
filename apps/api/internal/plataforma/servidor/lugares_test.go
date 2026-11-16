@@ -321,7 +321,7 @@ func TestLugarDePuntaAPunta(t *testing.T) {
 
 	// En un plan con seña también se puede pagar todo: $8.000 + $600, sin saldo en el lugar.
 	fede := e.persona("Fede")
-	e.verificar(fede, false)
+	e.verificar(fede, true)
 	e.pedir(fede, "POST", "/v1/planes/"+creado.ID+"/entradas", map[string]any{"cantidad": 1, "modo": "cualquiera"}, http.StatusBadRequest, nil)
 	e.pedir(fede, "POST", "/v1/planes/"+creado.ID+"/entradas", map[string]any{"cantidad": 1, "modo": "entrada"}, http.StatusOK, &c)
 	if c.TotalCentavos != 860000 || c.CargoCentavos != 60000 || c.SaldoCentavos != 0 || mp.total != 8600 || mp.fee != 600 {

@@ -15,7 +15,7 @@ import (
 func TestEntradasConPreferenciaSiguen(t *testing.T) {
 	e, mp, ls, duena, lugarID := lugarConMP(t)
 	martina := e.persona("Martina")
-	e.verificar(martina, false)
+	e.verificar(martina, true)
 	var p struct{ ID string }
 	e.pedir(duena, "POST", "/v1/lugares/"+lugarID+"/planes", map[string]any{"titulo": "Noche de preferencias", "categoria": "musica",
 		"empiezaEn": time.Now().Add(48 * time.Hour), "cupo": 20, "cobro": "entrada", "precioCentavos": 800000,
@@ -57,7 +57,7 @@ func TestEntradasConPreferenciaSiguen(t *testing.T) {
 func TestAvisoDeOtraOrden(t *testing.T) {
 	e, mp, ls, duena, lugarID := lugarConMP(t)
 	ana := e.persona("Ana")
-	e.verificar(ana, false)
+	e.verificar(ana, true)
 	var p struct{ ID string }
 	e.pedir(duena, "POST", "/v1/lugares/"+lugarID+"/planes", map[string]any{"titulo": "Noche de órdenes", "categoria": "musica",
 		"empiezaEn": time.Now().Add(48 * time.Hour), "cupo": 20, "cobro": "entrada", "precioCentavos": 800000,

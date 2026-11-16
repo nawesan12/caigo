@@ -17,19 +17,23 @@ import (
 )
 
 // Las fotos de la verificación del DNI (frente, dorso y la selfie que se sacó para el DNI) sólo
-// sirven mientras el equipo la revisa. Apenas queda resuelta (aprobada o rechazada) se borran: de la
-// base en la misma transacción que la resuelve y del disco con el evento archivo.borrar del worker.
-// Queda sólo el resultado, la fecha de nacimiento (ya en el perfil) y la huella del número para los
-// vetados. Lo dice la política de privacidad.
+// sirven para que el equipo la revise. El DNI se aprueba al subirlo; apenas el equipo lo revisa (ok o
+// suspender) las fotos se borran: de la base en la misma transacción y del disco con el evento
+// archivo.borrar del worker. Si nadie la revisa, el worker las borra a los 30 días de subidas
+// (sueltas). Queda sólo el resultado, la fecha de nacimiento (ya en el perfil) y la huella del
+// número para los vetados. Lo dice la política de privacidad.
 
-// soltarFotosDNI suelta las fotos de las verificaciones resueltas: saca las referencias, borra las
-// filas de archivos (las que no use una verificación pendiente) y encola su borrado del disco. Con id,
-// sólo esa verificación; vacío, todas (el worker). tx como sistema. Idempotente.
+// sueltas: las verificaciones cuyas fotos ya no hacen falta: revisadas (o resueltas antes de que se
+// aprobaran solas), o sin revisar desde hace más de 30 días. $1: una verificación o todas ('').
+const sueltas = `($1 = '' OR id::text = $1) AND estado <> 'pendiente'
+	AND (revisada_en IS NOT NULL OR creada_en < now() - interval '30 days')
+	AND (frente_id IS NOT NULL OR dorso_id IS NOT NULL OR selfie_id IS NOT NULL)`
+
+// soltarFotosDNI suelta las fotos de las verificaciones que ya no las necesitan (sueltas): saca las
+// referencias, borra las filas de archivos (las que no use otra verificación) y encola su borrado del
+// disco. Con id, sólo esa verificación; vacío, todas (el worker). tx como sistema. Idempotente.
 func soltarFotosDNI(ctx context.Context, tx pgx.Tx, id string) (int, error) {
-	rows, err := tx.Query(ctx, `SELECT frente_id, dorso_id, selfie_id FROM verificaciones_dni
-		WHERE estado <> 'pendiente' AND ($1 = '' OR id::text = $1)
-			AND (frente_id IS NOT NULL OR dorso_id IS NOT NULL OR selfie_id IS NOT NULL)
-		FOR UPDATE`, id)
+	rows, err := tx.Query(ctx, `SELECT frente_id, dorso_id, selfie_id FROM verificaciones_dni WHERE `+sueltas+` FOR UPDATE`, id)
 	if err != nil {
 		return 0, err
 	}
@@ -53,9 +57,7 @@ func soltarFotosDNI(ctx context.Context, tx pgx.Tx, id string) (int, error) {
 	if len(ids) == 0 {
 		return 0, nil
 	}
-	if _, err := tx.Exec(ctx, `UPDATE verificaciones_dni SET frente_id = NULL, dorso_id = NULL, selfie_id = NULL
-		WHERE estado <> 'pendiente' AND ($1 = '' OR id::text = $1)
-			AND (frente_id IS NOT NULL OR dorso_id IS NOT NULL OR selfie_id IS NOT NULL)`, id); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE verificaciones_dni SET frente_id = NULL, dorso_id = NULL, selfie_id = NULL WHERE `+sueltas, id); err != nil {
 		return 0, err
 	}
 	return borrarArchivos(ctx, tx, `DELETE FROM archivos a WHERE a.id::text = ANY ($1) AND NOT EXISTS (
@@ -88,7 +90,8 @@ var carpetasVerificacion = []string{"dni", "selfie"}
 
 // InformeFotosDNI es lo que hizo PurgarFotosDNI.
 type InformeFotosDNI struct {
-	// Resueltas: fotos de verificaciones ya resueltas que todavía estaban (borradas de la base).
+	// Resueltas: fotos de verificaciones revisadas (o sin revisar hace más de 30 días) que todavía
+	// estaban (borradas de la base).
 	Resueltas int
 	// Sueltas: fotos del DNI subidas hace más de un día que no son de ninguna verificación pendiente.
 	Sueltas int
@@ -96,8 +99,9 @@ type InformeFotosDNI struct {
 	Disco int
 }
 
-// PurgarFotosDNI (el worker, cada hora) borra lo que quedó de las verificaciones resueltas: las fotos
-// todavía referenciadas (las de antes de este cambio o un corte a mitad de camino), las fotos del
+// PurgarFotosDNI (el worker, cada hora) borra lo que quedó de las verificaciones revisadas: las fotos
+// todavía referenciadas (las de antes de este cambio o un corte a mitad de camino), las de los DNI que
+// nadie revisó en 30 días, las fotos del
 // DNI sueltas (una subida que nunca llegó a verificación) y los archivos de dni/ y selfie/ que no
 // tienen fila en la base. Idempotente: otra vuelta no encuentra nada. Sin la carpeta montada no
 // toca el disco (lo de la base sí: el evento espera a que el worker la vea).

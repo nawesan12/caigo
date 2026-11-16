@@ -129,6 +129,41 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | PATCH | `/v1/yo` | sesión | dominio/personas |
 | PUT | `/v1/yo/ubicacion` | sesión | dominio/personas |
 
+## Sin DNI no se usa Caigo (16/11, decisión de Nahuel)
+
+**El DNI se aprueba al subirlo.** `POST /v1/verificacion/dni` (mismo cuerpo: `frenteId`, `dorsoId`, `selfieId`,
+`numero`, `nacimiento`) responde 204 y la verificación queda `aprobada` en el momento: `dni_en`, `verificada: true`
+y la edad del DNI (por año, mes y día). Antes pide teléfono y selfie verificados: 422 `falta_telefono` |
+`falta_selfie`. Otros errores: 422 `menor` (menos de 18), 422 `dni_vetado`, 409 `dni_repetido` (ese número ya está
+aprobado en otra cuenta), 409 `ya_verificado` (ya tenía el DNI aprobado), 400 si no se leyó el número o la fecha.
+`GET /v1/verificacion` da `dni: "aprobada"` enseguida.
+
+**Revisión del equipo, después.** `GET /v1/equipo/dni` → `{pendientes: [...]}` (misma forma) ahora son los DNI
+**aprobados sin revisar**, el más viejo primero; `frenteId`/`dorsoId`/`selfieId` vienen vacíos si pasaron 30 días
+sin revisión (las fotos ya se purgaron). `POST /v1/equipo/dni/{id}`: `{"accion":"ok"}` (queda revisada) o
+`{"accion":"suspender","motivo":"…"}` (queda revisada, la verificación pasa a `rechazada` con el motivo, el perfil
+deja de estar verificado y la cuenta se suspende como con `POST /v1/equipo/usuarios/{id}/suspender`: mail y DNI
+vetados). Sigue andando `{"aprobar": true|false, "motivo"}` (true = ok, false = suspender). Ya revisada: 404.
+Migración 00024: índice de la cola; las verificaciones `pendiente` pasan a `aprobada` sin revisar con la edad del
+DNI (salvo que el número ya esté aprobado en otra cuenta o la fecha dé menos de 18: quedan pendientes y no se
+listan; resolverlas a mano).
+
+**Fotos del DNI y selfie del DNI:** se borran cuando el equipo la revisa (ok o suspender). Si nadie la revisa, el
+worker las borra a los 30 días de subidas (`confianza.PurgarFotosDNI`). El equipo las ve mientras no la revisó.
+
+**El candado (`falta_dni`).** Toda ruta con sesión de una persona sin DNI aprobado responde **403** problem+json
+`{"code":"falta_dni","title":"Falta tu DNI","detail":"Antes de usar Caigo, verificá tu DNI."}` (las apps llevan a
+la verificación). Quedan afuera (`sesion.Exenta`): `GET/PATCH/DELETE /v1/yo`, `DELETE /v1/cuenta`,
+`/v1/verificacion` y subrutas, `POST /v1/archivos`, `GET /v1/archivos/{id}`, `POST/DELETE /v1/sesion`,
+`PUT /v1/dispositivos`, `DELETE /v1/dispositivos/{token}`, todo `/v1/lugares/**` y `POST /v1/mercadopago/vuelta`
+(panel de lugares), `/v1/equipo/**`, webhooks, el web service de Wallet y `/v1/publico/**`. El WebSocket
+`/v1/tiempo-real` también responde 403 `falta_dni`. Todo lo demás (planes, chat, privados, gente, mazo,
+invitaciones, personas, bloqueos, reportes, entradas, pases, tap, Plus, `PUT /v1/yo/ubicacion`) lo pide.
+Con esto, `soloVerificados` de un plan ya no filtra a nadie (todos tienen DNI): se sigue aceptando y devolviendo.
+
+**`PATCH /v1/yo` con `nacimiento`:** con el DNI aprobado se ignora (la edad sale del DNI). Sin DNI: una fecha que da
+más de 120 años → 422 `nacimiento` (antes, 500).
+
 ## Entradas con la API de Orders de Mercado Pago (7/11)
 - `POST /v1/planes/{id}/entradas` responde igual que antes (`{entradaId, link, totalCentavos, cargoCentavos,
   saldoCentavos}`); `link` ahora es el `checkout_url` de una orden de Checkout Pro (`POST /v1/orders`, `type
@@ -220,6 +255,7 @@ la huella del número (`vetados.Huella`, migración 00023 en Go: `db/huellas_dni
 `nombres`, `tramite` y `sexo`, de las versiones viejas, se aceptan y se descartan. Las fotos de la
 verificación (frente, dorso y selfie) se borran al resolverla (aprobada o rechazada); el equipo las ve
 sólo mientras está pendiente, y el worker purga cada hora lo que quede (`confianza.PurgarFotosDNI`).
+**Cambió el 16/11:** ver «Sin DNI no se usa Caigo» (el DNI se aprueba al subirlo; las fotos se borran al revisarlo).
 
 **Editar y cancelar.** `PATCH /v1/planes/{id}`: el cuerpo de `POST /v1/planes` (parcial) + `total`;
 `categoria`, `ciudad`, `recurrente`, `somos` y `faltan` se ignoran. Errores: 404 (no es tuyo), 409

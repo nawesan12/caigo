@@ -158,14 +158,23 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		return err
 	}))
 	mux.Handle("POST /v1/equipo/dni/{id}", h(equipo, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		// {"accion":"ok"} | {"accion":"suspender","motivo":…}. El de antes, {"aprobar":bool}, sigue:
+		// true es ok y false es suspender.
 		var in struct {
-			Aprobar bool   `json:"aprobar"`
+			Accion  string `json:"accion"`
+			Aprobar *bool  `json:"aprobar"`
 			Motivo  string `json:"motivo"`
 		}
 		if !respuesta.Leer(w, r, &in) {
 			return nil
 		}
-		if err := s.RevisarDNI(r.Context(), p.ID, r.PathValue("id"), in.Aprobar, in.Motivo); err != nil {
+		if in.Accion == "" && in.Aprobar != nil {
+			in.Accion = RevisionSuspender
+			if *in.Aprobar {
+				in.Accion = RevisionOK
+			}
+		}
+		if err := s.RevisarDNI(r.Context(), p.ID, r.PathValue("id"), in.Accion, in.Motivo); err != nil {
 			return err
 		}
 		return listo(w)

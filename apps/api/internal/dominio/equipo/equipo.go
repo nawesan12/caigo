@@ -92,26 +92,37 @@ func (s *Servicio) Suspender(ctx context.Context, usuarioID string, suspender bo
 		return problema.Invalido("El motivo puede tener hasta 300 letras.")
 	}
 	return s.App.EnSistema(ctx, func(tx pgx.Tx) error {
-		q := `UPDATE usuarios SET suspendido_en = now(), suspension_motivo = $2 WHERE id::text = $1 AND purgada_en IS NULL AND NOT equipo
-			RETURNING id::text`
-		if !suspender {
-			q = `UPDATE usuarios SET suspendido_en = NULL, suspension_motivo = left($2, 0) WHERE id::text = $1 AND purgada_en IS NULL
-				RETURNING id::text`
+		if suspender {
+			return SuspenderTx(ctx, tx, s.Vetados, usuarioID, motivo)
 		}
 		var id string
-		err := tx.QueryRow(ctx, q, usuarioID, motivo).Scan(&id)
+		err := tx.QueryRow(ctx, `UPDATE usuarios SET suspendido_en = NULL, suspension_motivo = '' WHERE id::text = $1
+			AND purgada_en IS NULL RETURNING id::text`, usuarioID).Scan(&id)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("Esa persona no existe (o es del equipo).")
 		}
 		if err != nil {
 			return err
 		}
-		if !suspender {
-			return vetados.Quitar(ctx, tx, id)
-		}
-		_, err = s.Vetados.Anotar(ctx, tx, id)
-		return err
+		return vetados.Quitar(ctx, tx, id)
 	})
+}
+
+// SuspenderTx suspende a la persona en tx (como sistema) y anota en la lista de vetados las huellas
+// de su mail y de los DNI que tiene aprobados. Lo usan el backoffice y la revisión del DNI. Quien es
+// del equipo o ya se purgó no se suspende (404).
+func SuspenderTx(ctx context.Context, tx pgx.Tx, veto *vetados.Clave, usuarioID, motivo string) error {
+	var id string
+	err := tx.QueryRow(ctx, `UPDATE usuarios SET suspendido_en = now(), suspension_motivo = $2 WHERE id::text = $1
+		AND purgada_en IS NULL AND NOT equipo RETURNING id::text`, usuarioID, motivo).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return problema.NoEncontrado("Esa persona no existe (o es del equipo).")
+	}
+	if err != nil {
+		return err
+	}
+	_, err = veto.Anotar(ctx, tx, id)
+	return err
 }
 
 // Plan en el backoffice.

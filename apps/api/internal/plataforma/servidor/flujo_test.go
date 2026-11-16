@@ -102,6 +102,25 @@ type persona struct {
 }
 
 func (e *entorno) persona(nombre string) persona {
+	p := e.personaSinDNI(nombre)
+	// Sin el DNI aprobado sólo se puede usar el perfil y la verificación (sesion.Exenta).
+	e.sistemaSinT(`UPDATE usuarios SET dni_en = now() WHERE id = $1`, p.id)
+	return p
+}
+
+// sistemaSinT corre q como sistema (para los ayudantes que todavía no tienen la persona armada).
+func (e *entorno) sistemaSinT(q string, args ...any) {
+	e.t.Helper()
+	if err := e.app.EnSistema(context.Background(), func(tx pgx.Tx) error {
+		_, err := tx.Exec(context.Background(), q, args...)
+		return err
+	}); err != nil {
+		e.t.Fatal(err)
+	}
+}
+
+// personaSinDNI da de alta a alguien que todavía no verificó su DNI.
+func (e *entorno) personaSinDNI(nombre string) persona {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	sub := "user_" + hex.EncodeToString(b)
@@ -122,7 +141,8 @@ func (e *entorno) persona(nombre string) persona {
 	return p
 }
 
-// verificar marca selfie y DNI (lo que en producción hace el flujo de verificación).
+// verificar marca la selfie y la edad (lo que en producción hace el flujo de verificación). El DNI
+// ya lo tiene cualquiera que use Caigo (e.persona); dni=false se lo saca.
 func (e *entorno) verificar(p persona, dni bool) {
 	err := e.app.EnSistema(context.Background(), func(tx pgx.Tx) error {
 		_, err := tx.Exec(context.Background(), `UPDATE usuarios SET selfie_en = now(), dni_en = CASE WHEN $2 THEN now() END, edad = 26 WHERE id = $1`, p.id, dni)
@@ -207,9 +227,11 @@ func TestElCicloDelPlan(t *testing.T) {
 
 	// Lu no verificó la selfie: no se puede sumar.
 	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusUnprocessableEntity, nil)
-	// Con selfie pero sin DNI, tampoco (el plan es sólo para verificados).
+	// Sin DNI no llega ni a pedirlo: Caigo entero pide el DNI aprobado (falta_dni).
 	e.verificar(lu, false)
-	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusUnprocessableEntity, nil)
+	if c := codigo(t, e, lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusForbidden); c != "falta_dni" {
+		t.Fatalf("sin DNI: %s", c)
+	}
 	e.verificar(lu, true)
 
 	// Lu ve el plan pero no la dirección exacta.

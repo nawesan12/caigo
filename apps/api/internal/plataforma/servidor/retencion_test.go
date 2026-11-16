@@ -48,6 +48,10 @@ func (e *entorno) tokenDe(sub string) string {
 // pedirDNI sube frente, dorso y selfie y manda el DNI con ese número.
 func (e *entorno) pedirDNI(p persona, numero string, estado int) string {
 	e.t.Helper()
+	// Antes del DNI, el teléfono y la selfie (lo que hace la app en ese orden).
+	e.sistemaSinT(`UPDATE usuarios SET selfie_en = coalesce(selfie_en, now()) WHERE id = $1`, p.id)
+	e.sistemaSinT(`INSERT INTO usuarios_privado (usuario_id, telefono, telefono_verificado_en) VALUES ($1, '+5492235550000', now())
+		ON CONFLICT (usuario_id) DO UPDATE SET telefono_verificado_en = now()`, p.id)
 	var frente, dorso, selfie struct{ ID string }
 	e.pedir(p, "POST", "/v1/archivos?tipo=dni", jpeg, http.StatusCreated, &frente)
 	e.pedir(p, "POST", "/v1/archivos?tipo=dni", jpeg, http.StatusCreated, &dorso)
@@ -62,7 +66,7 @@ func (e *entorno) pedirDNI(p persona, numero string, estado int) string {
 	return pr.Code
 }
 
-// aprobarDNI: el equipo aprueba el DNI pendiente de p.
+// aprobarDNI: el equipo revisa (ok) el DNI de p, que ya quedó aprobado al subirlo.
 func (e *entorno) aprobarDNI(equipo, p persona) {
 	e.t.Helper()
 	var cola struct {
@@ -71,7 +75,7 @@ func (e *entorno) aprobarDNI(equipo, p persona) {
 	e.pedir(equipo, "GET", "/v1/equipo/dni", nil, http.StatusOK, &cola)
 	for _, x := range cola.Pendientes {
 		if x.UsuarioID == p.id {
-			e.pedir(equipo, "POST", "/v1/equipo/dni/"+x.ID, map[string]any{"aprobar": true}, http.StatusNoContent, nil)
+			e.pedir(equipo, "POST", "/v1/equipo/dni/"+x.ID, map[string]any{"accion": "ok"}, http.StatusNoContent, nil)
 			return
 		}
 	}

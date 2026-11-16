@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -116,4 +117,11 @@ func (p *Pool) escuchar(ctx context.Context, canal string, fn func(payload strin
 		}
 		fn(n.Payload)
 	}
+}
+
+// EsUnico dice si err es una violación de un índice único (23505): dos pedidos a la vez que
+// quieren lo mismo, o un dato que ya es de otra fila.
+func EsUnico(err error) bool {
+	var pe *pgconn.PgError
+	return errors.As(err, &pe) && pe.Code == "23505"
 }

@@ -7,10 +7,13 @@ import (
 	"io/fs"
 	"os"
 	"regexp"
+	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
 
 // Las fotos públicas (perfil, planes y lugares) se guardan como archivos y se usan por su URL
@@ -55,6 +58,53 @@ func SoltarFotos(ctx context.Context, tx pgx.Tx, urls ...string) error {
 		return err
 	}
 	return borrarDespues(ctx, tx, rutas)
+}
+
+// ExigirPropias revisa que cada URL nueva (las que no estaban en antes) sea una foto subida a
+// /v1/archivos de la API (base: su URL pública; vacía, cualquier host) por alguien de duenos. Así un
+// perfil, un plan o un lugar no muestran fotos de afuera ni una foto que subió otra persona. campo
+// es el nombre del campo para el error. Con RLS, en la transacción de una persona sólo ve las suyas:
+// para las de otros (los miembros de un lugar) va como sistema.
+func ExigirPropias(ctx context.Context, tx pgx.Tx, base, campo string, duenos, antes []string, urls ...string) error {
+	prefijo := ""
+	if base != "" {
+		prefijo = strings.TrimRight(base, "/") + "/v1/archivos/"
+	}
+	mal := problema.Invalido("Subí la foto desde Caigo.", problema.Campo{Ruta: campo, Mensaje: "Subí la foto desde Caigo."})
+	var ids []string
+	for _, u := range urls {
+		u = strings.TrimSpace(u)
+		if u == "" || slices.Contains(antes, u) {
+			continue
+		}
+		m := reIDFoto.FindStringSubmatch(u)
+		if m == nil || (prefijo != "" && u != prefijo+m[1]) {
+			return mal
+		}
+		ids = append(ids, m[1])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	var n int
+	if err := tx.QueryRow(ctx, `SELECT count(DISTINCT id) FROM archivos WHERE id::text = ANY ($1) AND tipo = 'foto'
+		AND usuario_id::text = ANY ($2)`, ids, duenos).Scan(&n); err != nil {
+		return err
+	}
+	if n != len(unicos(ids)) {
+		return mal
+	}
+	return nil
+}
+
+func unicos(xs []string) []string {
+	out := []string{}
+	for _, x := range xs {
+		if !slices.Contains(out, x) {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 // BarrerFotos borra las fotos sueltas con más de un día (el margen para que una subida llegue a

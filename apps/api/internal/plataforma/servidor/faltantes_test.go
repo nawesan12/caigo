@@ -74,8 +74,8 @@ func codigo(t *testing.T, e *entorno, p persona, metodo, ruta string, cuerpo any
 func TestGeneroEnLosPlanes(t *testing.T) {
 	e := nuevoEntorno(t)
 	org, ana, beto := e.persona("Org"), e.persona("Ana"), e.persona("Beto")
-	e.verificar(ana, false)
-	e.verificar(beto, false)
+	e.verificar(ana, true)
+	e.verificar(beto, true)
 	mujeres := e.planNuevo(org, map[string]any{"genero": "mujeres"})
 	diversas := e.planNuevo(org, map[string]any{"genero": "diversidades"})
 
@@ -119,8 +119,8 @@ func TestGeneroEnLosPlanes(t *testing.T) {
 func TestEditarYSacarGente(t *testing.T) {
 	e := nuevoEntorno(t)
 	org, lu, fede := e.persona("Org"), e.persona("Lu"), e.persona("Fede")
-	e.verificar(lu, false)
-	e.verificar(fede, false)
+	e.verificar(lu, true)
+	e.verificar(fede, true)
 	p := e.planNuevo(org, map[string]any{"direccion": "Güemes 2850"})
 	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
 
@@ -208,7 +208,7 @@ func lugarConMP(t *testing.T) (e *entorno, mp *mpFalso, ls *lugares.Servicio, du
 func TestReembolsosYCancelaciones(t *testing.T) {
 	e, mp, ls, duena, lugarID := lugarConMP(t)
 	martina := e.persona("Martina")
-	e.verificar(martina, false)
+	e.verificar(martina, true)
 	crear := func(politica string, en time.Duration) string {
 		var c struct{ ID string }
 		e.pedir(duena, "POST", "/v1/lugares/"+lugarID+"/planes", map[string]any{"titulo": "Noche " + politica, "categoria": "musica",
@@ -329,8 +329,8 @@ func TestReembolsosYCancelaciones(t *testing.T) {
 func TestCheckinEnElLugar(t *testing.T) {
 	e, _, _, duena, lugarID := lugarConMP(t)
 	ana, beto := e.persona("Ana"), e.persona("Beto")
-	e.verificar(ana, false)
-	e.verificar(beto, false)
+	e.verificar(ana, true)
+	e.verificar(beto, true)
 	var c struct{ ID string }
 	e.pedir(duena, "POST", "/v1/lugares/"+lugarID+"/planes", map[string]any{"titulo": "Taller gratis", "categoria": "taller",
 		"empiezaEn": time.Now().Add(time.Hour), "cupo": 10, "cobro": "gratis", "beneficio": "Un café"}, http.StatusCreated, &c)
@@ -594,7 +594,7 @@ func TestRecurrencia(t *testing.T) {
 func TestAvisosProgramados(t *testing.T) {
 	e := nuevoEntorno(t)
 	org, lu := e.persona("Org"), e.persona("Lu")
-	e.verificar(lu, false)
+	e.verificar(lu, true)
 	inicio := time.Now()
 	p := e.planNuevo(org, map[string]any{"empiezaEn": inicio.Add(3 * time.Hour), "duracionMin": 120})
 	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
