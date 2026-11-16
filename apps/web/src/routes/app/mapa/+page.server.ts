@@ -11,7 +11,8 @@ export const load: PageServerLoad = async (event) => {
 	const categoria = FILTROS_AHORA.some((f) => f.valor === c) ? c : '';
 	const busqueda = (sp.get('q') ?? '').trim().slice(0, 60);
 	const q = busqueda.length >= 2 ? busqueda : '';
-	const qs = conUbicacion(event, { categoria, radio: '30', q });
+	const { yo } = await event.parent();
+	const qs = conUbicacion(event, { categoria, radio: '30', q }, yo?.ciudad);
 	let { planes } = await quizasConSesion<{ planes: Plan[] }>(
 		event,
 		`/v1/planes/ahora?${qs}`,
@@ -24,5 +25,5 @@ export const load: PageServerLoad = async (event) => {
 			n([p.titulo, p.zona, p.lugarNombre, p.lugar?.nombre ?? ''].join(' ')).includes(n(q))
 		);
 	}
-	return { planes, categoria, q: busqueda, centro: ubicacion(event) };
+	return { planes, categoria, q: busqueda, centro: ubicacion(event, yo?.ciudad) };
 };

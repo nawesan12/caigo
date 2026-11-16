@@ -1,11 +1,18 @@
 /**
  * Caigo desde la web (/app): textos y cuentas de las pantallas de Mockups v5.
  */
-import { partes, diasHasta } from './fechas.ts';
+import { diaLargo, partes, diasHasta } from './fechas.ts';
 import type { Plan } from './tipos.ts';
 
 /** Centro de Mar del Plata (sin permiso de ubicación). */
 export const CENTRO_MDP: [number, number] = [-38.0055, -57.5426];
+/** Centro de Villa Gesell. */
+export const CENTRO_GESELL: [number, number] = [-37.2636, -56.9733];
+
+/** El centro de la ciudad del perfil (sin ubicación real): Gesell o, si no, Mar del Plata. */
+export function centroDe(ciudad: string | null | undefined): [number, number] {
+	return ciudad === 'Villa Gesell' ? CENTRO_GESELL : CENTRO_MDP;
+}
 
 /** Cookie (no httpOnly: la pone el navegador) con la última ubicación: "lat,lng". */
 export const COOKIE_UBIC = 'caigo_ubic';
@@ -70,17 +77,25 @@ export function horario(empieza: string, durMin: number, ahora: Date = new Date(
 	const ini = partes(empieza);
 	const fin = partes(new Date(new Date(empieza).getTime() + durMin * 60000));
 	const n = diasHasta(empieza, ahora);
-	const dia =
-		n === 0
-			? 'Hoy'
-			: n === 1
-				? 'Mañana'
-				: `${['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][ini.semana]} ${ini.dia}`;
+	const dia = n === 0 ? 'Hoy' : n === 1 ? 'Mañana' : diaLargo(empieza, ahora);
 	return `${dia}, ${ini.hora} a ${fin.hora}`;
 }
 
-/** El chip coral de "Ahora" del detalle: "Ahora" si ya arrancó, "Ahora · en 2 h" si falta poco. */
-export function chipAhora(empieza: string, ahora: Date = new Date()): string | null {
+/** Si el plan ya terminó (empezó y pasó su duración; sin duración, una hora). */
+export function terminado(
+	p: { empiezaEn: string; duracionMin?: number },
+	ahora: Date = new Date()
+): boolean {
+	const fin = new Date(p.empiezaEn).getTime() + (p.duracionMin || 60) * 60000;
+	return fin <= ahora.getTime();
+}
+
+/**
+ * El chip coral de "Ahora" del detalle: "Ahora" si está pasando, "Ahora · en 2 h" si falta poco y
+ * "Ya pasó" si terminó.
+ */
+export function chipAhora(empieza: string, ahora: Date = new Date(), durMin = 60): string | null {
+	if (terminado({ empiezaEn: empieza, duracionMin: durMin }, ahora)) return 'Ya pasó';
 	const min = (new Date(empieza).getTime() - ahora.getTime()) / 60000;
 	if (min > 180) return null;
 	if (min <= 5) return 'Ahora';
@@ -91,7 +106,8 @@ export function chipAhora(empieza: string, ahora: Date = new Date()): string | n
 /** "Fue a 23 de 24 planes · 96% asistencia" o, sin historial, el texto de alguien nuevo. */
 export function reputacion(a: { fue: number; de: number } | undefined): string {
 	if (!a || a.de === 0) return 'Nuevo en Caigo · todavía sin planes';
-	return `Fue a ${a.fue} de ${a.de} planes · ${Math.round((a.fue / a.de) * 100)}% asistencia`;
+	const planes = a.de === 1 ? 'plan' : 'planes';
+	return `Fue a ${a.fue} de ${a.de} ${planes} · ${Math.round((a.fue / a.de) * 100)}% asistencia`;
 }
 
 /** Grupos de "Mis planes": HOY, ESTA SEMANA y MÁS ADELANTE (o PASADOS en historial). */

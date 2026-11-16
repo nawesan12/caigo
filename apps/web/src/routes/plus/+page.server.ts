@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { aIngresar, conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
+import { exigirVerificada } from '#lib/server/cuenta.ts';
 import type { EstadoPlus } from '#lib/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -12,6 +13,9 @@ type Recibidos = { personas: { id: string; foto?: string }[]; bloqueada: boolean
 
 export const load: PageServerLoad = async (event) => {
 	const vuelta = event.url.searchParams.get('vuelta') === '1';
+	// Plus es para cuentas verificadas (teléfono, selfie y DNI): si falta algo, a terminarlo. Si la
+	// sesión venció, sigue como anónimo.
+	await exigirVerificada(event, '/plus');
 	if (!event.locals.token) return { plus: null, vuelta, conSesion: false, teSumaron: [] };
 	try {
 		const [plus, recibidos] = await Promise.all([
@@ -33,6 +37,8 @@ export const actions: Actions = {
 		if (!['semana', 'mes', 'temporada'].includes(plan))
 			return fail(400, { error: 'Elegí un plan.', plan: 'mes' });
 		if (!event.locals.token) aIngresar(event, '/plus');
+		// No se paga sin la verificación completa (antes se podía desde la web).
+		await exigirVerificada(event, '/plus');
 		let link: string;
 		try {
 			link = (

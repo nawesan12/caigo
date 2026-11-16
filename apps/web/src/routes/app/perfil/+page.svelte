@@ -2,7 +2,6 @@
 	import Icono from '#lib/ui/Icono.svelte';
 	import Avatar from '#lib/app-ui/Avatar.svelte';
 	import Verificado from '#lib/app-ui/Verificado.svelte';
-	import BajateLaApp from '#lib/app-ui/BajateLaApp.svelte';
 	import { CATEGORIAS } from '#lib/plan.ts';
 	import type { YoCompleto } from '#lib/tipos.ts';
 
@@ -133,11 +132,6 @@
 		{/if}
 
 		<a class="gel gel-blanco editar" href="/app/perfil/editar">Editar perfil</a>
-
-		<BajateLaApp
-			titulo="Mi gente, Citas y Plus, en la&nbsp;app"
-			texto="Tu gente, el modo Citas, Caigo Plus, los pases de Wallet y el check-in con Caigo Tap están en la app."
-		/>
 	</div>
 </div>
 

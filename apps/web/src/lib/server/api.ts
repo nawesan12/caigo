@@ -1,6 +1,8 @@
 import { CAIGO_API } from '$app/env/private';
 import { redirect, type RequestEvent } from '@sveltejs/kit';
 import { volverSeguro } from '#lib/hosts.ts';
+import { planPublico } from './publico.ts';
+import type { Plan } from '#lib/tipos.ts';
 
 /**
  * Cliente de la API de Caigo (Go). Todas las llamadas salen del servidor de SvelteKit: el token de
@@ -118,6 +120,16 @@ export function exigirToken(event: RequestEvent): string {
 	return t;
 }
 
+/** Sin sesión, de cada plan (suelto o en `planes`) sólo el primer nombre y la foto de la gente. */
+function sinDatosPersonales<T>(r: T): T {
+	const esPlan = (x: unknown): x is Plan =>
+		!!x && typeof x === 'object' && 'organizador' in x && 'van' in x;
+	if (esPlan(r)) return planPublico(r) as T;
+	if (r && typeof r === 'object' && 'planes' in r && Array.isArray(r.planes))
+		return { ...r, planes: r.planes.map((p: unknown) => (esPlan(p) ? planPublico(p) : p)) };
+	return r;
+}
+
 /**
  * Para mirar sin cuenta: con sesión llama a `ruta`; sin sesión, a `publica` (la versión de
  * /v1/publico/..., que sólo muestra planes públicos). Lo que convierte es dejar ver antes de pedir
@@ -129,7 +141,7 @@ export async function quizasConSesion<T = unknown>(
 	publica: string
 ): Promise<T> {
 	if (event.locals.token) return conSesion<T>(event, 'GET', ruta);
-	return api<T>('GET', publica, { ip: ipDe(event) });
+	return sinDatosPersonales(await api<T>('GET', publica, { ip: ipDe(event) }));
 }
 
 /** Si el pedido es de una página (GET, datos o una form action) y no de un +server.ts. */

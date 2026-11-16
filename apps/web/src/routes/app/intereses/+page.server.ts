@@ -24,9 +24,11 @@ export const actions: Actions = {
 			.filter(Boolean)
 			.slice(0, 12);
 		if (!intenciones.length) return fail(400, { error: 'Elegí al menos una, después la cambiás.' });
+		// Como el perfil completo (personas.Faltantes): 3 o más.
+		if (intereses.length < 3) return fail(400, { error: 'Elegí al menos 3 cosas que te copen.' });
 		try {
 			await conSesion(event, 'PATCH', '/v1/yo', {
-				cuerpo: intereses.length ? { intenciones, intereses } : { intenciones }
+				cuerpo: { intenciones, intereses }
 			});
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;

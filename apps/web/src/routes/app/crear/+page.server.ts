@@ -4,7 +4,10 @@ import { ubicacion } from '#lib/server/app.ts';
 import type { Plan } from '#lib/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = (event) => ({ centro: ubicacion(event) });
+export const load: PageServerLoad = async (event) => {
+	const { yo } = await event.parent();
+	return { centro: ubicacion(event, yo?.ciudad) };
+};
 
 export const actions: Actions = {
 	default: async (event) => {

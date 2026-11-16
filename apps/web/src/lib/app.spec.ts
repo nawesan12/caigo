@@ -7,7 +7,8 @@ import {
 	horario,
 	leerUbicacion,
 	reputacion,
-	telefonoAR
+	telefonoAR,
+	terminado
 } from './app.ts';
 import type { Plan } from './tipos.ts';
 
@@ -34,10 +35,16 @@ describe('caigo desde la web', () => {
 		expect(chipAhora('2026-10-28T18:00:00Z', AHORA)).toBe('Ahora');
 		expect(chipAhora('2026-10-28T18:40:00Z', AHORA)).toBe('Ahora · en 40 min');
 		expect(chipAhora('2026-10-29T18:00:00Z', AHORA)).toBeNull();
+		expect(horario('2027-03-04T01:00:00Z', 60, AHORA)).toBe('Miércoles 3 de marzo, 22:00 a 23:00');
+		// Terminado: ya no es «Ahora».
+		expect(chipAhora('2026-10-28T15:00:00Z', AHORA, 120)).toBe('Ya pasó');
+		expect(chipAhora('2026-10-28T17:00:00Z', AHORA, 120)).toBe('Ahora');
+		expect(terminado({ empiezaEn: '2026-10-28T15:00:00Z', duracionMin: 120 }, AHORA)).toBe(true);
 	});
 	it('reputación', () => {
 		expect(reputacion({ fue: 23, de: 24 })).toBe('Fue a 23 de 24 planes · 96% asistencia');
 		expect(reputacion({ fue: 0, de: 0 })).toBe('Nuevo en Caigo · todavía sin planes');
+		expect(reputacion({ fue: 1, de: 1 })).toBe('Fue a 1 de 1 plan · 100% asistencia');
 	});
 	it('agrupa Mis planes', () => {
 		const p = (empiezaEn: string) => ({ empiezaEn }) as Plan;

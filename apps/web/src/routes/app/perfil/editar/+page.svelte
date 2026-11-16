@@ -98,6 +98,7 @@
 	<div class="contenido">
 		{#if completar}
 			<header class="completar">
+				<form method="POST" action="/salir" class="salir"><button>Salir</button></form>
 				<h1>Completá tu perfil</h1>
 				<p>
 					Así la gente sabe con quién sale. Es una sola vez: con esto ya podés sumarte a planes y
@@ -289,7 +290,22 @@
 </div>
 
 <style>
+	.completar {
+		position: relative;
+	}
+	.salir {
+		position: absolute;
+		top: 0;
+		right: 0;
+	}
+	.salir button {
+		padding: 6px 4px;
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--texto-2);
+	}
 	.completar h1 {
+		padding-right: 56px;
 		font-size: 28px;
 		font-weight: 800;
 		letter-spacing: -0.02em;

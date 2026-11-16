@@ -23,7 +23,7 @@ export const load: PageServerLoad = async (event) => {
 		new Date(plan.empiezaEn).getTime() <= Date.now()
 	)
 		redirect(303, `/app/plan/${id}`);
-	return { plan, centro: ubicacion(event) };
+	return { plan, centro: ubicacion(event, plan.ciudad) };
 };
 
 export const actions: Actions = {

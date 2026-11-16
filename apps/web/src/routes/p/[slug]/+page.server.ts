@@ -1,5 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { aIngresar, api, conSesion, ErrorApi, ipDe, mensajeDe } from '#lib/server/api.ts';
+import { sesionViva } from '#lib/server/cuenta.ts';
+import { planPublico } from '#lib/server/publico.ts';
 import type { Plan } from '#lib/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -18,11 +20,13 @@ export const load: PageServerLoad = async (event) => {
 	const plan = await publico(params.slug, ipDe(event));
 	const pago = url.searchParams.get('pago');
 	const pagoOk = pago === 'ok' || pago === 'pendiente' || pago === 'error' ? pago : null;
-	// Con sesión, el plan se ve en Caigo desde la web (con Sumarme, chat y todo lo demás).
-	if (locals.token) redirect(303, `/app/plan/${plan.id}${pagoOk ? `?pago=${pagoOk}` : ''}`);
+	// Con sesión, el plan se ve en Caigo desde la web (con Sumarme, chat y todo lo demás). Si la
+	// cookie venció, se borra y sigue como anónimo.
+	if (locals.token && (await sesionViva(event)))
+		redirect(303, `/app/plan/${plan.id}${pagoOk ? `?pago=${pagoOk}` : ''}`);
 	// Sin sesión es igual para todos: WhatsApp y compañía pueden cachearlo un rato.
 	setHeaders({ 'cache-control': 'public, max-age=60' });
-	return { plan, miEstado: '', conSesion: false, pago: pagoOk };
+	return { plan: planPublico(plan), miEstado: '', conSesion: false, pago: pagoOk };
 };
 
 export const actions: Actions = {
@@ -55,8 +59,8 @@ export const actions: Actions = {
 			return { estado: r.estado };
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
-			// Sin selfie: a verificarse y de vuelta al plan (en Caigo desde la web).
-			if (e.codigo === 'falta_selfie')
+			// Sin selfie o sin DNI: a verificarse y de vuelta al plan (en Caigo desde la web).
+			if (e.codigo === 'falta_selfie' || e.codigo === 'falta_dni')
 				redirect(303, `/app/verificar?volver=${encodeURIComponent(`/app/plan/${plan.id}`)}`);
 			// Plan sólo para mujeres o para diversidades (se confirma al sumarse y no se guarda): lo
 			// pregunta el detalle de /app.
