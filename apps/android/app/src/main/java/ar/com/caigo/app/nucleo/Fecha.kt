@@ -41,7 +41,7 @@ object Fecha {
     fun diasEntre(a: ZonedDateTime, b: ZonedDateTime): Int =
         ChronoUnit.DAYS.between(a.withZoneSameInstant(ZonaAR).toLocalDate(), b.withZoneSameInstant(ZonaAR).toLocalDate()).toInt()
 
-    /** "Hoy 20:30", "Mañana 21:00", "Sáb 10:00". */
+    /** "Hoy 20:30", "Mañana 21:00", "Sáb 10:00"; fuera de esta semana, con el día y el mes: "Mié 3/3 22:00". */
     fun cuando(iso: String, ahora: ZonedDateTime = ZonedDateTime.now(ZonaAR)): String {
         val t = parse(iso) ?: return ""
         return when (diasEntre(ahora, t)) {
