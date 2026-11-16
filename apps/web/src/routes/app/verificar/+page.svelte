@@ -228,9 +228,8 @@
 	});
 	/** El máximo del campo de fecha: hoy hace 18 años. */
 	const hace18 = (() => {
-		const d = new Date();
-		d.setFullYear(d.getFullYear() - 18);
-		return d.toISOString().slice(0, 10);
+		const hoy = new Date();
+		return `${hoy.getFullYear() - 18}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
 	})();
 	const listoDni = $derived(
 		!!fotos.frente.id && !!fotos.dorso.id && numero.replace(/\D/g, '').length >= 7 && !!nacimiento

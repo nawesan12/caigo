@@ -52,7 +52,12 @@ export function esDelPanel(rutaId: string | null | undefined): boolean {
  * hacían caer el servidor (500).
  */
 export function volverSeguro(v: string | null | undefined, porDefecto = '/'): string {
-	if (!v || v.length > 500 || !v.startsWith('/') || /[\u0000-\u0020\u007f\\]/.test(v))
+	if (
+		!v ||
+		v.length > 500 ||
+		!v.startsWith('/') ||
+		[...v].some((c) => c.charCodeAt(0) <= 0x20 || c.charCodeAt(0) === 0x7f || c === '\\')
+	)
 		return porDefecto;
 	try {
 		const base = 'http://caigo.invalid';

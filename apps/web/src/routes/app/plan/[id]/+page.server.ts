@@ -67,7 +67,7 @@ export const actions: Actions = {
 	/** Salir de un plan con entrada: DELETE /v1/entradas/{id} (la API calcula el reembolso). */
 	cancelarEntrada: async (event) => {
 		const id = uuid(event.params.id);
-		let reembolso = 0;
+		let reembolso: number;
 		try {
 			const { entradas } = await conSesion<MisPases>(event, 'GET', '/v1/pases');
 			const e = entradas.find((x) => x.planId === id && x.estado === 'pagada');
