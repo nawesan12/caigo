@@ -146,6 +146,11 @@ final class Contenedor {
     }
 
     func salirLocal() {
+        // Aunque la sesión ya no sirva, el teléfono deja de recibir los avisos de esta cuenta.
+        if let t = tokenPush {
+            let api = api
+            Task { try? await api.olvidarDispositivo(t) }
+        }
         tiempoReal.apagar()
         Llavero.borrar("token")
         Llavero.borrar("usuario")

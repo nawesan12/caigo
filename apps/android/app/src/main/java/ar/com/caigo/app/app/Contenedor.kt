@@ -156,6 +156,9 @@ class Contenedor(val ctx: Context) {
 
     /** Cierra la sesión sólo en el teléfono (sin avisarle a la API). */
     suspend fun salirLocal() {
+        // Aunque la sesión ya no sirva, el teléfono deja de recibir los avisos de esta cuenta.
+        val push = sesion.tokenPush
+        if (push.isNotBlank()) alcance.launch { runCatching { api.olvidarDispositivo(push) } }
         tiempoReal.apagar()
         sesion.borrar()
         yo.value = null

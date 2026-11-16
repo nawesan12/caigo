@@ -275,6 +275,12 @@ class Api(
     suspend fun registrarDispositivo(token: String) = mandar("PUT", "/v1/dispositivos", Dispositivo("android", token))
     suspend fun borrarDispositivo(token: String) = sinCuerpo("DELETE", "/v1/dispositivos/" + java.net.URLEncoder.encode(token, "UTF-8"))
 
+    @kotlinx.serialization.Serializable
+    data class Olvidar(val token: String)
+
+    /** Sin sesión: el teléfono deja de recibir los avisos de la cuenta que se fue (venció o se cerró en otro lado). */
+    suspend fun olvidarDispositivo(token: String) = mandar("POST", "/v1/dispositivos/olvidar", Olvidar(token))
+
     // ——— Plus ———
 
     suspend fun plus(): Plus = get("/v1/plus")

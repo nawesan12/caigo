@@ -71,6 +71,30 @@ func Rutas(mux *http.ServeMux, app *db.Pool, con func(http.Handler) http.Handler
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})))
+	// Olvidar un dispositivo sin sesión: la app lo llama cuando la sesión venció o se cerró en otro lado,
+	// para que el teléfono deje de recibir los avisos de esa cuenta. El token push sólo lo conoce el
+	// teléfono, así que alcanza como prueba; borrarlo como mucho apaga los avisos hasta el próximo ingreso.
+	mux.HandleFunc("POST /v1/dispositivos/olvidar", func(w http.ResponseWriter, r *http.Request) {
+		var d struct {
+			Token string `json:"token"`
+		}
+		if !respuesta.Leer(w, r, &d) {
+			return
+		}
+		if len(d.Token) < 8 || len(d.Token) > 4096 {
+			problema.Escribir(w, problema.Invalido("Dispositivo inválido."))
+			return
+		}
+		err := app.EnSistema(r.Context(), func(tx pgx.Tx) error {
+			_, err := tx.Exec(r.Context(), `DELETE FROM dispositivos WHERE token = $1`, d.Token)
+			return err
+		})
+		if err != nil {
+			respuesta.Error(w, log, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 }
 
 // Enviador manda los push. APNs o FCM en nil: esa plataforma queda apagada.

@@ -154,3 +154,20 @@ func TestEntradaAnuladaPagadaSeDevuelve(t *testing.T) {
 		t.Fatalf("código: %s", cod)
 	}
 }
+
+// Sin sesión (venció o se cerró en otro lado), el teléfono pide que lo olviden y deja de recibir los
+// avisos de esa cuenta. Y en las rutas públicas queda la reputación de quien va (badge y asistencia).
+func TestOlvidarDispositivoSinSesion(t *testing.T) {
+	e := nuevoEntorno(t)
+	lu := e.persona("Lu")
+	token := "token-push-de-prueba-" + lu.id
+	e.pedir(lu, "PUT", "/v1/dispositivos", map[string]string{"plataforma": "ios", "token": token}, http.StatusNoContent, nil)
+	if n := e.cuenta(`SELECT count(*) FROM dispositivos WHERE token = $1`, token); n != 1 {
+		t.Fatalf("dispositivo: %d", n)
+	}
+	e.pedir(persona{}, "POST", "/v1/dispositivos/olvidar", map[string]string{"token": token}, http.StatusNoContent, nil)
+	if n := e.cuenta(`SELECT count(*) FROM dispositivos WHERE token = $1`, token); n != 0 {
+		t.Fatalf("sigue el dispositivo: %d", n)
+	}
+	e.pedir(persona{}, "POST", "/v1/dispositivos/olvidar", map[string]string{"token": "x"}, http.StatusBadRequest, nil)
+}

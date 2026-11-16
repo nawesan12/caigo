@@ -258,6 +258,9 @@ public final class Api: @unchecked Sendable {
     struct Dispositivo: Encodable { var plataforma: String; var token: String }
     public func registrarDispositivo(_ token: String) async throws { try await mandar("PUT", "/v1/dispositivos", Dispositivo(plataforma: "ios", token: token)) }
     public func borrarDispositivo(_ token: String) async throws { try await sinCuerpo("DELETE", "/v1/dispositivos/\(token)") }
+    struct Olvidar: Encodable { var token: String }
+    /// Sin sesión: el teléfono deja de recibir los avisos de la cuenta que se fue (venció o se cerró en otro lado).
+    public func olvidarDispositivo(_ token: String) async throws { try await mandar("POST", "/v1/dispositivos/olvidar", Olvidar(token: token)) }
 
     // MARK: Plus
 

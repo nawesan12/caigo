@@ -16,6 +16,7 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | DELETE | `/v1/cuenta` | sesión | dominio/confianza |
 | PUT | `/v1/dispositivos` | sesión | dominio/avisos |
 | DELETE | `/v1/dispositivos/{token}` | sesión | dominio/avisos |
+| POST | `/v1/dispositivos/olvidar` | pública | dominio/avisos |
 | DELETE | `/v1/entradas/{id}` | sesión | dominio/lugares |
 | GET | `/v1/equipo/apartados` | equipo | dominio/equipo |
 | GET | `/v1/equipo/arrepentimientos` | equipo | dominio/confianza |
@@ -394,3 +395,8 @@ Variables: `CAIGO_SMTP` (host:puerto; 465 con TLS, otro con STARTTLS), `CAIGO_SM
 `CAIGO_SMTP_CLAVE`, `CAIGO_CORREO_DE` (por defecto `Caigo <hola@caigo.com.ar>`). Sin usuario no
 autentica (Mailpit en desarrollo: `CAIGO_SMTP=127.0.0.1:1025`). Fuera de desarrollo sin SMTP
 completo, la API arranca igual y avisa en el log.
+
+**Olvidar el teléfono sin sesión (16/11):** `POST /v1/dispositivos/olvidar {"token": "…"}` (pública, 204) borra ese
+dispositivo. Las apps la llaman en `salirLocal` (sesión vencida o cerrada en otro lado) para que el teléfono deje de recibir
+los avisos de esa cuenta. El token push sólo lo tiene el teléfono. Las rutas públicas de planes vuelven a mandar el badge
+de verificada y la asistencia de quien va (sin id, edad ni apellido).

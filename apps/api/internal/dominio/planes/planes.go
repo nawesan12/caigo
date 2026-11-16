@@ -519,7 +519,9 @@ func (s *Servicio) Publico(ctx context.Context, slugPlan string) (Plan, error) {
 func anonimo(p *Plan) {
 	corto := func(x Persona) Persona {
 		nombre, _, _ := strings.Cut(strings.TrimSpace(x.Nombre), " ")
-		return Persona{Nombre: nombre, Foto: x.Foto, Organizador: x.Organizador}
+		// El badge de verificada y la asistencia son la reputación que se ve en el plan: quedan.
+		return Persona{Nombre: nombre, Foto: x.Foto, Verificada: x.Verificada, Asistencia: x.Asistencia,
+			Organizador: x.Organizador}
 	}
 	p.Organizador = corto(p.Organizador)
 	for i := range p.Van {
