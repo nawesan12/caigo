@@ -41,8 +41,7 @@ export const load: PageServerLoad = async (event) => {
 		incluye: plan.incluye ?? '',
 		cancelacion: plan.cancelacion ?? 'flex',
 		beneficio: pl.beneficio ?? '',
-		quien:
-			plan.genero === 'mujeres' ? 'mujeres' : plan.soloVerificados ? 'verificados' : 'cualquiera'
+		quien: plan.genero === 'mujeres' ? 'mujeres' : 'cualquiera'
 	};
 	return { mpConectado: lugar.mpConectado, edicion };
 };

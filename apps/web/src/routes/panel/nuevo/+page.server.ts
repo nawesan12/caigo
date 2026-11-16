@@ -22,25 +22,29 @@ export const actions: Actions = {
 			return fail(400, { error: 'Revisá el plan.' });
 		}
 		if (!/^[0-9a-f-]{36}$/i.test(lugarId)) return fail(400, { error: 'Elegí un lugar.' });
+		// Vacío es vacío: el ejemplo del campo («café de regalo») nunca se guarda como beneficio.
+		if (typeof datos.beneficio === 'string') datos.beneficio = datos.beneficio.trim();
+		// Desde el 16/11 toda cuenta tiene el DNI verificado: «Solo verificados» ya no existe.
+		if (datos.quien !== 'mujeres') datos.quien = 'cualquiera';
+		delete datos.soloVerificados;
+		let id: string;
 		try {
-			const { id } = await conSesion<{ id: string }>(
-				event,
-				'POST',
-				`/v1/lugares/${lugarId}/planes`,
-				{
-					cuerpo: datos
-				}
-			);
-			const { planes } = await conSesion<{ planes: PlanDelLugar[] }>(
-				event,
-				'GET',
-				`/v1/lugares/${lugarId}/planes?cual=proximos`
-			);
-			const p = planes.find((x) => x.id === id);
-			return { publicado: { id, titulo: String(datos.titulo ?? ''), link: p?.link ?? '' } };
+			({ id } = await conSesion<{ id: string }>(event, 'POST', `/v1/lugares/${lugarId}/planes`, {
+				cuerpo: datos
+			}));
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
 			return fail(400, { error: mensajeDe(e) });
 		}
+		// El plan ya está publicado: si la lista para sacar el link falla, igual se muestra el éxito
+		// (antes ese error dejaba la pantalla en el paso 4 con el plan ya creado).
+		const link = await conSesion<{ planes: PlanDelLugar[] }>(
+			event,
+			'GET',
+			`/v1/lugares/${lugarId}/planes?cual=proximos`
+		)
+			.then((r) => r.planes.find((x) => x.id === id)?.link ?? '')
+			.catch(() => '');
+		return { publicado: { id, titulo: String(datos.titulo ?? ''), link } };
 	}
 };
