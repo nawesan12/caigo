@@ -155,7 +155,8 @@ internal fun PlanesChipPlus(texto: String = "Plus") {
 
 /**
  * Sumarse a un plan desde la tarjeta o el detalle. Los errores de verificación llevan a la selfie o
- * al DNI (y vuelven); el resto se muestra tal cual en el toast. Devuelve el estado nuevo.
+ * al DNI; el resto se muestra tal cual en el toast. Devuelve el estado nuevo, o "" ante un 409 (el plan
+ * cambió: ya estabas, se llenó o te rechazaron), para que quien llama recargue.
  *
  * `confirmar_mujer` y `confirmar_diversidad`: en Android los resuelve
  * [ar.com.caigo.app.pantallas.ingreso.conConfirmacion] (la hoja global «Antes de sumarte» de
@@ -176,8 +177,8 @@ internal suspend fun planesSumarse(
     } else {
         avisos.error(e.detalle)
         if (e.codigo == "falta_selfie") ir.selfie(volver = true)
-        if (e.codigo == "falta_dni") ir.dni(plan.id)
-        null
+        // falta_dni: lo resuelve la navegación (Contenedor.faltaDni lleva al DNI del alta).
+        if (e.estado == 409) "" else null
     }
 } catch (e: Throwable) {
     if (e is kotlinx.coroutines.CancellationException) throw e
@@ -220,14 +221,15 @@ internal fun AccionTarjeta(plan: Plan, ir: Ir, alCambiar: (String) -> Unit) {
             Icono(I.check, 14.dp, C.lima, 3.4f)
             T(if (plan.esMio) "Tu plan" else "Adentro", 14f, 800, C.blanco, unRenglon = true)
         }
-        Cupo.completo(plan.faltan) -> Unit
+        Cupo.completo(plan.faltan) || plan.miEstado == "rechazada" -> Unit
         else -> Row(
             Modifier
                 .toque(!enviando) {
                     if (enviando) return@toque
                     if (esDeLugar(plan)) { ir.plan(plan.id); return@toque }
+                    // Antes del launch: un segundo toque no llega a mandar otro pedido.
+                    enviando = true
                     alcance.launch {
-                        enviando = true
                         planesSumarse(c, ir, avisos, plan, planesCantidadInicial(c.sesion.grupo, plan), vibrar = { Sistema.vibrar(vista) })?.let(alCambiar)
                         enviando = false
                     }

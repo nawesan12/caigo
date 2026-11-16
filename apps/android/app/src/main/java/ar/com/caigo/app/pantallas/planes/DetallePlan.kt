@@ -207,8 +207,10 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
 
     fun sumarme() {
         val n = if (grupo == 1 && p.aceptaGrupos && p.faltan > 1) cantidad else 1
+        if (enviando) return
+        // Antes del launch: un segundo toque no llega a mandar otro pedido.
+        enviando = true
         alcance.launch {
-            enviando = true
             if (planesSumarse(c, ir, avisos, p, n, mensaje.trim(), vibrar = { Sistema.vibrar(vista) }) != null) recargar()
             enviando = false
         }
@@ -419,6 +421,9 @@ private fun EstadoAbajo(
                 Cta("Ir al chat del plan", { ir.chat(p.id) }, Modifier.fillMaxWidth(), gel = Gels.violeta, color = C.blanco, alto = 58.dp, tam = 18f)
             }
         }
+        // Un plan que ya pasó no espera respuesta ni deja sumarse, aunque el pedido siga pendiente.
+        yaPaso(p) && !p.adentro -> T("Este plan ya pasó.", 15f, 700, pal.texto2, alinear = TextAlign.Center)
+        p.miEstado == "rechazada" -> T("Esta vez el organizador no te sumó.", 15f, 700, pal.texto2, alinear = TextAlign.Center)
         p.miEstado == "pendiente" -> Box(
             Modifier.fillMaxWidth().height(62.dp).gel(22.dp, vertical(C.tinte1, C.tinte1), listOf(interna(3f, 6f, rgba(116, 86, 241, .2f)))),
             contentAlignment = Alignment.Center,
@@ -443,8 +448,9 @@ private fun EstadoAbajo(
         Cupo.completo(p.faltan) -> Box(Modifier.fillMaxWidth().height(58.dp).gel(20.dp, Gels.limaBadge), contentAlignment = Alignment.Center) {
             T("Completo", 17f, 800, C.carbon)
         }
-        yaPaso(p) -> T("Este plan ya pasó.", 15f, 700, pal.texto2, alinear = TextAlign.Center)
         else -> {
+            // Se bajó (`cancelada`): puede volver a sumarse, pero se le recuerda.
+            if (p.miEstado == "cancelada") T("Te bajaste de este plan.", 13f, 600, pal.texto2, alinear = TextAlign.Center)
             val permiteGrupo = p.aceptaGrupos && p.faltan > 1
             val n = if (grupo == 1 && permiteGrupo) cantidad else 1
             if (permiteGrupo) {

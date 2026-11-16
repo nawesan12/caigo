@@ -176,7 +176,6 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
             if (ar.com.caigo.app.nucleo.Generos.pide(e.codigo) == null) {
                 avisos.error(e.detalle)
                 if (e.codigo == "falta_selfie") ir.selfie(true)
-                if (e.codigo == "falta_dni") ir.dni(plan.id)
             }
         } catch (e: Throwable) {
             if (e is kotlinx.coroutines.CancellationException) throw e
