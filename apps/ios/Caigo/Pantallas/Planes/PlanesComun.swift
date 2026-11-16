@@ -82,7 +82,8 @@ struct PlanesChipPlus: View {
 }
 
 /// Sumarse a un plan desde la tarjeta o el detalle. Los errores de verificación llevan a la selfie o
-/// al DNI (y vuelven); el resto se muestra tal cual en el toast. Devuelve el estado nuevo.
+/// al DNI; el resto se muestra tal cual en el toast. Devuelve el estado nuevo, o "" ante un 409 (el plan
+/// cambió: ya estabas, se llenó o te rechazaron), para que quien llama recargue.
 @MainActor
 /// Con `pedirConfirmacion`, el 422 `confirmar_mujer` / `confirmar_diversidad` no se muestra: se llama
 /// con lo que pide (Generos.pide) para abrir «Antes de sumarte» y reintentar con `confirma`, que no se
@@ -102,8 +103,8 @@ func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensa
         }
         c.avisos.error(e.detalle)
         if e.codigo == "falta_selfie" { ir.selfie(volver: true) }
-        if e.codigo == "falta_dni" { ir.dni(plan: plan.id) }
-        return nil
+        // falta_dni: lo resuelve la raíz (Contenedor.faltaDni lleva al DNI del alta).
+        return e.estado == 409 ? "" : nil
     } catch {
         c.avisos.error(error)
         return nil
@@ -146,11 +147,13 @@ struct AccionTarjeta: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 11)
             .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(C.carbon))
-        } else if !Cupo.completo(plan.faltan) {
+        } else if plan.miEstado != "rechazada" && !Cupo.completo(plan.faltan) {
             Button {
                 if esDeLugar(plan) { ir.plan(plan.id); return }
+                guard !enviando else { return }
+                // Antes del Task: un segundo toque no llega a mandar otro pedido.
+                enviando = true
                 Task {
-                    enviando = true
                     if let e = await planesSumarse(c, ir, plan, cantidad: planesCantidadInicial(c.somos, plan)) { alCambiar(e) }
                     enviando = false
                 }

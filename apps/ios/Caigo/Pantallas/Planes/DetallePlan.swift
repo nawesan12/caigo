@@ -230,8 +230,10 @@ private struct ContenidoDetalle: View {
     /// `confirma`: lo que confirmó en «Antes de sumarte» (vale sólo para este pedido).
     private func sumarme(confirma: Confirma = Confirma()) {
         let n = grupo == 1 && p.aceptaGrupos && p.faltan > 1 ? cantidad : 1
+        guard !enviando else { return }
+        // Antes del Task: un segundo toque no llega a mandar otro pedido.
+        enviando = true
         Task {
-            enviando = true
             if await planesSumarse(c, ir, p, cantidad: n, mensaje: mensaje.trimmingCharacters(in: .whitespaces), confirma: confirma,
                                    pedirConfirmacion: { pide = $0 }) != nil { recargar() }
             enviando = false
@@ -388,6 +390,11 @@ private struct ContenidoDetalle: View {
                 }
                 Cta(texto: "Ir al chat del plan", gel: Gels.violeta, alto: 58, tam: 18, color: C.blanco) { ir.chat(p.id) }
             }
+        } else if yaPaso(p) && !p.adentro {
+            // Un plan que ya pasó no espera respuesta ni deja sumarse, aunque el pedido siga pendiente.
+            T("Este plan ya pasó.", 15, 700, pal.texto2, alinear: .center)
+        } else if p.miEstado == "rechazada" {
+            T("Esta vez el organizador no te sumó.", 15, 700, pal.texto2, alinear: .center)
         } else if p.miEstado == "pendiente" {
             T("Le avisamos a \(p.organizador.nombre). Esperá un toque…", 15, 800, C.violetaTexto, alinear: .center)
                 .padding(.horizontal, 14)
@@ -421,9 +428,9 @@ private struct ContenidoDetalle: View {
             }
         } else if Cupo.completo(p.faltan) {
             T("Completo", 17, 800, C.carbon).frame(maxWidth: .infinity).frame(height: 58).gel(20, Gels.limaBadge)
-        } else if yaPaso(p) {
-            T("Este plan ya pasó.", 15, 700, pal.texto2, alinear: .center)
         } else {
+            // Se bajó (`cancelada`): puede volver a sumarse, pero se le recuerda.
+            if p.miEstado == "cancelada" { T("Te bajaste de este plan.", 13, 600, pal.texto2, alinear: .center) }
             sumarse
         }
     }

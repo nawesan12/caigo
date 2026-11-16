@@ -100,7 +100,6 @@ struct Checkout: View {
             if let x = Generos.pide(e.codigo) { pide = x; return }
             c.avisos.error(e.detalle)
             if e.codigo == "falta_selfie" { ir.selfie(volver: true) }
-            if e.codigo == "falta_dni" { ir.dni(plan: plan.id) }
         } catch {
             c.avisos.error(error)
         }
