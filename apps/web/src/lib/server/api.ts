@@ -132,7 +132,19 @@ export async function quizasConSesion<T = unknown>(
 	return api<T>('GET', publica, { ip: ipDe(event) });
 }
 
-/** Como `api`, con la sesión de la cookie. Si la sesión venció (401), borra la cookie y manda a ingresar. */
+/** Si el pedido es de una página (GET, datos o una form action) y no de un +server.ts. */
+export function esDePagina(event: RequestEvent): boolean {
+	const m = event.request.method;
+	if (m === 'GET' || m === 'HEAD') return true;
+	if (event.request.headers.get('x-sveltekit-action')) return true;
+	const tipo = event.request.headers.get('content-type') ?? '';
+	return tipo.startsWith('application/x-www-form-urlencoded') || tipo.startsWith('multipart/');
+}
+
+/**
+ * Como `api`, con la sesión de la cookie. Si la sesión venció (401), borra la cookie y manda a
+ * ingresar; si a la cuenta le falta el DNI (403 `falta_dni`), una página va a /app/verificar.
+ */
 export async function conSesion<T = unknown>(
 	event: RequestEvent,
 	metodo: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
@@ -147,6 +159,11 @@ export async function conSesion<T = unknown>(
 			event.cookies.delete('caigo_sesion', { path: '/' });
 			event.locals.token = null;
 			aIngresar(event);
+		}
+		if (e instanceof ErrorApi && e.codigo === 'falta_dni' && esDePagina(event)) {
+			const v =
+				event.request.method === 'GET' ? event.url.pathname + event.url.search : event.url.pathname;
+			redirect(303, `/app/verificar?volver=${encodeURIComponent(volverSeguro(v, '/app'))}`);
 		}
 		throw e;
 	}

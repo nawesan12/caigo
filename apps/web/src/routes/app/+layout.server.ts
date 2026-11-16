@@ -1,5 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { conSesion } from '#lib/server/api.ts';
+import { aVerificar, exentaDeVerificar, SIN_CUENTA } from '#lib/server/cuenta.ts';
+import { verificada } from '#lib/verificacion.ts';
 import { COOKIE_UBIC, leerUbicacion } from '#lib/app.ts';
 import type { Verificacion, Yo } from '#lib/tipos.ts';
 import type { LayoutServerLoad } from './$types';
@@ -8,17 +10,6 @@ import type { LayoutServerLoad } from './$types';
 const TEMAS = ['claro', 'oscuro', 'sistema'] as const;
 type Tema = (typeof TEMAS)[number];
 
-/** Lo que se puede mirar sin cuenta: Ahora (lista y mapa), Explorar y el detalle de un plan. */
-const SIN_CUENTA = new Set([
-	'/app',
-	'/app/mapa',
-	'/app/explorar',
-	'/app/plan/[id]',
-	'/app/bienvenida',
-	// Redirige a /borrar-cuenta (pública).
-	'/app/borrar'
-]);
-
 /** Onboarding (01a–01c y "¿Qué buscás?"): cookies de "ya lo vio". */
 const COOKIE_BIENVENIDA = 'caigo_bienvenida';
 const COOKIE_INTERESES = 'caigo_intereses';
@@ -26,7 +17,9 @@ const AL_PASO = new Set(['/app/verificar', '/app/borrar', '/app/bienvenida', '/a
 
 /**
  * Caigo desde la web. Sin cuenta se pueden mirar los planes; para sumarse, crear o chatear pide
- * sesión (Google o Apple) y, una sola vez, la verificación: teléfono y selfie.
+ * sesión (Google o Apple) y, una sola vez, la verificación: teléfono, selfie y DNI. El control de
+ * verdad está en hooks.server.ts (lib/server/cuenta.ts), que cubre también las form actions y los
+ * +server.ts; acá sólo se arma el orden del alta.
  */
 export const load: LayoutServerLoad = async (event) => {
 	const t = event.cookies.get('caigo_tema') as Tema;
@@ -49,13 +42,14 @@ export const load: LayoutServerLoad = async (event) => {
 	}
 	const [yo, verif] = await Promise.all([
 		conSesion<Yo>(event, 'GET', '/v1/yo'),
-		conSesion<Verificacion>(event, 'GET', '/v1/verificacion')
+		event.locals.verif ?? conSesion<Verificacion>(event, 'GET', '/v1/verificacion')
 	]);
-	const verificada = !!verif.telefono && verif.selfie;
-	// Borrar la cuenta no pide verificarse antes.
-	if (!verificada && event.route.id !== '/app/verificar' && event.route.id !== '/app/borrar') {
-		const volver = event.url.pathname + event.url.search;
-		redirect(303, `/app/verificar?volver=${encodeURIComponent(volver)}`);
+	// Sin la verificación completa, sólo el alta (hooks.server.ts ya cortó lo demás).
+	if (!verificada(verif) && !exentaDeVerificar(ruta)) aVerificar(event);
+	// Mientras se verifica no se le piden intereses ni perfil: primero termina la verificación.
+	if (!verificada(verif)) {
+		event.setHeaders({ 'cache-control': 'private, no-store' });
+		return { yo, verif, anonimo: false, tema, ubic: leerUbicacion(event.cookies.get(COOKIE_UBIC)) };
 	}
 	// Ya verificada, una vez: qué busca y qué le copa (intenciones e intereses).
 	const intenciones = (yo as Yo & { intenciones?: string[] }).intenciones ?? [];

@@ -223,6 +223,7 @@ export type Yo = {
 	equipo?: boolean;
 };
 
+/** GET /v1/verificacion. `dni`: ninguna | pendiente | aprobada | rechazada (con `dniMotivo`). */
 export type Verificacion = { telefono?: string; selfie: boolean; dni: string; dniMotivo?: string };
 
 export type Solicitud = {
@@ -290,7 +291,7 @@ export type UsuarioEquipo = {
 	ciudad: string;
 	creado: string;
 	verificada: boolean;
-	/** Estado del DNI ("", "pendiente", "aprobado", "rechazado") o, si la API lo manda así, true/false. */
+	/** Estado del DNI ("", "ninguna", "pendiente", "aprobada", "rechazada") o, si la API lo manda así, true/false. */
 	dni: string | boolean;
 	/** Suspendida: true o la fecha. */
 	suspendido?: boolean | string;

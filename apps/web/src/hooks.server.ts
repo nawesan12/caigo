@@ -3,6 +3,7 @@ import type { Handle } from '@sveltejs/kit/hooks';
 import { esDelPanel, sitioDe } from '#lib/hosts.ts';
 import { COOKIE, tokenValido } from '#lib/server/sesion.ts';
 import { guardarOrigen } from '#lib/server/origen.ts';
+import { guardApp } from '#lib/server/cuenta.ts';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.sitio = sitioDe(event.url.host);
@@ -10,6 +11,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.token = tokenValido(t) ? t : null;
 	// El panel sólo se sirve en lugares.*: caigo.com.ar/panel no existe.
 	if (event.locals.sitio === 'caigo' && esDelPanel(event.route.id)) error(404, 'No encontrado');
+	// /app: la verificación completa (teléfono, selfie y DNI) para todo, también form actions y
+	// +server.ts, salvo el alta. Si la sesión venció, sigue sin sesión.
+	const corte = await guardApp(event);
+	if (corte) return corte;
 	// De dónde llegó (?utm_source=, ?ref=, /p/<slug>): sólo quien todavía no tiene cuenta abierta.
 	const conOrigen =
 		!event.locals.token &&
