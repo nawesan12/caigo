@@ -134,6 +134,8 @@ class OtrosTest {
         assertEquals("Hoy 21:30", Fecha.cuando("2026-11-01T00:30:00Z", ahora))
         assertEquals("Mañana 10:00", Fecha.cuando("2026-11-01T10:00:00-03:00", ahora))
         assertEquals("Sáb 10:00", Fecha.cuando("2026-11-07T10:00:00-03:00", ahora))
+        assertEquals("Mié 3/3 22:00", Fecha.cuando("2027-03-03T22:00:00-03:00", ahora))
+        assertEquals("Miércoles 3 de marzo, 22:00 a 23:00", Fecha.rango("2027-03-03T22:00:00-03:00", 60, ahora))
         assertEquals("Ahora · en 2 h", Fecha.enCuanto("2026-10-31T22:00:00-03:00", ahora))
         assertEquals("Ahora · en 40 min", Fecha.enCuanto("2026-10-31T20:40:00-03:00", ahora))
         assertNull(Fecha.enCuanto("2026-11-01T02:00:00-03:00", ahora))

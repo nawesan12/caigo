@@ -163,7 +163,9 @@ internal fun miosSubtitulo(pl: Plan): String {
     val cuando = when {
         t == null -> ""
         t.toLocalDate() == Fecha.hoy() -> Fecha.hora(t)
-        else -> "${Fecha.diaCorto(t)} ${Fecha.hora(t)}"
+        Fecha.diasEntre(java.time.ZonedDateTime.now(ar.com.caigo.app.nucleo.ZonaAR), t) in 1..6 -> "${Fecha.diaCorto(t)} ${Fecha.hora(t)}"
+        // Fuera de esta semana, con el día y el mes (Fecha.cuando).
+        else -> Fecha.cuando(pl.empiezaEn)
     }
     val donde = if (pl.recurrente) "se repite cada semana" else pl.lugar?.nombre ?: pl.lugarNombre.ifEmpty { pl.zona }
     return listOf(cuando, donde).filter { it.isNotEmpty() }.joinToString(" · ")
