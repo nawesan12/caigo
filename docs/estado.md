@@ -90,8 +90,13 @@ revisión de código de API, web, iOS y Android. Copia previa: `/opt/caigo/copia
   chat, privados sólo con gente mutua, 500 → 4xx, rutas públicas sin ids ni edad, worker por evento (apartados en
   `GET /v1/equipo/apartados`), mails del arrepentimiento (acuse + hola@), beneficio inventado del panel, fechas con mes.
   Detalle en `docs/api.md` › «Arreglos de QA (16/11)».
-- Falta: probar un pago real con Nahuel (su MP como vendedor en el lugar QA, paga con otra cuenta) y borrar los datos
-  de QA (cuentas Clerk y Caigo, planes, lugar, casillas). Pendiente en las apps: tras un 401 el teléfono puede seguir
+- Después del deploy: `CAIGO_PANEL` no se leía en producción (la vuelta del OAuth de Mercado Pago salía relativa y
+  ningún lugar podía conectar MP): arreglado en 64c0276. La conexión con MP anda (probada con la cuenta de Nahuel).
+- **Sin probar: un pago real.** La cuenta de MP de Nahuel es la misma que la de la plataforma, así que no puede pagarse a
+  sí misma; hace falta que pague otra cuenta (o conectar otra cuenta vendedora). Con precio $1 el cargo da $0.
+- Datos de QA borrados (copia previa `copias/caigo-antes-limpieza-qa-20261116-1807.dump`): planes, lugar, cuentas,
+  archivos, usuarios de Clerk y casillas. qa4 queda en `usuarios`, suspendida y sin equipo, porque
+  `accesos_verificacion` registra que miró el DNI de Nahuel (la auditoría no se borra). Pendiente en las apps: tras un 401 el teléfono puede seguir
   recibiendo avisos de la cuenta anterior hasta el próximo ingreso.
 
 ## Landing nueva y análisis contra Chicle y Timeleft (16/11, sin desplegar)
