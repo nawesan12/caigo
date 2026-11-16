@@ -27,6 +27,11 @@ export const actions: Actions = {
 			await conSesion(event, 'DELETE', `/v1/planes/${id}/sumarme`);
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
+			// Con entrada paga se sale cancelándola, desde el detalle del plan.
+			if (e.codigo === 'con_entrada')
+				return fail(409, {
+					error: `${mensajeDe(e)} Para salir, cancelá tu entrada desde el plan.`
+				});
 			return fail(400, { error: mensajeDe(e) });
 		}
 		redirect(303, '/app/mis?cual=me_sume&salio=1');

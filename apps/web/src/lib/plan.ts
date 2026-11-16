@@ -38,9 +38,14 @@ export function lista(nombres: string[]): string {
 	return n.slice(0, -1).join(', ') + ' y ' + n[n.length - 1];
 }
 
-/** El primer nombre ("Nicolás Pérez" → "Nicolás"). */
+/**
+ * El primer nombre ("Nicolás Pérez" → "Nicolás"). Una cuenta purgada se llama «Cuenta borrada»
+ * (así firma en los chats): queda entera, no «Cuenta».
+ */
 export function primerNombre(n: string): string {
-	return (n ?? '').trim().split(/\s+/)[0] ?? '';
+	const t = (n ?? '').trim();
+	if (t === 'Cuenta borrada') return t;
+	return t.split(/\s+/)[0] ?? '';
 }
 
 /** Iniciales para el avatar del lugar ("Café Molienda" → "CM"). */

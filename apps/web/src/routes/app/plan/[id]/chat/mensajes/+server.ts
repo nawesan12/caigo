@@ -32,6 +32,6 @@ export const POST: RequestHandler = async (event) => {
 		return json(m, { status: 201 });
 	} catch (e) {
 		if (!(e instanceof ErrorApi)) throw e;
-		return json({ error: mensajeDe(e) }, { status: e.estado });
+		return json({ error: mensajeDe(e), code: e.codigo }, { status: e.estado });
 	}
 };

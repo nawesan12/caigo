@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { cobroTexto, faltanTexto, iniciales, lista, primerNombre } from './plan.ts';
 
+describe('primerNombre', () => {
+	it('una cuenta purgada no firma «Cuenta»', () => {
+		expect(primerNombre('Nicolás Pérez')).toBe('Nicolás');
+		expect(primerNombre('Cuenta borrada')).toBe('Cuenta borrada');
+	});
+});
+
 describe('textos del plan', () => {
 	it('el contador', () => {
 		expect(faltanTexto(0)).toBe('Completo');

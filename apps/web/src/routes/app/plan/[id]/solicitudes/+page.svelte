@@ -27,6 +27,8 @@
 	/** Los que ya están adentro (sin quien organiza). */
 	const adentro = $derived(p.van.filter((v) => !v.organizador));
 	let aSacar = $state<PersonaCorta | null>(null);
+	/** La solicitud que se está respondiendo: sus dos botones quedan apagados (sin doble envío). */
+	let respondiendo = $state<string | null>(null);
 	let sacarAbierta = $state(false);
 	const sub = $derived(`${p.titulo} · ${cuandoCorto(p.empiezaEn)}`);
 	const datoDe = (x: PersonaCorta) => {
@@ -81,8 +83,9 @@
 					action="?/responder"
 					class="sol"
 					class:completan
-					use:enhance={() =>
-						async ({ result, update }) => {
+					use:enhance={() => {
+						respondiendo = s.id;
+						return async ({ result, update }) => {
 							if (result.type === 'success')
 								avisar(
 									result.data?.ok === 'aceptar'
@@ -92,7 +95,9 @@
 							else if (result.type === 'failure')
 								avisar(String(result.data?.error ?? 'No se pudo.'));
 							await update();
-						}}
+							respondiendo = null;
+						};
+					}}
 				>
 					<input type="hidden" name="id" value={s.id} />
 					<div class="sol-cab">
@@ -121,8 +126,10 @@
 					</div>
 					{#if s.mensaje}<p class="msj">{s.mensaje}</p>{/if}
 					<div class="botones">
-						<button class="no" name="accion" value="rechazar">Ahora no</button>
-						<button class="gel gel-lima si" name="accion" value="aceptar"
+						<button class="no" name="accion" value="rechazar" disabled={!!respondiendo}
+							>Ahora no</button
+						>
+						<button class="gel gel-lima si" name="accion" value="aceptar" disabled={!!respondiendo}
 							>{s.cantidad > 1 ? `Aceptar a los ${s.cantidad}` : 'Aceptar'}</button
 						>
 					</div>
