@@ -160,7 +160,9 @@
 		<div class="contador">
 			<div class="cont-fila">
 				<div class="cont-txt">
-					<span class="faltan" class:completo={p.faltan <= 0}>{faltanTexto(p.faltan)}</span>
+					<span class="faltan" class:completo={p.faltan <= 0 || yaPaso || p.cancelado}
+						>{p.cancelado ? 'Se canceló' : yaPaso ? 'Ya pasó' : faltanTexto(p.faltan)}</span
+					>
 					<span class="somos">Somos {p.somos} de {p.total}</span>
 				</div>
 				<div class="avs">

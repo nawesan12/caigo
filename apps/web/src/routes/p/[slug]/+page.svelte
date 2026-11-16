@@ -108,13 +108,20 @@
 
 		<div class="foto">
 			{#if plan.foto}<img src={plan.foto} alt="" />{/if}
-			<span class={plan.faltan > 0 ? 'badge-coral contador' : 'badge-completo contador'}
-				>{faltanTexto(plan.faltan)}</span
-			>
+			<!-- Un plan que ya pasó o se canceló no invita a sumarse: sin «Faltan N». -->
+			{#if plan.cancelado || terminado}
+				<span class="badge-completo contador">{plan.cancelado ? 'Se canceló' : 'Ya pasó'}</span>
+			{:else}
+				<span class={plan.faltan > 0 ? 'badge-coral contador' : 'badge-completo contador'}
+					>{faltanTexto(plan.faltan)}</span
+				>
+			{/if}
 		</div>
 
 		<div class="titulos">
-			<span class="invita">{anfitrion} te invita a</span>
+			<span class="invita"
+				>{anfitrion} {terminado && !plan.cancelado ? 'organizó' : 'te invita a'}</span
+			>
 			<h1>{plan.titulo}</h1>
 		</div>
 
