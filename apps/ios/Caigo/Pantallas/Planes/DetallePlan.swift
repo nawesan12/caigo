@@ -3,7 +3,6 @@ import Nucleo
 
 private func requisitos(_ p: Plan) -> [String] {
     var r: [String] = []
-    if p.soloVerificados { r.append("Solo verificados") }
     r.append(textoIngreso(p))
     if p.genero == "mujeres" { r.append("Solo mujeres") }
     if p.genero == "diversidades" { r.append("Solo diversidades") }
@@ -142,15 +141,6 @@ private struct ContenidoDetalle: View {
                         if !p.descripcion.isEmpty { T(p.descripcion, 15, 400, pal.texto2, alto: 1.5) }
                         if p.lugar != nil { tarjetaEntrada }
                         if !p.beneficio.isEmpty { PlanesBeneficio(texto: p.beneficio, desbloqueado: false) }
-                        if p.soloVerificados {
-                            HStack(spacing: 10) {
-                                Icono(I.escudoCheck, 20, pal.oscuro ? C.lima : C.violetaTexto, trazo: 2.2)
-                                T("Solo gente verificada con DNI", 13, 700, pal.texto)
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.horizontal, 14).padding(.vertical, 12)
-                            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(pal.superficie))
-                        }
                         PlanesFlujo(espacio: 6, renglon: 6) {
                             T("Requisitos", 13, 700, pal.texto2).padding(.vertical, 6)
                             ForEach(requisitos(p), id: \.self) { r in

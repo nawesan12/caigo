@@ -11,7 +11,7 @@ private let edadMin: Double = 18
 private let edadMax: Double = 60
 
 /// Borrador del plan con los valores por defecto del README: Hoy 21:30, Somos 3 / Falta 1, con
-/// aprobación, verificados y dirección oculta.
+/// aprobación y dirección oculta. Todos verifican el DNI: `soloVerificados` va siempre en true.
 @Observable
 private final class Borrador {
     var titulo = ""
@@ -662,8 +662,6 @@ private struct Paso3: View {
             Segmentado(opciones: ["Público", "Mi gente", "Por link"], seleccion: $b.visibilidad, alto: 46)
         }
         VStack(spacing: 0) {
-            filaInterruptor("Solo verificados", $b.verificados)
-            Rectangle().fill(pal.separador).frame(height: 1)
             filaInterruptor("Ocultar dirección hasta aceptar", $b.ocultar)
             Rectangle().fill(pal.separador).frame(height: 1)
             Button(action: alCosto) {

@@ -246,8 +246,6 @@ struct Explorar: View {
                 .padding(.horizontal, 16).padding(.vertical, 12)
             }
             separador
-            filaInterruptor("Solo verificados", $verificados)
-            separador
             filaChips("Que falten al menos", ["Cualquiera", "1", "2", "3"], faltan ?? 0) { faltan = $0 > 0 ? $0 : nil }
             separador
             filaChips("Edad de quien organiza", rangosEdad.map(\.0), edad) { edad = $0 }
@@ -322,7 +320,7 @@ private struct TarjetaRecurrente: View {
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 4) {
                         T(plan.titulo, 24, 700, C.blanco, alto: 1.05, renglones: 2)
-                        T([plan.lugar?.nombre ?? plan.lugarNombre, plan.soloVerificados ? "verificados" : ""].filter { !$0.isEmpty }.joined(separator: " · "),
+                        T(plan.lugar?.nombre ?? plan.lugarNombre,
                           13, 400, Color(hex: 0xDAD6E6), unRenglon: true)
                     }
                     Spacer(minLength: 8)
@@ -359,7 +357,7 @@ private struct FilaAgenda: View {
                     T("\(Fecha.hora(plan.empiezaEn)) · \(Categorias.nombre(plan.categoria).uppercased())", 12, 800, acento, unRenglon: true)
                 }
                 T(plan.titulo, 15, 700, p.texto, alto: 1.25, renglones: 2)
-                T(lugarYDistancia(plan) + (plan.soloVerificados ? " · Verificados" : ""), 12, 400, p.texto2, unRenglon: true)
+                T(lugarYDistancia(plan), 12, 400, p.texto2, unRenglon: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             T(Cupo.badge(f), 15, 700, C.carbon, alto: 1, unRenglon: true)
