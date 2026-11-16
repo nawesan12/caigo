@@ -196,7 +196,8 @@ struct Crear: View {
                 b.m = k.minute ?? 30
                 b.horaOtra = true
                 let d = Fecha.diasEntre(Date(), t)
-                if d <= 0 { b.cuando = 1 } else { b.cuando = 2; b.dia = min(d, 6) }
+                // Más allá de 6 días se conserva el día (sale como un chip más): tocar la hora no lo adelanta.
+                if d <= 0 { b.cuando = 1 } else { b.cuando = 2; b.dia = d }
             }
             empiezaCargada = b.empieza()
             original = p
@@ -376,9 +377,11 @@ private struct Paso1: View {
             } else {
                 if b.cuando == 2 {
                     HStack(spacing: 6) {
-                        ForEach(1...6, id: \.self) { i in
+                        // Editando un plan a más de 6 días: su día va como séptimo chip, con el mes.
+                        ForEach(b.dia > 6 ? Array(1...6) + [b.dia] : Array(1...6), id: \.self) { i in
                             let d = Fecha.calendario.date(byAdding: .day, value: i, to: Date())!
-                            Chip(texto: "\(Fecha.diaCorto(d)) \(Fecha.calendario.component(.day, from: d))", on: b.dia == i, gelOff: pal.oscuro ? Gels.chipOscuro : Gels.off, colorOff: pal.texto, tam: 12, padH: 4, radio: 12) { b.dia = i }
+                            let k = Fecha.calendario.dateComponents([.day, .month], from: d)
+                            Chip(texto: i > 6 ? "\(k.day ?? 0)/\(k.month ?? 0)" : "\(Fecha.diaCorto(d)) \(k.day ?? 0)", on: b.dia == i, gelOff: pal.oscuro ? Gels.chipOscuro : Gels.off, colorOff: pal.texto, tam: 12, padH: 4, radio: 12) { b.dia = i }
                                 .frame(maxWidth: .infinity)
                         }
                     }
