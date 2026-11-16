@@ -375,8 +375,6 @@ private fun PanelFiltros(
             }
         }
         Separador()
-        FilaInterruptor("Solo verificados", verificados, alVerificados)
-        Separador()
         FilaChips("Que falten al menos", listOf("Cualquiera", "1", "2", "3"), faltan ?: 0) { alFaltan(if (it > 0) it else null) }
         Separador()
         FilaChips("Edad de quien organiza", rangosEdad.map { it.first }, edad, alEdad)
@@ -409,7 +407,7 @@ private fun TarjetaRecurrente(p: Plan, ir: Ir) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     T(p.titulo, 24f, 700, C.blanco, alto = 1.05f, maxRenglones = 2)
                     T(
-                        listOf(p.lugar?.nombre ?: p.lugarNombre, if (p.soloVerificados) "verificados" else "").filter { it.isNotEmpty() }.joinToString(" · "),
+                        p.lugar?.nombre ?: p.lugarNombre,
                         13f, 400, Color(0xFFDAD6E6), unRenglon = true,
                     )
                 }
@@ -438,7 +436,7 @@ private fun FilaAgenda(p: Plan, ir: Ir) {
                 T("${Fecha.hora(p.empiezaEn)} · ${Categorias.nombre(p.categoria).uppercase()}", 12f, 800, acento, unRenglon = true)
             }
             T(p.titulo, 15f, 700, pal.texto, alto = 1.25f, maxRenglones = 2)
-            T(lugarYDistancia(p) + if (p.soloVerificados) " · Verificados" else "", 12f, 400, pal.texto2, unRenglon = true)
+            T(lugarYDistancia(p), 12f, 400, pal.texto2, unRenglon = true)
         }
         Box(
             Modifier.gel(

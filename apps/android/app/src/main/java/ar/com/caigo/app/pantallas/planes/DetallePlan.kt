@@ -101,7 +101,6 @@ import kotlinx.coroutines.launch
 import java.time.ZonedDateTime
 
 private fun requisitos(p: Plan): List<String> = buildList {
-    if (p.soloVerificados) add("Solo verificados")
     add(textoIngreso(p))
     if (p.genero == "mujeres") add("Solo mujeres")
     if (p.genero == "diversidades") add("Solo diversidades")
@@ -294,13 +293,6 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                     if (p.descripcion.isNotEmpty()) T(p.descripcion, 15f, 400, pal.texto2, alto = 1.5f)
                     if (p.lugar != null) TarjetaEntrada(p)
                     if (p.beneficio.isNotEmpty()) PlanesBeneficio(p.beneficio, desbloqueado = false)
-                    if (p.soloVerificados) Row(
-                        Modifier.fillMaxWidth().background(pal.superficie, RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Icono(I.escudoCheck, 20.dp, if (pal.oscuro) C.lima else C.violetaTexto, 2.2f)
-                        T("Solo gente verificada con DNI", 13f, 700, pal.texto)
-                    }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         T("Requisitos", 13f, 700, pal.texto2, modifier = Modifier.padding(vertical = 6.dp))
                         requisitos(p).forEach {

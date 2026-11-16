@@ -159,7 +159,7 @@ private val bordeSuaveOscuro = Color(0xFF3A3550)
 
 /**
  * Borrador del plan con los valores por defecto del README: Hoy 21:30, Somos 3 / Falta 1, con
- * aprobación, verificados y dirección oculta.
+ * aprobación y dirección oculta. Todos verifican el DNI: `soloVerificados` va siempre en true.
  */
 private class Borrador {
     var titulo by mutableStateOf("")
@@ -769,8 +769,6 @@ private fun Paso3(b: Borrador, alCosto: () -> Unit, alFoto: () -> Unit) {
         Modifier.fillMaxWidth().background(if (pal.oscuro) C.oscuro3 else C.blanco, RoundedCornerShape(20.dp))
             .border(1.5.dp, if (pal.oscuro) bordeSuaveOscuro else bordeSuave, RoundedCornerShape(20.dp)),
     ) {
-        FilaInterruptor("Solo verificados", b.verificados) { b.verificados = it }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(pal.separador))
         FilaInterruptor("Ocultar dirección hasta aceptar", b.ocultar) { b.ocultar = it }
         Box(Modifier.fillMaxWidth().height(1.dp).background(pal.separador))
         Row(Modifier.fillMaxWidth().tocable(alCosto).padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
