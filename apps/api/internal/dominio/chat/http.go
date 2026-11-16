@@ -82,6 +82,11 @@ func Rutas(mux *http.ServeMux, s *Servicio, hub *Hub, ses *sesion.Resolvedor, or
 			problema.Escribir(w, problema.SinSesion())
 			return
 		}
+		// Como el resto de lo que no es el perfil ni la verificación: sin el DNI aprobado, no.
+		if !p.DNI {
+			problema.Escribir(w, sesion.FaltaDNI())
+			return
+		}
 		hub.Conectar(w, r, p.ID, p.Nombre, origenes)
 	})
 }

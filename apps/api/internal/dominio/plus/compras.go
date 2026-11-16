@@ -22,8 +22,9 @@ type Tiendas struct {
 	Sitio string
 }
 
-// Apple registra una compra de StoreKit 2 (el JWS de la transacción que manda la app).
-func (s *Servicio) Apple(ctx context.Context, t *Tiendas, usuarioID, jws string) (Estado, error) {
+// Apple registra una compra de StoreKit 2 (el JWS de la transacción que manda la app). Una compra de
+// prueba (sandbox, Xcode: TestFlight) sólo cuenta para alguien del equipo: si no, Plus saldría gratis.
+func (s *Servicio) Apple(ctx context.Context, t *Tiendas, usuarioID string, equipo bool, jws string) (Estado, error) {
 	if t.Apple == nil {
 		return Estado{}, problema.NoProcesable("apagado", "Las compras en iPhone todavía no están disponibles.")
 	}
@@ -34,6 +35,9 @@ func (s *Servicio) Apple(ctx context.Context, t *Tiendas, usuarioID, jws string)
 	// La app pone appAccountToken = el id de la persona: una compra hecha por otra cuenta no se pasa.
 	if tx.AppAccountToken != "" && !strings.EqualFold(tx.AppAccountToken, usuarioID) {
 		return Estado{}, problema.Conflicto("otra_cuenta", "Esta compra es de otra cuenta de Caigo.")
+	}
+	if tx.Environment != "Production" && !equipo {
+		return Estado{}, problema.Conflicto("compra_de_prueba", "Esa compra es de prueba: no activa Caigo Plus.")
 	}
 	plan, ok := PlanDeProducto(tx.ProductID)
 	if !ok {
@@ -171,7 +175,11 @@ func (s *Servicio) ConciliarMP(ctx context.Context, t *Tiendas, id string) error
 	if vence.IsZero() && estado == "activa" {
 		return fmt.Errorf("plus: preapproval %s autorizado sin próximo cobro", id)
 	}
-	return s.Guardar(ctx, usuario, "mercadopago", p.ID, plan, estado, vence, renueva)
+	err := s.Guardar(ctx, usuario, "mercadopago", p.ID, plan, estado, vence, renueva)
+	if errors.Is(err, ErrOtraCuenta) {
+		return s.Actualizar(ctx, "mercadopago", p.ID, plan, estado, vence, renueva)
+	}
+	return err
 }
 
 // AvisoApple procesa una App Store Server Notification V2.
@@ -188,21 +196,35 @@ func (s *Servicio) AvisoApple(ctx context.Context, t *Tiendas, signedPayload str
 	}
 	tx := n.Transaccion
 	plan, _ := PlanDeProducto(tx.ProductID)
-	estado := "activa"
-	switch n.Tipo {
-	case "EXPIRED", "GRACE_PERIOD_EXPIRED", "REVOKE", "REFUND":
-		estado = "vencida"
-	case "DID_CHANGE_RENEWAL_STATUS":
-		if n.Renueva != nil && !*n.Renueva {
-			estado = "cancelada"
+	// Las de prueba no crean ni pasan suscripciones: sólo actualizan la que el equipo registró desde
+	// la app (POST /v1/plus/apple, que es la que las acepta).
+	if tx.Environment != "Production" {
+		return s.Actualizar(ctx, "apple", tx.OriginalTransactionID, plan, estadoApple(n.Tipo, n.Renueva), tx.Vence(), n.Renueva == nil || *n.Renueva)
+	}
+	estado := estadoApple(n.Tipo, n.Renueva)
+	renueva := n.Renueva == nil || *n.Renueva
+	// Si la compra entró por notificación antes que por la app, se crea con el appAccountToken. Si ya
+	// era de otra persona, no se pasa: sólo se actualiza.
+	if tx.AppAccountToken != "" && plan != "" {
+		err := s.Guardar(ctx, strings.ToLower(tx.AppAccountToken), "apple", tx.OriginalTransactionID, plan, estado, tx.Vence(), renueva)
+		if !errors.Is(err, ErrOtraCuenta) {
+			return err
 		}
 	}
-	renueva := n.Renueva == nil || *n.Renueva
-	// Si la compra entró por notificación antes que por la app, se crea con el appAccountToken.
-	if tx.AppAccountToken != "" && plan != "" {
-		return s.Guardar(ctx, strings.ToLower(tx.AppAccountToken), "apple", tx.OriginalTransactionID, plan, estado, tx.Vence(), renueva)
-	}
 	return s.Actualizar(ctx, "apple", tx.OriginalTransactionID, plan, estado, tx.Vence(), renueva)
+}
+
+// estadoApple traduce el tipo de una notificación de Apple a nuestro estado.
+func estadoApple(tipo string, renueva *bool) string {
+	switch tipo {
+	case "EXPIRED", "GRACE_PERIOD_EXPIRED", "REVOKE", "REFUND":
+		return "vencida"
+	case "DID_CHANGE_RENEWAL_STATUS":
+		if renueva != nil && !*renueva {
+			return "cancelada"
+		}
+	}
+	return "activa"
 }
 
 // AvisoGoogle procesa una Real-time Developer Notification (por Pub/Sub): vuelve a leer el estado y,
@@ -219,9 +241,11 @@ func (s *Servicio) AvisoGoogle(ctx context.Context, t *Tiendas, token string) er
 		return err
 	}
 	plan, _ := PlanDeProducto(g.Producto)
+	err = ErrOtraCuenta
 	if g.Cuenta != "" && plan != "" {
 		err = s.Guardar(ctx, g.Cuenta, "google", token, plan, estadoGoogle(g), g.Vence, g.Renueva)
-	} else {
+	}
+	if errors.Is(err, ErrOtraCuenta) {
 		err = s.Actualizar(ctx, "google", token, plan, estadoGoogle(g), g.Vence, g.Renueva)
 	}
 	if err != nil {

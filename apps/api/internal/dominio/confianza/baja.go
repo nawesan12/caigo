@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
@@ -22,8 +23,8 @@ import (
 const MotivoBaja = "La persona que organizaba se dio de baja"
 
 // cancelarLoSuyo: sus planes futuros se cancelan como si los cancelara (avisos y reembolso entero de
-// las entradas pagas), y sus propias entradas pagas de planes futuros se le devuelven (el precio,
-// sin el cargo por servicio). Los planes de lugares no: son del lugar, no de quien los cargó.
+// las entradas pagas), y sus propias entradas pagas de planes futuros se cancelan como si las
+// cancelara: lo que diga la política del plan (el precio sin el cargo, o nada). Los planes de lugares no: son del lugar, no de quien los cargó.
 func cancelarLoSuyo(ctx context.Context, tx pgx.Tx, usuarioID string) error {
 	rows, err := tx.Query(ctx, `SELECT id::text FROM planes WHERE organizador_id = $1 AND lugar_id IS NULL
 		AND cancelado_en IS NULL AND empieza_en > now() FOR UPDATE`, usuarioID)
@@ -39,7 +40,8 @@ func cancelarLoSuyo(ctx context.Context, tx pgx.Tx, usuarioID string) error {
 			return err
 		}
 	}
-	rows, err = tx.Query(ctx, `SELECT e.id::text, e.lugar_centavos::bigint FROM entradas e JOIN planes p ON p.id = e.plan_id
+	rows, err = tx.Query(ctx, `SELECT e.id::text, e.lugar_centavos::bigint, p.cancelacion, p.empieza_en FROM entradas e
+		JOIN planes p ON p.id = e.plan_id
 		WHERE e.usuario_id = $1 AND e.estado = 'pagada' AND p.empieza_en > now() AND p.cancelado_en IS NULL`, usuarioID)
 	if err != nil {
 		return err
@@ -47,13 +49,31 @@ func cancelarLoSuyo(ctx context.Context, tx pgx.Tx, usuarioID string) error {
 	type entrada struct {
 		ID       string
 		Centavos int64
+		Politica string
+		Empieza  time.Time
 	}
 	es, err := pgx.CollectRows(rows, pgx.RowToStructByPos[entrada])
 	if err != nil {
 		return err
 	}
 	for _, x := range es {
-		if err := outbox.Publicar(ctx, tx, "entrada.reembolsar", map[string]any{"entradaId": x.ID, "centavos": x.Centavos}); err != nil {
+		// Como si la cancelara ella: la política del plan (flex, mod o strict) dice cuánto vuelve.
+		monto, err := planes.ReembolsoPorPolitica(x.Politica, time.Until(x.Empieza), x.Centavos)
+		if err != nil {
+			monto = 0 // strict: no vuelve nada, pero la entrada se cancela igual
+		}
+		if monto > 0 {
+			if err := outbox.Publicar(ctx, tx, "entrada.reembolsar", map[string]any{"entradaId": x.ID, "centavos": monto}); err != nil {
+				return err
+			}
+			continue
+		}
+		// Sin plata para devolver: se cancela acá y libera el lugar.
+		if _, err := tx.Exec(ctx, `UPDATE entradas SET estado = 'cancelada', reembolso_centavos = 0, actualizada_en = now()
+			WHERE id::text = $1 AND estado = 'pagada'`, x.ID); err != nil {
+			return err
+		}
+		if err := wallet.Actualizado(ctx, tx, "e-"+x.ID); err != nil {
 			return err
 		}
 	}

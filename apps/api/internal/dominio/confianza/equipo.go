@@ -8,42 +8,45 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/equipo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
 
 // Las tareas del equipo de Caigo corren como sistema: ven todo. Quién es del equipo lo decide la
-// sesión (sesion.ExigirEquipo); acá queda registrado quién revisó.
+// sesión (sesion.ExigirEquipo); acá queda registrado quién revisó. El DNI se aprueba solo al subirlo
+// (PedirDNI): el equipo lo revisa después y, si no cierra, suspende la cuenta.
 
-// DNIPendiente para revisar.
+// DNIPendiente es un DNI aprobado (al subirlo) que el equipo todavía no revisó.
 type DNIPendiente struct {
 	ID           string    `json:"id"`
 	UsuarioID    string    `json:"usuarioId"`
 	NombrePerfil string    `json:"nombrePerfil"`
 	EdadPerfil   *int16    `json:"edadPerfil,omitempty"`
 	Nacimiento   time.Time `json:"nacimiento"`
-	FrenteID     string    `json:"frenteId"`
-	DorsoID      string    `json:"dorsoId"`
-	SelfieID     string    `json:"selfieId"`
+	// Las fotos (vacías si pasaron los 30 días sin revisión y se purgaron).
+	FrenteID string `json:"frenteId,omitempty"`
+	DorsoID  string `json:"dorsoId,omitempty"`
+	SelfieID string `json:"selfieId,omitempty"`
 	// Selfie de la prueba de vida al entrar (para comparar con la del DNI).
 	SelfieIngresoID string `json:"selfieIngresoId,omitempty"`
-	// El número ya está aprobado en otra cuenta.
+	// El número también está aprobado en otra cuenta (no debería: se frena al subirlo).
 	Repetido bool      `json:"repetido"`
 	CreadaEn time.Time `json:"creadaEn"`
 }
 
-// DNIPendientes lista las verificaciones por revisar, la más vieja primero.
+// DNIPendientes lista los DNI aprobados sin revisar, el más viejo primero.
 func (s *Servicio) DNIPendientes(ctx context.Context) ([]DNIPendiente, error) {
 	out := []DNIPendiente{}
 	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `
 			SELECT v.id, v.usuario_id, u.nombre, u.edad, v.nacimiento,
-				v.frente_id, v.dorso_id, v.selfie_id,
+				coalesce(v.frente_id::text, ''), coalesce(v.dorso_id::text, ''), coalesce(v.selfie_id::text, ''),
 				coalesce((SELECT a.id::text FROM archivos a WHERE a.usuario_id = u.id AND a.tipo = 'selfie'
-					AND a.id <> v.selfie_id ORDER BY a.creado_en LIMIT 1), ''),
-				EXISTS (SELECT 1 FROM verificaciones_dni o WHERE o.huella = v.huella AND o.estado = 'aprobada'),
+					AND a.id IS DISTINCT FROM v.selfie_id ORDER BY a.creado_en LIMIT 1), ''),
+				EXISTS (SELECT 1 FROM verificaciones_dni o WHERE o.huella = v.huella AND o.estado = 'aprobada' AND o.id <> v.id),
 				v.creada_en
 			FROM verificaciones_dni v JOIN usuarios u ON u.id = v.usuario_id
-			WHERE v.estado = 'pendiente' ORDER BY v.creada_en LIMIT 100`)
+			WHERE v.estado = 'aprobada' AND v.revisada_en IS NULL ORDER BY v.creada_en LIMIT 100`)
 		if err != nil {
 			return err
 		}
@@ -62,48 +65,58 @@ func (s *Servicio) DNIPendientes(ctx context.Context) ([]DNIPendiente, error) {
 	return out, err
 }
 
-// RevisarDNI aprueba o rechaza. Al aprobar, el perfil queda Verificado y toma la edad del DNI. En
-// los dos casos, las fotos de la verificación se borran.
-func (s *Servicio) RevisarDNI(ctx context.Context, equipoID, id string, aprobar bool, motivo string) error {
+// Lo que puede hacer el equipo al revisar un DNI ya aprobado.
+const (
+	// RevisionOK: está bien, queda revisada.
+	RevisionOK = "ok"
+	// RevisionSuspender: no cierra (no es la persona, la foto no es un DNI…): la verificación pasa a
+	// rechazada con el motivo y la cuenta se suspende como desde el backoffice.
+	RevisionSuspender = "suspender"
+)
+
+// RevisarDNI cierra la revisión de un DNI aprobado sin revisar. En los dos casos queda revisada y las
+// fotos de la verificación (frente, dorso y la selfie del DNI) se borran. suspender: además la
+// verificación pasa a rechazada (el motivo lo ve la persona), el perfil deja de estar Verificado y
+// la cuenta se suspende (equipo.SuspenderTx: el mail y el DNI quedan vetados).
+func (s *Servicio) RevisarDNI(ctx context.Context, equipoID, id, accion, motivo string) error {
 	motivo = strings.TrimSpace(motivo)
-	if !aprobar && motivo == "" {
-		return problema.Invalido("Decí por qué se rechaza (lo ve la persona).")
+	switch {
+	case accion != RevisionOK && accion != RevisionSuspender:
+		return problema.Invalido("La acción es ok o suspender.")
+	case accion == RevisionSuspender && motivo == "":
+		return problema.Invalido("Decí por qué se suspende (lo ve la persona).")
+	case len([]rune(motivo)) > 300:
+		return problema.Invalido("El motivo puede tener hasta 300 letras.")
 	}
 	return s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		var usuario string
-		var nac time.Time
-		err := tx.QueryRow(ctx, `SELECT usuario_id, nacimiento FROM verificaciones_dni WHERE id::text = $1 AND estado = 'pendiente' FOR UPDATE`, id).Scan(&usuario, &nac)
+		err := tx.QueryRow(ctx, `SELECT usuario_id FROM verificaciones_dni WHERE id::text = $1 AND estado = 'aprobada'
+			AND revisada_en IS NULL FOR UPDATE`, id).Scan(&usuario)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return problema.NoEncontrado("Esa verificación no está pendiente.")
+			return problema.NoEncontrado("Esa verificación ya se revisó.")
 		}
 		if err != nil {
 			return err
 		}
-		estado := "rechazada"
-		if aprobar {
-			estado = "aprobada"
+		if accion == RevisionSuspender {
+			// Primero la suspensión: con el DNI todavía aprobado, su huella entra en los vetados.
+			if err := equipo.SuspenderTx(ctx, tx, s.Vetados, usuario, motivo); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `UPDATE verificaciones_dni SET estado = 'rechazada', motivo = $2 WHERE id::text = $1`,
+				id, motivo); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `UPDATE usuarios SET dni_en = NULL WHERE id = $1`, usuario); err != nil {
+				return err
+			}
 		}
-		if _, err := tx.Exec(ctx, `UPDATE verificaciones_dni SET estado = $2, motivo = $3, revisada_por = $4, revisada_en = now() WHERE id::text = $1`,
-			id, estado, motivo, equipoID); err != nil {
-			return problema.Conflicto("repetido", "Ese DNI ya está verificado en otra cuenta.")
-		}
-		// Resuelta: las fotos (frente, dorso y selfie) se borran ya (ver fotos_dni.go).
-		if _, err := soltarFotosDNI(ctx, tx, id); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE verificaciones_dni SET revisada_por = $2, revisada_en = now() WHERE id::text = $1`,
+			id, equipoID); err != nil {
 			return err
 		}
-		if !aprobar {
-			return nil
-		}
-		hoy := s.ahora()
-		edad := hoy.Year() - nac.Year()
-		if hoy.YearDay() < nac.YearDay() {
-			edad--
-		}
-		if _, err := tx.Exec(ctx, `UPDATE usuarios SET dni_en = now(), edad = $2 WHERE id = $1`, usuario, edad); err != nil {
-			return err
-		}
-		_, err = tx.Exec(ctx, `INSERT INTO usuarios_privado (usuario_id, nacimiento) VALUES ($1, $2)
-			ON CONFLICT (usuario_id) DO UPDATE SET nacimiento = excluded.nacimiento`, usuario, nac)
+		// Revisada: las fotos (frente, dorso y selfie) se borran ya (ver fotos_dni.go).
+		_, err = soltarFotosDNI(ctx, tx, id)
 		return err
 	})
 }

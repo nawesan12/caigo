@@ -14,6 +14,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -37,6 +38,9 @@ type Persona struct {
 	Clerk  string // user_…
 	Nombre string
 	Equipo bool
+	// DNI: tiene el DNI aprobado (usuarios.dni_en). Sin DNI, Exigir sólo deja pasar las rutas exentas
+	// (ver Exenta): el perfil, la verificación, la baja, el panel de lugares y el equipo.
+	DNI bool
 }
 
 type clave struct{}
@@ -172,8 +176,8 @@ func (s *Resolvedor) propia(ctx context.Context, token string) (Persona, error) 
 			UPDATE sesiones x SET usada_en = now(),
 				vence_en = CASE WHEN x.usada_en < now() - interval '1 day' THEN now() + $2::interval ELSE x.vence_en END
 			FROM usuarios u WHERE x.token_hash = $1 AND x.vence_en > now() AND u.id = x.usuario_id AND u.baja_en IS NULL
-			RETURNING u.id, u.clerk_id, u.nombre, u.equipo, u.suspendido_en IS NOT NULL`, hashToken(token), vidaSesion.String()).
-			Scan(&p.ID, &p.Clerk, &p.Nombre, &p.Equipo, &suspendida)
+			RETURNING u.id, u.clerk_id, u.nombre, u.equipo, u.suspendido_en IS NOT NULL, u.dni_en IS NOT NULL`, hashToken(token), vidaSesion.String()).
+			Scan(&p.ID, &p.Clerk, &p.Nombre, &p.Equipo, &suspendida, &p.DNI)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return clerk.ErrToken
 		}
@@ -204,8 +208,8 @@ func (s *Resolvedor) Resolver(ctx context.Context, token string) (Persona, error
 	err = s.App.EnTx(ctx, func(tx pgx.Tx) error {
 		var suspendida, borrada bool
 		// Una baja sin purgar conserva el clerk_id (para poder recuperarla): no entra ni se crea otra.
-		err := tx.QueryRow(ctx, `SELECT id, nombre, equipo, suspendido_en IS NOT NULL, baja_en IS NOT NULL FROM usuarios
-			WHERE clerk_id = $1`, sujeto).Scan(&p.ID, &p.Nombre, &p.Equipo, &suspendida, &borrada)
+		err := tx.QueryRow(ctx, `SELECT id, nombre, equipo, suspendido_en IS NOT NULL, baja_en IS NOT NULL, dni_en IS NOT NULL
+			FROM usuarios WHERE clerk_id = $1`, sujeto).Scan(&p.ID, &p.Nombre, &p.Equipo, &suspendida, &borrada, &p.DNI)
 		if borrada {
 			return ErrCuentaBorrada
 		}
@@ -246,6 +250,30 @@ func (s *Resolvedor) Resolver(ctx context.Context, token string) (Persona, error
 	return p, nil
 }
 
+// UsuarioDe dice de qué persona es el token (para los topes por ruta), sin crearla ni renovar la
+// sesión. Vacío si no es válido o no se sabe.
+func (s *Resolvedor) UsuarioDe(ctx context.Context, token string) string {
+	var id string
+	var err error
+	if strings.HasPrefix(token, prefijo) {
+		err = s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+			return tx.QueryRow(ctx, `SELECT usuario_id::text FROM sesiones WHERE token_hash = $1 AND vence_en > now()`,
+				hashToken(token)).Scan(&id)
+		})
+	} else if s.Clerk != nil {
+		var sujeto string
+		if sujeto, err = s.Clerk.Verificar(ctx, token); err == nil {
+			err = s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+				return tx.QueryRow(ctx, `SELECT id::text FROM usuarios WHERE clerk_id = $1`, sujeto).Scan(&id)
+			})
+		}
+	}
+	if err != nil {
+		return ""
+	}
+	return id
+}
+
 // Exigir corta con 401 los pedidos sin una sesión válida.
 func (s *Resolvedor) Exigir(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -267,8 +295,59 @@ func (s *Resolvedor) Exigir(next http.Handler) http.Handler {
 			problema.Escribir(w, problema.SinSesion())
 			return
 		}
+		if !p.DNI && !Exenta(r.Pattern) {
+			problema.Escribir(w, FaltaDNI())
+			return
+		}
+		if !idsValidos(r) {
+			problema.Escribir(w, problema.NoEncontrado("Eso no existe."))
+			return
+		}
 		next.ServeHTTP(w, r.WithContext(Con(r.Context(), p)))
 	})
+}
+
+// FaltaDNI es lo que ve quien todavía no verificó su DNI y quiere usar Caigo (decisión de Nahuel,
+// 16/11: sin DNI aprobado no se puede hacer nada). Las apps lo mapean a la pantalla del DNI.
+func FaltaDNI() *problema.Problema {
+	return &problema.Problema{Estado: http.StatusForbidden, Codigo: "falta_dni", Titulo: "Falta tu DNI",
+		Detalle: "Antes de usar Caigo, verificá tu DNI."}
+}
+
+// Exenta dice si una ruta con sesión (su patrón: "GET /v1/yo") se puede usar sin el DNI aprobado: el
+// perfil propio, la verificación y sus fotos, la baja, la sesión y los dispositivos de push, el panel
+// de lugares (otra regla: lo usan comercios) y el backoffice del equipo. Todo lo demás pide DNI.
+func Exenta(patron string) bool {
+	metodo, ruta, _ := strings.Cut(patron, " ")
+	switch metodo + " " + ruta {
+	case "GET /v1/yo", "PATCH /v1/yo", "DELETE /v1/yo", "DELETE /v1/cuenta",
+		"POST /v1/archivos", "GET /v1/archivos/{id}", "POST /v1/sesion", "DELETE /v1/sesion",
+		"PUT /v1/dispositivos", "DELETE /v1/dispositivos/{token}", "POST /v1/mercadopago/vuelta":
+		return true
+	}
+	return ruta == "/v1/verificacion" || strings.HasPrefix(ruta, "/v1/verificacion/") ||
+		ruta == "/v1/lugares" || strings.HasPrefix(ruta, "/v1/lugares/") || strings.HasPrefix(ruta, "/v1/equipo/")
+}
+
+// Comodines de las rutas que son ids (uuid). Uno mal formado es un 404 antes de llegar a la base
+// (si no, Postgres falla al convertirlo y sale un 500). GET /v1/planes/{id} acepta también el slug.
+var comodinesID = []string{"id", "usuarioId", "planId", "plan", "lugar"}
+
+var reUUID = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// EsUUID dice si s es un uuid.
+func EsUUID(s string) bool { return reUUID.MatchString(s) }
+
+func idsValidos(r *http.Request) bool {
+	if r.Pattern == "GET /v1/planes/{id}" {
+		return true
+	}
+	for _, k := range comodinesID {
+		if v := r.PathValue(k); v != "" && !EsUUID(v) {
+			return false
+		}
+	}
+	return true
 }
 
 // Rutas de la sesión: POST /v1/sesion canjea el token de Clerk (Authorization) por uno de Caigo;

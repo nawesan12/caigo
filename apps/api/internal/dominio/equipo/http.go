@@ -45,6 +45,14 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 			return listo(w)
 		}))
 	}
+	// Eventos del outbox que agotaron los reintentos (un reembolso o un mail que no salió).
+	mux.Handle("GET /v1/equipo/apartados", h(func(w http.ResponseWriter, r *http.Request) error {
+		as, err := s.Apartados(r.Context())
+		if err == nil {
+			respuesta.JSON(w, http.StatusOK, map[string]any{"apartados": as})
+		}
+		return err
+	}))
 	mux.Handle("GET /v1/equipo/planes", h(func(w http.ResponseWriter, r *http.Request) error {
 		ps, err := s.Planes(r.Context(), r.URL.Query().Get("q"), r.URL.Query().Get("cual"))
 		if err == nil {

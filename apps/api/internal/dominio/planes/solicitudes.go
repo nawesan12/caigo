@@ -37,20 +37,20 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 	var estado string
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var (
-			org, ingreso, cobro, visib    string
-			generoPlan                    string
-			soloVerif, cancelado          bool
-			empieza                       time.Time
-			total                         int16
-			edadMin, edadMax, edad        *int16
-			selfie, dni, enGente, bloqueo bool
+			org, ingreso, cobro, visib string
+			generoPlan                 string
+			cancelado, grupos, activo  bool
+			empieza                    time.Time
+			total                      int16
+			edadMin, edadMax, edad     *int16
+			selfie, enGente, bloqueo   bool
 		)
 		// FOR UPDATE: dos personas que se suman al último lugar a la vez no pueden entrar las dos.
 		err := tx.QueryRow(ctx, `
-			SELECT p.organizador_id, p.ingreso, p.solo_verificados, p.cancelado_en IS NOT NULL,
-				p.empieza_en, p.total, p.edad_min, p.edad_max, p.cobro, p.visibilidad, p.genero
+			SELECT p.organizador_id, p.ingreso, p.cancelado_en IS NOT NULL, p.acepta_grupos,
+				p.empieza_en, p.total, p.edad_min, p.edad_max, p.cobro, p.visibilidad, p.genero, `+organizaActivo+`
 			FROM planes p WHERE p.id = $1 FOR UPDATE`, planID).
-			Scan(&org, &ingreso, &soloVerif, &cancelado, &empieza, &total, &edadMin, &edadMax, &cobro, &visib, &generoPlan)
+			Scan(&org, &ingreso, &cancelado, &grupos, &empieza, &total, &edadMin, &edadMax, &cobro, &visib, &generoPlan, &activo)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("Ese plan no existe.")
 		}
@@ -58,11 +58,11 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 			return err
 		}
 		if err := tx.QueryRow(ctx, `
-			SELECT u.selfie_en IS NOT NULL, u.dni_en IS NOT NULL, u.edad,
+			SELECT u.selfie_en IS NOT NULL, u.edad,
 				EXISTS (SELECT 1 FROM mi_gente g WHERE g.usuario_id = $2 AND g.otro_id = u.id),
 				EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = u.id AND b.bloqueado_id = $2)
 					OR (b.usuario_id = $2 AND b.bloqueado_id = u.id))
-			FROM usuarios u WHERE u.id = $1`, usuarioID, org).Scan(&selfie, &dni, &edad, &enGente, &bloqueo); err != nil {
+			FROM usuarios u WHERE u.id = $1`, usuarioID, org).Scan(&selfie, &edad, &enGente, &bloqueo); err != nil {
 			return err
 		}
 		switch {
@@ -70,23 +70,23 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 			return problema.Conflicto("es_tuyo", "Ya estás: es tu plan.")
 		case cobro != "gratis":
 			return problema.Conflicto("con_entrada", "A este plan se entra con entrada.")
+		case bloqueo, !activo, visib == "mi_gente" && !enGente:
+			return problema.NoEncontrado("Ese plan no existe.")
 		case cancelado:
 			return problema.Conflicto("cancelado", "Este plan se canceló.")
-		case bloqueo, visib == "mi_gente" && !enGente:
-			return problema.NoEncontrado("Ese plan no existe.")
 		case empieza.Add(ahoraAtras).Before(s.ahora()):
 			return problema.Conflicto("paso", "Este plan ya arrancó.")
-		case !selfie:
-			return problema.NoProcesable("falta_selfie", "Antes de sumarte, verificá tu identidad con una selfie.")
-		case soloVerif && !dni:
-			return problema.NoProcesable("falta_dni", "Este plan es sólo para personas con DNI verificado.")
-		case ingreso == "mi_gente" && !enGente:
-			return problema.Conflicto("solo_mi_gente", "Este plan es sólo para la gente del organizador.")
-		case edad != nil && ((edadMin != nil && *edad < *edadMin) || (edadMax != nil && *edad > *edadMax)):
-			return problema.Conflicto("edad", "Este plan busca otro rango de edad.")
+		case cantidad > 1 && !grupos:
+			return problema.Conflicto("sin_grupos", "Este plan es de a una persona.")
 		}
-		if err := ChequearGenero(generoPlan, conf); err != nil {
+		// Lo de la persona (selfie, edad, género) lo comparten sumarse, la entrada gratis de un lugar y
+		// la invitación del organizador. El DNI lo pide la sesión (falta_dni): «sólo verificados» ya no
+		// deja a nadie afuera.
+		if err := Admitir(selfie, edad, edadMin, edadMax, generoPlan, conf); err != nil {
 			return err
+		}
+		if ingreso == "mi_gente" && !enGente {
+			return problema.Conflicto("solo_mi_gente", "Este plan es sólo para la gente del organizador.")
 		}
 		var previo string
 		err = tx.QueryRow(ctx, `SELECT estado FROM solicitudes WHERE plan_id = $1 AND usuario_id = $2`, planID, usuarioID).Scan(&previo)
@@ -126,9 +126,18 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 	return estado, err
 }
 
-// Salir cancela la solicitud propia (pendiente o aceptada).
+// Salir cancela la solicitud propia (pendiente o aceptada). Con una entrada paga no: se sale
+// cancelando la entrada (DELETE /v1/entradas/{id}), que aplica la política de reembolso.
 func (s *Servicio) Salir(ctx context.Context, usuarioID, planID string) error {
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		var pago bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM entradas WHERE plan_id::text = $1 AND usuario_id = $2
+			AND estado = 'pagada')`, planID, usuarioID).Scan(&pago); err != nil {
+			return err
+		}
+		if pago {
+			return problema.Conflicto("con_entrada", "Para irte, cancelá tu entrada.")
+		}
 		tag, err := tx.Exec(ctx, `
 			UPDATE solicitudes s SET estado = 'cancelada', respondida_en = now()
 			FROM planes p WHERE p.id = s.plan_id AND s.plan_id = $1 AND s.usuario_id = $2
@@ -188,18 +197,26 @@ func (s *Servicio) Responder(ctx context.Context, usuarioID, solicitudID string,
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var planID, org, estado string
 		var cantidad int16
+		var cancelado bool
+		var fin time.Time
 		err := tx.QueryRow(ctx, `
-			SELECT s.plan_id, p.organizador_id, s.estado, s.cantidad, s.usuario_id
+			SELECT s.plan_id, p.organizador_id, s.estado, s.cantidad, s.usuario_id, p.cancelado_en IS NOT NULL,
+				p.empieza_en + make_interval(mins => p.duracion_min)
 			FROM solicitudes s JOIN planes p ON p.id = s.plan_id WHERE s.id = $1`, solicitudID).
-			Scan(&planID, &org, &estado, &cantidad, &persona)
+			Scan(&planID, &org, &estado, &cantidad, &persona, &cancelado, &fin)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && org != usuarioID) {
 			return problema.NoEncontrado("Esa solicitud no es de un plan tuyo.")
 		}
 		if err != nil {
 			return err
 		}
-		if estado != "pendiente" {
+		switch {
+		case estado != "pendiente":
 			return problema.Conflicto("respondida", "Esa solicitud ya no está pendiente.")
+		case cancelado:
+			return problema.Conflicto("cancelado", "Este plan se canceló.")
+		case aceptar && !fin.After(s.ahora()):
+			return problema.Conflicto("paso", "Este plan ya terminó.")
 		}
 		nuevo := "rechazada"
 		if aceptar {
@@ -239,4 +256,27 @@ func completo(ctx context.Context, tx pgx.Tx, planID string) error {
 	}
 	_, err := tx.Exec(ctx, `INSERT INTO mensajes (plan_id, texto) VALUES ($1, 'Plan completo. A disfrutar.')`, planID)
 	return err
+}
+
+// organizaActivo (con p = planes): quien organiza no está suspendido ni dado de baja. Los planes de
+// una cuenta suspendida no salen en las listas, no admiten sumarse y la recurrencia no los repite (si
+// la reactivan, vuelven).
+const organizaActivo = `EXISTS (SELECT 1 FROM usuarios oa WHERE oa.id = p.organizador_id AND oa.suspendido_en IS NULL
+	AND oa.baja_en IS NULL)`
+
+// OrganizaActivo es organizaActivo para los otros paquetes (entradas, invitaciones).
+const OrganizaActivo = organizaActivo
+
+// Admitir revisa lo de la persona para entrar a un plan: la selfie, el rango de edad (sin edad
+// cargada no pasa un plan con rango) y el género que confirma. El DNI ya lo pidió la sesión.
+func Admitir(selfie bool, edad, edadMin, edadMax *int16, generoPlan string, conf Confirma) error {
+	switch {
+	case !selfie:
+		return problema.NoProcesable("falta_selfie", "Antes de sumarte, verificá tu identidad con una selfie.")
+	case edad == nil && (edadMin != nil || edadMax != nil):
+		return problema.NoProcesable("falta_edad", "Este plan tiene un rango de edad: cargá tu fecha de nacimiento.")
+	case edad != nil && ((edadMin != nil && *edad < *edadMin) || (edadMax != nil && *edad > *edadMax)):
+		return problema.Conflicto("edad", "Este plan busca otro rango de edad.")
+	}
+	return ChequearGenero(generoPlan, conf)
 }

@@ -1,5 +1,5 @@
 // Package confianza: las capas de verificación (teléfono con un código que llega por mail, selfie con prueba de vida, DNI
-// revisado por el equipo), los archivos subidos y la moderación. La prueba de vida y la lectura
+// que se aprueba al subirlo y el equipo revisa después), los archivos subidos y la moderación. La prueba de vida y la lectura
 // del PDF417 del DNI pasan en el teléfono (Vision / ML Kit); acá se guarda lo que manda y el
 // equipo revisa a mano.
 package confianza
@@ -20,6 +20,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/personas"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
@@ -166,6 +167,18 @@ func (s *Servicio) PedirCodigo(ctx context.Context, usuarioID, clerkID, telefono
 			return Envio{}, errSinMail
 		}
 	}
+	// Un teléfono, una cuenta: si no, la verificación no dice nada. Como sistema: con RLS, la persona
+	// no ve los teléfonos de los demás.
+	var otro bool
+	if err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM usuarios_privado WHERE telefono = $1
+			AND telefono_verificado_en IS NOT NULL AND usuario_id <> $2)`, telefono, usuarioID).Scan(&otro)
+	}); err != nil {
+		return Envio{}, err
+	}
+	if otro {
+		return Envio{}, errTelefonoEnUso
+	}
 	n, _ := rand.Int(rand.Reader, big.NewInt(1000000))
 	codigo := fmt.Sprintf("%06d", n.Int64())
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
@@ -177,10 +190,9 @@ func (s *Servicio) PedirCodigo(ctx context.Context, usuarioID, clerkID, telefono
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		var otro bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM usuarios_privado WHERE telefono = $1
-			AND telefono_verificado_en IS NOT NULL AND usuario_id <> $2)`, telefono, usuarioID).Scan(&otro); err != nil {
-			return err
+		// Un teléfono, una cuenta: si no, la verificación no dice nada.
+		if otro {
+			return problema.Conflicto("telefono_en_uso", "Ese teléfono ya está verificado en otra cuenta. Si es tuyo, escribinos a soporte@caigo.com.ar.")
 		}
 		_, err = tx.Exec(ctx, `
 			INSERT INTO telefono_codigos (usuario_id, telefono, codigo_hash, vence_en) VALUES ($1, $2, $3, $4)
@@ -252,6 +264,9 @@ func (s *Servicio) ConfirmarCodigo(ctx context.Context, usuarioID, codigo string
 	return err
 }
 
+var errTelefonoEnUso = problema.Conflicto("telefono_en_uso",
+	"Ese teléfono ya está verificado en otra cuenta. Si es tuyo, escribinos a soporte@caigo.com.ar.")
+
 var errCodigoMal = problema.Invalido("Ese código no es. Revisalo y probá de nuevo.")
 
 // Selfie registra la selfie con prueba de vida (el archivo ya subido como tipo selfie).
@@ -289,7 +304,9 @@ type DatosDNI struct {
 
 var reDNI = regexp.MustCompile(`^[0-9]{7,9}$`)
 
-// PedirDNI deja la verificación pendiente de revisión.
+// PedirDNI verifica el DNI en el momento (decisión de Nahuel, 16/11): con las fotos, el número y la
+// fecha, y la selfie y el teléfono ya verificados, la verificación queda aprobada y la persona toma la
+// edad del DNI. El equipo la revisa después (RevisarDNI): si algo no cierra, suspende la cuenta.
 func (s *Servicio) PedirDNI(ctx context.Context, usuarioID string, d DatosDNI) error {
 	d.Numero = strings.TrimLeft(strings.ReplaceAll(d.Numero, ".", ""), "0")
 	nac, err := time.Parse(time.DateOnly, d.Nacimiento)
@@ -298,29 +315,52 @@ func (s *Servicio) PedirDNI(ctx context.Context, usuarioID string, d DatosDNI) e
 		return problema.Invalido("No pudimos leer el número de DNI.")
 	case err != nil:
 		return problema.Invalido("No pudimos leer la fecha de nacimiento.")
-	case nac.AddDate(18, 0, 0).After(s.ahora()):
+	case personas.Edad(nac, s.ahora()) < 18:
 		return problema.NoProcesable("menor", "Caigo es sólo para mayores de 18.")
+	case personas.Edad(nac, s.ahora()) > personas.EdadMaxima:
+		return problema.Invalido("No pudimos leer la fecha de nacimiento.")
 	}
+	edad := personas.Edad(nac, s.ahora())
 	// El número no se guarda: sólo su huella. Sin la clave no hay huella (ni fotos cifradas).
 	huella := s.Vetados.Huella(vetados.DNI, d.Numero)
 	if huella == nil {
 		s.log().Error("verificación: sin la clave de las huellas, no se puede verificar el DNI")
 		return errSinClave
 	}
-	// Un DNI vetado (de alguien suspendido) no se verifica en otra cuenta. Como sistema: la lista no
-	// es de nadie.
-	var veto bool
+	// Un DNI vetado (de alguien suspendido) no se verifica en otra cuenta, ni uno ya verificado en
+	// otra. Como sistema: la lista y las verificaciones de los demás no son de nadie.
+	var veto, otra bool
 	if err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		var err error
-		veto, err = vetados.VetadaHuella(ctx, tx, vetados.DNI, huella)
-		return err
+		if veto, err = vetados.VetadaHuella(ctx, tx, vetados.DNI, huella); err != nil {
+			return err
+		}
+		return tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM verificaciones_dni WHERE huella = $1 AND estado = 'aprobada'
+			AND usuario_id <> $2)`, huella, usuarioID).Scan(&otra)
 	}); err != nil {
 		return err
 	}
 	if veto {
 		return problema.NoProcesable("dni_vetado", "No podemos verificar este DNI. Si creés que es un error, escribinos a soporte@caigo.com.ar.")
 	}
-	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+	if otra {
+		return errDNIRepetido
+	}
+	err = s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		var selfie, telefono, aprobado bool
+		if err := tx.QueryRow(ctx, `SELECT u.selfie_en IS NOT NULL, u.dni_en IS NOT NULL,
+				EXISTS (SELECT 1 FROM usuarios_privado p WHERE p.usuario_id = u.id AND p.telefono_verificado_en IS NOT NULL)
+			FROM usuarios u WHERE u.id = $1 FOR UPDATE`, usuarioID).Scan(&selfie, &aprobado, &telefono); err != nil {
+			return err
+		}
+		switch {
+		case aprobado:
+			return problema.Conflicto("ya_verificado", "Tu DNI ya está verificado.")
+		case !telefono:
+			return problema.NoProcesable("falta_telefono", "Antes del DNI, verificá tu teléfono.")
+		case !selfie:
+			return problema.NoProcesable("falta_selfie", "Antes del DNI, verificá tu identidad con una selfie.")
+		}
 		var n int
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM archivos WHERE usuario_id = $1 AND (
 			(id::text = $2 AND tipo = 'dni') OR (id::text = $3 AND tipo = 'dni') OR (id::text = $4 AND tipo = 'selfie'))`,
@@ -337,12 +377,27 @@ func (s *Servicio) PedirDNI(ctx context.Context, usuarioID string, d DatosDNI) e
 		if pendiente {
 			return problema.Conflicto("pendiente", "Ya estamos revisando tu DNI.")
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO verificaciones_dni (usuario_id, frente_id, dorso_id, selfie_id, huella,
-			nacimiento) VALUES ($1, $2, $3, $4, $5, $6)`,
-			usuarioID, d.FrenteID, d.DorsoID, d.SelfieID, huella, nac)
+		// Aprobada sin revisar (revisada_en vacía): las fotos quedan para la revisión del equipo.
+		if _, err := tx.Exec(ctx, `INSERT INTO verificaciones_dni (usuario_id, frente_id, dorso_id, selfie_id, huella,
+			nacimiento, estado) VALUES ($1, $2, $3, $4, $5, $6, 'aprobada')`,
+			usuarioID, d.FrenteID, d.DorsoID, d.SelfieID, huella, nac); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE usuarios SET dni_en = now(), edad = $2 WHERE id = $1`, usuarioID, edad); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO usuarios_privado (usuario_id, nacimiento) VALUES ($1, $2)
+			ON CONFLICT (usuario_id) DO UPDATE SET nacimiento = excluded.nacimiento`, usuarioID, nac)
 		return err
 	})
+	// Dos cuentas con el mismo DNI a la vez: el índice único de las aprobadas frena a la segunda.
+	if db.EsUnico(err) {
+		return errDNIRepetido
+	}
+	return err
 }
+
+var errDNIRepetido = problema.Conflicto("dni_repetido", "Ese DNI ya está verificado en otra cuenta. Si es tuyo, escribinos a soporte@caigo.com.ar.")
 
 // Estado de la verificación de una persona.
 type Estado struct {

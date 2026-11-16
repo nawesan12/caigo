@@ -40,7 +40,8 @@ func codigoArrepentimiento() string {
 	return "ARR-" + string(b)
 }
 
-// Arrepentirse registra el pedido y devuelve el código de trámite. Avisa al equipo.
+// Arrepentirse registra el pedido y devuelve el código de trámite. Avisa al equipo (push y mail a
+// hola@) y le manda el acuse por mail a quien lo pidió (los manda el worker: ManejadoresCorreo).
 func (s *Servicio) Arrepentirse(ctx context.Context, nombre, email, compra string) (string, error) {
 	nombre, email, compra = strings.TrimSpace(nombre), strings.TrimSpace(email), strings.TrimSpace(compra)
 	var campos []problema.Campo
@@ -70,7 +71,13 @@ func (s *Servicio) Arrepentirse(ctx context.Context, nombre, email, compra strin
 			if err != nil {
 				return err
 			}
-			return outbox.Publicar(ctx, tx, "arrepentimiento.nuevo", map[string]any{"id": id, "codigo": codigo})
+			// Push al equipo, el acuse por mail a quien lo pidió y el aviso por mail a hola@.
+			for _, tipo := range []string{"arrepentimiento.nuevo", EventoAcuseArrepentimiento, EventoAvisoArrepentimiento} {
+				if err := outbox.Publicar(ctx, tx, tipo, map[string]any{"id": id, "codigo": codigo}); err != nil {
+					return err
+				}
+			}
+			return nil
 		}
 	})
 	return codigo, err

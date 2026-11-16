@@ -175,27 +175,42 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 				AND empieza_en >= (SELECT empieza_en FROM planes WHERE id::text = $1)`, planID, usuarioID)
 			return err
 		}
-		// Ya está la semana que viene (la creó el worker o un "Sí" anterior): se devuelve esa.
-		err = tx.QueryRow(ctx, `SELECT n.id FROM planes v JOIN planes n ON coalesce(n.serie_id, n.id) = coalesce(v.serie_id, v.id)
-			AND n.empieza_en = v.empieza_en + interval '7 days' WHERE v.id::text = $1 LIMIT 1`, planID).Scan(&existente)
+		// Un «Sí» a la vez por serie (el mismo candado que la recurrencia del worker): dos «Sí» seguidos
+		// no crean dos planes.
+		var serie string
+		if err := tx.QueryRow(ctx, `SELECT coalesce(serie_id, id)::text FROM planes WHERE id::text = $1`, planID).Scan(&serie); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, "serie:"+serie); err != nil {
+			return err
+		}
+		// Ya hay uno que viene en la serie (lo creó el worker o un «Sí» anterior): se devuelve ese.
+		err = tx.QueryRow(ctx, `SELECT id FROM planes WHERE coalesce(serie_id, id)::text = $1 AND empieza_en > $2
+			AND empieza_en > $3 AND cancelado_en IS NULL ORDER BY empieza_en LIMIT 1`, serie, empieza, s.ahora()).Scan(&existente)
 		if err == nil {
 			return nil
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		// Mismo plan, una semana después, en la misma serie. Arranca con el grupo del organizador.
+		// Mismo plan, a la semana, en la misma serie; si el «¿Repetimos?» llega tarde, la próxima semana
+		// que no pasó (nunca uno en el pasado). Arranca con el grupo del organizador.
+		const semana = 7 * 24 * time.Hour
+		proximo := empieza.Add(semana)
+		for !proximo.After(s.ahora()) {
+			proximo = proximo.Add(semana)
+		}
 		return tx.QueryRow(ctx, `
 			WITH viejo AS (SELECT * FROM planes WHERE id::text = $1),
 			n AS (
 				INSERT INTO planes (slug, organizador_id, titulo, categoria, descripcion, empieza_en, duracion_min,
 					recurrente, serie_id, ciudad, zona, lugar_nombre, lat, lng, somos, total, ingreso, visibilidad,
 					solo_verificados, ocultar_direccion, edad_min, edad_max, genero, nivel, costo_centavos, foto)
-				SELECT $2, organizador_id, titulo, categoria, descripcion, empieza_en + interval '7 days', duracion_min,
+				SELECT $2, organizador_id, titulo, categoria, descripcion, $3, duracion_min,
 					true, coalesce(serie_id, id), ciudad, zona, lugar_nombre, lat, lng, somos, total, ingreso, visibilidad,
 					solo_verificados, ocultar_direccion, edad_min, edad_max, genero, nivel, costo_centavos, foto
 				FROM viejo RETURNING id, somos)
-			SELECT id FROM n`, planID, slug(titulo, zona)).Scan(&nuevo)
+			SELECT id FROM n`, planID, slug(titulo, zona), proximo).Scan(&nuevo)
 	})
 	if err == nil && existente != "" {
 		p, err := s.Ver(ctx, usuarioID, existente, nil)

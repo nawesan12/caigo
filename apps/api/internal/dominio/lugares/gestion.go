@@ -68,6 +68,9 @@ func (s *Servicio) EditarPlan(ctx context.Context, usuarioID, lugarID, planID st
 		if err := p.validar(ahora); err != nil {
 			return err
 		}
+		if err := s.fotoDelLugar(ctx, lugarID, usuarioID, p.Foto, fotoAntes); err != nil {
+			return err
+		}
 		var sumados, pagas int
 		var mp bool
 		if err := tx.QueryRow(ctx, `SELECT
@@ -140,24 +143,6 @@ func (s *Servicio) CancelarPlan(ctx context.Context, usuarioID, lugarID, planID 
 	})
 }
 
-// Reembolso de una entrada que cancela quien la compró, según la política del plan: flex devuelve
-// todo hasta 24 h antes, mod hasta 72 h antes y strict nada. El cargo por servicio no se devuelve.
-func reembolsoPorPolitica(politica string, faltan time.Duration, lugarCentavos int64) (int64, error) {
-	switch politica {
-	case "strict":
-		return 0, problema.Conflicto("sin_reembolso", "Este plan no tiene reembolso si cancelás.")
-	case "mod":
-		if faltan >= 72*time.Hour {
-			return lugarCentavos, nil
-		}
-	default: // flex
-		if faltan >= 24*time.Hour {
-			return lugarCentavos, nil
-		}
-	}
-	return 0, nil
-}
-
 // CancelarEntrada: quien compró cancela su entrada. Devuelve cuánto se le reembolsa (en centavos).
 // Si hay plata para devolver, el reembolso sale en el momento por Mercado Pago.
 func (s *Servicio) CancelarEntrada(ctx context.Context, usuarioID, entradaID string) (int64, error) {
@@ -185,7 +170,7 @@ func (s *Servicio) CancelarEntrada(ctx context.Context, usuarioID, entradaID str
 		case !empieza.After(s.ahora()):
 			return problema.Conflicto("paso", "El plan ya empezó.")
 		}
-		monto, err = reembolsoPorPolitica(politica, empieza.Sub(s.ahora()), lugarC)
+		monto, err = planes.ReembolsoPorPolitica(politica, empieza.Sub(s.ahora()), lugarC)
 		if err != nil || monto > 0 {
 			return err
 		}

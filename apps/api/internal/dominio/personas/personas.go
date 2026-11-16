@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"regexp"
 	"slices"
@@ -24,6 +25,8 @@ import (
 // Servicio de personas.
 type Servicio struct {
 	App *db.Pool
+	// URL pública de la API: las fotos del perfil tienen que ser de ahí (…/v1/archivos/<id>).
+	APIPublica string
 	// Clerk, para completar el mail de quien entró antes de que se guardara (nil: no se completa).
 	Casillas interface {
 		Usuario(ctx context.Context, id string) (clerk.Usuario, error)
@@ -106,6 +109,27 @@ func Faltantes(p Perfil) []string {
 	}
 	return out
 }
+
+// Edad cumplida a la fecha hoy de quien nació en nac, por año, mes y día (con el día del año, un
+// bisiesto corría el cumpleaños un día entre marzo y diciembre). Es la que se muestra en el perfil.
+func Edad(nac, hoy time.Time) int {
+	e := hoy.Year() - nac.Year()
+	if hoy.Month() < nac.Month() || (hoy.Month() == nac.Month() && hoy.Day() < nac.Day()) {
+		e--
+	}
+	return e
+}
+
+// Topes de cada interés y de cada pregunta del perfil (la pregunta viene de una lista de la app; la
+// respuesta la escribe la persona).
+const (
+	MaxInteres   = 40
+	MaxPregunta  = 120
+	MaxRespuesta = 200
+)
+
+// EdadMaxima: la que acepta el perfil (usuarios.edad va de 18 a 120).
+const EdadMaxima = 120
 
 // Avisos que la persona puede apagar.
 type Avisos struct {
@@ -278,19 +302,21 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 	}
 	var edad *int16
 	var nacimiento *time.Time
+	var fueraDeRango bool
 	if c.Nacimiento != nil {
 		t, err := time.Parse(time.DateOnly, *c.Nacimiento)
 		if err != nil {
 			mal("nacimiento", "La fecha tiene que ser AAAA-MM-DD.")
 		} else {
-			e := int16(hoy.Year() - t.Year())
-			if hoy.YearDay() < t.YearDay() {
-				e--
-			}
-			if e < 18 {
+			e := Edad(t, hoy)
+			switch {
+			case e < 18:
 				mal("nacimiento", "Caigo es sólo para mayores de 18.")
+			case e > EdadMaxima:
+				fueraDeRango = true
 			}
-			edad, nacimiento = &e, &t
+			e16 := int16(e)
+			edad, nacimiento = &e16, &t
 		}
 	}
 	if c.Intereses != nil && len(*c.Intereses) > 12 {
@@ -306,8 +332,25 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 			mal("intenciones", "Elegí al menos una.")
 		}
 	}
+	if c.Intereses != nil {
+		for i, x := range *c.Intereses {
+			(*c.Intereses)[i] = strings.TrimSpace(x)
+			if n := len([]rune((*c.Intereses)[i])); n == 0 || n > MaxInteres {
+				mal("intereses", fmt.Sprintf("Cada interés va de 1 a %d letras.", MaxInteres))
+				break
+			}
+		}
+	}
 	if c.Prompts != nil && len(*c.Prompts) > 3 {
 		mal("prompts", "Hasta 3 preguntas.")
+	}
+	if c.Prompts != nil {
+		for _, x := range *c.Prompts {
+			if len([]rune(x.P)) > MaxPregunta || len([]rune(x.R)) > MaxRespuesta {
+				mal("prompts", fmt.Sprintf("La pregunta va hasta %d letras y la respuesta hasta %d.", MaxPregunta, MaxRespuesta))
+				break
+			}
+		}
 	}
 	if c.Fotos != nil && len(*c.Fotos) > 6 {
 		mal("fotos", "Hasta 6 fotos.")
@@ -325,15 +368,28 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 	if len(campos) > 0 {
 		return Perfil{}, problema.Invalido("Revisá tu perfil.", campos...)
 	}
+	if fueraDeRango {
+		return Perfil{}, problema.NoProcesable("nacimiento", "Revisá tu fecha de nacimiento.")
+	}
 	var prompts []byte
 	if c.Prompts != nil {
 		prompts, _ = json.Marshal(*c.Prompts)
 	}
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
-		// Las fotos que saca del perfil se borran ahora (dejan de verse por su URL).
 		var antes []string
+		var dni bool
+		if err := tx.QueryRow(ctx, `SELECT fotos, dni_en IS NOT NULL FROM usuarios WHERE id = $1 FOR UPDATE`, usuarioID).
+			Scan(&antes, &dni); err != nil {
+			return err
+		}
+		// Con el DNI aprobado, la edad y la fecha salen del DNI: lo que mande la app no las pisa (las
+		// versiones viejas mandan la fecha al editar el perfil, por eso se ignora en vez de rechazarse).
+		if dni {
+			edad, nacimiento = nil, nil
+		}
 		if c.Fotos != nil {
-			if err := tx.QueryRow(ctx, `SELECT fotos FROM usuarios WHERE id = $1 FOR UPDATE`, usuarioID).Scan(&antes); err != nil {
+			// Sólo fotos subidas por la persona a /v1/archivos (o las que ya tenía, como la de Google).
+			if err := archivos.ExigirPropias(ctx, tx, s.APIPublica, "fotos", []string{usuarioID}, antes, *c.Fotos...); err != nil {
 				return err
 			}
 		}
@@ -349,6 +405,7 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 			return err
 		}
 		if c.Fotos != nil {
+			// Las fotos que saca del perfil se borran ahora (dejan de verse por su URL).
 			if err := archivos.SoltarFotos(ctx, tx, sacadas(antes, *c.Fotos)...); err != nil {
 				return err
 			}
@@ -373,6 +430,9 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 
 // SumarAGente suma a alguien a mi gente. Sólo se puede con quien ya compartí un plan.
 func (s *Servicio) SumarAGente(ctx context.Context, usuarioID, otroID string) error {
+	if otroID == usuarioID {
+		return problema.Invalido("No te podés sumar a vos.")
+	}
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var compartieron bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM solicitudes a JOIN solicitudes b ON a.plan_id = b.plan_id
@@ -426,10 +486,27 @@ func (s *Servicio) Bloquear(ctx context.Context, usuarioID, otroID string) error
 		return problema.Invalido("No te podés bloquear.")
 	}
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		var existe bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM usuarios WHERE id::text = $1)`, otroID).Scan(&existe); err != nil {
+			return err
+		}
+		if !existe {
+			return problema.NoEncontrado("Esa persona no existe.")
+		}
 		if _, err := tx.Exec(ctx, `INSERT INTO bloqueos (usuario_id, bloqueado_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, usuarioID, otroID); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `DELETE FROM mi_gente WHERE (usuario_id = $1 AND otro_id = $2) OR (usuario_id = $2 AND otro_id = $1)`, usuarioID, otroID)
+		if _, err := tx.Exec(ctx, `DELETE FROM mi_gente WHERE (usuario_id = $1 AND otro_id = $2) OR (usuario_id = $2 AND otro_id = $1)`, usuarioID, otroID); err != nil {
+			return err
+		}
+		// Si estaba en un plan mío que no terminó, sale (como si lo sacara, sin avisarle): deja de ver
+		// la dirección y el chat. A quien pagó una entrada no: esa se cancela por su lado.
+		_, err := tx.Exec(ctx, `UPDATE solicitudes s SET estado = 'rechazada', respondida_en = now()
+			FROM planes p WHERE p.id = s.plan_id AND p.organizador_id = $1 AND s.usuario_id = $2
+				AND s.estado IN ('pendiente', 'aceptada') AND p.cancelado_en IS NULL
+				AND p.empieza_en + make_interval(mins => p.duracion_min) > now()
+				AND NOT EXISTS (SELECT 1 FROM entradas e WHERE e.plan_id = p.id AND e.usuario_id = $2 AND e.estado = 'pagada')`,
+			usuarioID, otroID)
 		return err
 	})
 }
@@ -452,6 +529,9 @@ func (s *Servicio) Reportar(ctx context.Context, usuarioID string, r Reporte) er
 	if r.UsuarioID == "" && r.PlanID == "" {
 		return problema.Invalido("Decí a quién o qué plan reportás.")
 	}
+	if (r.UsuarioID != "" && !reUUID.MatchString(r.UsuarioID)) || (r.PlanID != "" && !reUUID.MatchString(r.PlanID)) {
+		return problema.NoEncontrado("Eso que reportás no existe.")
+	}
 	if len([]rune(r.Detalle)) > 1000 {
 		return problema.Invalido("El detalle puede tener hasta 1000 letras.")
 	}
@@ -464,11 +544,16 @@ func (s *Servicio) Reportar(ctx context.Context, usuarioID string, r Reporte) er
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `INSERT INTO reportes (usuario_id, sobre_usuario_id, sobre_plan_id, motivo, detalle)
 			VALUES ($1, $2, $3, $4, $5)`, usuarioID, nulo(r.UsuarioID), nulo(r.PlanID), r.Motivo, strings.TrimSpace(r.Detalle))
+		if db.EsReferencia(err) {
+			return problema.NoEncontrado("Eso que reportás no existe.")
+		}
 		return err
 	})
 }
 
 var reOrigen = regexp.MustCompile(`^[A-Za-z0-9:_./-]*$`)
+
+var reUUID = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 // Bloqueado es alguien que bloqueé.
 type Bloqueado struct {

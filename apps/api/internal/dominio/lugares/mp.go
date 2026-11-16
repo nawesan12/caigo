@@ -99,11 +99,21 @@ func (s *Servicio) guardarTokens(ctx context.Context, lugarID string, tk mercado
 	})
 }
 
-// DesconectarMP borra la conexión.
+// DesconectarMP borra la conexión. Con entradas pagas de planes que no terminaron, no: sin el token
+// del lugar no se las puede devolver si el plan se cancela o alguien cancela la suya.
 func (s *Servicio) DesconectarMP(ctx context.Context, usuarioID, lugarID string) error {
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		if err := miembro(ctx, tx, lugarID, usuarioID, false); err != nil {
 			return err
+		}
+		var vivas bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM entradas e JOIN planes p ON p.id = e.plan_id
+			WHERE p.lugar_id::text = $1 AND e.estado IN ('pagada', 'pendiente')
+				AND p.empieza_en + make_interval(mins => p.duracion_min) > now())`, lugarID).Scan(&vivas); err != nil {
+			return err
+		}
+		if vivas {
+			return problema.Conflicto("con_entradas", "Hay entradas vendidas de planes que todavía no pasaron: desconectá Mercado Pago cuando terminen.")
 		}
 		_, err := tx.Exec(ctx, `DELETE FROM mp_conexiones WHERE lugar_id::text = $1`, lugarID)
 		return err

@@ -69,11 +69,15 @@ func limpiar(texto string) (string, error) {
 }
 
 // participa dice si la persona está en el plan (organizador o aceptada) y si el chat sigue abierto.
+// Si hay un bloqueo entre la persona y quien organiza, no está (bloquear a un aceptado lo saca del
+// plan, y esto cubre el rato de antes o un plan de otro).
 func participa(ctx context.Context, tx pgx.Tx, planID, usuarioID string, ahora time.Time) (esta, abierto bool, err error) {
 	var fin time.Time
 	err = tx.QueryRow(ctx, `
 		SELECT p.empieza_en + make_interval(mins => p.duracion_min),
 			EXISTS (SELECT 1 FROM solicitudes s WHERE s.plan_id = p.id AND s.usuario_id = $2 AND s.estado = 'aceptada')
+			AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $2 AND b.bloqueado_id = p.organizador_id)
+				OR (b.usuario_id = p.organizador_id AND b.bloqueado_id = $2))
 		FROM planes p WHERE p.id::text = $1`, planID, usuarioID).Scan(&fin, &esta)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, false, nil
@@ -164,15 +168,16 @@ func Sistema(ctx context.Context, tx pgx.Tx, planID, texto string) error {
 	return err
 }
 
-// puedenHablar: comparten un plan (los dos aceptados), uno tiene al otro en su gente o en Citas
-// el interés es mutuo; y no hay bloqueo.
+// puedenHablar: comparten un plan (los dos aceptados), se tienen los dos en su gente (con «Me
+// prendo» alcanza con sumar a alguien: tiene que ser de ida y vuelta, si no cualquiera le escribe a
+// cualquiera) o en Citas el interés es mutuo; y no hay bloqueo.
 func puedenHablar(ctx context.Context, tx pgx.Tx, a, b string) (bool, error) {
 	var ok bool
 	err := tx.QueryRow(ctx, `
 		SELECT NOT EXISTS (SELECT 1 FROM bloqueos x WHERE (x.usuario_id = $1 AND x.bloqueado_id::text = $2)
 				OR (x.usuario_id::text = $2 AND x.bloqueado_id = $1))
-			AND (EXISTS (SELECT 1 FROM mi_gente g WHERE (g.usuario_id = $1 AND g.otro_id::text = $2)
-				OR (g.usuario_id::text = $2 AND g.otro_id = $1))
+			AND ((EXISTS (SELECT 1 FROM mi_gente g WHERE g.usuario_id = $1 AND g.otro_id::text = $2)
+				AND EXISTS (SELECT 1 FROM mi_gente g WHERE g.usuario_id::text = $2 AND g.otro_id = $1))
 			OR EXISTS (SELECT 1 FROM solicitudes x JOIN solicitudes y ON x.plan_id = y.plan_id
 				WHERE x.usuario_id = $1 AND y.usuario_id::text = $2 AND x.estado = 'aceptada' AND y.estado = 'aceptada')
 			OR EXISTS (SELECT 1 FROM intereses x JOIN intereses y ON y.usuario_id = x.otro_id AND y.otro_id = x.usuario_id AND y.modo = x.modo
@@ -232,9 +237,12 @@ func (s *Servicio) Hilo(ctx context.Context, usuarioID, otroID string, antes int
 		if antes <= 0 {
 			antes = 1<<62 - 1
 		}
+		// Con un bloqueo en cualquier sentido, la conversación no se ve (como en Conversaciones).
 		rows, err := tx.Query(ctx, `
 			SELECT * FROM (SELECT id, de_id, a_id, texto, creado_en, leido_en FROM privados
 				WHERE ((de_id = $1 AND a_id::text = $2) OR (de_id::text = $2 AND a_id = $1)) AND id < $3
+					AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $1 AND b.bloqueado_id::text = $2)
+						OR (b.usuario_id::text = $2 AND b.bloqueado_id = $1))
 				ORDER BY id DESC LIMIT 100) x ORDER BY id`, usuarioID, otroID, antes)
 		if err != nil {
 			return err

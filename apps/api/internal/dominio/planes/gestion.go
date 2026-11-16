@@ -85,6 +85,9 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, planID string, cuerpo 
 		if err := e.validar(ahora); err != nil {
 			return err
 		}
+		if err := archivos.ExigirPropias(ctx, tx, s.APIPublica, "foto", []string{usuarioID}, []string{fotoAntes}, e.Foto); err != nil {
+			return err
+		}
 		if !e.EmpiezaEn.After(ahora) {
 			return problema.Invalido("Ese horario ya pasó.", problema.Campo{Ruta: "empiezaEn", Mensaje: "Ese horario ya pasó."})
 		}
@@ -190,6 +193,25 @@ func CancelarTx(ctx context.Context, tx pgx.Tx, planID, motivo string) (bool, er
 	return true, nil
 }
 
+// ReembolsoPorPolitica: el reembolso de una entrada que cancela quien la compró (o que se devuelve
+// porque borró su cuenta), según la política del plan: flex devuelve
+// todo hasta 24 h antes, mod hasta 72 h antes y strict nada. El cargo por servicio no se devuelve.
+func ReembolsoPorPolitica(politica string, faltan time.Duration, lugarCentavos int64) (int64, error) {
+	switch politica {
+	case "strict":
+		return 0, problema.Conflicto("sin_reembolso", "Este plan no tiene reembolso si cancelás.")
+	case "mod":
+		if faltan >= 72*time.Hour {
+			return lugarCentavos, nil
+		}
+	default: // flex
+		if faltan >= 24*time.Hour {
+			return lugarCentavos, nil
+		}
+	}
+	return 0, nil
+}
+
 func recortar(s string, n int) string {
 	r := []rune(s)
 	if len(r) <= n {
@@ -205,12 +227,18 @@ func (s *Servicio) Cancelar(ctx context.Context, usuarioID, planID string) error
 	}
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var org string
-		err := tx.QueryRow(ctx, `SELECT organizador_id FROM planes WHERE id = $1 FOR UPDATE`, planID).Scan(&org)
+		var fin time.Time
+		err := tx.QueryRow(ctx, `SELECT organizador_id, empieza_en + make_interval(mins => duracion_min) FROM planes
+			WHERE id = $1 FOR UPDATE`, planID).Scan(&org, &fin)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && org != usuarioID) {
 			return problema.NoEncontrado("Ese plan no es tuyo o ya está cancelado.")
 		}
 		if err != nil {
 			return err
+		}
+		// Un plan que ya terminó no se cancela: no hay a quién avisar y las entradas ya se usaron.
+		if !fin.After(s.ahora()) {
+			return problema.Conflicto("paso", "Este plan ya terminó.")
 		}
 		ok, err := CancelarTx(ctx, tx, planID, "")
 		if err == nil && !ok {
@@ -228,12 +256,18 @@ func (s *Servicio) SacarPersona(ctx context.Context, usuarioID, planID, otroID s
 	}
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var org string
-		err := tx.QueryRow(ctx, `SELECT organizador_id FROM planes WHERE id = $1 FOR UPDATE`, planID).Scan(&org)
+		var fin time.Time
+		err := tx.QueryRow(ctx, `SELECT organizador_id, empieza_en + make_interval(mins => duracion_min) FROM planes
+			WHERE id = $1 FOR UPDATE`, planID).Scan(&org, &fin)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && org != usuarioID) {
 			return problema.NoEncontrado("Ese plan no es tuyo.")
 		}
 		if err != nil {
 			return err
+		}
+		// Terminado, la asistencia ya cuenta para la reputación: no se reescribe.
+		if !fin.After(s.ahora()) {
+			return problema.Conflicto("paso", "Este plan ya terminó.")
 		}
 		if otroID == usuarioID {
 			return problema.Conflicto("es_tuyo", "Es tu plan: si no vas, cancelalo.")
@@ -272,7 +306,7 @@ func (s *Servicio) Recurrencia(ctx context.Context) (int, error) {
 	var ids []string
 	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `SELECT p.id::text FROM planes p
-			WHERE p.recurrente AND p.cancelado_en IS NULL
+			WHERE p.recurrente AND p.cancelado_en IS NULL AND `+organizaActivo+`
 				AND p.empieza_en <= $1::timestamptz - interval '1 day' AND p.empieza_en > $1::timestamptz - interval '60 days'
 				AND NOT EXISTS (SELECT 1 FROM planes q WHERE coalesce(q.serie_id, q.id) = coalesce(p.serie_id, p.id)
 					AND q.empieza_en > p.empieza_en)
@@ -312,7 +346,7 @@ func (s *Servicio) repetir(ctx context.Context, planID string, ahora time.Time) 
 		// Lock por serie: dos workers no la repiten dos veces.
 		err := tx.QueryRow(ctx, `SELECT titulo, zona, coalesce(serie_id, id)::text, empieza_en, somos, organizador_id,
 				lugar_id IS NOT NULL
-			FROM planes WHERE id::text = $1 AND recurrente AND cancelado_en IS NULL FOR UPDATE`, planID).
+			FROM planes p WHERE id::text = $1 AND recurrente AND cancelado_en IS NULL AND `+organizaActivo+` FOR UPDATE`, planID).
 			Scan(&titulo, &zona, &serie, &empieza, &somos, &org, &deLugar)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil

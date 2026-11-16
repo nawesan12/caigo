@@ -28,7 +28,8 @@ func TestCodigoDelTelefonoPorMail(t *testing.T) {
 	e := nuevoEntornoAjustado(t, func(d *servidor.Dependencias) { d.Correo = buzon })
 	mar := e.persona("Martina")
 	var envio struct{ Via, Destino, CodigoDePrueba string }
-	e.pedir(mar, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": "223 555 7788"}, http.StatusOK, &envio)
+	e.pedir(mar, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": fmt.Sprintf("223%07d", time.Now().UnixNano()%10000000)},
+		http.StatusOK, &envio)
 	if envio.Via != "mail" || envio.Destino != "M•••@caigo.test" || envio.CodigoDePrueba != "" {
 		t.Fatalf("respuesta: %+v", envio)
 	}
@@ -85,17 +86,28 @@ func (e *entorno) alEquipo(p persona) {
 
 func TestVerificacion(t *testing.T) {
 	e := nuevoEntorno(t)
-	mar, otro, equipo := e.persona("Martina"), e.persona("Otro"), e.persona("Nahuel")
+	mar, otro, equipo := e.personaSinDNI("Martina"), e.persona("Otro"), e.persona("Nahuel")
 	e.alEquipo(equipo)
+	// Sin el DNI, Caigo no se puede usar (salvo el perfil y la verificación).
+	if c := codigo(t, e, mar, "GET", "/v1/planes/ahora", nil, http.StatusForbidden); c != "falta_dni" {
+		t.Fatalf("sin DNI: %s", c)
+	}
+	e.pedir(mar, "GET", "/v1/yo", nil, http.StatusOK, nil)
 
 	// Teléfono: con SMS simulado el código vuelve en la respuesta.
 	var cod struct{ CodigoDePrueba string }
-	e.pedir(mar, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": "223 555 1234"}, http.StatusOK, &cod)
+	// Un número por corrida: la base es compartida y un teléfono va en una sola cuenta.
+	tel := fmt.Sprintf("223%07d", time.Now().UnixNano()%10000000)
+	e.pedir(mar, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": tel}, http.StatusOK, &cod)
 	if len(cod.CodigoDePrueba) != 6 {
 		t.Fatalf("código: %q", cod.CodigoDePrueba)
 	}
 	e.pedir(mar, "POST", "/v1/verificacion/telefono/confirmar", map[string]string{"codigo": "000000x"}, http.StatusBadRequest, nil)
 	e.pedir(mar, "POST", "/v1/verificacion/telefono/confirmar", map[string]string{"codigo": cod.CodigoDePrueba}, http.StatusNoContent, nil)
+	// El mismo teléfono en otra cuenta, no.
+	if c := codigo(t, e, otro, "POST", "/v1/verificacion/telefono", map[string]string{"telefono": tel}, http.StatusConflict); c != "telefono_en_uso" {
+		t.Fatalf("teléfono de otra cuenta: %s", c)
+	}
 
 	// Selfie: un archivo que no es foto se rechaza; la foto sí.
 	e.pedir(mar, "POST", "/v1/archivos?tipo=selfie", []byte("no soy una foto"), http.StatusBadRequest, nil)
@@ -115,56 +127,17 @@ func TestVerificacion(t *testing.T) {
 	dni := map[string]string{"frenteId": frente.ID, "dorsoId": dorso.ID, "selfieId": s2.ID, "numero": fmt.Sprint(30000000 + time.Now().UnixNano()%60000000),
 		"apellido": "GOMEZ", "nombres": "MARTINA", "sexo": "F", "nacimiento": "1999-03-02"}
 	e.pedir(mar, "POST", "/v1/verificacion/dni", dni, http.StatusNoContent, nil)
-	e.pedir(mar, "POST", "/v1/verificacion/dni", dni, http.StatusConflict, nil)
-
-	// Sólo el equipo ve la cola.
-	e.pedir(mar, "GET", "/v1/equipo/dni", nil, http.StatusForbidden, nil)
-	var cola struct{ Pendientes []map[string]any }
-	e.pedir(equipo, "GET", "/v1/equipo/dni", nil, http.StatusOK, &cola)
-	var id string
-	for _, p := range cola.Pendientes {
-		if p["usuarioId"] == mar.id {
-			id, _ = p["id"].(string)
-			// Del DNI, el equipo ve sólo la fecha de nacimiento (y las fotos mientras está pendiente).
-			for _, k := range []string{"numero", "apellido", "nombres", "tramite", "sexo"} {
-				if _, ok := p[k]; ok {
-					t.Fatalf("la cola muestra %s: %v", k, p)
-				}
-			}
-		}
+	// Se aprueba al subirlo: ya tiene la edad del DNI y puede usar Caigo.
+	e.pedir(mar, "GET", "/v1/planes/ahora", nil, http.StatusOK, nil)
+	if c := codigo(t, e, mar, "POST", "/v1/verificacion/dni", dni, http.StatusConflict); c != "ya_verificado" {
+		t.Fatalf("otra vez: %s", c)
 	}
-	// Del número queda sólo la huella (la de la lista de vetados).
-	var huella []byte
-	e.valor(`SELECT huella FROM verificaciones_dni WHERE id::text = $1`, &huella, id)
-	if !bytes.Equal(huella, e.vetados.Huella(vetados.DNI, dni["numero"])) {
-		t.Fatal("la huella del DNI no es la de vetados")
-	}
-	if id == "" {
-		t.Fatalf("no está en la cola: %+v", cola)
-	}
-	// El equipo ve las fotos del DNI.
-	e.pedir(equipo, "GET", "/v1/archivos/"+frente.ID, nil, http.StatusOK, nil)
-	e.pedir(equipo, "POST", "/v1/equipo/dni/"+id, map[string]any{"aprobar": true}, http.StatusNoContent, nil)
-	// Resuelta: las fotos (frente, dorso y selfie) ya no están ni en la base ni para el equipo, y su
-	// borrado del disco quedó encolado para el worker.
-	for _, f := range []string{frente.ID, dorso.ID, s2.ID} {
-		e.pedir(equipo, "GET", "/v1/archivos/"+f, nil, http.StatusNotFound, nil)
-		e.pedir(mar, "GET", "/v1/archivos/"+f, nil, http.StatusNotFound, nil)
-	}
-	var refs int
-	e.valor(`SELECT count(*) FROM verificaciones_dni WHERE id::text = $1 AND frente_id IS NULL AND dorso_id IS NULL AND selfie_id IS NULL`, &refs, id)
-	var encolados int
-	e.valor(`SELECT count(*) FROM outbox WHERE tipo = 'archivo.borrar' AND datos->>'ruta' LIKE 'dni/%' AND creado_en > now() - interval '1 minute'`, &encolados)
-	if refs != 1 || encolados < 2 {
-		t.Fatalf("fotos de la verificación resuelta: refs %d, encolados %d", refs, encolados)
-	}
-
 	var estado struct {
 		Telefono, DNI string
 		Selfie        bool
 	}
 	e.pedir(mar, "GET", "/v1/verificacion", nil, http.StatusOK, &estado)
-	if estado.Telefono != "+5492235551234" || !estado.Selfie || estado.DNI != "aprobada" {
+	if estado.Telefono != "+549"+tel || !estado.Selfie || estado.DNI != "aprobada" {
 		t.Fatalf("estado: %+v", estado)
 	}
 	var yo struct {
@@ -175,6 +148,94 @@ func TestVerificacion(t *testing.T) {
 	if !yo.Verificada || yo.Edad < 26 {
 		t.Fatalf("perfil: %+v", yo)
 	}
+	// Con el DNI aprobado, la fecha del perfil no se toca.
+	e.pedir(mar, "PATCH", "/v1/yo", map[string]string{"nacimiento": "1960-01-01"}, http.StatusOK, nil)
+	e.pedir(mar, "GET", "/v1/yo", nil, http.StatusOK, &yo)
+	if yo.Edad > 40 {
+		t.Fatalf("el PATCH pisó la edad del DNI: %d", yo.Edad)
+	}
+	// El mismo DNI en otra cuenta, no.
+	dos := e.personaSinDNI("Dos")
+	if c := e.pedirDNI(dos, dni["numero"], http.StatusConflict); c != "dni_repetido" {
+		t.Fatalf("DNI de otra cuenta: %s", c)
+	}
+
+	// La revisión del equipo, después. Sólo el equipo ve la cola.
+	e.pedir(mar, "GET", "/v1/equipo/dni", nil, http.StatusForbidden, nil)
+	var cola struct{ Pendientes []map[string]any }
+	e.pedir(equipo, "GET", "/v1/equipo/dni", nil, http.StatusOK, &cola)
+	var id string
+	for _, p := range cola.Pendientes {
+		if p["usuarioId"] == mar.id {
+			id, _ = p["id"].(string)
+			// Del DNI, el equipo ve sólo la fecha de nacimiento (y las fotos mientras no lo revisa).
+			for _, k := range []string{"numero", "apellido", "nombres", "tramite", "sexo"} {
+				if _, ok := p[k]; ok {
+					t.Fatalf("la cola muestra %s: %v", k, p)
+				}
+			}
+		}
+	}
+	if id == "" {
+		t.Fatalf("no está en la cola: %+v", cola)
+	}
+	// Del número queda sólo la huella (la de la lista de vetados).
+	var huella []byte
+	e.valor(`SELECT huella FROM verificaciones_dni WHERE id::text = $1`, &huella, id)
+	if !bytes.Equal(huella, e.vetados.Huella(vetados.DNI, dni["numero"])) {
+		t.Fatal("la huella del DNI no es la de vetados")
+	}
+	// El equipo ve las fotos del DNI hasta que lo revisa.
+	e.pedir(equipo, "GET", "/v1/archivos/"+frente.ID, nil, http.StatusOK, nil)
+	e.pedir(equipo, "POST", "/v1/equipo/dni/"+id, map[string]any{"accion": "ok"}, http.StatusNoContent, nil)
+	e.pedir(equipo, "POST", "/v1/equipo/dni/"+id, map[string]any{"accion": "ok"}, http.StatusNotFound, nil)
+	// Revisada: las fotos (frente, dorso y selfie) ya no están ni en la base ni para el equipo, y su
+	// borrado del disco quedó encolado para el worker.
+	for _, f := range []string{frente.ID, dorso.ID, s2.ID} {
+		e.pedir(equipo, "GET", "/v1/archivos/"+f, nil, http.StatusNotFound, nil)
+		e.pedir(mar, "GET", "/v1/archivos/"+f, nil, http.StatusNotFound, nil)
+	}
+	var refs int
+	e.valor(`SELECT count(*) FROM verificaciones_dni WHERE id::text = $1 AND frente_id IS NULL AND dorso_id IS NULL AND selfie_id IS NULL
+		AND estado = 'aprobada' AND revisada_en IS NOT NULL`, &refs, id)
+	var encolados int
+	e.valor(`SELECT count(*) FROM outbox WHERE tipo = 'archivo.borrar' AND datos->>'ruta' LIKE 'dni/%' AND creado_en > now() - interval '1 minute'`, &encolados)
+	if refs != 1 || encolados < 2 {
+		t.Fatalf("fotos de la verificación revisada: refs %d, encolados %d", refs, encolados)
+	}
+}
+
+// El equipo revisa un DNI que no cierra: la verificación queda rechazada, la cuenta suspendida y su
+// DNI vetado. El cuerpo viejo ({"aprobar": false}) es lo mismo que suspender.
+func TestRevisionDNISuspende(t *testing.T) {
+	e := nuevoEntorno(t)
+	eq := e.persona("Equipo")
+	e.alEquipo(eq)
+	marca := time.Now().UnixNano()
+	ana, _ := e.personaCon("Ana", fmt.Sprintf("ana.rev%d@caigo.test", marca))
+	numero := fmt.Sprint(20000000 + marca%70000000)
+	t.Cleanup(func() { e.sistema(`DELETE FROM vetados WHERE usuario_id = $1`, ana.id) })
+	e.pedirDNI(ana, numero, http.StatusNoContent)
+	var id string
+	e.valor(`SELECT id::text FROM verificaciones_dni WHERE usuario_id = $1`, &id, ana.id)
+	e.pedir(eq, "POST", "/v1/equipo/dni/"+id, map[string]any{"aprobar": false}, http.StatusBadRequest, nil)
+	e.pedir(eq, "POST", "/v1/equipo/dni/"+id, map[string]any{"aprobar": false, "motivo": "La foto no es la persona"}, http.StatusNoContent, nil)
+	var estado, motivo string
+	e.valor(`SELECT estado FROM verificaciones_dni WHERE id::text = $1`, &estado, id)
+	e.valor(`SELECT motivo FROM verificaciones_dni WHERE id::text = $1`, &motivo, id)
+	if estado != "rechazada" || motivo != "La foto no es la persona" {
+		t.Fatalf("verificación: %s %q", estado, motivo)
+	}
+	if n := e.cuenta(`SELECT count(*) FROM usuarios WHERE id = $1 AND suspendido_en IS NOT NULL AND dni_en IS NULL`, ana.id); n != 1 {
+		t.Fatal("la cuenta no quedó suspendida")
+	}
+	if n := e.cuenta(`SELECT count(*) FROM vetados WHERE usuario_id = $1 AND huella = $2`, ana.id, e.vetados.Huella(vetados.DNI, numero)); n != 1 {
+		t.Fatal("el DNI no quedó vetado")
+	}
+	if n := e.cuenta(`SELECT count(*) FROM verificaciones_dni WHERE id::text = $1 AND frente_id IS NULL`, id); n != 1 {
+		t.Fatal("quedaron las fotos")
+	}
+	e.pedir(ana, "GET", "/v1/yo", nil, http.StatusForbidden, nil)
 }
 
 func TestCheckinRepetimosYEnVivo(t *testing.T) {
@@ -274,11 +335,19 @@ func TestBajaDeCuenta(t *testing.T) {
 		"ciudad": "Mar del Plata", "zona": "Centro", "lat": -38.0, "lng": -57.55, "somos": 2, "faltan": 2, "ingreso": "libre"},
 		http.StatusCreated, &suyo)
 	e.pedir(fede, "POST", "/v1/planes/"+suyo.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
-	// Y tiene una entrada paga para un plan de un lugar (precio $8.000 + $600 de cargo).
+	// Y tiene una entrada paga para un plan de un lugar (precio $8.000 + $600 de cargo), flex y en dos
+	// días: como si la cancelara, vuelve el precio.
 	var lp struct{ ID string }
 	e.pedir(duena, "POST", "/v1/lugares/"+lugarID+"/planes", map[string]any{"titulo": "Noche de jazz", "categoria": "musica",
-		"empiezaEn": time.Now().Add(3 * time.Hour), "cupo": 20, "cobro": "entrada", "precioCentavos": 800000, "cancelacion": "strict"},
+		"empiezaEn": time.Now().Add(48 * time.Hour), "cupo": 20, "cobro": "entrada", "precioCentavos": 800000, "cancelacion": "flex"},
 		http.StatusCreated, &lp)
+	// Otra, strict: la baja la cancela sin reembolso.
+	var estricto struct{ ID string }
+	e.pedir(duena, "POST", "/v1/lugares/"+lugarID+"/planes", map[string]any{"titulo": "Cata", "categoria": "gastronomia",
+		"empiezaEn": time.Now().Add(48 * time.Hour), "cupo": 20, "cobro": "entrada", "precioCentavos": 800000, "cancelacion": "strict"},
+		http.StatusCreated, &estricto)
+	e.pedir(lu, "POST", "/v1/planes/"+estricto.ID+"/entradas", map[string]int{"cantidad": 1}, http.StatusOK, nil)
+	e.sistema(`UPDATE entradas SET estado = 'pagada', pagada_en = now(), mp_pago = 98 WHERE plan_id = $1 AND usuario_id = $2`, estricto.ID, lu.id)
 	e.pedir(lu, "POST", "/v1/planes/"+lp.ID+"/entradas", map[string]int{"cantidad": 1}, http.StatusOK, nil)
 	if err := ls.ConciliarPago(context.Background(), mp.usuario, 99); err != nil {
 		t.Fatal(err)
@@ -300,8 +369,13 @@ func TestBajaDeCuenta(t *testing.T) {
 	}
 	// Su entrada se le devuelve: el precio, sin el cargo (lo hace el worker; dos veces no duplica).
 	evs := e.eventos("entrada.reembolsar", entrada)
-	if len(evs) != 1 {
-		t.Fatalf("entrada.reembolsar de la baja: %d", len(evs))
+	if len(evs) != 1 || !strings.Contains(string(evs[0].Datos), "800000") {
+		t.Fatalf("entrada.reembolsar de la baja: %+v", evs)
+	}
+	var est string
+	e.valor(`SELECT estado FROM entradas WHERE plan_id = $1 AND usuario_id = $2`, &est, estricto.ID, lu.id)
+	if est != "cancelada" {
+		t.Fatalf("la entrada strict quedó %s", est)
 	}
 	for range 2 {
 		if err := ls.Manejadores()["entrada.reembolsar"](context.Background(), evs[0]); err != nil {
@@ -312,7 +386,7 @@ func TestBajaDeCuenta(t *testing.T) {
 	var devuelto int64
 	e.valor(`SELECT estado FROM entradas WHERE id = $1`, &estado, entrada)
 	e.valor(`SELECT reembolso_centavos FROM entradas WHERE id = $1`, &devuelto, entrada)
-	if estado != "reembolsada" || devuelto != 800000 || len(mp.reembolsos) != 1 || mp.reembolsos[0] != `{"transactions":[{"amount":"8000.00","id":"tx-1"}]}` {
+	if estado != "reembolsada" || devuelto != 800000 || len(mp.reembolsos) != 1 || !strings.HasPrefix(mp.reembolsos[0], `{"transactions":[{"amount":"8000.00","id":"tx-`) {
 		// Pagada por el aviso payment (sin transacción guardada): la devolución la busca en la orden.
 		t.Fatalf("reembolso de la baja: %q %d %q", estado, devuelto, mp.reembolsos)
 	}
@@ -471,7 +545,10 @@ func TestContactoDeConfianzaEnYo(t *testing.T) {
 // fotos del DNI sueltas y los archivos sin fila en el disco. Otra vuelta no encuentra nada.
 func TestPurgaFotosDNI(t *testing.T) {
 	e := nuevoEntorno(t)
-	ana := e.persona("Ana")
+	ana := e.personaSinDNI("Ana")
+	e.sistema(`UPDATE usuarios SET selfie_en = now() WHERE id = $1`, ana.id)
+	e.sistema(`INSERT INTO usuarios_privado (usuario_id, telefono, telefono_verificado_en) VALUES ($1, '+5492235550000', now())
+		ON CONFLICT (usuario_id) DO UPDATE SET telefono_verificado_en = now()`, ana.id)
 	var frente, dorso, selfie, suelta struct{ ID string }
 	e.pedir(ana, "POST", "/v1/archivos?tipo=dni", jpeg, http.StatusCreated, &frente)
 	e.pedir(ana, "POST", "/v1/archivos?tipo=dni", jpeg, http.StatusCreated, &dorso)

@@ -1,5 +1,5 @@
 // Package limite pone topes de pedidos por clave en una ventana de tiempo (tabla intentos), con un
-// solo upsert atómico, como en Tu Local Web. La clave es la sesión (si el pedido trae token) o la IP.
+// solo upsert atómico, como en Tu Local Web. La clave es la persona (si el pedido trae token) o la IP.
 package limite
 
 import (
@@ -52,9 +52,14 @@ func IP(r *http.Request) string {
 	return host
 }
 
+// Quien dice de qué persona es un token (usuarios.id), o vacío si no lo sabe.
+type Quien func(ctx context.Context, token string) string
+
 // Envolver aplica las reglas por patrón de ruta ("POST /v1/sesion") antes de llegar al handler.
-// Si la base falla, deja pasar (un tope no puede tirar la API) y lo registra.
-func Envolver(mux *http.ServeMux, app *db.Pool, reglas map[string]Regla, log *slog.Logger) http.Handler {
+// Con sesión, la clave es la persona (quien): abrir más sesiones no multiplica el tope. Si quien no
+// la conoce (o es nil), la del token. Si la base falla, deja pasar (un tope no puede tirar la API) y
+// lo registra.
+func Envolver(mux *http.ServeMux, app *db.Pool, reglas map[string]Regla, log *slog.Logger, quien Quien) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, patron := mux.Handler(r)
 		regla, ok := reglas[patron]
@@ -66,6 +71,11 @@ func Envolver(mux *http.ServeMux, app *db.Pool, reglas map[string]Regla, log *sl
 		if t := sesion.Token(r); t != "" && !regla.PorIP {
 			h := sha256.Sum256([]byte(t))
 			clave = "s:" + hex.EncodeToString(h[:12])
+			if quien != nil {
+				if id := quien(r.Context(), t); id != "" {
+					clave = "u:" + id
+				}
+			}
 		}
 		var permitido bool
 		err := app.EnSistema(r.Context(), func(tx pgx.Tx) error {
