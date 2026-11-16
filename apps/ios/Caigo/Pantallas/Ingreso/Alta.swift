@@ -109,7 +109,7 @@ struct Datos: View {
     }
 }
 
-/// 01d · Teléfono (Paso 1 de 2): número, código de 6 dígitos por mail y "Reenviar en 0:24".
+/// 01d · Teléfono (Paso 1 de 3): número, código de 6 dígitos por mail y "Reenviar en 0:24".
 struct Telefono: View {
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
@@ -124,7 +124,7 @@ struct Telefono: View {
     var body: some View {
         Pantalla {
             VStack(spacing: 0) {
-                IngresoBarraArriba(volver: { ir.alta(.datos) }) { T("Paso 1 de 2", 14, 700, C.texto2) }
+                IngresoBarraArriba(volver: { ir.alta(.datos) }) { T("Paso 1 de 3", 14, 700, C.texto2) }
                     .padding(.leading, 20).padding(.trailing, 24).padding(.top, 12)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 28) {

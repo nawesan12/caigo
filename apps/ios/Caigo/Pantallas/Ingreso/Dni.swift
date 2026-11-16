@@ -3,7 +3,7 @@ import Nucleo
 
 /// Pasos de la verificación con DNI (verify del prototipo).
 private enum PasoDni: Int {
-    case cargando = 0, frente, dorso, selfie, revisando, enviado, aprobado
+    case cargando = 0, frente, dorso, selfie, revisando, enviado, aprobado, rechazado
 }
 
 /// Barras de progreso de los tres pasos (7): hechos violeta, el actual `#B3A3FF`.
@@ -61,9 +61,11 @@ private struct PillLavanda: View {
 }
 
 /// Verificación con DNI del prototipo: frente (con lectura del PDF417), dorso, selfie con prueba
-/// de vida y el envío. La revisión la hace una persona del equipo: queda pendiente.
+/// de vida y el envío. Se aprueba al subirlo; si después el equipo lo rechaza, se ve el motivo.
+/// Es un paso obligatorio del alta (`alta`): ahí no se puede salir sin hacerlo y al terminar sigue el alta.
 struct Dni: View {
     var plan: String?
+    var alta = false
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @State private var paso: PasoDni = .cargando
@@ -75,14 +77,31 @@ struct Dni: View {
     @State private var vida = IngresoVida()
     @State private var disparador = IngresoDisparador()
     @State private var permiso = IngresoPermisoCamara.concedido
+    @State private var motivo = ""
+    @State private var siguiendo = false
 
-    private var etiquetaFin: String { plan != nil ? "Seguir con el plan" : "Listo" }
+    private var etiquetaFin: String { plan != nil ? "Seguir con el plan" : (alta ? "Seguir" : "Listo") }
+
+    /// Al terminar: en el alta, el paso que falte; si no, de vuelta a donde estaba.
+    private func terminar() {
+        guard alta else { ir.atras(); return }
+        guard !siguiendo else { return }
+        siguiendo = true
+        Task {
+            defer { siguiendo = false }
+            do { ir.alta(try await ingresoRutaDeAlta(c)) } catch { c.avisos.error(ingresoMensaje(error)) }
+        }
+    }
 
     var body: some View {
         Pantalla {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    IngresoBarraArriba(icono: I.cruz, volver: { ir.atras() }) { IngresoEncriptado() }
+                    if alta {
+                        IngresoBarraArriba(icono: I.cruz, volver: nil) { T("Paso 3 de 3", 14, 700, C.texto2) }
+                    } else {
+                        IngresoBarraArriba(icono: I.cruz, volver: { ir.atras() }) { IngresoEncriptado() }
+                    }
                     switch paso {
                     case .cargando:
                         Puntitos().frame(maxWidth: .infinity).frame(height: 300)
@@ -94,6 +113,8 @@ struct Dni: View {
                         revisando
                     case .aprobado:
                         aprobado
+                    case .rechazado:
+                        rechazado
                     }
                 }
                 .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 40)
@@ -124,6 +145,9 @@ struct Dni: View {
         switch v?.dni {
         case "pendiente": paso = .enviado
         case "aprobada": paso = .aprobado
+        case "rechazada":
+            motivo = v?.dniMotivo ?? ""
+            paso = .rechazado
         default: paso = .frente
         }
         if !permiso && (paso == .frente) { permiso = await IngresoPermisoCamara.pedir() }
@@ -206,7 +230,7 @@ struct Dni: View {
               14, 400, C.texto2, alto: 1.5, alinear: .center)
             if paso == .enviado {
                 Spacer().frame(height: 12)
-                CtaGrande(etiquetaFin) { ir.atras() }
+                CtaGrande(etiquetaFin, cargando: siguiendo) { terminar() }
             }
         }
         .frame(maxWidth: .infinity)
@@ -225,12 +249,32 @@ struct Dni: View {
                     .offset(x: 4, y: -4)
             }
             T("Tu DNI ya está verificado", 34, 800, C.carbon, alto: 1.02, espaciado: -1, alinear: .center)
-            T("Tu perfil muestra el badge y podés sumarte a planes «solo verificados».", 15, 400, C.texto2, alto: 1.5, alinear: .center)
+            T("Tu perfil ya muestra el badge de verificado.", 15, 400, C.texto2, alto: 1.5, alinear: .center)
             Spacer().frame(height: 12)
-            CtaGrande(etiquetaFin) { ir.atras() }
+            CtaGrande(etiquetaFin, cargando: siguiendo) { terminar() }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 60)
+    }
+
+    /// El equipo rechazó el DNI: el motivo y nada más (la cuenta queda suspendida). En el alta, salir.
+    @ViewBuilder private var rechazado: some View {
+        VStack(spacing: 16) {
+            Icono(I.cruz, 34, C.carbon, trazo: 3.2)
+                .frame(width: 72, height: 72)
+                .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(C.coral))
+                .pop()
+            T("No pudimos verificar tu DNI", 30, 800, C.carbon, alto: 1.05, espaciado: -1, alinear: .center)
+            T(motivo.isEmpty ? "El equipo lo revisó y no lo pudo aprobar." : motivo, 15, 400, C.texto2, alto: 1.5, alinear: .center)
+            Spacer().frame(height: 12)
+            if alta {
+                CtaGrande("Salir") { Task { await c.salir() } }
+            } else {
+                CtaGrande("Listo") { ir.atras() }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 120)
     }
 
     private func obturador() {
@@ -268,7 +312,9 @@ struct Dni: View {
             let s = try await c.api.subir(tipo: "selfie", jpeg: selfie)
             try await c.api.dni(DatosDNI(frenteId: f.id, dorsoId: r.id, selfieId: s.id, numero: d.numero,
                                          nacimiento: d.nacimiento))
-            paso = .enviado
+            // Se aprueba al subirlo: el badge ya está (el perfil se recarga para que se vea).
+            paso = .aprobado
+            await c.recargarYo()
         } catch let e as ErrorApi {
             if e.codigo == "pendiente" {
                 paso = .enviado

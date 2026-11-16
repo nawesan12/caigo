@@ -46,27 +46,32 @@ struct Arranque: View {
     private func decidir() async {
         withAnimation(.linear(duration: 0.9)) { progreso = 0.55 }
         let inicio = Date()
-        let destino: Base
+        var destino: Base?
         if !c.conSesion {
             destino = c.vioIntro ? .ingresar : .intro
-        } else {
+        }
+        var avisado = false
+        while destino == nil {
             do {
                 destino = try await ingresoRutaDeAlta(c)
-            } catch let e as ErrorApi where e.estado == 401 || e.codigo == "cuenta_borrada" {
-                // La sesión ya no sirve (venció o la cuenta se dio de baja): se olvida y se vuelve a ingresar.
+            } catch let e as ErrorApi where e.estado == 401 || e.codigo == "cuenta_borrada" || (e.estado == 403 && e.codigo == "sin_permiso") {
+                // La sesión ya no sirve (venció, la cuenta se dio de baja o está suspendida): se olvida y se vuelve a ingresar.
                 c.salirLocal()
-                if e.codigo == "cuenta_borrada" { c.avisos.error(e.detalle) }
+                if e.estado != 401 { c.avisos.error(e.detalle) }
                 destino = .ingresar
             } catch {
-                // Sin conexión o la API con problemas: se entra con lo guardado y se avisa.
-                c.avisos.error(mensajeDe(error))
-                destino = .principal(.ahora, modo: nil)
+                // Sin conexión o la API con problemas: no se sabe qué paso del alta falta (el DNI, por ejemplo), así que
+                // no se entra con lo guardado. Se avisa una vez y se reintenta hasta que vuelva la red.
+                if Task.isCancelled { return }
+                if !avisado { c.avisos.error(mensajeDe(error)); avisado = true }
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                if Task.isCancelled { return }
             }
         }
         let falta = 0.9 - Date().timeIntervalSince(inicio)
         if falta > 0 { try? await Task.sleep(nanoseconds: UInt64(falta * 1_000_000_000)) }
         withAnimation(.easeOut(duration: 0.25)) { progreso = 1 }
         try? await Task.sleep(nanoseconds: 330_000_000)
-        ir.alta(destino)
+        if let destino { ir.alta(destino) }
     }
 }

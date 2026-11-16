@@ -196,6 +196,10 @@ final class PantallasTests: XCTestCase {
         montar(Verificacion())
     }
     func testDni() { montar(Dni(plan: nil)) }
+    func testDniAlta() {
+        ApiFalsa.respuestas["/v1/verificacion"] = "{\"telefono\": \"+5492235550142\", \"selfie\": true, \"dni\": \"rechazada\", \"dniMotivo\": \"La foto no coincide con la del DNI.\"}"
+        montar(Dni(plan: nil, alta: true))
+    }
     func testHojaAntesDeSumarteMujer() { montar(HojaAntesDeSumarte(pide: "mujer", cerrar: {}, confirmar: { _ in })) }
     func testHojaAntesDeSumarteDiversidad() { montar(HojaAntesDeSumarte(pide: "diversidad", cerrar: {}, confirmar: { _ in })) }
     func testPiezasIngreso() {

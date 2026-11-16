@@ -1,16 +1,27 @@
 import SwiftUI
 import Nucleo
 
-/// El paso del alta que le falta a la persona: datos → teléfono → selfie → intenciones → la app.
+/// El paso del alta que le falta a la persona: datos → teléfono → selfie → DNI → intenciones → la app.
 /// Lee GET /v1/yo y GET /v1/verificacion y deja el perfil en `c.yo` (como `rutaDeAlta` de Android).
 @MainActor
 func ingresoRutaDeAlta(_ c: Contenedor) async throws -> Base {
-    let yo = try await c.api.yo()
+    let yo: Perfil
+    do {
+        yo = try await c.api.yo()
+    } catch let e as ErrorApi where e.estado == 403 && e.codigo == "sin_permiso" {
+        // Cuenta suspendida: se olvida la sesión y quien llamó muestra el detalle.
+        c.salirLocal()
+        throw e
+    } catch let e as ErrorApi where e.estado == 403 && e.codigo == "falta_dni" {
+        return .dni
+    }
     c.yo = yo
     let v = try await c.api.verificacion()
     if yo.nombre.trimmingCharacters(in: .whitespaces).isEmpty || yo.edad == nil { return .datos }
     if v.telefono.isEmpty { return .telefono }
     if !v.selfie { return .selfie }
+    // El DNI es obligatorio (se aprueba solo al subirlo; `rechazada` muestra el motivo y no sigue).
+    if v.dni != "aprobada" { return .dni }
     if yo.intenciones.isEmpty { return .intenciones }
     // Sin perfiles vacíos: bio, fotos e intereses mínimos (personas.Faltantes en la API).
     if !yo.faltan.isEmpty { return .completarPerfil }

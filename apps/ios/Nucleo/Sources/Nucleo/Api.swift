@@ -26,18 +26,22 @@ public func mensajeDe(_ e: Error) -> String {
 public typealias Query = [(String, String?)]
 
 /// Cliente de la API de Caigo. Todo pedido lleva `Authorization: Bearer <token cs_…>`. Si la API
-/// responde 401, se avisa a `alVencer` (la app cierra la sesión).
+/// responde 401, se avisa a `alVencer` (la app cierra la sesión); si responde 403 `falta_dni`, a
+/// `alFaltarDni` (la app lleva a la verificación con DNI).
 public final class Api: @unchecked Sendable {
     public let base: URL
     public let sesion: URLSession
     private let token: @Sendable () -> String?
     private let alVencer: @Sendable () -> Void
+    private let alFaltarDni: @Sendable () -> Void
 
-    public init(base: URL, sesion: URLSession = Api.sesionHttp(), token: @escaping @Sendable () -> String?, alVencer: @escaping @Sendable () -> Void = {}) {
+    public init(base: URL, sesion: URLSession = Api.sesionHttp(), token: @escaping @Sendable () -> String?, alVencer: @escaping @Sendable () -> Void = {},
+                alFaltarDni: @escaping @Sendable () -> Void = {}) {
         self.base = base
         self.sesion = sesion
         self.token = token
         self.alVencer = alVencer
+        self.alFaltarDni = alFaltarDni
     }
 
     public static func sesionHttp() -> URLSession {
@@ -76,6 +80,7 @@ public final class Api: @unchecked Sendable {
             var p = (try? JSON.leer(Problema.self, datos)) ?? Problema(title: "Error \(estado)")
             p.status = estado
             if estado == 401 && autorizacion == nil { alVencer() }
+            if estado == 403 && p.code == "falta_dni" && autorizacion == nil { alFaltarDni() }
             throw ErrorApi(estado: estado, problema: p)
         }
         return datos

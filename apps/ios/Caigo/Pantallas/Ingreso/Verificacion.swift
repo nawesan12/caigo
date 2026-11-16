@@ -135,9 +135,10 @@ struct Verificacion: View {
             }
             fila(v.dni == "aprobada", 3, "DNI · badge Verificado", {
                 switch v.dni {
+                case "aprobada": return "Tu perfil muestra el badge"
                 case "pendiente": return "Ya estamos revisando tu DNI."
-                case "rechazada": return v.dniMotivo.isEmpty ? "Habilita planes «solo verificados»" : v.dniMotivo
-                default: return "Habilita planes «solo verificados»"
+                case "rechazada": return v.dniMotivo.isEmpty ? "No pudimos verificarlo" : v.dniMotivo
+                default: return "Lo pedimos a todos para usar Caigo"
                 }
             }()) {
                 if v.dni == "ninguna" || v.dni == "rechazada" { ir.dni() }
@@ -145,7 +146,7 @@ struct Verificacion: View {
         }
         .padding(6)
         .gel(26, gelTarjetaOscura)
-        if v.dni == "ninguna" || v.dni == "rechazada" {
+        if v.dni == "ninguna" {
             CtaGrande("Verificar con DNI · 2 minutos") { ir.dni() }
         }
         T("Herramientas para salir tranqui", 20, 700, C.carbon).padding(.top, 4)

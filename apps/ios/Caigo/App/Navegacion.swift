@@ -33,7 +33,23 @@ struct CaigoRaiz: View {
         .onChange(of: c.destino) { resolverDestino() }
         .onChange(of: ir.base) { resolverDestino() }
         .onChange(of: c.conSesion) { _, con in
-            if !con, case .principal = ir.base { ir.base = .ingresar; ir.camino = [] }
+            guard !con else { return }
+            // Sin sesión (salió, borró la cuenta o la API respondió 401) en la app o en el alta: de vuelta a Ingresar,
+            // con la pestaña de arranque (la próxima cuenta no hereda nada).
+            ir.pestana = .ahora
+            ir.modoAhora = nil
+            switch ir.base {
+            case .arranque, .intro, .ingresar, .debug: break
+            default: ir.base = .ingresar; ir.camino = []
+            }
+        }
+        // 403 `falta_dni`: sin el DNI aprobado no se usa la app; se va al paso del DNI.
+        .onChange(of: c.faltaDni) {
+            guard c.conSesion else { return }
+            switch ir.base {
+            case .principal, .intenciones, .completarPerfil: ir.alta(.dni)
+            default: break
+            }
         }
     }
 
@@ -47,6 +63,7 @@ struct CaigoRaiz: View {
         case .datos: Datos()
         case .telefono: Telefono()
         case .selfie: Selfie(volver: false)
+        case .dni: Dni(plan: nil, alta: true)
         case .intenciones: Intenciones(editar: false)
         case .completarPerfil: EditarPerfil(completar: true)
         case let .principal(p, m): Principal(inicial: p, modo: m)

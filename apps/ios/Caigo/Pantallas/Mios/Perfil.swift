@@ -182,7 +182,7 @@ struct MiPerfil: View {
                 Icono(I.escudoCheck, 24, C.lima, trazo: 2.4).frame(width: 48, height: 48).gel(17, miosTileVioleta)
                 VStack(alignment: .leading, spacing: 2) {
                     T("Verificación y seguridad", 15, 800)
-                    T(dni == "aprobada" ? "Tu DNI ya está verificado" : (dni == "pendiente" ? "Ya estamos revisando tu DNI." : "Sumá tu DNI y ganás el badge"),
+                    T(dni == "aprobada" ? "Tu DNI ya está verificado" : (dni == "pendiente" ? "Ya estamos revisando tu DNI." : "Falta tu DNI para usar Caigo"),
                       12, 600, p.texto2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

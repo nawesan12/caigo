@@ -60,6 +60,8 @@ final class Contenedor {
     var tapPendiente: Destino?
     /// Token de APNs (hex) para registrarlo cuando haya sesión.
     var tokenPush: String?
+    /// Sube cada vez que la API responde 403 `falta_dni`: la raíz lleva a la verificación con DNI.
+    var faltaDni = 0
     /// 01b · «Voy solo / Somos 2 / Somos 4»: con cuántos se suma por defecto (1, 2 o 4).
     var somos: Int {
         didSet { UserDefaults.standard.set(somos, forKey: "somos") }
@@ -97,16 +99,21 @@ final class Contenedor {
         somos = s > 0 ? s : 1
         let vencer = Vencimiento()
         self.vencer = vencer
+        let dni = Vencimiento()
+        self.avisoDni = dni
         let base = Contenedor.prueba?.base ?? Config.api
-        api = Api(base: base, sesion: Contenedor.prueba?.sesion ?? Api.sesionHttp(), token: { caja.valor }, alVencer: { vencer.f() })
+        api = Api(base: base, sesion: Contenedor.prueba?.sesion ?? Api.sesionHttp(), token: { caja.valor }, alVencer: { vencer.f() },
+                  alFaltarDni: { dni.f() })
         clerk = Clerk(publicable: Config.clerkPublicable)
         tiempoReal = TiempoReal(base: base, token: { caja.valor })
         vencer.f = { [weak self] in Task { @MainActor in self?.salirLocal() } }
+        dni.f = { [weak self] in Task { @MainActor in self?.faltaDni += 1 } }
     }
 
     /// Si la API responde 401, la sesión se cierra en la app.
     final class Vencimiento: @unchecked Sendable { var f: @Sendable () -> Void = {} }
     @ObservationIgnored private let vencer: Vencimiento
+    @ObservationIgnored private let avisoDni: Vencimiento
 
     var conSesion: Bool { token != nil }
 
@@ -148,6 +155,10 @@ final class Contenedor {
         usuarioId = ""
         yo = nil
         plus = nil
+        // Nada de la cuenta anterior queda para la próxima: links, avisos ni placas pendientes.
+        destino = nil
+        tapPendiente = nil
+        ultimoTap = nil
     }
 
     @discardableResult

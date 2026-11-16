@@ -13,6 +13,8 @@ enum Base: Hashable {
     case datos
     case telefono
     case selfie
+    /// El DNI del alta (obligatorio): sin volver atrás, sigue con lo que falte.
+    case dni
     case intenciones
     case completarPerfil
     case principal(Pestana, modo: String?)
@@ -94,7 +96,7 @@ final class Ir {
     func ingresar() { ir(.ingresar) }
     func debug() { ir(.debug) }
     func ingresoMail() { ir(.ingresoMail) }
-    /// Siguiente paso del alta (datos → teléfono → selfie → intenciones) o la app.
+    /// Siguiente paso del alta (datos → teléfono → selfie → DNI → intenciones) o la app.
     func alta(_ b: Base) {
         if case let .principal(p, m) = b { principal(p, modo: m) } else { base = b; camino = [] }
     }

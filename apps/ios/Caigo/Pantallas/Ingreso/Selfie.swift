@@ -65,7 +65,7 @@ struct IngresoCamaraDni: View {
     }
 }
 
-/// 01e · Selfie con prueba de vida (Paso 2 de 2).
+/// 01e · Selfie con prueba de vida (Paso 2 de 3).
 struct Selfie: View {
     var volver: Bool
     @Environment(Contenedor.self) private var c
@@ -90,7 +90,7 @@ struct Selfie: View {
         Pantalla {
             VStack(spacing: 0) {
                 IngresoBarraArriba(volver: { if volver { ir.atras() } else { ir.alta(.telefono) } }) {
-                    if !volver { T("Paso 2 de 2", 14, 700, C.texto2) }
+                    if !volver { T("Paso 2 de 3", 14, 700, C.texto2) }
                 }
                 .padding(.leading, 20).padding(.trailing, 24).padding(.top, 12)
                 IngresoTitulo(titulo: "Ahora, una selfie", bajada: "Es para confirmar que sos una persona real. No se publica.")
