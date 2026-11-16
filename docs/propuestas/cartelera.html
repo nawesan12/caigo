@@ -1,0 +1,384 @@
+<title>Caigo, la cartelera</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Courier+Prime:wght@400;700&family=Geist:wght@400;500;600;700;800&display=swap">
+<style>
+/* Dirección B · Cartelera: el aviso de barrio con tiritas para arrancar, impreso en risografía coral y violeta sobre papel, pegado en una pared */
+:root{
+  --wall:#E6E3DD; --paper:#FBFAF7; --ink:#1C1A24; --coral:#FF6B5A; --violet:#6A4BEF; --lime:#C8F36B; --soft:#6E6A78;
+  --poster:"Anton", "Impact", "Haettenschweiler", "Arial Narrow", sans-serif;
+  --body:"Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --type:"Courier Prime", "Courier New", ui-monospace, monospace;
+  color-scheme:light;
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+*{box-sizing:border-box}
+body{background:var(--wall) var(--grain);color:var(--ink);font:400 16px/1.55 var(--body);-webkit-font-smoothing:antialiased}
+.in{max-width:1180px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+h1,h2,h3{margin:0;font-family:var(--poster);font-weight:400;text-transform:uppercase;letter-spacing:.005em;line-height:.9;text-wrap:balance}
+p{margin:0;text-wrap:pretty}
+a{color:inherit}
+section{padding-block:80px}
+
+/* tinta de riso: la sombra corrida imita el registro desfasado de dos pasadas */
+.riso{color:var(--violet);text-shadow:.045em .03em 0 var(--coral)}
+.riso-c{color:var(--coral);text-shadow:-.04em .03em 0 var(--violet)}
+@supports (mix-blend-mode:multiply){.riso,.riso-c{mix-blend-mode:multiply}}
+
+.typed{font:700 13px/1.35 var(--type);letter-spacing:.02em;text-transform:uppercase}
+.btn{display:inline-flex;align-items:center;gap:10px;font:800 16px/1 var(--body);padding:16px 22px;border-radius:4px;text-decoration:none;border:0;cursor:pointer;background:var(--ink);color:var(--paper);box-shadow:4px 4px 0 var(--coral)}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:5px 5px 0 var(--coral)}
+.btn:focus-visible,.tab:focus-visible,.towns button:focus-visible{outline:3px solid var(--violet);outline-offset:3px}
+
+/* papel y cinta */
+.sheet{background:var(--paper) var(--grain);position:relative;box-shadow:0 1px 0 rgba(0,0,0,.06),0 14px 28px -12px rgba(40,30,20,.35)}
+.tape::before{content:"";position:absolute;top:-12px;left:50%;width:96px;height:26px;transform:translateX(-50%) rotate(-3deg);background:rgba(255,255,255,.55);box-shadow:0 1px 2px rgba(0,0,0,.08);backdrop-filter:blur(1px)}
+
+/* foto duotono con trama */
+.duo{position:relative;overflow:hidden;background:var(--coral)}
+.duo img{display:block;width:100%;height:100%;object-fit:cover;filter:grayscale(1) brightness(1.7) contrast(1.15);mix-blend-mode:multiply}
+.duo::after{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(106,75,239,.55) 1px,transparent 1.5px);background-size:5px 5px;mix-blend-mode:multiply;pointer-events:none}
+.duo.v{background:var(--violet)}
+.duo.v::after{background-image:radial-gradient(rgba(255,107,90,.6) 1px,transparent 1.5px)}
+
+/* tiritas para arrancar */
+.tabs{display:flex;border-top:2px dashed rgba(28,26,36,.35)}
+.tab{flex:1 1 0;min-width:0;height:96px;border:0;border-right:1.5px dashed rgba(28,26,36,.3);background:transparent;cursor:pointer;padding:6px 0;display:flex;align-items:center;justify-content:center;transform-origin:top center;transition:transform .5s cubic-bezier(.3,1.4,.5,1),opacity .4s}
+.tab:last-child{border-right:0}
+.tab span{writing-mode:vertical-rl;transform:rotate(180deg);font:700 11px/1 var(--type);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;color:var(--ink)}
+.tab.gone{opacity:0;transform:translateY(40px) rotate(14deg);pointer-events:none}
+/* las ya arrancadas quedan como restos rotos: así se lee de un vistazo cuántas se fueron */
+.tab.taken{height:16px;align-self:flex-start;pointer-events:none;background:rgba(28,26,36,.05);clip-path:polygon(0 0,100% 0,100% 70%,82% 100%,64% 62%,44% 96%,22% 58%,0 88%)}
+.tab.taken span{display:none}
+.poster.solid .tab.taken{background:rgba(255,255,255,.25)}
+@media (prefers-reduced-motion:reduce){.tab{transition:none}}
+
+/* barra */
+.bar{padding-top:env(safe-area-inset-top,0px)}
+.bar .in{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-block:18px}
+.brand{display:flex;align-items:center;gap:8px;font:800 24px/1 var(--body);letter-spacing:-.04em;text-decoration:none}
+.brand img{width:34px;height:auto}
+.bar nav{display:flex;gap:8px}
+.bar nav a{font:700 12px/1 var(--type);text-transform:uppercase;letter-spacing:.04em;text-decoration:none;padding:10px 12px;background:var(--paper);box-shadow:2px 2px 0 var(--ink)}
+
+/* héroe: un afiche grande pegado en la pared */
+.hero{padding-block:24px 72px}
+.hero .in{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:56px;align-items:center}
+.big{transform:rotate(-1.2deg);max-width:560px;width:100%;justify-self:center}
+.big .photo{aspect-ratio:5/4}
+.big .head{padding:22px 24px 14px}
+.big h1{font-size:clamp(4.6rem,13vw,8.6rem);line-height:.84}
+.big .meta{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:0 24px 18px}
+.big .stat{font:700 13px/1 var(--type);text-transform:uppercase;padding:6px 8px;background:var(--coral);color:var(--ink)}
+.big .stat.ok{background:var(--lime)}
+.hero .copy{display:flex;flex-direction:column;gap:22px;max-width:460px}
+.hero .copy h2{font-size:clamp(2.6rem,6vw,4.4rem)}
+.hero .copy p{font-size:1.15rem;color:#3A3644}
+.hint{font:700 12px/1.4 var(--type);text-transform:uppercase;color:var(--soft)}
+
+/* la cartelera de hoy */
+.wall-head{display:flex;justify-content:space-between;align-items:end;gap:20px;flex-wrap:wrap}
+.wall-head h2{font-size:clamp(3rem,8vw,5.6rem)}
+.towns{display:flex;gap:0;box-shadow:3px 3px 0 var(--ink);background:var(--paper)}
+.towns button{font:700 13px/1 var(--type);text-transform:uppercase;padding:12px 14px;border:0;background:transparent;color:var(--ink);cursor:pointer}
+.towns button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.posters{margin-top:44px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px 28px;align-items:start}
+.poster{display:flex;flex-direction:column}
+.poster:nth-child(3n+1){transform:rotate(-1.4deg)}
+.poster:nth-child(3n+2){transform:rotate(.9deg);margin-top:18px}
+.poster:nth-child(3n){transform:rotate(-.5deg)}
+.poster .p-photo{aspect-ratio:4/3}
+.poster .p-body{padding:16px 18px 12px;display:flex;flex-direction:column;gap:8px}
+.poster .when{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.poster h3{font-size:2.1rem;line-height:.92}
+.poster .where{font:400 14px/1.35 var(--type)}
+.poster.solid .p-body{padding-top:22px}
+.poster.solid.c{background-color:var(--coral)}
+.poster.solid.v{background-color:var(--violet);color:var(--paper)}
+.poster.solid.v .tab span,.poster.solid.v .where{color:var(--paper)}
+.poster.solid.v .tabs,.poster.solid.v .tab{border-color:rgba(251,250,247,.45)}
+.poster.solid h3{font-size:3rem}
+.full{font:700 13px/1 var(--type);text-transform:uppercase;padding:14px 18px;text-align:center;background:var(--lime);color:var(--ink)}
+.note{margin-top:28px;font:400 13px/1.4 var(--type);color:var(--soft)}
+
+/* instrucciones fotocopiadas */
+.how .sheet{padding:clamp(24px,5vw,56px);transform:rotate(.4deg)}
+.how h2{font-size:clamp(2.8rem,7vw,5rem)}
+.steps{list-style:none;margin:36px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
+.steps li{display:flex;flex-direction:column;gap:10px;border-top:3px solid var(--ink);padding-top:16px}
+.steps .n{font:400 4rem/.8 var(--poster)}
+.steps b{font:800 1.25rem/1.15 var(--body);letter-spacing:-.02em}
+.steps p{color:#3A3644}
+
+/* mockups pegados con cinta */
+.phones{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:36px;margin-top:48px;align-items:start}
+.ph{position:relative;display:flex;flex-direction:column;gap:18px}
+.ph .frame{position:relative;background:#111;border-radius:44px;padding:8px;box-shadow:0 24px 50px -18px rgba(20,15,30,.55)}
+.ph .frame img{display:block;width:100%;border-radius:36px}
+.ph .frame::before{content:"";position:absolute;z-index:2;top:-14px;left:50%;width:110px;height:30px;transform:translateX(-50%) rotate(4deg);background:rgba(255,255,255,.6);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.ph:nth-child(1){transform:rotate(-2deg)}
+.ph:nth-child(2){transform:rotate(1.2deg);margin-top:40px}
+.ph:nth-child(3){transform:rotate(-.6deg)}
+.ph figcaption{padding-inline:4px}
+.ph figcaption b{display:block;font:400 1.8rem/1 var(--poster);text-transform:uppercase}
+.ph figcaption span{font:400 14px/1.4 var(--type)}
+figure{margin:0}
+
+/* la mesa */
+.mesa .in{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:center}
+.mesa .sheet{transform:rotate(1deg)}
+.mesa .duo{aspect-ratio:4/5}
+.mesa h2{font-size:clamp(3rem,8vw,6rem)}
+.mesa .copy{display:flex;flex-direction:column;gap:20px}
+.mesa .copy p{font-size:1.15rem;color:#3A3644;max-width:40ch}
+.prog{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:2px solid var(--ink)}
+.prog div{padding:14px;border-right:2px solid var(--ink)}
+.prog div:last-child{border-right:0}
+.prog b{display:block;font:400 2.2rem/1 var(--poster)}
+.prog span{font:400 12px/1.3 var(--type);text-transform:uppercase}
+
+/* sello */
+.trust .in{display:grid;grid-template-columns:auto minmax(0,1fr);gap:56px;align-items:center}
+.stamp{width:220px;height:220px;border-radius:50%;border:5px solid var(--violet);display:grid;place-items:center;text-align:center;transform:rotate(-12deg);color:var(--violet);mix-blend-mode:multiply;position:relative}
+.stamp::before{content:"";position:absolute;inset:9px;border-radius:50%;border:2px solid var(--violet)}
+.stamp b{font:400 2.4rem/.9 var(--poster);text-transform:uppercase}
+.stamp span{font:700 11px/1.3 var(--type);text-transform:uppercase;display:block;margin-top:6px}
+.trust ul{list-style:none;margin:0;padding:0;display:grid;gap:22px}
+.trust li b{display:block;font:800 1.2rem/1.2 var(--body);letter-spacing:-.02em}
+.trust li span{color:#3A3644}
+.trust h2{font-size:clamp(2.6rem,6vw,4.2rem);margin-bottom:26px}
+
+/* la calle */
+.street .in{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:48px;align-items:center}
+.street img{width:100%;display:block;aspect-ratio:4/5;object-fit:cover}
+.street .pic{padding:12px 12px 48px;transform:rotate(-1.5deg)}
+.street .pic figcaption{position:absolute;left:16px;bottom:14px;font:400 14px/1 var(--type)}
+.street h2{font-size:clamp(2.8rem,7vw,5rem)}
+.street .copy{display:flex;flex-direction:column;gap:20px}
+.street .copy p{font-size:1.15rem;color:#3A3644;max-width:40ch}
+.street ul{margin:0;padding:0;list-style:none;display:grid;gap:8px;font:400 15px/1.4 var(--type)}
+.street li::before{content:"— "}
+
+.end{background:var(--ink);color:var(--paper)}
+.end .in{display:flex;flex-direction:column;gap:24px;align-items:flex-start}
+.end h2{font-size:clamp(4rem,14vw,10rem);line-height:.82}
+.end .btn{background:var(--lime);color:var(--ink);box-shadow:4px 4px 0 var(--coral)}
+.end p{max-width:36ch;font-size:1.15rem;color:#D9D5E6}
+footer{background:var(--ink);color:#A8A3BD;padding-block:0 48px;font:400 13px/1.4 var(--type)}
+footer .in{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid #3A3452;padding-top:24px}
+footer nav{display:flex;gap:16px;flex-wrap:wrap}
+footer a{text-decoration:none}
+
+@media (max-width:900px){
+  .hero .in,.mesa .in,.street .in{grid-template-columns:1fr;gap:40px}
+  .posters{grid-template-columns:1fr 1fr}
+  .steps{grid-template-columns:1fr}
+  .phones{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:20px;padding:24px max(16px, env(safe-area-inset-left, 0px)) 20px;margin-inline:calc(-1 * max(16px, env(safe-area-inset-left, 0px)))}
+  .ph{flex:0 0 70%;scroll-snap-align:center}
+  .ph:nth-child(2){margin-top:0}
+  .trust .in{grid-template-columns:1fr;gap:36px}
+  .stamp{width:180px;height:180px}
+}
+@media (max-width:560px){
+  section{padding-block:56px}
+  .posters{grid-template-columns:1fr;gap:36px}
+  .poster:nth-child(3n+2){margin-top:0}
+  .tab{height:84px}
+  .bar nav a.hide-s{display:none}
+}
+</style>
+
+<header class="bar">
+  <div class="in">
+    <a class="brand" href="#top" aria-label="Caigo, inicio"><img src="img/caigo-c.png" alt="">Caigo</a>
+    <nav aria-label="Principal"><a class="hide-s" href="#mesa">La mesa</a><a href="#calle">Pegá tu cartel</a></nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="in">
+      <article class="big sheet tape" aria-label="Afiche de ejemplo: fútbol 5, falta uno">
+        <div class="photo duo"><img src="img/caigo-01-futbol.jpg" alt="Grupo en una cancha de fútbol 5 de noche, uno señala a cámara"></div>
+        <div class="head"><h1><span class="riso-c">Falta</span><br><span class="riso">uno.</span></h1></div>
+        <div class="meta"><span class="typed">Fútbol 5 · hoy 21:30</span><span class="stat" id="heroStat">Falta 1</span></div>
+        <div class="tabs" id="heroTabs" aria-label="Tiritas para sumarse"></div>
+      </article>
+      <div class="copy">
+        <p class="typed" style="color:var(--violet)">Mar del Plata · Villa Gesell</p>
+        <h2>El aviso de toda la vida, ahora en el celular.</h2>
+        <p>Cuando a un partido, a una mesa de truco o a una previa le falta gente, se pega acá. Arrancás la tirita y caés, solo o con amigos.</p>
+        <div><a class="btn" href="#hoy">Ver la cartelera de hoy</a></div>
+        <p class="hint">Probá: arrancá la última tirita del afiche.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="hoy" style="padding-top:24px">
+    <div class="in">
+      <div class="wall-head">
+        <h2><span class="riso">Hoy en</span> <span id="townName">Gesell</span></h2>
+        <div class="towns" role="group" aria-label="Elegí ciudad">
+          <button type="button" id="t-gesell" aria-pressed="true">Gesell</button>
+          <button type="button" id="t-mdp" aria-pressed="false">Mar del Plata</button>
+        </div>
+      </div>
+      <div class="posters" id="posters"></div>
+      <p class="note">Ejemplos de una noche de enero. Cada tirita es un lugar libre: arrancala y te sumás.</p>
+    </div>
+  </section>
+
+  <section class="how">
+    <div class="in">
+      <div class="sheet">
+        <p class="typed" style="color:var(--violet)">Instrucciones</p>
+        <h2 style="margin-top:12px">Más fácil que pegar un cartel.</h2>
+        <ol class="steps">
+          <li><span class="n riso-c">1</span><b>Mirás qué se arma cerca</b><p>Cada afiche dice qué, a qué hora, a cuántas cuadras y cuántos faltan. No hace falta cuenta para mirar.</p></li>
+          <li><span class="n riso-c">2</span><b>Arrancás tu tirita</b><p>Vas solo o con los tuyos: «somos 2», «somos 4». El que organiza te acepta y te llega la dirección.</p></li>
+          <li><span class="n riso-c">3</span><b>Caés</b><p>Hacés check-in en el lugar y, si estuvo bueno, al otro día te pregunta «¿repetimos?».</p></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="app" style="padding-top:24px">
+    <div class="in">
+      <h2 style="font-size:clamp(2.8rem,7vw,5rem)"><span class="riso">La cartelera,</span><br>en el bolsillo.</h2>
+      <div class="phones">
+        <figure class="ph"><div class="frame"><img src="img/m-02-ahora-lista.jpg" alt="Pantalla Ahora: planes de las próximas tres horas en Güemes, fútbol 5 y truco con cuántos faltan" loading="lazy"></div><figcaption><b>Ahora</b><span>Lo que se arma en las próximas tres horas, cerca tuyo.</span></figcaption></figure>
+        <figure class="ph"><div class="frame"><img src="img/m-05-detalle.jpg" alt="Detalle del plan de fútbol 5: faltan 2, somos 8 de 10, organiza Martu, botón Sumarme" loading="lazy"></div><figcaption><b>El afiche</b><span>Quién organiza, cuántos fueron a sus planes y cuánto falta.</span></figcaption></figure>
+        <figure class="ph"><div class="frame"><img src="img/m-09b-repetimos.jpg" alt="Pantalla ¿Repetimos?: elegir con quién volverías a salir" loading="lazy"></div><figcaption><b>¿Repetimos?</b><span>Al otro día elegís con quién volverías a salir. Así se arma tu gente.</span></figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="mesa" class="mesa">
+    <div class="in">
+      <div class="sheet tape" style="padding:0;background:none;box-shadow:0 14px 28px -12px rgba(40,30,20,.35)"><img src="img/caigo-10-afiche-mesa-jueves.jpg" alt="Afiche en risografía coral y violeta: La mesa de los jueves, mesas de 6, 21 hs, Mar del Plata, con una mesa de bodegón vista desde arriba" loading="lazy" style="display:block;width:100%;height:auto"></div>
+      <div class="copy">
+        <p class="typed" style="color:var(--violet)">Para los que llegan solos</p>
+        <h2><span class="riso-c">La mesa</span><br>de los jueves.</h2>
+        <p>Si recién llegaste a Mar del Plata y no conocés a nadie, no tenés que esperar que alguien pegue un cartel. Los jueves armamos mesas de seis en bodegones de la ciudad.</p>
+        <div class="prog"><div><b>6</b><span>por mesa</span></div><div><b>21 h</b><span>los jueves</span></div><div><b>25–40</b><span>años</span></div></div>
+        <div><a class="btn" href="#fin">Quiero una mesa</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="trust">
+    <div class="in">
+      <div class="stamp" aria-hidden="true"><div><b>Todos<br>verificados</b><span>DNI · selfie · asistencia</span></div></div>
+      <div>
+        <h2>Con desconocidos, pero no con cualquiera.</h2>
+        <ul>
+          <li><b>DNI y selfie antes del primer plan</b><span>Mirás sin cuenta. Para ir, todos muestran quiénes son.</span></li>
+          <li><b>Reputación por ir</b><span>Cada plan al que vas suma. El que falta sin avisar, se nota.</span></li>
+          <li><b>Lugares de verdad</b><span>Bares, canchas y clubes. La dirección exacta llega cuando te aceptan.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="calle" class="street">
+    <div class="in">
+      <figure class="pic sheet"><img src="img/caigo-09-pared-afiches.jpg" alt="Pared de un barrio de Mar del Plata con afiches coral y violeta; el del centro dice Falta uno y tiene tiritas arrancadas" loading="lazy"><figcaption>Güemes, un martes cualquiera.</figcaption></figure>
+      <div class="copy">
+        <p class="typed" style="color:var(--violet)">Para bares, canchas y clubes</p>
+        <h2><span class="riso">Pegá tu cartel</span> donde te ve el barrio.</h2>
+        <p>¿Te faltan equipos para la trivia o tenés un turno libre a las 22? Publicalo en Caigo y lo ve la gente que está a diez cuadras con ganas de salir. Publicar es gratis.</p>
+        <ul><li>Turnos de cancha, truco, karaoke y eventos</li><li>Entrada o seña con Mercado Pago, si querés</li><li>Check-in en la puerta con el celular</li></ul>
+        <div><a class="btn" href="#fin">Pegar mi cartel</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="fin" class="end">
+    <div class="in">
+      <h2><span style="color:var(--lime)">¿Caés</span><br>esta noche?</h2>
+      <p>Caigo funciona desde el navegador del celular. Mirá la cartelera de hoy cerca tuyo.</p>
+      <a class="btn" href="#hoy">Ver la cartelera</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="in">
+    <span>Caigo · Mar del Plata y Villa Gesell · Una app de Grupo Vimo</span>
+    <nav aria-label="Legales"><a href="https://caigo.com.ar/terminos">Términos</a><a href="https://caigo.com.ar/privacidad">Privacidad</a><a href="https://caigo.com.ar/arrepentimiento">Botón de arrepentimiento</a></nav>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // Tiritas: cada una es un lugar libre. Arrancarla te suma; al arrancar la última, el afiche queda completo.
+  function tabs(el, total, libres, rotulo, onFull){
+    el.innerHTML = '';
+    for (var i = 0; i < total; i++){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'tab';
+      b.innerHTML = '<span>' + rotulo + '</span>';
+      if (i < total - libres){ b.classList.add('taken'); b.tabIndex = -1; b.setAttribute('aria-hidden','true'); }
+      else { b.setAttribute('aria-label', 'Sumarme: ' + rotulo); }
+      b.addEventListener('click', function(){
+        this.classList.add('gone');
+        var quedan = el.querySelectorAll('.tab:not(.taken):not(.gone)').length;
+        onFull(quedan);
+      });
+      el.appendChild(b);
+    }
+  }
+  var heroStat = document.getElementById('heroStat');
+  tabs(document.getElementById('heroTabs'), 10, 1, 'Sumarme · 21:30', function(q){
+    heroStat.textContent = q ? (q === 1 ? 'Falta 1' : 'Faltan ' + q) : 'Completo';
+    heroStat.className = q ? 'stat' : 'stat ok';
+  });
+
+  var planes = {
+    gesell: [
+      {t:'Vóley en la playa', h:'19:30', w:'Bajada de Paseo 104', f:2, total:6, img:'caigo-03-gesell.jpg', duo:''},
+      {t:'Trivia, faltan 2 equipos', h:'21:00', w:'Bar de la Av. 3 y Paseo 107', f:2, total:6, solid:'c'},
+      {t:'Previa, buscamos otro grupo', h:'22:30', w:'Barrio Norte · 1,4 km', f:4, total:8, img:'caigo-04-cantina.jpg', duo:'v'},
+      {t:'Truco por parejas', h:'23:00', w:'Bodegón de la 3', f:1, total:4, img:'caigo-02-truco.jpg', duo:''},
+      {t:'Al bolsa, nos falta uno', h:'00:30', w:'Paseo 105 · 800 m', f:1, total:6, solid:'v'},
+      {t:'Trivia del jueves', h:'21:00', w:'Bar de la esquina', f:2, total:6, img:'caigo-06-bar-pizarra.jpg', duo:'v'}
+    ],
+    mdp: [
+      {t:'Fútbol 5, nos falta uno', h:'21:30', w:'Cancha Los Pinos · 1,2 km', f:1, total:6, img:'caigo-01-futbol.jpg', duo:''},
+      {t:'La mesa de los jueves', h:'21:00', w:'Bodegón en el Puerto', f:3, total:6, img:'caigo-04-cantina.jpg', duo:'v'},
+      {t:'Pádel dobles', h:'19:00', w:'Club Kimberley · 2,1 km', f:1, total:4, solid:'c'},
+      {t:'Truco en Güemes', h:'22:00', w:'Güemes y Alberti · 800 m', f:1, total:4, img:'caigo-02-truco.jpg', duo:''},
+      {t:'Karaoke, faltan voces', h:'23:30', w:'Bar en Plaza Mitre', f:3, total:6, solid:'v'},
+      {t:'Caminata por la costa', h:'18:30', w:'Torreón del Monje', f:4, total:8, img:'caigo-08-rambla-recien-llegada.jpg', duo:'v'}
+    ]
+  };
+  var wrap = document.getElementById('posters');
+  function render(k){
+    wrap.innerHTML = '';
+    planes[k].forEach(function(p){
+      var a = document.createElement('article');
+      a.className = 'poster sheet' + (p.solid ? ' solid ' + p.solid : '');
+      var falta = p.f === 1 ? 'Falta 1' : 'Faltan ' + p.f;
+      a.innerHTML = (p.img ? '<div class="p-photo duo ' + p.duo + '"><img src="img/' + p.img + '" alt="" loading="lazy"></div>' : '') +
+        '<div class="p-body"><div class="when"><span class="typed">Hoy ' + p.h + '</span><span class="typed stat-p">' + falta + '</span></div>' +
+        '<h3>' + p.t + '</h3><p class="where">' + p.w + '</p></div><div class="tabs"></div>';
+      wrap.appendChild(a);
+      var st = a.querySelector('.stat-p'), tb = a.querySelector('.tabs');
+      tabs(tb, p.total, p.f, 'Caigo · ' + p.h, function(q){
+        st.textContent = q ? (q === 1 ? 'Falta 1' : 'Faltan ' + q) : 'Completo';
+        if (!q){ tb.outerHTML = '<div class="full">Completo. ¡Que lo disfruten!</div>'; }
+      });
+    });
+    document.getElementById('townName').textContent = k === 'gesell' ? 'Gesell' : 'Mar del Plata';
+    document.getElementById('t-gesell').setAttribute('aria-pressed', k === 'gesell');
+    document.getElementById('t-mdp').setAttribute('aria-pressed', k === 'mdp');
+    try { localStorage.setItem('caigo-cartelera', k) } catch(e){}
+  }
+  var start = 'gesell';
+  try { var s = localStorage.getItem('caigo-cartelera'); if (s === 'mdp' || s === 'gesell') start = s } catch(e){}
+  render(start);
+  document.getElementById('t-gesell').addEventListener('click', function(){ render('gesell') });
+  document.getElementById('t-mdp').addEventListener('click', function(){ render('mdp') });
+})();
+</script>

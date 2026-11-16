@@ -74,6 +74,14 @@ rutas), `docs/cuentas-externas.md` (estado de Apple, Google, MP), `docs/tiendas.
    con Firebase y firma como secretos), Wallet, NFC con placa, pagos reales de MP, avisos push reales.
 
 
+## Landing nueva y análisis contra Chicle y Timeleft (16/11, sin desplegar)
+
+En `docs/propuestas/` (ver su `README.md`):
+
+- **Informe crítico.** Caigo contra Chicle (chicle.ar) y Timeleft. El diagnóstico: con cero usuarios el feed abre vacío; se construyó todo lo que el brief dejaba para después de la tracción; pedir el DNI antes de todo frena; la landing no vendía. Recomendación: planes de lugares + la mesa de los jueves + lanzar en Gesell en enero. **La estrategia no está aprobada.**
+- **Landing A (elegida por Nahuel).** Nocturna, «Falta uno.». Cada plan abre un detalle y «Sumarme» pide registrarse: cada registro es un lead. Por ahora **sólo Argentina, con 15 ciudades por región**, detectadas por zona horaria o GPS. Artifact: https://claude.ai/artifact/VjG2vzGbAMBJUwbyPgfgPU. **No se pasa a `apps/web` ni se despliega sin el ok de Nahuel.**
+- **Recursos visuales** (fotos de ChatGPT, piezas para redes v2 con el hueco «+ Vos» y el gel del handoff, mockups, stickers y logos): en `~/Trabajo/vimo/marketing/caigo/recursos/`, para la sesión del kit publicitario.
+
 ## Selfies y DNI cifrados, y quién los mira (12/11, sin commitear ni desplegar)
 
 Lo pedía la AAIP (`~/Trabajo/vimo/legales/aaip/pendientes.md` › 5. Seguridad): las selfies y las fotos

@@ -1,0 +1,373 @@
+<title>Caigo contra Chicle y Timeleft</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500&display=swap">
+<style>
+/* Informe interno: columna de lectura con bandas de evidencia a lo ancho; el coral marca lo que duele, el lima lo que suma */
+:root{
+  --bg:#FAF9F6; --surface:#FFFFFF; --sunk:#F1EEE7; --fg:#24212D; --muted:#5C586B; --line:#E4DFD6;
+  --coral:#E8604F; --coral-soft:#FFE6E1; --lime-ink:#3F6A00; --lime-soft:#EDFBC9; --violet:#5B43C9; --violet-soft:#EDE8FF;
+  --display:"Bricolage Grotesque", "Geist", system-ui, sans-serif;
+  --body:"Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#17151F; --surface:#201D2B; --sunk:#1B1925; --fg:#F1EEF8; --muted:#A8A3BD; --line:#322D42;
+  --coral:#FF8A7B; --coral-soft:#3A2226; --lime-ink:#C8F36B; --lime-soft:#26301A; --violet:#B3A3FF; --violet-soft:#2A2442; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#17151F; --surface:#201D2B; --sunk:#1B1925; --fg:#F1EEF8; --muted:#A8A3BD; --line:#322D42;
+  --coral:#FF8A7B; --coral-soft:#3A2226; --lime-ink:#C8F36B; --lime-soft:#26301A; --violet:#B3A3FF; --violet-soft:#2A2442; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:400 16px/1.6 var(--body);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.col{max-width:68ch}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.02em}
+h1{font-size:clamp(2.2rem,6vw,4rem);line-height:1;font-weight:800}
+h2{font-size:clamp(1.6rem,3.6vw,2.4rem);line-height:1.05;font-weight:800}
+h3{font-size:1.25rem;line-height:1.15;font-weight:700}
+p,li{text-wrap:pretty}
+p{margin:0}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+section{padding-block:56px;border-top:1px solid var(--line)}
+.stack{display:flex;flex-direction:column;gap:16px}
+.lead{font-size:1.15rem;line-height:1.55;color:var(--fg)}
+.muted{color:var(--muted)}
+a{color:var(--violet)}
+
+header.top{padding-block:48px 40px;display:grid;gap:20px}
+.verdict{display:grid;gap:10px;margin:8px 0 0;padding:0;list-style:none}
+.verdict li{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:baseline}
+.verdict b{font-weight:700}
+.tag{font:500 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:5px 8px;border-radius:999px;white-space:nowrap}
+.t-mal{background:var(--coral-soft);color:var(--coral)}
+.t-bien{background:var(--lime-soft);color:var(--lime-ink)}
+.t-idea{background:var(--violet-soft);color:var(--violet)}
+
+/* tabla comparativa */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:14.5px}
+th,td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+thead th{font:600 13px/1.2 var(--body);background:var(--sunk)}
+tbody th{font-weight:600;color:var(--muted);width:150px}
+tr:last-child td,tr:last-child th{border-bottom:0}
+td.us{background:color-mix(in srgb, var(--coral-soft) 55%, transparent)}
+
+/* evidencia */
+.shots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.shot{display:flex;flex-direction:column;gap:8px;min-width:0}
+.shot img{width:100%;height:auto;border-radius:12px;border:1px solid var(--line);display:block}
+.shot figcaption{font-size:13.5px;color:var(--muted);line-height:1.45}
+.shot figcaption b{color:var(--fg)}
+figure{margin:0}
+
+/* problemas */
+.issues{display:grid;gap:14px}
+.issue{display:grid;grid-template-columns:120px minmax(0,1fr);gap:18px;padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.issue .sev{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.issue p+p{margin-top:8px}
+
+/* direcciones */
+.dirs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.dir{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.dir img{width:100%;aspect-ratio:3/2;object-fit:cover;display:block}
+.dir .in{padding:18px 20px 22px;display:flex;flex-direction:column;gap:12px}
+.dir .letter{font:800 14px/1 var(--display);color:var(--violet)}
+.dir .promise{font:700 1.1rem/1.3 var(--display)}
+.dir dl{display:grid;grid-template-columns:110px minmax(0,1fr);gap:6px 12px;margin:0;font-size:14.5px}
+.dir dt{color:var(--muted);font-weight:500}
+.dir dd{margin:0}
+.dir.pick{border:2px solid var(--violet)}
+
+/* recomendación */
+.rec{background:var(--violet-soft);border-radius:18px;padding:28px;display:grid;gap:18px}
+.rec .big{font:800 clamp(1.4rem,3vw,2rem)/1.12 var(--display);color:var(--fg)}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.steps li{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;padding-top:12px;border-top:1px solid color-mix(in srgb, var(--violet) 25%, transparent)}
+.steps .when{font:500 13px/1.4 var(--mono);color:var(--violet)}
+.cut{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.cut div{background:var(--surface);border-radius:12px;padding:14px 16px;font-size:14.5px}
+.cut h3{font-size:1rem;margin-bottom:6px}
+.cut ul{margin:0;padding-left:18px}
+
+/* galería */
+.gal{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.gal figure{display:flex;flex-direction:column;gap:8px;min-width:0}
+.gal img{width:100%;height:auto;border-radius:10px;display:block;border:1px solid var(--line)}
+.gal figcaption{font-size:13px;color:var(--muted);line-height:1.4}
+
+.qs{counter-reset:q;list-style:none;padding:0;margin:0;display:grid;gap:14px}
+.qs li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:baseline}
+.qs li::before{counter-increment:q;content:counter(q);font:800 1.1rem/1 var(--display);color:var(--violet)}
+footer{padding-block:40px 64px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+
+@media (max-width:820px){
+  .shots{grid-template-columns:1fr 1fr}
+  .dirs{grid-template-columns:1fr}
+  .gal{grid-template-columns:1fr 1fr}
+  .cut{grid-template-columns:1fr}
+}
+@media (max-width:520px){
+  .shots{grid-template-columns:1fr}
+  .issue{grid-template-columns:1fr;gap:10px}
+  .issue .sev{flex-direction:row;flex-wrap:wrap}
+  .steps li{grid-template-columns:1fr;gap:4px}
+  .dir dl{grid-template-columns:1fr;gap:2px}
+  .dir dd{margin-bottom:6px}
+  .verdict li{grid-template-columns:1fr;gap:4px}
+  section{padding-block:40px}
+}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <p class="eyebrow">Informe interno · 15 de noviembre de 2026 · Sólo para Nahuel</p>
+  <h1>Caigo contra Chicle y Timeleft</h1>
+  <p class="lead col">Caigo está construida entera y no tiene ni un usuario. Chicle ya hace casi todo lo que promete Caigo, y Timeleft resolvió el problema que a Caigo la va a matar. La buena noticia es que ninguno de los dos está en la costa.</p>
+  <ul class="verdict col">
+    <li><span class="tag t-mal">Fatal</span><span><b>El feed de Caigo depende de que otros publiquen.</b> Con cero usuarios, la pantalla «Ahora» abre vacía, y una app social vacía no tiene segunda oportunidad.</span></li>
+    <li><span class="tag t-mal">Grave</span><span><b>Se construyó al revés del brief.</b> El propio brief dejaba señas, DNI, comercios y Plus para después de la tracción. Se hicieron todos antes.</span></li>
+    <li><span class="tag t-mal">Grave</span><span><b>La landing no vende.</b> El héroe es el logo, las fotos son de stock y se nota, y hay tres llamados que se contradicen.</span></li>
+    <li><span class="tag t-bien">A favor</span><span><b>La costa está libre.</b> Timeleft está en Palermo y Chicle en Buenos Aires. Nadie atiende Mar del Plata ni Gesell, y en cinco semanas empieza la temporada.</span></li>
+    <li><span class="tag t-idea">Propuesta</span><span><b>Que el plan lo traigan los lugares y Caigo.</b> La gente se suma. Publicar planes propios pasa a segundo plano hasta que haya densidad.</span></li>
+  </ul>
+</header>
+
+<section>
+  <div class="stack">
+    <p class="eyebrow">Cara a cara</p>
+    <h2>Tres respuestas a «quiero salir y no tengo con quién»</h2>
+    <p class="col muted">Los datos de Chicle y Timeleft salen de sus webs, de la App Store argentina y de Trustpilot, consultados hoy.</p>
+  </div>
+  <div class="tbl" style="margin-top:24px">
+    <table>
+      <thead><tr><th></th><th>Timeleft</th><th>Chicle</th><th>Caigo hoy</th></tr></thead>
+      <tbody>
+        <tr><th>Promesa</th><td>«Sin biografías, sin deslizar, sin organizar nada. Tú solo tienes que venir.»</td><td>«Salí por un plan. Volvé con una historia.»</td><td class="us">«Hacé planes. Conocé gente.» Correcta pero genérica: podría ser de cualquiera.</td></tr>
+        <tr><th>Quién arma el plan</th><td>Timeleft. Elige día, lugar y mesa con un test de personalidad.</td><td>Usuarios, comunidades (<code>c/birrasdemartes</code>), lugares y marcas.</td><td class="us">El usuario. Todo depende de que alguien publique primero.</td></tr>
+        <tr><th>Arranque en frío</th><td>Resuelto: con 6 personas inscriptas para el miércoles ya hay producto.</td><td>A medias: promos y eventos de lugares rellenan el feed.</td><td class="us">Sin resolver. Hoy hay 4 planes semilla a tu nombre.</td></tr>
+        <tr><th>Cómo cobra</th><td>Membresía. Cada uno paga su comida.</td><td>Activaciones de marca cotizadas por objetivo, más entradas.</td><td class="us">Plus, cargo por entradas y señas, placas Tap. Todo listo y sin nadie que lo use.</td></tr>
+        <tr><th>Dónde</th><td>200 ciudades. En Buenos Aires: Palermo, Colegiales y Chacarita.</td><td>Buenos Aires.</td><td class="us">Mar del Plata y Villa Gesell.</td></tr>
+        <tr><th>Tracción real</th><td>4 M de miembros declarados. En Buenos Aires, 29 eventos y 1.149 reservas en octubre. Trustpilot 3,5 sobre 713 reseñas.</td><td>Dice «15.391 personas en la comunidad», pero su página de marcas cuenta 16.700 seguidores de Instagram. En la App Store argentina tiene 16 calificaciones (4,1).</td><td class="us">Cero.</td></tr>
+        <tr><th>Seguridad</th><td>Mesa armada por ellos, lugar público y cena sólo para mujeres.</td><td>Check-in por GPS. Sin verificación visible.</td><td class="us">DNI, selfie, reputación y check-in. Es lo más completo de los tres, y hoy juega en contra.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="stack">
+    <p class="eyebrow">Lo que hay que mirar</p>
+    <h2>Gente primero, logo nunca</h2>
+    <p class="col">Las tres landings, a 390 px. Timeleft y Chicle abren con caras reales y una frase que se entiende en dos segundos. Caigo abre con el ícono de la app y un botón de «Próximamente».</p>
+  </div>
+  <div class="shots" style="margin-top:24px">
+    <figure class="shot"><img src="img/cap-timeleft-m-00.jpg" alt="Primera pantalla de Timeleft en el celular: foto de dos personas riéndose y el titular sobre encuentros semanales" loading="lazy"><figcaption><b>Timeleft.</b> Foto con flash, risa real, titular en serif con su ciudad («Montevideo», por IP). Un solo botón: «Registrarse».</figcaption></figure>
+    <figure class="shot"><img src="img/cap-chicle-m-00.jpg" alt="Primera pantalla de Chicle: fiesta en una terraza de noche con el titular Salí por un plan" loading="lazy"><figcaption><b>Chicle.</b> Terraza de noche, titular con remate en rosa y prueba social pegada abajo. Se siente Buenos Aires.</figcaption></figure>
+    <figure class="shot"><img src="img/cap-caigo-m-00.jpg" alt="Primera pantalla de Caigo: fondo oscuro con el ícono grande de la app y botones" loading="lazy"><figcaption><b>Caigo.</b> El ícono ocupa la mitad de la pantalla. «Usar desde la web», «Próximamente» y, más abajo, lista de espera: tres llamados que se contradicen.</figcaption></figure>
+  </div>
+  <div class="shots" style="margin-top:28px">
+    <figure class="shot"><img src="img/cap-caigo-m-04.jpg" alt="Tarjetas de planes de Caigo con fotos de stock" loading="lazy"><figcaption><b>«Fútbol 5 en Punta Mogotes»</b> con foto de olas y gente corriendo en la playa. No hay cancha.</figcaption></figure>
+    <figure class="shot"><img src="img/cap-caigo-m-05.jpg" alt="Tarjeta de truco ilustrada con cartas de póker francesas" loading="lazy"><figcaption><b>«Truco en un bar de Güemes»</b> con cartas de póker francesas. Cualquier argentino lo ve en un segundo, y le quita credibilidad a todo lo demás.</figcaption></figure>
+    <figure class="shot"><img src="img/cap-caigo-m-07.jpg" alt="Sección para lugares con foto de una calle europea" loading="lazy"><figcaption><b>«¿Tenés un bar?»</b> ilustrado con una vereda europea. Al dueño de un bar de Mar del Plata le estás diciendo que esto no es para él.</figcaption></figure>
+  </div>
+  <div class="shots" style="margin-top:28px">
+    <figure class="shot"><img src="img/cap-chicle-m-04.jpg" alt="Sección de recompensas de Chicle: chicles, rachas y premios" loading="lazy"><figcaption><b>Lo mejor de Chicle:</b> te paga por salir. Puntos por visita verificada, racha x2 desde el día 5 y canje en el bar. Así engancha también al lugar.</figcaption></figure>
+    <figure class="shot"><img src="img/cap-timeleft-m-01.jpg" alt="Timeleft: frase grande sobre no organizar nada" loading="lazy"><figcaption><b>Lo mejor de Timeleft:</b> le saca trabajo al usuario. No elegís gente ni chateás: elegís día y vas. Es exactamente lo opuesto a Caigo.</figcaption></figure>
+    <figure class="shot"><img src="img/cap-timeleft-m-03.jpg" alt="Timeleft: tarjeta de reservar con fotos de restaurantes" loading="lazy"><figcaption><b>Timeleft explica en tres pasos</b> y repite el mismo botón cada pantalla y media. Caigo tiene un solo «Usar Caigo desde la web», arriba de todo.</figcaption></figure>
+  </div>
+</section>
+
+<section>
+  <div class="stack">
+    <p class="eyebrow">Sin filtro</p>
+    <h2>Lo que está mal en Caigo</h2>
+  </div>
+  <div class="issues" style="margin-top:24px">
+    <article class="issue">
+      <div class="sev"><span class="tag t-mal">Fatal</span></div>
+      <div class="col">
+        <h3>El producto necesita gente para mostrar algo</h3>
+        <p>«Planes a los que les falta gente» es un mercado de dos lados: alguien publica y otro se suma. Con cero usuarios no hay ninguno de los dos. «Ahora» busca planes de las próximas 3 horas por distancia. En Mar del Plata, un martes de junio a las 19, eso da cero resultados, y el primero que abra la app no vuelve.</p>
+        <p>Timeleft lo resolvió sacándole la decisión al usuario: con seis inscriptos ya hay mesa. Chicle, rellenando con lugares, promos y marcas. Caigo no tiene relleno.</p>
+      </div>
+    </article>
+    <article class="issue">
+      <div class="sev"><span class="tag t-mal">Grave</span></div>
+      <div class="col">
+        <h3>Se construyó todo antes de saber si alguien lo quiere</h3>
+        <p>El brief decía: «Queda afuera del MVP: señas y pagos, DNI, álbumes, recomendaciones, comercios y planes promocionados», y ponía la monetización «después de la tracción». Hoy hay modo Citas, Plus con tres suscripciones, Caigo Tap con NFC, pases de Wallet, marketplace de Mercado Pago, App Clip y verificación de DNI cifrada. Todo bien hecho, y todo esperando gente.</p>
+        <p>El costo no es el código, que ya está. Es que cada cosa suma pantallas, decisiones y fricción para el primer usuario.</p>
+      </div>
+    </article>
+    <article class="issue">
+      <div class="sev"><span class="tag t-mal">Grave</span></div>
+      <div class="col">
+        <h3>DNI antes de hacer nada</h3>
+        <p>Tu nota dice: pedir el DNI en el onboarding y no dejar hacer nada sin él. Para la confianza tiene sentido, sobre todo para las mujeres, y puede ser el diferencial de Caigo. Para un producto sin usuarios es la peor puerta posible: le pedís foto del documento y selfie a alguien que todavía no vio un solo plan. La única reseña negativa visible de Chicle es justo esa: el registro que no lo dejaba entrar.</p>
+        <p>Propuesta: mirar sin cuenta, pedir el DNI al confirmar el primer plan y mostrarlo como sello en cada plan («Todos verificados»).</p>
+      </div>
+    </article>
+    <article class="issue">
+      <div class="sev"><span class="tag t-mal">Grave</span></div>
+      <div class="col">
+        <h3>Tres públicos, ninguna promesa</h3>
+        <p>Un pibe de 20 que busca previa, alguien de 35 recién mudado que no conoce a nadie y un turista de enero quieren cosas distintas, a horas distintas y con miedos distintos. «Hacé planes. Conocé gente.» les habla a los tres y no convence a ninguno. Timeleft eligió: adultos que quieren amigos, cenando. Chicle eligió: salir de noche en Buenos Aires.</p>
+      </div>
+    </article>
+    <article class="issue">
+      <div class="sev"><span class="tag t-mal">Medio</span></div>
+      <div class="col">
+        <h3>Citas adentro de la misma app</h3>
+        <p>Timeleft separa las cenas para solteros y repite en sus preguntas frecuentes que es para hacer amigos. Que Caigo tenga un modo Citas al lado de «fútbol 5» y «truco» hace que una chica lo piense dos veces antes de sumarse sola a un plan de desconocidos. Hoy confunde más de lo que suma.</p>
+      </div>
+    </article>
+    <article class="issue">
+      <div class="sev"><span class="tag t-mal">Medio</span></div>
+      <div class="col">
+        <h3>La landing está hecha para mostrar la marca, no la noche</h3>
+        <p>El sistema visual de Caigo (coral, violeta, lima, gel) es bueno y propio, mejor que el de Chicle. El problema es el uso: el ícono como héroe, fotos de stock que no son de la costa (y algunas equivocadas), «Próximamente» al lado de «Usar desde la web», y nada que diga qué hay hoy. Las imágenes que generé abajo muestran lo que tendría que verse.</p>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section>
+  <div class="stack col">
+    <p class="eyebrow">Para no exagerar</p>
+    <h2>Ni Chicle ni Timeleft son invencibles</h2>
+    <p><b>Chicle</b> parece más grande de lo que es: 16 calificaciones en la App Store argentina y un número de «comunidad» que coincide con sus seguidores de Instagram. Vive de vender activaciones a marcas, así que su usuario es en parte el producto. Está sólo en Buenos Aires.</p>
+    <p><b>Timeleft</b> funciona, pero cobra membresía y sus quejas se repiten: cenas incómodas, cobros que no se pueden cancelar desde la app y soporte lento (3,5 en Trustpilot). En Buenos Aires hace unos 7 eventos por semana. En la costa no está.</p>
+    <p>También hay apps chicas que apuntan a lo mismo (Grups para sumarse a partidos, Chisme para planes entre mujeres, Previando para previas). Ninguna domina. El espacio está abierto, pero se gana con densidad en un lugar, no con funciones.</p>
+  </div>
+</section>
+
+<section>
+  <div class="stack">
+    <p class="eyebrow">Cuatro caminos</p>
+    <h2>Qué podría ser Caigo</h2>
+    <p class="col">Cada uno reusa casi todo lo construido. Cambia qué se muestra primero y quién trae los planes.</p>
+  </div>
+  <div class="dirs" style="margin-top:24px">
+    <article class="dir">
+      <img src="img/caigo-01-futbol.jpg" alt="Grupo en una cancha de fútbol 5 de noche, uno señala a cámara llamando a sumarse" loading="lazy">
+      <div class="in">
+        <span class="letter">A · Falta uno</span>
+        <p class="promise">«Te falta uno, te lo conseguimos. Te sobra la noche, te sumamos.»</p>
+        <dl>
+          <dt>Para quién</dt><dd>18 a 30 que ya juegan: fútbol 5, pádel, vóley playa, truco.</dd>
+          <dt>Arranque</dt><dd>Canchas y grupos de WhatsApp que ya tienen el problema todas las semanas.</dd>
+          <dt>Reusa</dt><dd>Cupo, «Falta N», sumarse en bloque, reputación por asistencia.</dd>
+          <dt>Apaga</dt><dd>Citas, Plus y Wallet.</dd>
+          <dt>Riesgo</dt><dd>Se vuelve una app de deportes y compite con canchas y grupos que ya funcionan.</dd>
+        </dl>
+      </div>
+    </article>
+    <article class="dir">
+      <img src="img/caigo-04-cantina.jpg" alt="Seis personas cenando en una cantina del puerto, una chica llega saludando" loading="lazy">
+      <div class="in">
+        <span class="letter">B · La mesa de los jueves</span>
+        <p class="promise">«Todos los jueves, una mesa de seis en un bodegón de Mar del Plata. Vos sólo venís.»</p>
+        <dl>
+          <dt>Para quién</dt><dd>25 a 40 recién llegados: estudiantes de posgrado, gente que se mudó por trabajo, separados.</dd>
+          <dt>Arranque</dt><dd>Lo armamos nosotros. Con 12 inscriptos hay dos mesas.</dd>
+          <dt>Reusa</dt><dd>Planes del equipo, seña por Mercado Pago para que vayan, chat del plan, «¿Repetimos?».</dd>
+          <dt>Apaga</dt><dd>Feed abierto y Citas.</dd>
+          <dt>Riesgo</dt><dd>Es trabajo manual y es Timeleft con acento. Escala lento.</dd>
+        </dl>
+      </div>
+    </article>
+    <article class="dir">
+      <img src="img/caigo-03-gesell.jpg" alt="Dos grupos en ronda en la playa de Gesell al atardecer pasándose el mate" loading="lazy">
+      <div class="in">
+        <span class="letter">C · Temporada</span>
+        <p class="promise">«Llegaste a Gesell. Tu grupo también.»</p>
+        <dl>
+          <dt>Para quién</dt><dd>Turistas de 18 a 28 y los locales que trabajan la temporada.</dd>
+          <dt>Arranque</dt><dd>En enero, Gesell tiene la mayor densidad de gente sin plan del país. Es el único momento en que el feed abierto se llena solo.</dd>
+          <dt>Reusa</dt><dd>«Ahora» por distancia, previas grupo con grupo y el mapa.</dd>
+          <dt>Apaga</dt><dd>Nada en particular. Es un momento, no un producto.</dd>
+          <dt>Riesgo</dt><dd>En marzo se vacía. Si no queda nada en Mar del Plata, se muere con el verano.</dd>
+        </dl>
+      </div>
+    </article>
+    <article class="dir pick">
+      <img src="img/caigo-06-bar-pizarra.jpg" alt="Dueña de un bar en la puerta con una pizarra que dice Hoy trivia 21 hs, faltan 2 equipos" loading="lazy">
+      <div class="in">
+        <span class="letter">D · Lugares primero</span>
+        <p class="promise">«Lo que se arma hoy en la costa, y dónde falta gente.»</p>
+        <dl>
+          <dt>Para quién</dt><dd>Los tres públicos, porque el lugar define a quién le habla cada plan.</dd>
+          <dt>Arranque</dt><dd>Bares, canchas y clubes que ya tienen trivia, truco, karaoke o turnos con lugar libre. Los consigue Caigo, a mano.</dd>
+          <dt>Reusa</dt><dd>Panel de lugares, entradas y señas, Caigo Tap y check-in, «Falta N».</dd>
+          <dt>Apaga</dt><dd>Plus y Citas por ahora. Publicar planes propios queda, pero no es lo primero.</dd>
+          <dt>Riesgo</dt><dd>Se parece a una agenda. Lo que lo diferencia es el «falta» y el sumarse solo.</dd>
+        </dl>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section>
+  <div class="rec">
+    <p class="eyebrow" style="color:var(--violet)">Mi recomendación</p>
+    <p class="big">D como motor, B para los que llegan solos y C como lanzamiento. Lanzar en Gesell la primera semana de enero.</p>
+    <p class="col">Caigo deja de ser «una red para publicar planes» y pasa a ser «lo que se arma hoy en la costa, con lugar para vos». Los planes los traen dos fuentes que controlamos: los lugares y la mesa de los jueves. La gente se suma, sola o con amigos. Cuando haya densidad, publicar un plan propio vuelve al frente. El A queda adentro como tipo de plan: el fútbol con turno libre es un plan de lugar.</p>
+    <ol class="steps">
+      <li><span class="when">16 al 29 de nov.</span><span>Mirar sin cuenta, DNI al confirmar el primer plan, esconder Citas y Plus. Nueva landing (la de abajo). Firmar 15 lugares entre Gesell y Mar del Plata, puerta a puerta.</span></li>
+      <li><span class="when">Diciembre</span><span>Tres jueves de La mesa en Mar del Plata, con seña chica por Mercado Pago. Medir cuántos van y cuántos repiten.</span></li>
+      <li><span class="when">2 de ene. al 15 de feb.</span><span>Gesell: planes de lugares todas las noches, previas grupo con grupo y vóley en la playa. Stories «Falta 1» con el plan real del día.</span></li>
+      <li><span class="when">Marzo</span><span>Decidir con números: si la gente repite en Mar del Plata fuera de temporada, seguir. Si no, el modelo es estacional y hay que repensarlo.</span></li>
+    </ol>
+    <div class="cut">
+      <div><h3>Cortar o esconder ya</h3><ul><li>Modo Citas</li><li>Plus y las tres suscripciones</li><li>«Próximamente» y la lista de espera</li><li>Fotos de stock</li></ul></div>
+      <div><h3>Lo que mirar cada semana</h3><ul><li>Planes con lugar libre por noche (meta propia: 15 en Gesell en enero)</li><li>De los que se suman, cuántos van</li><li>Cuántos repiten a las dos semanas</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="stack">
+    <p class="eyebrow">Recursos visuales · generados con ChatGPT</p>
+    <h2>Así se tiene que ver Caigo</h2>
+    <p class="col">Fotos con flash y grano, de lugares reconocibles de la costa, con la baraja española, el sifón y la rambla. Los originales están en <code>caigo/docs/propuestas/visual/</code>. Son imágenes generadas: sirven para la landing y para probar mensajes, pero para anuncios conviene reemplazarlas por fotos reales de los primeros planes.</p>
+  </div>
+  <div class="gal" style="margin-top:24px">
+    <figure><img src="img/caigo-02-truco.jpg" alt="Mesa de truco con baraja española en un bodegón" loading="lazy"><figcaption>Truco en bodegón, con baraja española.</figcaption></figure>
+    <figure><img src="img/caigo-08-rambla-recien-llegada.jpg" alt="Chica en la rambla de Mar del Plata mirando el celular mientras un grupo la espera" loading="lazy"><figcaption>La recién llegada. Para la mesa de los jueves.</figcaption></figure>
+    <figure><img src="img/caigo-05-story-falta1.jpg" alt="Story de Instagram con el texto Falta 1, ¿Caés?" loading="lazy"><figcaption>Story «Falta 1», con logo.</figcaption></figure>
+    <figure><img src="img/caigo-05b-story-falta1.jpg" alt="Variante de la story Falta 1 sin logo" loading="lazy"><figcaption>Story «Falta 1», versión limpia para poner el plan real.</figcaption></figure>
+    <figure><img src="img/caigo-07-post-temporada.jpg" alt="Posteo con foto en la playa y el texto Llegaste a Gesell, tu grupo también" loading="lazy"><figcaption>Posteo de temporada.</figcaption></figure>
+    <figure><img src="img/caigo-01-futbol.jpg" alt="Fútbol 5 de noche" loading="lazy"><figcaption>Falta uno, para el héroe.</figcaption></figure>
+    <figure><img src="img/caigo-03-gesell.jpg" alt="Playa de Gesell al atardecer" loading="lazy"><figcaption>Dos grupos en Gesell.</figcaption></figure>
+    <figure><img src="img/caigo-06-bar-pizarra.jpg" alt="Dueña de bar con pizarra" loading="lazy"><figcaption>El lugar que pide gente.</figcaption></figure>
+  </div>
+</section>
+
+<section>
+  <div class="stack col">
+    <p class="eyebrow">Lo que tenés que decidir vos</p>
+    <h2>Antes de tocar código</h2>
+    <ol class="qs">
+      <li><span>¿Vamos con la recomendación (D, B y C) o preferís otro camino?</span></li>
+      <li><span>¿Aceptás mover el DNI del inicio al primer plan confirmado?</span></li>
+      <li><span>¿Escondemos Citas y Plus hasta marzo?</span></li>
+      <li><span>¿Quién sale a firmar los 15 lugares: vos, tu socio o alguien en Gesell?</span></li>
+      <li><span>¿La landing nueva reemplaza la actual en caigo.com.ar? No se despliega nada hasta que digas.</span></li>
+    </ol>
+  </div>
+</section>
+
+<footer>
+  Fuentes: timeleft.com/es y timeleft.com/es/buenos-aires; chicle.ar/landing y negocios.chicle.ar; App Store Argentina (Chicle, id 6737815223); Trustpilot de Timeleft; caigo.com.ar; brief y docs del repo de Caigo. Capturas tomadas hoy a 390 px.
+</footer>
+</div>
+<script>
+// Sin renglones viudos: une las dos últimas palabras de cada bloque de texto
+document.querySelectorAll('p, li, figcaption, dd, h1, h2, h3').forEach(function(el){
+  var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), last = null, n;
+  while ((n = w.nextNode())) { if (n.nodeValue.trim()) last = n; }
+  if (last) last.nodeValue = last.nodeValue.replace(/\s+(\S+)\s*$/, ' $1');
+});
+</script>
