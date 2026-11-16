@@ -174,6 +174,10 @@ class Contenedor(val ctx: Context) {
     @Volatile
     private var ultima: Pair<Double, Double>? = null
 
+    /** Cuándo se tomó [ultima]: vence a los 300 s, como en iOS (`Ubicador.actual`). */
+    @Volatile
+    private var ultimaEn: Long = 0L
+
     /** La última ubicación que ya se conoce, sin esperar (para no frenar la carga de una pantalla). */
     val ubicacionConocida: Pair<Double, Double>? get() = ultima
 
@@ -181,7 +185,7 @@ class Contenedor(val ctx: Context) {
     @SuppressLint("MissingPermission")
     suspend fun ubicacion(): Pair<Double, Double>? {
         if (!tienePermisoUbicacion()) return null
-        ultima?.let { return it }
+        ultima?.let { if (System.currentTimeMillis() - ultimaEn < 300_000L) return it }
         val f = LocationServices.getFusedLocationProviderClient(ctx)
         return runCatching {
             withTimeoutOrNull(3500) {
@@ -190,7 +194,7 @@ class Contenedor(val ctx: Context) {
                 else f.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, CancellationTokenSource().token).await() ?: ultima
                 loc?.let { it.latitude to it.longitude }
             }
-        }.getOrNull()?.also { ultima = it }
+        }.getOrNull()?.also { ultima = it; ultimaEn = System.currentTimeMillis() } ?: ultima
     }
 
     /** Interpreta un link entrante: ar.com.caigo.app://…, https://caigo.com.ar/p/… o /t/…. */
