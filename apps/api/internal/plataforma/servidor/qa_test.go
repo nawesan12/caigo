@@ -131,8 +131,9 @@ func TestEntradaAnuladaPagadaSeDevuelve(t *testing.T) {
 	if err := ls.ConciliarOrden(context.Background(), mp.usuario, primera); err != nil {
 		t.Fatal(err)
 	}
+	// Los ids de orden del MP falso se repiten entre pruebas (ord-1…): se busca dentro del plan.
 	var anulada string
-	e.valor(`SELECT id::text FROM entradas WHERE mp_orden = $1`, &anulada, primera)
+	e.valor(`SELECT id::text FROM entradas WHERE mp_orden = $1 AND plan_id = $2`, &anulada, primera, c.ID)
 	if evs := e.eventos("entrada.reembolsar", anulada); len(evs) != 1 {
 		t.Fatalf("devolución de la anulada: %d", len(evs))
 	}

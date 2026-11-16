@@ -45,6 +45,9 @@ type mpFalso struct {
 	// Órdenes creadas (ord-1, ord-2…) y el estado de su transacción al leerlas.
 	ordenes     int
 	estadoOrden string
+	// Referencia y total de cada orden (ord-N), para leer cualquiera y no sólo la última.
+	refs   map[int]string
+	totals map[int]float64
 	// Reembolsos pedidos: el cuerpo tal cual ("" = todo). Los de pagos (preferencias) y los de órdenes.
 	reembolsos []string
 	// Lo último que se mandó a crear.
@@ -86,6 +89,10 @@ func nuevoMP(t *testing.T) *mpFalso {
 			m.fee, _ = strconv.ParseFloat(in.MarketplaceFee, 64)
 			m.total, _ = strconv.ParseFloat(in.TotalAmount, 64)
 			m.ordenes++
+			if m.refs == nil {
+				m.refs, m.totals = map[int]string{}, map[int]float64{}
+			}
+			m.refs[m.ordenes], m.totals[m.ordenes] = m.ref, m.total
 			w.WriteHeader(201)
 			fmt.Fprintf(w, `{"id":%q,"status":"created","checkout_url":"https://mp.test/checkout?order_id=%s"}`, m.ultimaOrden(), m.ultimaOrden())
 		case strings.HasPrefix(r.URL.Path, "/v1/orders/ord-") && strings.HasSuffix(r.URL.Path, "/refund") && r.Method == http.MethodPost:
@@ -110,7 +117,7 @@ func nuevoMP(t *testing.T) *mpFalso {
 			}
 			fmt.Fprintf(w, `{"id":%q,"status":"processed","external_reference":%q,"total_amount":"%.2f","transactions":{"payments":[
 				{"id":"tx-%d","amount":"%.2f","attempt_number":1,"status":%q,"reference":{"id":"99"}}]}}`,
-				id, m.ref, m.total, n, m.total, m.estadoOrden)
+				id, m.refs[n], m.totals[n], n, m.totals[n], m.estadoOrden)
 		case r.URL.Path == "/v1/payments/99/refunds" && r.Method == http.MethodPost:
 			if !conToken || r.Header.Get("X-Idempotency-Key") == "" {
 				w.WriteHeader(401)
