@@ -62,6 +62,7 @@ import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.app.LocalApp
 import ar.com.caigo.app.nucleo.Cupo
 import ar.com.caigo.app.nucleo.ErrorApi
+import ar.com.caigo.app.nucleo.Moderacion
 import ar.com.caigo.app.nucleo.Plan
 import ar.com.caigo.app.nucleo.Plata
 import ar.com.caigo.app.nucleo.Problema
@@ -404,6 +405,8 @@ private fun EstadoAbajo(
     when {
         p.cancelado -> T("Este plan se canceló.", 15f, 700, C.coral2, alinear = TextAlign.Center)
         p.esMio -> {
+            // Moderación automática: sólo el organizador se entera de que el plan está en revisión u oculto.
+            Moderacion.avisoPlan(p)?.let { T(it, 13f, 700, if (p.moderacion == "oculto") C.coral2 else pal.texto2, alinear = TextAlign.Center) }
             if (yaPaso(p)) Cta("¿Repetimos?", { ir.repetimos(p.id) }, Modifier.fillMaxWidth(), gel = Gels.violeta, color = C.blanco, alto = 58.dp)
             else {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

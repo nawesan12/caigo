@@ -127,6 +127,10 @@ private struct TarjetaMio: View {
                 VStack(alignment: .leading, spacing: 4) {
                     T(pl.titulo, 18, 700, alto: 1.15)
                     T(miosSubtitulo(pl), 12, 400, p.texto2, unRenglon: true)
+                    // Moderación automática: el organizador ve si su plan está en revisión u oculto.
+                    if pl.esMio, let m = Moderacion.etiqueta(pl.moderacion) {
+                        T(m, 12, 700, pl.moderacion == "oculto" ? C.coral2 : p.texto2, unRenglon: true)
+                    }
                     HStack(spacing: 6) { pie(hoy: hoy) }.padding(.top, 2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

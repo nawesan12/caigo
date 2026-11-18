@@ -43,6 +43,7 @@ import ar.com.caigo.app.app.LocalApp
 import ar.com.caigo.app.nucleo.Plan
 import ar.com.caigo.app.pantallas.planes.ChipDestacado
 import ar.com.caigo.app.nucleo.Cupo
+import ar.com.caigo.app.nucleo.Moderacion
 import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.app.Pestana
 import ar.com.caigo.app.app.altoTabBar
@@ -191,6 +192,8 @@ private fun TarjetaMio(pl: Plan, cual: String, ir: Ir) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 T(pl.titulo, 18f, 700, alto = 1.15f)
                 T(miosSubtitulo(pl), 12f, 400, p.texto2, unRenglon = true)
+                // Moderación automática: el organizador ve si su plan está en revisión u oculto.
+                if (pl.esMio) Moderacion.etiqueta(pl.moderacion)?.let { T(it, 12f, 700, if (pl.moderacion == "oculto") C.coral2 else p.texto2, unRenglon = true) }
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     when (cual) {

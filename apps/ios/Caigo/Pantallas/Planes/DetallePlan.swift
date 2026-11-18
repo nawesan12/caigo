@@ -371,6 +371,10 @@ private struct ContenidoDetalle: View {
         if p.cancelado {
             T("Este plan se canceló.", 15, 700, C.coral2, alinear: .center)
         } else if p.esMio {
+            // Moderación automática: sólo el organizador se entera de que el plan está en revisión u oculto.
+            if let aviso = Moderacion.avisoPlan(p) {
+                T(aviso, 13, 700, p.moderacion == "oculto" ? C.coral2 : pal.texto2, alinear: .center)
+            }
             if yaPaso(p) {
                 Cta(texto: "¿Repetimos?", gel: Gels.violeta, alto: 58, color: C.blanco) { ir.repetimos(p.id) }
             } else {
