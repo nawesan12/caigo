@@ -2,6 +2,7 @@ import { CAIGO_API } from '$app/env/private';
 import { redirect, type RequestEvent } from '@sveltejs/kit';
 import { volverSeguro } from '#lib/hosts.ts';
 import { planPublico } from './publico.ts';
+import { borrarSesion } from './sesion.ts';
 import type { Plan } from '#lib/tipos.ts';
 
 /**
@@ -37,6 +38,17 @@ type Opciones = {
 	/** IP de quien pidió (la API pone topes por IP y, si no, vería siempre la del servidor web). */
 	ip?: string | null;
 };
+
+/** Para `conSesion` desde un +server.ts que contesta JSON a un fetch del navegador. */
+type OpcionesSesion = Omit<Opciones, 'token'> & {
+	/**
+	 * Sin sesión o sin DNI tira ErrorApi (401/403) en vez de redirigir: el fetch seguía el 303 y
+	 * recibía el HTML de /ingresar con 200, que la página tomaba por un mensaje.
+	 */
+	json?: boolean;
+};
+
+const SESION_VENCIDA = 'Tu sesión venció. Volvé a ingresar.';
 
 /** La IP real de quien pide: Cloudflare la manda en Cf-Connecting-Ip y Caddy la deja pasar. */
 export function ipDe(event: RequestEvent): string | null {
@@ -161,22 +173,37 @@ export async function conSesion<T = unknown>(
 	event: RequestEvent,
 	metodo: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
 	ruta: string,
-	o: Omit<Opciones, 'token'> = {}
+	o: OpcionesSesion = {}
 ): Promise<T> {
+	const { json, ...resto } = o;
+	if (json && !event.locals.token) throw new ErrorApi(401, SESION_VENCIDA, 'sin_sesion');
 	const token = exigirToken(event);
 	try {
-		return await api<T>(metodo, ruta, { ...o, token, ip: ipDe(event) });
+		return await api<T>(metodo, ruta, { ...resto, token, ip: ipDe(event) });
 	} catch (e) {
 		if (e instanceof ErrorApi && e.estado === 401) {
 			event.cookies.delete('caigo_sesion', { path: '/' });
 			event.locals.token = null;
+			if (json) throw new ErrorApi(401, SESION_VENCIDA, 'sin_sesion');
 			aIngresar(event);
 		}
-		if (e instanceof ErrorApi && e.codigo === 'falta_dni' && esDePagina(event)) {
+		if (e instanceof ErrorApi && e.codigo === 'falta_dni' && !json && esDePagina(event)) {
 			const v =
 				event.request.method === 'GET' ? event.url.pathname + event.url.search : event.url.pathname;
 			redirect(303, `/app/verificar?volver=${encodeURIComponent(volverSeguro(v, '/app'))}`);
 		}
 		throw e;
 	}
+}
+
+/**
+ * Cuenta suspendida (p. ej. el equipo marcó el DNI como trucho): la API contesta 403 a todo. Sólo
+ * para lo que no tiene otro 403 posible (yo, verificación, la lista de lugares): cierra la sesión
+ * y una página va a /ingresar con el aviso. Si no era eso, no hace nada y el error sigue su curso.
+ */
+export function cortarSiSuspendida(event: RequestEvent, e: unknown): void {
+	if (!(e instanceof ErrorApi) || e.estado !== 403 || e.codigo === 'falta_dni') return;
+	borrarSesion(event.cookies);
+	event.locals.token = null;
+	if (esDePagina(event)) redirect(303, '/ingresar?error=suspendida');
 }

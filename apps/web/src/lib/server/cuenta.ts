@@ -1,5 +1,5 @@
 import { json, redirect, type RequestEvent } from '@sveltejs/kit';
-import { api, esDePagina, ErrorApi, ipDe } from './api.ts';
+import { api, cortarSiSuspendida, esDePagina, ErrorApi, ipDe } from './api.ts';
 import { borrarSesion } from './sesion.ts';
 import { verificada } from '#lib/verificacion.ts';
 import type { Verificacion, Yo } from '#lib/tipos.ts';
@@ -60,14 +60,7 @@ export async function leerVerificacion(event: RequestEvent): Promise<Verificacio
 			event.locals.token = null;
 			return null;
 		}
-		// Cuenta suspendida (p. ej. el equipo marcó el DNI como trucho): 403 a todo. Se cierra la
-		// sesión y se avisa en /ingresar.
-		if (e instanceof ErrorApi && e.estado === 403 && e.codigo !== 'falta_dni') {
-			borrarSesion(event.cookies);
-			event.locals.token = null;
-			if (esDePagina(event)) redirect(303, '/ingresar?error=suspendida');
-			throw e;
-		}
+		cortarSiSuspendida(event, e);
 		throw e;
 	}
 }
@@ -119,6 +112,8 @@ export async function sesionViva(event: RequestEvent): Promise<Yo | null> {
 			event.locals.token = null;
 			return null;
 		}
+		// Suspendida con la cookie viva: como en /app, a /ingresar con el aviso (antes, un 500).
+		cortarSiSuspendida(event, e);
 		throw e;
 	}
 }

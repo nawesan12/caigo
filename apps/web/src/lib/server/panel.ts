@@ -1,5 +1,5 @@
 import { error, redirect, type RequestEvent } from '@sveltejs/kit';
-import { conSesion } from './api.ts';
+import { conSesion, cortarSiSuspendida } from './api.ts';
 import type { Lugar } from '#lib/tipos.ts';
 import { dev } from '$app/env';
 
@@ -18,7 +18,14 @@ export function elegirLugar(event: RequestEvent, id: string) {
 
 /** Los lugares de la persona y el que está mirando. */
 export async function misLugares(event: RequestEvent) {
-	const { lugares } = await conSesion<{ lugares: Lugar[] }>(event, 'GET', '/v1/lugares');
+	let lugares: Lugar[];
+	try {
+		({ lugares } = await conSesion<{ lugares: Lugar[] }>(event, 'GET', '/v1/lugares'));
+	} catch (e) {
+		// Suspendida con la cookie viva: a /ingresar con el aviso, como en /app (antes, un 500).
+		cortarSiSuspendida(event, e);
+		throw e;
+	}
 	const elegido = event.cookies.get(COOKIE_LUGAR);
 	const lugar =
 		lugares.find((l) => l.id === elegido) ??
