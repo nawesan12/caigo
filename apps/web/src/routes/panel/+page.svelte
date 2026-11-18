@@ -3,7 +3,7 @@
 	import { replaceState } from '$app/navigation';
 	import Vacio from '#lib/ui/Vacio.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
-	import { cuandoCorto, fechaDeHoy } from '#lib/fechas.ts';
+	import { cuandoCorto, fechaDeHoy, partes } from '#lib/fechas.ts';
 	import { cobroTexto, faltanTexto } from '#lib/plan.ts';
 	import { pesosDeCentavos } from '#lib/precios.ts';
 
@@ -75,6 +75,21 @@
 				<span class="kd">Asistencia real</span>
 			</div>
 		</div>
+
+		{#if data.canjes.length}
+			<section class="canjes tarjeta" aria-labelledby="canjes-t">
+				<h2 id="canjes-t">Beneficios por nivel de hoy</h2>
+				<ul>
+					{#each data.canjes as c, i (i)}
+						<li>
+							<span class="cn">{c.nombre}</span>
+							<span class="cd">{c.nivel} · {c.beneficio}</span>
+							<span class="ch">{partes(c.hora).hora}</span>
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
 
 		<div class="lista">
 			{#each data.planes as p (p.id)}
@@ -170,6 +185,43 @@
 			800 44px/1 'Geist',
 			sans-serif;
 		letter-spacing: -1.6px;
+	}
+	.canjes {
+		padding: 20px 22px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+	.canjes h2 {
+		font-size: 15px;
+		font-weight: 800;
+	}
+	.canjes ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.canjes li {
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		gap: 12px;
+		align-items: baseline;
+		padding: 10px 0;
+		border-top: 1px solid #ece8f2;
+	}
+	.cn {
+		font-weight: 700;
+	}
+	.cd {
+		font-size: 13px;
+		color: #5c586b;
+	}
+	.ch {
+		font-size: 13px;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
 	}
 	.kpis {
 		display: grid;

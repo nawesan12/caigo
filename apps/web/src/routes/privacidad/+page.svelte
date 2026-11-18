@@ -97,13 +97,23 @@
 			(la usamos para frenar abusos y la borramos a los 2 días).
 		</li>
 		<li>
-			<b>Contactos de confianza.</b> Hasta 3 (nombre y teléfono o mail), si los cargás. Sólo se usan si
-			activás «¿Todo bien?» en un plan: si a la media hora del inicio no hiciste check-in, le escribimos
-			por mail al contacto que elegiste (si es un teléfono, te avisamos a vos para que le escribas). Compartir
-			tu ubicación desde «¿Todo bien?» sale de tu teléfono y no pasa por Caigo.
+			<b>Contactos de confianza.</b> Hasta 3 (nombre y teléfono o mail), si los cargás. Contale a quien
+			cargues. Sólo se usan si activás «¿Todo bien?» en un plan: si a la media hora del inicio no hiciste
+			check-in, primero te preguntamos a vos y, si en 10 minutos seguís sin responder, le escribimos por
+			mail al contacto que elegiste (si es un teléfono, no mandamos SMS: te avisamos a vos para que le
+			escribas). El mail lleva tu primer nombre, el nombre del plan, la hora y un link que muestra el
+			lugar, la dirección y el primer nombre de quienes van, hasta 2 horas después del final. Como mucho
+			un mail por plan, y quien lo recibe puede darse de baja desde el mismo mail. Compartir tu ubicación
+			desde «¿Todo bien?» sale de tu teléfono y no pasa por Caigo.
 		</li>
 		<li>
 			<b>Después del plan.</b> La carita que le ponés a un plan y las fotos que subís de un plan.
+		</li>
+		<li>
+			<b>Logros.</b> Tu nivel, tus insignias, tu racha y si sos «Anfitrión» salen de tus check-ins: no
+			guardamos nada aparte. Sí guardamos tu código de «Traé a alguien» y a quién invitaste, los planes
+			que ocultaste con «No me interesa» (hasta el fin del día), tu lugar en una lista de espera, a quién
+			le mandamos «Esta semana en tu ciudad» y los beneficios por nivel que usaste en un lugar aliado.
 		</li>
 	</ul>
 
@@ -138,6 +148,28 @@
 			fuiste a los planes que te sumaste). Tu apellido, tu teléfono y tu DNI no los ve nadie.
 		</li>
 		<li>
+			Quien tiene cuenta pero todavía no verificó su DNI puede mirar planes y perfiles, pero no ve
+			tu zona, tu trabajo, a qué planes vas, la dirección de un plan ni el nombre completo de
+			quienes van (sólo el primer nombre y la foto).
+		</li>
+		<li>
+			Tu nivel, tu «Anfitrión» y hasta 3 insignias (podés ocultarlas en Ajustes). La de «Local de…»
+			(el lugar al que más fuiste en el mes) la ves sólo vos. La racha también es sólo tuya.
+		</li>
+		<li>
+			Si organizás un plan, ves si quien pide sumarse faltó a 2 o más planes en el último mes (no
+			cuentan los planes que esa persona reportó). Si faltaste, te avisamos al día siguiente, y
+			quien organizó puede marcar que fuiste.
+		</li>
+		<li>
+			Si invitaste a alguien con tu código, ves cuántas personas entraron y cuántas ya fueron a su
+			primer plan, no quiénes.
+		</li>
+		<li>
+			Si usás un beneficio por nivel en un lugar aliado, el lugar ve ese día tu primer nombre, tu
+			nivel y el beneficio.
+		</li>
+		<li>
 			En un plan, quien organiza ve a quienes piden sumarse. En el link público de un plan se ve el
 			nombre y la foto de quien organiza y de quienes van.
 		</li>
@@ -150,9 +182,12 @@
 			código de entrada.
 		</li>
 		<li>
-			Tu carita de un plan no la ve nadie: quien organiza sólo ve el promedio de sus planes, y
-			recién cuando hay 3 o más. Las fotos de un plan las ven sólo quienes fueron, con un link que
-			vence a la hora.
+			Tu carita de un plan no la ve nadie: quien organiza sólo ve el promedio de sus planes, recién
+			cuando hay 3 o más, redondeado a medio punto y actualizado una vez por día. Las fotos de un
+			plan las ven sólo quienes fueron, con un link que vence a la hora, y las subimos sin la
+			ubicación ni los datos del teléfono. Si salís en una foto que no querés, tocá «Salgo yo» y
+			deja de verse; si no fuiste y no podés verla, escribinos a
+			<a href="mailto:privacidad@caigo.com.ar">privacidad@caigo.com.ar</a>.
 		</li>
 	</ul>
 
@@ -242,8 +277,15 @@
 		</li>
 		<li>
 			«¿Todo bien?» (a quién avisar y a qué hora): hasta 24 horas después del final del plan, o
-			hasta que hacés check-in. Las fotos de un plan: 6 meses desde el plan (las podés borrar
-			antes).
+			hasta que hacés check-in. El registro de los mails que mandó (una clave del mail, no la
+			dirección): 7 días. Las direcciones que pidieron no recibirlos más: como clave, para siempre.
+			Las fotos de un plan: 6 meses desde el plan (las podés borrar antes).
+		</li>
+		<li>
+			«No me interesa»: hasta el fin del día. La lista de espera: hasta un día después del plan.
+			«Esta semana en tu ciudad» (a quién se le mandó): 8 semanas. Los beneficios por nivel usados:
+			90 días. Los referidos: un año. Si borrás tu cuenta, todo esto se borra con la purga, a los 30
+			días.
 		</li>
 		<li>
 			Los textos que marca la moderación automática y quedan para que los revise el equipo: hasta un

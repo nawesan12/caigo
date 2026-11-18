@@ -54,7 +54,7 @@
 			{#if p}
 				<a class="plan" href="/app/plan/{p.id}">
 					<div class="caras">
-						{#each p.van.slice(0, 3) as v (v.id)}
+						{#each p.van.slice(0, 3) as v, i (v.id || i)}
 							<Avatar nombre={v.nombre} foto={v.foto} tam={32} borde="2.5px solid #FFFFFF" />
 						{/each}
 					</div>

@@ -282,6 +282,8 @@ export type ResultadoTap = {
 		id: string;
 		titulo: string;
 		beneficio?: string;
+		/** El beneficio por nivel (Habitué o más) que se anotó con este check-in. */
+		beneficioNivel?: string;
 		saldoCentavos: number;
 		repetido: boolean;
 	};
@@ -307,6 +309,9 @@ export type EstadoPlus = {
 	encantasHoy?: number;
 	limiteEncantas?: number;
 	destacarDesde?: string;
+	/** Semana de regalo de «Traé a alguien» activa además de la suscripción, y las guardadas. */
+	regaloHasta?: string;
+	regalosGuardados?: number;
 };
 
 export type Yo = {
@@ -531,3 +536,12 @@ export type PerfilPersona = {
 
 /** GET /v1/gente: la gente que sumé (el mismo perfil que /v1/personas/{id}). */
 export type DeMiGente = PerfilPersona;
+
+/** GET /v1/lugares/{id}/canjes: un beneficio por nivel usado hoy en el lugar. */
+export type Canje = {
+	nombre: string;
+	foto?: string;
+	nivel: string;
+	beneficio: string;
+	hora: string;
+};

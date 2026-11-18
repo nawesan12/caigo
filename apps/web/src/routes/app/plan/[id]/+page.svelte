@@ -323,7 +323,7 @@
 					{#if !yaPaso && !p.cancelado}<span class="somos">Somos {p.somos} de {p.total}</span>{/if}
 				</div>
 				<div class="avs">
-					{#each vistos as v (v.id)}
+					{#each vistos as v, i (v.id || i)}
 						<Avatar nombre={v.nombre} foto={v.foto} tam={32} borde="2px solid #24212D" />
 					{/each}
 					{#if resto > 0}<span class="mas">+{resto}</span>{/if}

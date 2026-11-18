@@ -1,6 +1,6 @@
 import { conSesion } from '#lib/server/api.ts';
 import { diasHasta, esHoy } from '#lib/fechas.ts';
-import type { Asistente, Lugar, PlanDelLugar } from '#lib/tipos.ts';
+import type { Asistente, Canje, Lugar, PlanDelLugar } from '#lib/tipos.ts';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
@@ -26,6 +26,12 @@ export const load: PageServerLoad = async (event) => {
 		)
 	);
 	const checkins = asist.flat().reduce((n, a) => n + (a.checkin ? a.cantidad : 0), 0);
+	// Los beneficios por nivel que se usaron hoy: el personal los mira para darlos en la barra.
+	const canjes = lugar.beneficioNivel
+		? await conSesion<{ canjes: Canje[] }>(event, 'GET', `/v1/lugares/${lugar.id}/canjes`)
+				.then((r) => r.canjes)
+				.catch(() => [] as Canje[])
+		: [];
 	return {
 		aprobado: true as const,
 		cual,
@@ -35,6 +41,7 @@ export const load: PageServerLoad = async (event) => {
 			confirmados: prox.planes.reduce((n, p) => n + (p.cancelado ? 0 : p.confirmados), 0),
 			checkins
 		},
+		canjes,
 		nuevo: event.url.searchParams.get('nuevo') ?? '',
 		cancelado: event.url.searchParams.get('cancelado') === '1'
 	};

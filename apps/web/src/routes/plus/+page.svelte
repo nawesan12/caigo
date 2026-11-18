@@ -106,7 +106,25 @@
 		mes: 'mensual',
 		temporada: 'de temporada'
 	};
-	const nombrePlan = $derived(NOMBRE_PLUS[estado?.plan ?? ''] ?? '');
+	const nombrePlan = $derived(
+		estado?.origen === 'referido' ? 'de regalo' : (NOMBRE_PLUS[estado?.plan ?? ''] ?? '')
+	);
+	const fecha = (f?: string) =>
+		f
+			? new Date(f).toLocaleDateString('es-AR', {
+					day: 'numeric',
+					month: 'long',
+					timeZone: 'America/Argentina/Buenos_Aires'
+				})
+			: '';
+	/** Las semanas de «Traé a alguien», aparte de lo que se paga. */
+	const regalo = $derived(
+		estado?.regaloHasta
+			? `Además, tu semana de regalo corre hasta el\u00a0${fecha(estado.regaloHasta)}.`
+			: estado?.regalosGuardados
+				? `Tenés ${estado.regalosGuardados === 1 ? 'una semana' : `${estado.regalosGuardados} semanas`} de regalo guardadas: arrancan si dejás de\u00a0renovar.`
+				: ''
+	);
 	/** Cómo se da de baja según dónde se compró (no hay baja desde la web: la lleva cada tienda). */
 	const comoCancelar = $derived(
 		estado?.origen === 'apple'
@@ -162,6 +180,7 @@
 					{/if}
 				</p>
 			{/if}
+			{#if regalo}<p class="aviso">{regalo}</p>{/if}
 			<a class="gel gel-lima cta" href="/app">Listo</a>
 			{#if estado?.renueva && comoCancelar}
 				<p class="cancelar">

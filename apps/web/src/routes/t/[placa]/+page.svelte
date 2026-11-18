@@ -47,6 +47,16 @@
 					</div>
 				</div>
 			{/if}
+			{#if r.plan?.beneficioNivel}
+				<!-- El beneficio por nivel se anota al hacer check-in: se muestra acá para que se use. -->
+				<div class="beneficio">
+					<span class="ico"><Icono nombre="regalo" tam={24} color="#C8F36B" /></span>
+					<div>
+						<b>{r.plan.beneficioNivel} por tu nivel</b>
+						<span>Mostralo en la barra · vale por hoy</span>
+					</div>
+				</div>
+			{/if}
 			{#if r.plan && r.plan.saldoCentavos > 0}
 				<div class="fila gris">
 					<b>Seña paga · en el lugar pagás {pesosDeCentavos(r.plan.saldoCentavos)}</b>
