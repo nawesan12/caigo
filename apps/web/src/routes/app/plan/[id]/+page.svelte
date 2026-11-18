@@ -14,6 +14,7 @@
 	import { cuandoCorto } from '#lib/fechas.ts';
 	import { chipAhora, distancia, horario, reputacion, terminado, TINTES } from '#lib/app.ts';
 	import { desglose, pesos, pesosDeCentavos } from '#lib/precios.ts';
+	import { avisoPlan } from '#lib/moderacion.ts';
 
 	/*
 	 * Detalle del plan (Mockups v5, pantalla 05). Lo que la pantalla no muestra (estados Esperando /
@@ -22,6 +23,8 @@
 	let { data, form } = $props();
 
 	const p = $derived(data.plan);
+	// Sólo para quien organiza: el resto lo ve igual (revisión) o no lo ve (oculto).
+	const moderado = $derived(avisoPlan(p));
 
 	// En vivo: si cambia el plan o sus solicitudes (aceptan, rechazan, alguien se suma o sale), se recarga.
 	onMount(() =>
@@ -143,6 +146,16 @@
 					: data.pago === 'pendiente'
 						? 'Tu pago está pendiente. Te avisamos cuando se acredite.'
 						: 'El pago no salió. Podés probar de nuevo.'}
+			</p>
+		{/if}
+		{#if moderado}
+			<p
+				class="aviso"
+				class:pendiente={!moderado.oculto}
+				class:error={moderado.oculto}
+				role="status"
+			>
+				{moderado.texto}
 			</p>
 		{/if}
 		<div class="chips">

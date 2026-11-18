@@ -11,6 +11,7 @@
 	import { primerNombre } from '#lib/plan.ts';
 	import { TINTES } from '#lib/app.ts';
 	import { escucharVivo } from '#lib/vivo.ts';
+	import { aplicarModerado, lineaMensaje } from '#lib/moderacion.ts';
 	import type { Mensaje } from '#lib/tipos.ts';
 
 	/*
@@ -98,6 +99,7 @@
 				archivadoApi = true;
 				return;
 			}
+			// 422 contenido_bloqueado: el detail dice por qué y el texto queda para corregirlo.
 			if (!r.ok) return avisar(j.error || 'No se pudo mandar.');
 			// Sólo con un mensaje de verdad se borra lo escrito: si llegó otra cosa (una página en vez
 			// del JSON), el texto queda para reintentar.
@@ -117,6 +119,9 @@
 		// respaldo por si la conexión se corta.
 		const dejar = escucharVivo((e) => {
 			if (e.tipo === 'mensaje' && e.mensaje?.planId === p.id) traer();
+			// Moderado: un ajeno oculto desaparece; uno mío muestra si está en revisión u oculto.
+			if (e.tipo === 'moderado' && e.mensaje?.planId === p.id)
+				mensajes = aplicarModerado(mensajes, e.mensaje, e.mensaje.autor?.id === data.yo.id);
 			// Cambió el plan (lo cancelaron, alguien entró o salió): la cabecera también.
 			if (e.tipo === 'plan' && e.planId === p.id) {
 				traer();
@@ -170,7 +175,9 @@
 			{#if !m.autor}
 				<span class="sistema">{m.texto}</span>
 			{:else if m.autor.id === data.yo.id}
-				<span class="mio">{m.texto}</span>
+				{@const linea = lineaMensaje(m)}
+				<span class="mio" class:oculto={m.moderacion === 'oculto'}>{m.texto}</span>
+				{#if linea}<span class="moderado">{linea}</span>{/if}
 			{:else}
 				<div class="otro">
 					<Avatar nombre={m.autor.nombre} foto={m.autor.foto} tam={28} />
@@ -382,6 +389,17 @@
 		font-size: 15px;
 		line-height: 1.4;
 		overflow-wrap: anywhere;
+	}
+	/* Lo propio que el equipo ocultó: atenuado, sólo lo ve quien lo escribió. */
+	.mio.oculto {
+		opacity: 0.45;
+	}
+	.moderado {
+		align-self: flex-end;
+		margin-top: -6px;
+		font-size: 11px;
+		font-weight: 700;
+		color: var(--texto-2);
 	}
 	.otro {
 		display: flex;

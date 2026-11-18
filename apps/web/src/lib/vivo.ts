@@ -1,12 +1,15 @@
+import type { Mensaje, Privado } from './tipos.ts';
+
 /**
  * Los eventos en vivo (/app/vivo, que reenvía el WebSocket de la API). Una sola conexión para toda la
  * pestaña: se abre con el primer oyente y se cierra con el último.
  */
 export type EventoVivo = {
-	tipo: 'mensaje' | 'privado' | 'escribiendo' | 'plan';
+	/** `moderado`: cambió el estado de moderación de un mensaje (trae el mensaje entero). */
+	tipo: 'mensaje' | 'privado' | 'escribiendo' | 'plan' | 'moderado';
 	planId?: string;
-	mensaje?: { planId: string };
-	privado?: unknown;
+	mensaje?: Mensaje;
+	privado?: Privado;
 };
 
 const oyentes = new Set<(e: EventoVivo) => void>();

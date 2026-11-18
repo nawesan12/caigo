@@ -1,5 +1,7 @@
 /** Lo que devuelve la API (apps/api/internal/dominio/*). */
 
+import type { Moderacion } from './moderacion.ts';
+
 export type PersonaCorta = {
 	id: string;
 	nombre: string;
@@ -55,6 +57,8 @@ export type Plan = {
 	cancelacion?: string;
 	beneficio?: string;
 	aceptaGrupos: boolean;
+	/** Sólo para quien organiza: el equipo lo revisa o lo ocultó. */
+	moderacion?: Moderacion;
 };
 
 export type Lugar = {
@@ -241,6 +245,8 @@ export type Mensaje = {
 	autor?: { id: string; nombre: string; foto?: string };
 	texto: string;
 	creadoEn: string;
+	/** Sólo en los propios. */
+	moderacion?: Moderacion;
 };
 
 export type DNIPendiente = {
@@ -269,6 +275,24 @@ export type Reporte = {
 	motivo: string;
 	detalle: string;
 	creadoEn: string;
+};
+
+/** Backoffice: un ítem de la cola de moderación (GET /v1/equipo/moderacion). */
+export type ModeracionEquipo = {
+	id: string;
+	tipo: 'plan' | 'mensaje' | 'privado';
+	objetoId?: string;
+	planId?: string;
+	planTitulo?: string;
+	autor: { id: string; nombre: string };
+	autorReportes: number;
+	texto: string;
+	origen: 'filtro' | 'ia' | 'sin_ia';
+	categoria: string;
+	motivo: string;
+	/** `bloqueado`: el filtro lo frenó y no se publicó, pero el equipo lo tiene que ver. */
+	estado: 'revision' | 'oculto' | 'bloqueado';
+	creadaEn: string;
 };
 
 /** Pedido del botón de arrepentimiento (Resolución 424/2020). */
@@ -371,6 +395,8 @@ export type Privado = {
 	texto: string;
 	creadoEn: string;
 	leidoEn?: string;
+	/** Sólo en los propios. */
+	moderacion?: Moderacion;
 };
 
 /** GET /v1/privados: el último privado con cada persona, la más reciente primero. */

@@ -40,6 +40,8 @@ export const actions: Actions = {
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
 			// 409 cupo_menor ("Ya van 4: el cupo no puede ser menor."), empezo, cancelado: tal cual.
+			// 422 contenido_bloqueado: el detail dice qué corregir y la edición no se guardó.
+			if (e.codigo === 'contenido_bloqueado') return fail(422, { error: mensajeDe(e) });
 			return fail(e.estado === 409 ? 409 : 400, { error: mensajeDe(e) });
 		}
 		redirect(303, `/app/plan/${id}?editado=1`);

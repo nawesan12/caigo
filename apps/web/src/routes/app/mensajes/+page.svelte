@@ -5,7 +5,9 @@
 	// En vivo: un privado o un mensaje de plan nuevo actualiza la lista.
 	onMount(() =>
 		escucharVivo((e) => {
-			if (e.tipo === 'privado' || e.tipo === 'mensaje') invalidateAll();
+			// Un privado moderado puede ser el último de una conversación.
+			if (e.tipo === 'privado' || e.tipo === 'mensaje' || (e.tipo === 'moderado' && e.privado))
+				invalidateAll();
 		})
 	);
 	import { onMount } from 'svelte';

@@ -22,7 +22,8 @@ export const actions: Actions = {
 			return { publicado: { id: p.id, slug: p.slug, titulo: p.titulo } };
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
-			return fail(400, { error: mensajeDe(e) });
+			// 422 contenido_bloqueado: el detail dice qué corregir; el formulario queda como estaba.
+			return fail(e.codigo === 'contenido_bloqueado' ? 422 : 400, { error: mensajeDe(e) });
 		}
 	}
 };

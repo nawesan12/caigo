@@ -7,6 +7,7 @@
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { agrupar, badgeMio, TINTES } from '#lib/app.ts';
 	import { partes, cuandoCorto } from '#lib/fechas.ts';
+	import { avisoPlan } from '#lib/moderacion.ts';
 	import type { Plan } from '#lib/tipos.ts';
 
 	/*
@@ -80,6 +81,7 @@
 		{#each grupos as g (g.titulo)}
 			<span class="overline-app">{g.titulo}</span>
 			{#each g.planes as p (p.id)}
+				{@const moderado = avisoPlan(p)}
 				{@const b =
 					data.cual === 'historial'
 						? { texto: p.cancelado ? 'Se canceló' : `Fueron ${p.somos}`, completo: false }
@@ -100,6 +102,9 @@
 								>
 								{#if p.miEstado === 'pendiente'}<span class="estado">Esperando…</span>{/if}
 							</div>
+							{#if moderado}<span class="moderado" class:oculto={moderado.oculto}
+									>{moderado.texto}</span
+								>{/if}
 						</div>
 					</a>
 					{#if data.cual === 'historial'}
@@ -349,6 +354,16 @@
 		font-size: 12px;
 		font-weight: 700;
 		color: var(--violeta-texto);
+	}
+	/* Oculto, con el rojo de las opciones de peligro: se lee en claro y en oscuro. */
+	.moderado {
+		font-size: 12px;
+		font-weight: 700;
+		color: var(--violeta-texto);
+		text-wrap: pretty;
+	}
+	.moderado.oculto {
+		color: #f05e4c;
 	}
 	.pedidos {
 		display: flex;

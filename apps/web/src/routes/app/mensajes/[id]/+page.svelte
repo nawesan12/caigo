@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, tick, untrack } from 'svelte';
 	import { escucharVivo } from '#lib/vivo.ts';
+	import { aplicarModerado, lineaMensaje } from '#lib/moderacion.ts';
 	import { enhance } from '$app/forms';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Avatar from '#lib/app-ui/Avatar.svelte';
@@ -106,6 +107,10 @@
 		// En vivo: cada privado nuevo llega por /app/vivo; la consulta cada 30 s queda de respaldo.
 		const dejar = escucharVivo((e) => {
 			if (e.tipo === 'privado') traer();
+			// Moderado: un ajeno oculto desaparece; uno mío muestra si está en revisión u oculto.
+			const m = e.tipo === 'moderado' ? e.privado : undefined;
+			if (m && (m.deId === p.id || m.aId === p.id))
+				privados = aplicarModerado(privados, m, m.deId === data.yo.id);
 		});
 		const t = setInterval(() => {
 			if (document.visibilityState === 'visible') traer();
@@ -143,7 +148,9 @@
 		{/if}
 		{#each privados as m (m.id)}
 			{#if m.deId === data.yo.id}
-				<span class="mio">{m.texto}</span>
+				{@const linea = lineaMensaje(m)}
+				<span class="mio" class:oculto={m.moderacion === 'oculto'}>{m.texto}</span>
+				{#if linea}<span class="moderado">{linea}</span>{/if}
 			{:else}
 				<div class="otro">
 					<Avatar nombre={p.nombre} foto={p.fotos?.[0]} tam={28} />
@@ -173,6 +180,7 @@
 					bajar();
 					campo?.focus();
 				} else if (result.type === 'failure') {
+					// 422 contenido_bloqueado: el detail dice por qué y el texto queda para corregirlo.
 					avisar(String(result.data?.error ?? 'No se pudo mandar.'));
 				} else if (result.type === 'redirect') {
 					location.href = result.location;
@@ -306,6 +314,17 @@
 		white-space: pre-line;
 		/* Sin una palabra sola en el último renglón. */
 		text-wrap: pretty;
+	}
+	/* Lo propio que el equipo ocultó: atenuado, sólo lo ve quien lo escribió. */
+	.mio.oculto {
+		opacity: 0.45;
+	}
+	.moderado {
+		align-self: flex-end;
+		margin-top: -6px;
+		font-size: 11px;
+		font-weight: 700;
+		color: var(--texto-2);
 	}
 	.otro {
 		display: flex;
