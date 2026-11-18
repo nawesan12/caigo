@@ -255,3 +255,25 @@ object Moderacion {
     /** Evento `moderado` del WebSocket: un mensaje ajeno que quedó oculto se saca; uno propio se reemplaza. */
     fun sacar(m: String, mio: Boolean): Boolean = m == "oculto" && !mio
 }
+
+/**
+ * La línea de confianza de la tarjeta y el detalle: «Todos verificados · Organiza Martín (9/10) · Van 2 chicas».
+ * Cada parte lleva espacios duros y el «·» va pegado a la anterior: el renglón sólo corta después de un «·».
+ */
+fun lineaConfianza(p: Plan): String? {
+    val partes = mutableListOf<String>()
+    if (p.confianza.todosVerificados) partes += "Todos verificados"
+    // Un plan de lugar aliado lo organiza el lugar (como en el detalle), sin asistencia.
+    val nombre = p.organizador.nombre.trim().split(" ").firstOrNull().orEmpty()
+    val lugar = p.lugar?.nombre.orEmpty()
+    if (lugar.isNotEmpty()) {
+        partes += "Organiza $lugar"
+    } else if (nombre.isNotEmpty()) {
+        val a = p.organizador.asistencia
+        partes += "Organiza $nombre" + (if (a.de > 0) " (${a.fue}/${a.de})" else "")
+    }
+    val n = p.confianza.chicas
+    if (n != null && n >= 2) partes += "Van $n chicas" else if (p.confianza.soloChicas) partes += "Sólo chicas"
+    if (partes.isEmpty()) return null
+    return partes.joinToString("\u00A0· ") { it.replace(" ", " ") }
+}

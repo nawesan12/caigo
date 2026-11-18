@@ -193,3 +193,19 @@ class VacioTest {
         assertEquals("No hay planes cerca. ¿Armás uno?", VacioAhora.titulo)
     }
 }
+
+class ConfianzaTest {
+    @Test fun linea() {
+        val p = Plan(
+            organizador = PersonaCorta(nombre = "Martín Pérez", asistencia = Asist(9, 10)),
+            confianza = Confianza(todosVerificados = true, soloChicas = true, chicas = 2),
+        )
+        assertEquals("Todos\u00A0verificados\u00A0· Organiza\u00A0Martín\u00A0(9/10)\u00A0· Van\u00A02\u00A0chicas", lineaConfianza(p))
+        val q = Plan(organizador = PersonaCorta(nombre = "Lu"), confianza = Confianza(soloChicas = true, chicas = 1))
+        assertEquals("Organiza\u00A0Lu\u00A0· Sólo\u00A0chicas", lineaConfianza(q))
+        assertEquals("Organiza\u00A0Fede", lineaConfianza(Plan(organizador = PersonaCorta(nombre = "Fede"))))
+        assertNull(lineaConfianza(Plan()))
+        val l = Plan(organizador = PersonaCorta(nombre = "Ana", asistencia = Asist(1, 2)), lugar = LugarCorto(nombre = "La Fonda"))
+        assertEquals("Organiza\u00A0La\u00A0Fonda", lineaConfianza(l))
+    }
+}

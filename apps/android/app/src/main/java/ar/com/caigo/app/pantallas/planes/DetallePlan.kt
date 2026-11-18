@@ -281,6 +281,7 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                     T(p.titulo, 30f, 700, pal.texto, alto = 1.05f, espaciado = px(-.8f, 30f))
                     PlanesContador(p)
                     Organizador(ir, p)
+                    LineaConfianza(p, 13f)
                     Info(p)
                     if (p.descripcion.isNotEmpty()) T(p.descripcion, 15f, 400, pal.texto2, alto = 1.5f)
                     if (p.lugar != null) TarjetaEntrada(p)
@@ -307,6 +308,7 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                         alSumarme = {
                             val n = if (grupo == 1 && p.aceptaGrupos && p.faltan > 1) cantidad else 1
                             if (deLugar) {
+                                if (!c.conDni(ir, "sumarte", p.id)) return@EstadoAbajo
                                 guardarModoCheckout(ctx, p.id, if (p.cobro == "sena" && sena) "sena" else "entrada")
                                 ir.checkout(p.id, n)
                             } else sumarme()

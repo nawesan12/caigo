@@ -83,12 +83,21 @@ data class Plan(
     val destacado: Boolean = false,
     /** Sólo para quien organiza: "" normal, "revision" (lo mira el equipo) u "oculto" (nadie más lo ve). */
     val moderacion: String = "",
+    /** La línea de confianza de la tarjeta («Todos verificados · Organiza Martín (9/10) · Van 2 chicas»). */
+    val confianza: Confianza = Confianza(),
 ) {
     /** Plan de un lugar aliado con entrada o seña: el botón es "Entrada" en vez de "Sumarme". */
     val conEntrada: Boolean get() = cobro == "entrada" || cobro == "sena"
     val adentro: Boolean get() = miEstado == "aceptada" || miEstado == "organizador"
     val esMio: Boolean get() = miEstado == "organizador"
 }
+
+/**
+ * La línea de confianza de la tarjeta (`confianza` de planes.go). Caigo no guarda el género: `chicas`
+ * sólo viene en planes «Solo mujeres» y desde 2.
+ */
+@Serializable
+data class Confianza(val todosVerificados: Boolean = false, val soloChicas: Boolean = false, val chicas: Int? = null)
 
 @Serializable
 data class Planes(val planes: List<Plan> = emptyList())

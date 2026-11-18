@@ -332,18 +332,26 @@ class Api(
     }
 }
 
-/** Los filtros finos de Ahora/Explorar (Plus). Sin Plus, la API responde 403 `plus`. */
+/**
+ * Los filtros de Ahora/Explorar. Los de seguridad (`verificados`, `chicas`: «Sólo chicas») son gratis
+ * siempre; los finos (faltan, edad de quien organiza, sólo gratis) son de Plus: sin Plus, 403 `plus`.
+ */
 data class FiltrosFinos(
     val verificados: Boolean = false,
+    val chicas: Boolean = false,
     val faltan: Int? = null,
     val edadDesde: Int? = null,
     val edadHasta: Int? = null,
     val gratis: Boolean = false,
 ) {
-    val activos: Boolean get() = verificados || faltan != null || edadDesde != null || edadHasta != null || gratis
+    val activos: Boolean get() = verificados || chicas || dePlus
+
+    /** Alguno de los que son de Plus. */
+    val dePlus: Boolean get() = faltan != null || edadDesde != null || edadHasta != null || gratis
 
     fun query(): Query = arrayOf(
         "verificados" to (if (verificados) "1" else null),
+        "chicas" to (if (chicas) "1" else null),
         "faltan" to faltan?.toString(),
         "edadDesde" to edadDesde?.toString(),
         "edadHasta" to edadHasta?.toString(),
