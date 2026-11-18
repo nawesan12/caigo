@@ -151,9 +151,10 @@
 {:else}
 	<div class="flotante vacio">
 		<span class="ft"
-			>{data.q
-				? 'No encontramos planes así. ¿Armás uno?'
-				: 'No hay planes cerca. ¿Armás uno?'}</span
+			>{data.aviso ||
+				(data.q
+					? 'No encontramos planes así. ¿Armás uno?'
+					: 'No hay planes cerca. ¿Armás uno?')}</span
 		>
 		<a class="gel gel-lima armar" href="/app/crear">Armá un plan</a>
 	</div>

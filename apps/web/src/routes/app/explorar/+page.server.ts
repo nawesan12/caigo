@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { api, ErrorApi, ipDe, quizasConSesion } from '#lib/server/api.ts';
+import { api, ErrorApi, ipDe, planesQuizas } from '#lib/server/api.ts';
 import { conUbicacion } from '#lib/server/app.ts';
 import { CATEGORIAS } from '#lib/plan.ts';
 import { rangoFecha, ZONAS_FIJAS } from '#lib/app.ts';
@@ -28,7 +28,8 @@ async function zonasDe(event: Parameters<PageServerLoad>[0], ciudad: string): Pr
 export const load: PageServerLoad = async (event) => {
 	const sp = event.url.searchParams;
 	const c = sp.get('categoria') ?? '';
-	const categoria = c in CATEGORIAS ? c : '';
+	// hasOwn y no `in`: "toString" o "__proto__" están en cualquier objeto y la API daba 400.
+	const categoria = Object.hasOwn(CATEGORIAS, c) ? c : '';
 	const verificados = sp.get('verificados') === '1';
 	const f = sp.get('faltan') ?? '';
 	const faltan = ['2', '3', '4'].includes(f) ? f : '';
@@ -56,8 +57,9 @@ export const load: PageServerLoad = async (event) => {
 		ciudad
 	);
 	let planes: Plan[];
+	let aviso: string;
 	try {
-		({ planes } = await quizasConSesion<{ planes: Plan[] }>(
+		({ planes, aviso } = await planesQuizas(
 			event,
 			`/v1/planes/explorar?${qs}`,
 			`/v1/publico/planes/explorar?${qs}`
@@ -80,6 +82,7 @@ export const load: PageServerLoad = async (event) => {
 	if (zona) planes = planes.filter((p) => p.zona === zona);
 	return {
 		planes,
+		aviso,
 		categoria,
 		verificados,
 		faltan,

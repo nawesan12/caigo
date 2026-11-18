@@ -66,8 +66,8 @@
 	{:else}
 		<div class="vacio">
 			<Vacio
-				titulo="No hay planes cerca. ¿Armás uno?"
-				texto="Si publicás algo ahora, sos lo primero que ven."
+				titulo={data.aviso ? 'No pudimos traer los planes' : 'No hay planes cerca. ¿Armás uno?'}
+				texto={data.aviso || 'Si publicás algo ahora, sos lo primero que ven.'}
 			>
 				<a class="gel gel-lima" href="/app/crear">Armá un plan</a>
 				<a class="link" href="/app/explorar">Ver lo que hay mañana</a>

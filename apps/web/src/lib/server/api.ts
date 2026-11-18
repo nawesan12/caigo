@@ -156,6 +156,26 @@ export async function quizasConSesion<T = unknown>(
 	return sinDatosPersonales(await api<T>('GET', publica, { ip: ipDe(event) }));
 }
 
+/**
+ * Las listas de planes de /app, el mapa y explorar. Un 4xx de la API (un 429 de los topes, un
+ * filtro que no le cierra) no rompe la pantalla con un 500: lista vacía y el porqué en `aviso`. El
+ * 403 `plus` sigue de largo (explorar lo manda a /plus).
+ */
+export async function planesQuizas(
+	event: RequestEvent,
+	ruta: string,
+	publica: string
+): Promise<{ planes: Plan[]; aviso: string }> {
+	try {
+		const r = await quizasConSesion<{ planes?: Plan[] }>(event, ruta, publica);
+		return { planes: r?.planes ?? [], aviso: '' };
+	} catch (e) {
+		if (e instanceof ErrorApi && e.estado >= 400 && e.estado < 500 && e.codigo !== 'plus')
+			return { planes: [], aviso: mensajeDe(e) };
+		throw e;
+	}
+}
+
 /** Si el pedido es de una página (GET, datos o una form action) y no de un +server.ts. */
 export function esDePagina(event: RequestEvent): boolean {
 	const m = event.request.method;

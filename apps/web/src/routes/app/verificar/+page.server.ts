@@ -93,8 +93,7 @@ export const actions: Actions = {
 		const nac = fechaValida(nacimiento);
 		if (!nac || edad(nac) > 110)
 			return fail(400, { error: 'Poné tu fecha de nacimiento.', ...datos });
-		if (edad(nac) < 18)
-			return fail(400, { error: 'Caigo es solo para mayores de 18.', ...datos });
+		if (edad(nac) < 18) return fail(400, { error: 'Caigo es solo para mayores de 18.', ...datos });
 		if (!selfieId)
 			return fail(400, { error: 'Sacate la selfie de nuevo.', selfie: true, ...datos });
 		try {

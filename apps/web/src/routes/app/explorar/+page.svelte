@@ -310,16 +310,24 @@
 				</a>
 			{:else}
 				<Vacio
-					titulo={data.q || activos ? 'No encontramos planes así' : 'Ese día no hay nada todavía'}
-					texto={data.q || activos
-						? 'Probá con otra palabra o sacá algún filtro.'
-						: 'Armá un plan y que se sume la gente.'}
+					titulo={data.aviso
+						? 'No pudimos traer los planes'
+						: data.q || activos
+							? 'No encontramos planes así'
+							: 'Ese día no hay nada todavía'}
+					texto={data.aviso ||
+						(data.q || activos
+							? 'Probá con otra palabra o sacá algún filtro.'
+							: 'Armá un plan y que se sume la gente.')}
 				>
 					<a class="gel gel-lima" href="/app/crear">Armá un plan</a>
 				</Vacio>
 			{/each}
 		{:else}
-			<Vacio titulo="No encontramos planes así" texto="Probá con otra fecha o sacá algún filtro.">
+			<Vacio
+				titulo={data.aviso ? 'No pudimos traer los planes' : 'No encontramos planes así'}
+				texto={data.aviso || 'Probá con otra fecha o sacá algún filtro.'}
+			>
 				<a class="gel gel-lima" href="/app/crear">Armá un plan</a>
 			</Vacio>
 		{/each}
