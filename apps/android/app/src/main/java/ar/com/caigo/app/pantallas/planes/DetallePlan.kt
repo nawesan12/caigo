@@ -219,6 +219,17 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
         }
     }
 
+    // De vuelta del DNI (y del perfil): el «Sumarme» que se había tocado se hace solo si no hay nada que elegir ni
+    // pagar; si pide confirmar algo, abre «Antes de sumarte» como siempre.
+    val yoAhora by c.yo.collectAsState()
+    LaunchedEffect(p.id, yoAhora?.verificada, yoAhora?.faltan) {
+        val y = yoAhora ?: return@LaunchedEffect
+        if (c.sumarAlVolver == p.id && y.verificada && y.faltan.isEmpty()) {
+            c.sumarAlVolver = null
+            if (p.miEstado == "ninguno" && !deLugar && p.faltan > 0 && !cerroParaSumarse(p)) sumarme()
+        }
+    }
+
     /** DELETE /v1/entradas/{id}: devuelve según la política (flex, mod) o 409 `sin_reembolso`. */
     suspend fun cancelarMiEntrada() {
         val e = c.api.pases().entradas.firstOrNull { it.planId == p.id && it.estado == "pagada" }

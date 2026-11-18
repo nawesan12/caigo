@@ -132,9 +132,14 @@ final class Contenedor {
     /// cargar no se frena: la API responde 403 `falta_dni` y la raíz hace lo mismo.
     func conDni(_ ir: Ir, _ motivo: String, plan: String? = nil) -> Bool {
         guard yo?.verificada == false else { return true }
+        // El «Sumarme» que se tocó queda pendiente: al volver al plan, verificada y con el perfil listo, se hace solo.
+        if motivo == "sumarte", let plan { sumarAlVolver = plan }
         ir.pedirDni(motivo, plan: plan)
         return false
     }
+
+    /// El plan al que la persona quiso sumarse antes de verificarse (DetallePlan lo retoma).
+    var sumarAlVolver: String?
 
     func entrar(token: String, usuarioId: String) {
         Llavero.guardar(token, cuenta: "token")

@@ -101,9 +101,14 @@ class Contenedor(val ctx: Context) {
      */
     fun conDni(ir: Ir, motivo: String, planId: String? = null): Boolean {
         if (yo.value?.verificada != false) return true
+        // El «Sumarme» que se tocó queda pendiente: al volver al plan, verificada y con el perfil listo, se hace solo.
+        if (motivo == "sumarte" && planId != null) sumarAlVolver = planId
         ir.pedirDni(motivo, planId)
         return false
     }
+
+    /** El plan al que la persona quiso sumarse antes de verificarse (DetallePlan lo retoma). */
+    var sumarAlVolver: String? = null
 
     /** Recarga mi perfil; si falla, queda el que había. */
     suspend fun recargarYo(): Perfil? = runCatching { api.yo() }.getOrNull()?.also { yo.value = it } ?: yo.value

@@ -243,6 +243,12 @@ private struct ContenidoDetalle: View {
             // 01b: con cuántos se suma por defecto.
             let n = planesCantidadInicial(c.somos, p)
             if n > 1 { grupo = 1; cantidad = max(2, n) }
+            // De vuelta del DNI (y del perfil): el «Sumarme» que se había tocado se hace solo si no hay nada que
+            // elegir ni pagar; si pide confirmar algo, abre «Antes de sumarte» como siempre.
+            if c.sumarAlVolver == p.id, c.yo?.verificada == true, c.yo?.faltan.isEmpty != false {
+                c.sumarAlVolver = nil
+                if p.miEstado == "ninguno" && !deLugar && p.faltan > 0 && !cerroParaSumarse(p) { sumarme() }
+            }
         }
     }
 
