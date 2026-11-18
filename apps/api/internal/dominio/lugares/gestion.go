@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/logros"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
@@ -321,8 +322,11 @@ func (s *Servicio) CheckinPuerta(ctx context.Context, usuarioID, lugarID, planID
 			v.Repetida = true
 			return nil
 		}
-		_, err = tx.Exec(ctx, `UPDATE solicitudes SET checkin_en = now(), checkin_metodo = 'puerta'
-			WHERE plan_id::text = $1 AND usuario_id::text = $2`, planID, personaID)
+		if _, err = tx.Exec(ctx, `UPDATE solicitudes SET checkin_en = now(), checkin_metodo = 'puerta'
+			WHERE plan_id::text = $1 AND usuario_id::text = $2`, planID, personaID); err != nil {
+			return err
+		}
+		v.BeneficioNivel, v.Nivel, err = logros.BeneficioNivel(ctx, tx, lugarID, personaID, s.ahora())
 		return err
 	})
 	return v, err

@@ -239,6 +239,16 @@ fun CaigoNav(c: Contenedor) {
                     composable("fotos/{id}") { FotosDelPlan(ir, it.arg("id")) }
                 }
                 HojaAntesDeSumarte(c)
+                val festejo by c.festejo.collectAsState()
+                androidx.compose.animation.AnimatedVisibility(
+                    festejo != null, Modifier.fillMaxSize(),
+                    enter = androidx.compose.animation.fadeIn(tween(200)), exit = androidx.compose.animation.fadeOut(tween(200)),
+                ) {
+                    // El último festejo, para que se siga viendo mientras sale.
+                    val ultimo = remember { arrayOfNulls<ar.com.caigo.app.app.PlanFestejado>(1) }
+                    festejo?.let { ultimo[0] = it }
+                    ultimo[0]?.let { f -> androidx.compose.runtime.key(f.id) { Festejo(ir, f) { c.festejo.value = null } } }
+                }
                 if (actualizar) ActualizarApp()
                 CapaAvisos(avisos, WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
             }

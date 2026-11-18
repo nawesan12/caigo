@@ -252,6 +252,11 @@ object Sistema {
 
     fun compartir(ctx: Context, texto: String) = ar.com.caigo.app.piezas.compartir(ctx, texto)
 
+    /** Toque suave (un gesto que pasa el umbral). */
+    fun suave(vista: View) {
+        vista.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+    }
+
     /** Vibración corta de confirmación (o de error). */
     fun vibrar(vista: View, exito: Boolean = true) {
         val tipo = if (Build.VERSION.SDK_INT >= 30) {

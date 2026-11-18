@@ -16,6 +16,14 @@ enum Destino: Equatable {
     case web(URL)
 }
 
+/// Un plan al que la persona acaba de entrar (aceptada): lo festeja la raíz, a pantalla completa.
+struct PlanFestejado: Equatable {
+    var plan: Plan
+    /// Con cuántos entró (para «Somos N de M»).
+    var cantidad: Int
+    var id = UUID()
+}
+
 /// Configuración que viene del Info.plist (sale de Config/*.xcconfig).
 enum Config {
     static var api: URL {
@@ -62,6 +70,8 @@ final class Contenedor {
     var tokenPush: String?
     /// Sube cada vez que la API responde 403 `falta_dni`: la raíz apila PedirDni.
     var faltaDni = 0
+    /// «¡Estás adentro!»: el plan al que se acaba de entrar (lo muestra la raíz; nil, nada).
+    var festejo: PlanFestejado?
     /// 01b · «Voy solo / Somos 2 / Somos 4»: con cuántos se suma por defecto (1, 2 o 4).
     var somos: Int {
         didSet { UserDefaults.standard.set(somos, forKey: "somos") }
@@ -173,6 +183,7 @@ final class Contenedor {
         destino = nil
         tapPendiente = nil
         ultimoTap = nil
+        festejo = nil
     }
 
     @discardableResult

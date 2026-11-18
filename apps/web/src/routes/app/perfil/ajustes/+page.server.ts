@@ -52,6 +52,10 @@ export const actions: Actions = {
 		if (f.get('cambia') === 'se') avisos.semana = !avisos.semana;
 		return guardar(event, { avisos }, { avisos });
 	},
+	insignias: async (event) => {
+		const ocultas = (await event.request.formData()).get('ocultar') === '1';
+		return guardar(event, { ocultarInsignias: ocultas }, { ocultas });
+	},
 	tema: async ({ request, cookies }) => {
 		const t = String((await request.formData()).get('tema') ?? '');
 		if (!['claro', 'oscuro', 'sistema'].includes(t)) return fail(400, { error: 'Elegí un tema.' });

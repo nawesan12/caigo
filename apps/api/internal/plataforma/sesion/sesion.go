@@ -322,7 +322,8 @@ func FaltaDNI() *problema.Problema {
 //   - mirar (Mirar): las listas de planes, el detalle y los perfiles, y lo propio que esas pantallas
 //     piden al abrir (Mis planes, Mi gente, privados, invitaciones, pases, Plus), que sin DNI
 //     viene vacío;
-//   - lo de seguridad: bloquear y reportar (siempre, con o sin DNI).
+//   - lo de seguridad: bloquear y reportar (siempre, con o sin DNI);
+//   - «Traé a alguien» (el link propio y el código de quien la invitó) y «No me interesa» sobre un plan.
 //
 // Todo lo que hace algo con otra gente (sumarse, crear, chatear, privados, el mazo, invitar, entradas,
 // check-in) pide el DNI.
@@ -332,7 +333,12 @@ func Exenta(patron string) bool {
 	case "GET /v1/yo", "PATCH /v1/yo", "DELETE /v1/yo", "DELETE /v1/cuenta",
 		"POST /v1/archivos", "GET /v1/archivos/{id}", "POST /v1/sesion", "DELETE /v1/sesion",
 		"PUT /v1/dispositivos", "DELETE /v1/dispositivos/{token}", "POST /v1/mercadopago/vuelta",
-		"GET /v1/bloqueos", "PUT /v1/bloqueos/{id}", "DELETE /v1/bloqueos/{id}", "POST /v1/reportes":
+		"GET /v1/bloqueos", "PUT /v1/bloqueos/{id}", "DELETE /v1/bloqueos/{id}", "POST /v1/reportes",
+		// «Traé a alguien»: el código de quien la invitó se pone al entrar, antes del DNI (el premio igual
+		// espera al DNI), y la hoja que lo pide trae el link propio.
+		"GET /v1/yo/invitar", "POST /v1/yo/invitado",
+		// «No me interesa» (el gesto sobre la lista de mirar): es de quien mira y no le llega a nadie.
+		"POST /v1/planes/{id}/ocultar", "DELETE /v1/planes/{id}/ocultar":
 		return true
 	}
 	if Mirar(patron) {
@@ -349,7 +355,7 @@ func Mirar(patron string) bool {
 	switch patron {
 	case "GET /v1/planes/ahora", "GET /v1/planes/explorar", "GET /v1/planes/{id}", "GET /v1/planes/mios",
 		"GET /v1/personas/{id}", "PUT /v1/yo/ubicacion", "GET /v1/invitaciones", "GET /v1/pases",
-		"GET /v1/plus", "GET /v1/gente", "GET /v1/privados":
+		"GET /v1/plus", "GET /v1/gente", "GET /v1/privados", "GET /v1/semana":
 		return true
 	}
 	return false

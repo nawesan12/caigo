@@ -2,6 +2,12 @@
 	import { onMount } from 'svelte';
 	import Icono from '#lib/ui/Icono.svelte';
 	import PlanTarjeta from '#lib/app-ui/PlanTarjeta.svelte';
+	import Deslizable from '#lib/app-ui/Deslizable.svelte';
+	import CapaGestos from '#lib/app-ui/CapaGestos.svelte';
+	import DecidiRapido from '#lib/app-ui/DecidiRapido.svelte';
+	import { GestosLista } from '#lib/app-ui/gestos-lista.svelte.ts';
+	import { paraDecidir, porDecidir } from '#lib/gestos.ts';
+	import type { Plan } from '#lib/tipos.ts';
 	import Vacio from '#lib/ui/Vacio.svelte';
 	import { FILTROS_AHORA } from '#lib/app.ts';
 	import { pedirUbicacion } from '#lib/app-ui/ubicacion.ts';
@@ -16,6 +22,17 @@
 		const p = [c && `categoria=${c}`, chicas && 'chicas=1'].filter(Boolean).join('&');
 		return p ? `?${p}` : '';
 	};
+
+	// Gestos sobre la misma lista (deslizar: Caigo / No me interesa) y «Decidí rápido».
+	const g = new GestosLista();
+	const planes = $derived(g.visibles(data.planes));
+	const decidir = $derived(data.anonimo ? null : paraDecidir(planes));
+	let mazo = $state(false);
+	/** El mazo se arma al abrirlo: lo que se pasa o se suma no corre los índices. */
+	let mazoPlanes = $state<Plan[]>([]);
+	const yoCorto = $derived(
+		data.yo ? { id: data.yo.id, nombre: data.yo.nombre, foto: data.yo.fotos?.[0] } : null
+	);
 
 	onMount(() => {
 		if (!data.ubic) pedirUbicacion();
@@ -80,16 +97,33 @@
 		</a>
 	{/if}
 
-	{#if data.planes.length}
+	{#if planes.length}
 		<div class="lista">
 			<div class="resumen">
 				<span class="t">Próximas 3 horas</span>
-				<span class="s"
-					>{data.planes.length} {data.planes.length === 1 ? 'plan cerca' : 'planes cerca'}</span
-				>
+				{#if decidir}
+					<button
+						class="decidir"
+						type="button"
+						onclick={() => {
+							mazoPlanes = decidir ?? [];
+							mazo = true;
+						}}>Decidí rápido · {decidir.length}</button
+					>
+				{:else}
+					<span class="s"
+						>{planes.length} {planes.length === 1 ? 'plan cerca' : 'planes cerca'}</span
+					>
+				{/if}
 			</div>
-			{#each data.planes as p (p.id)}
-				<PlanTarjeta plan={p} />
+			{#each planes as p (p.id)}
+				<Deslizable
+					titulo={p.titulo}
+					onderecha={porDecidir(p) ? () => g.caigo(p) : null}
+					onizquierda={() => g.noMeInteresa(p)}
+				>
+					<PlanTarjeta plan={p} />
+				</Deslizable>
 			{/each}
 		</div>
 	{:else}
@@ -108,6 +142,9 @@
 		</div>
 	{/if}
 </div>
+
+<CapaGestos {g} yo={yoCorto} />
+{#if mazoPlanes.length}<DecidiRapido bind:abierto={mazo} planes={mazoPlanes} {g} />{/if}
 
 <style>
 	.arriba {
@@ -198,6 +235,15 @@
 	.resumen .t {
 		font-size: 15px;
 		font-weight: 700;
+	}
+	.decidir {
+		padding: 8px 14px;
+		border-radius: 14px;
+		background: var(--c-gel-blanco);
+		box-shadow: var(--sh-gel-blanco);
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--carbon);
 	}
 	.resumen .s {
 		font-size: 13px;

@@ -101,8 +101,13 @@ func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensa
     guard c.conDni(ir, "sumarte", plan: plan.id) else { return nil }
     do {
         let e = try await c.api.sumarme(plan.id, cantidad: cantidad, mensaje: mensaje, confirma: confirma).estado
-        let quien = plan.organizador.nombre.isEmpty ? "quien organiza" : plan.organizador.nombre
-        c.avisos.ok(e == "aceptada" ? "¡Estás adentro!" : "Le pediste a \(quien) sumarte.")
+        if e == "aceptada" {
+            // Adentro: lo festeja la raíz a pantalla completa (Festejo.swift), en vez del aviso.
+            withAnimation(.easeOut(duration: 0.2)) { c.festejo = PlanFestejado(plan: plan, cantidad: cantidad) }
+        } else {
+            let quien = plan.organizador.nombre.isEmpty ? "quien organiza" : plan.organizador.nombre
+            c.avisos.ok("Le pediste a \(quien) sumarte.")
+        }
         Sistema.vibrar()
         return e
     } catch let e as ErrorApi {
@@ -119,6 +124,22 @@ func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensa
         return nil
     }
 }
+
+/// «Caigo» desde el gesto, la acción de accesibilidad o «Decidí rápido»: si no hay nada que confirmar
+/// (Gestos.directo) se suma de a uno sin pasar por el detalle; si no, abre el detalle (ahí se confirma).
+/// Devuelve el estado nuevo si se mandó el pedido.
+@MainActor
+@discardableResult
+func planesCaigo(_ c: Contenedor, _ ir: Ir, _ plan: Plan) async -> String? {
+    guard Gestos.directo(plan), !cerroParaSumarse(plan), plan.organizador.id != c.usuarioId else {
+        ir.plan(plan.id)
+        return nil
+    }
+    return await planesSumarse(c, ir, plan, cantidad: 1)
+}
+
+/// El link público de un plan (el que comparte el detalle).
+func planesLink(_ p: Plan) -> String { "https://caigo.com.ar/p/\(p.slug)" }
 
 /// Cantidad con la que se suma por defecto: la del 01b («Voy solo / Somos 2 / Somos 4»), acotada a
 /// lo que acepta el plan.
@@ -200,7 +221,11 @@ struct TarjetaPlan: View {
                     HStack(spacing: 6) {
                         ChipFoto(texto: Categorias.nombre(plan.categoria), oscuro: false)
                         ChipFoto(texto: Fecha.cuando(plan.empiezaEn), oscuro: true)
-                        if plan.lugar != nil { ChipFoto(texto: "Lugar aliado", oscuro: false, fondo: Gel(fondo: .liso(C.lima)), color: C.carbon) }
+                        if plan.lugar != nil {
+                            ChipFoto(texto: "Lugar aliado", oscuro: false, fondo: Gel(fondo: .liso(C.lima)), color: C.carbon)
+                        } else if plan.organizador.anfitrion {
+                            ChipFoto(texto: "Anfitrión", oscuro: false)
+                        }
                         Spacer(minLength: 0)
                     }
                     Spacer(minLength: 0)
@@ -257,6 +282,182 @@ struct LineaConfianza: View {
             }
             .accessibilityElement(children: .combine)
         }
+    }
+}
+
+// MARK: - Deslizar una tarjeta: «Caigo» y «No me interesa»
+
+/// Deslizar la tarjeta de un plan: a la derecha asoma «Caigo» sobre lima, a la izquierda «No me interesa» sobre
+/// grafito. Cuenta pasado el 35 % del ancho (Gestos.umbral), con un toque suave al cruzarlo; si no llega, vuelve a
+/// su lugar. Sólo toma el arrastre horizontal: el vertical sigue siendo de la lista. Las mismas dos acciones van
+/// como acciones de accesibilidad. Con «reducir movimiento», la tarjeta no vuela: desaparece.
+struct DeslizarPlan: ViewModifier {
+    var radio: CGFloat
+    var alCaigo: () -> Void
+    var alNoMeInteresa: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var sinMovimiento
+    @State private var dx: CGFloat = 0
+    @State private var ancho: CGFloat = 1
+    /// nil: todavía no se sabe; true: el arrastre es horizontal (de la tarjeta); false: vertical (de la lista).
+    @State private var horizontal: Bool?
+    @State private var paso = false
+
+    func body(content: Content) -> some View {
+        content
+            .offset(x: dx)
+            .background { fondo }
+            .background {
+                GeometryReader { g in
+                    Color.clear
+                        .onAppear { ancho = max(g.size.width, 1) }
+                        .onChange(of: g.size.width) { _, w in ancho = max(w, 1) }
+                }
+            }
+            .simultaneousGesture(arrastre)
+            .accessibilityAction(named: "Caigo", alCaigo)
+            .accessibilityAction(named: "No me interesa", alNoMeInteresa)
+    }
+
+    @ViewBuilder
+    private var fondo: some View {
+        if dx > 0 {
+            ZStack(alignment: .leading) {
+                Color.clear.gel(radio, Gel(fondo: Gels.fondoLima))
+                HStack(spacing: 8) {
+                    Icono(I.mas, 18, C.carbon, trazo: 3.4)
+                    T("Caigo", 17, 800, C.carbon, unRenglon: true)
+                }
+                .padding(.leading, 24)
+            }
+        } else if dx < 0 {
+            ZStack(alignment: .trailing) {
+                RoundedRectangle(cornerRadius: radio, style: .continuous).fill(C.grafito)
+                HStack(spacing: 8) {
+                    T("No me interesa", 15, 800, C.blancoCalido, unRenglon: true)
+                    Icono(I.cruz, 16, C.blancoCalido, trazo: 3)
+                }
+                .padding(.trailing, 24)
+            }
+        }
+    }
+
+    private var arrastre: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onChanged { v in
+                if horizontal == nil { horizontal = abs(v.translation.width) > abs(v.translation.height) * 1.3 }
+                guard horizontal == true else { return }
+                dx = v.translation.width
+                let pasa = abs(dx) >= ancho * Gestos.umbral
+                if pasa != paso {
+                    paso = pasa
+                    if pasa { Sistema.suave() }
+                }
+            }
+            .onEnded { v in
+                let eraHorizontal = horizontal == true
+                horizontal = nil
+                paso = false
+                guard eraHorizontal else { return }
+                let w = v.translation.width
+                if w >= ancho * Gestos.umbral {
+                    volver()
+                    alCaigo()
+                } else if w <= -ancho * Gestos.umbral {
+                    if sinMovimiento {
+                        dx = 0
+                        alNoMeInteresa()
+                    } else {
+                        withAnimation(.easeIn(duration: 0.18)) { dx = -ancho * 1.15 }
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 180_000_000)
+                            alNoMeInteresa()
+                            dx = 0
+                        }
+                    }
+                } else {
+                    volver()
+                }
+            }
+    }
+
+    private func volver() {
+        if sinMovimiento { dx = 0 } else { withAnimation(.easeOut(duration: 0.22)) { dx = 0 } }
+    }
+}
+
+/// Los planes que la persona ocultó con «No me interesa» en esta pantalla, y el aviso «Deshacer» (5 s).
+@MainActor
+@Observable
+final class PlanesOcultos {
+    struct Oculto: Equatable {
+        var plan: Plan
+        var id = UUID()
+    }
+    var ids: Set<String> = []
+    /// El último que se ocultó: el aviso de abajo con «Deshacer».
+    var aviso: Oculto?
+
+    func visibles(_ planes: [Plan]) -> [Plan] { planes.filter { !ids.contains($0.id) } }
+
+    /// POST /v1/planes/{id}/ocultar. La tarjeta se va enseguida; si la API falla, vuelve.
+    func ocultar(_ c: Contenedor, _ p: Plan, avisar: Bool = true) {
+        ids.insert(p.id)
+        if avisar { aviso = Oculto(plan: p) }
+        Task {
+            do { try await c.api.ocultarPlan(p.id) } catch {
+                ids.remove(p.id)
+                if aviso?.plan.id == p.id { aviso = nil }
+                c.avisos.error(error)
+            }
+        }
+    }
+
+    /// «Deshacer»: DELETE /v1/planes/{id}/ocultar y la tarjeta vuelve a su lugar.
+    func deshacer(_ c: Contenedor) {
+        guard let p = aviso?.plan else { return }
+        aviso = nil
+        ids.remove(p.id)
+        Task {
+            do { try await c.api.mostrarPlan(p.id) } catch {
+                ids.insert(p.id)
+                c.avisos.error(error)
+            }
+        }
+    }
+}
+
+/// «Ocultaste {título} · Deshacer»: abajo, sobre la tab bar, con la pieza de los avisos (carbón, 5 s).
+struct AvisoDeshacer: View {
+    var ocultos: PlanesOcultos
+    var abajo: CGFloat = altoTabBar
+    @Environment(Contenedor.self) private var c
+    @Environment(\.accessibilityReduceMotion) private var sinMovimiento
+
+    var body: some View {
+        VStack {
+            Spacer()
+            if let o = ocultos.aviso {
+                HStack(spacing: 8) {
+                    T("Ocultaste \(o.plan.titulo)", 14, 700, C.blancoCalido, unRenglon: true)
+                    T("·", 14, 700, C.apagado2).fixedSize()
+                    Button { withAnimation(.easeOut(duration: 0.2)) { ocultos.deshacer(c) } } label: {
+                        T("Deshacer", 14, 800, C.lima, unRenglon: true).fixedSize().padding(.vertical, 4)
+                    }
+                    .buttonStyle(EstiloPlano())
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16).padding(.vertical, 14)
+                .gel(20, .liso(C.carbon), [externa(18, 30, rgba(0, 0, 0, 0.5), spread: -12)])
+                .padding(.horizontal, 20).padding(.bottom, abajo)
+                .transition(sinMovimiento ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                .id(o.id)
+                .task(id: o.id) {
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+                    if ocultos.aviso?.id == o.id { withAnimation(.easeOut(duration: 0.2)) { ocultos.aviso = nil } }
+                }
+            }
+        }
+        .animation(.easeOut(duration: 0.25), value: ocultos.aviso)
     }
 }
 

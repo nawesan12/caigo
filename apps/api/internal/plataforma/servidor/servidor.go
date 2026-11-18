@@ -13,6 +13,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/equipo"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/gente"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/logros"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/lugares"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/personas"
@@ -113,6 +114,7 @@ func Nuevo(d Dependencias) http.Handler {
 			Vetados: d.Vetados, Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj, Moderacion: mod, FotosPlan: pls.Firma}, ses, d.Log)
 		personas.Rutas(mux, &personas.Servicio{App: d.App, Casillas: d.Clerk, APIPublica: d.APIPublica}, ses.Exigir, d.Log)
 		avisos.Rutas(mux, d.App, ses.Exigir, d.Log)
+		logros.Rutas(mux, &logros.Servicio{App: d.App, Sitio: d.Sitio, Reloj: d.Reloj}, ses.Exigir, d.Log)
 		if d.Hub == nil {
 			d.Hub = &chat.Hub{Servicio: &chat.Servicio{App: d.App, Reloj: d.Reloj}, Log: d.Log}
 		}
@@ -186,6 +188,9 @@ var Reglas = map[string]limite.Regla{
 	"POST /v1/planes/{id}/fotos/{foto}/reportar": {Max: 20, Ventana: 24 * time.Hour},
 	"POST /v1/planes/{id}/espera":                {Max: 30, Ventana: time.Hour},
 	"POST /v1/planes/{id}/todo-bien":             {Max: 20, Ventana: time.Hour},
+	// Logros y gestos (18/11).
+	"POST /v1/yo/invitado":         {Max: 10, Ventana: time.Hour},
+	"POST /v1/planes/{id}/ocultar": {Max: 300, Ventana: time.Hour},
 }
 
 // recuperar convierte un panic en un 500 con problem+json y lo registra, sin tirar el proceso.

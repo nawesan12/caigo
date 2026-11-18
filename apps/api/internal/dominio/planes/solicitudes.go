@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/logros"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
@@ -212,7 +213,27 @@ func (s *Servicio) Solicitudes(ctx context.Context, usuarioID, planID string) ([
 			}
 			out = append(out, x)
 		}
-		return rows.Err()
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		// Quien acumuló faltazos lo ve quien organiza, para decidir (sólo en las pendientes).
+		var ids []string
+		for _, x := range out {
+			if x.Estado == "pendiente" {
+				ids = append(ids, x.Persona.ID)
+			}
+		}
+		f, err := logros.Faltazos(ctx, tx, ids, s.ahora())
+		if err != nil {
+			return err
+		}
+		for i := range out {
+			if out[i].Estado == "pendiente" {
+				out[i].Persona.Faltazos = f[out[i].Persona.ID]
+			}
+		}
+		return nil
 	})
 	return out, err
 }

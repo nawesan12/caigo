@@ -452,7 +452,9 @@ func TestEstaSemana(t *testing.T) {
 	reloj := func() time.Time { return lunes }
 	e := nuevoEntornoAjustado(t, func(d *servidor.Dependencias) { d.Reloj = reloj })
 	ciudad, chica := ciudadUnica(), ciudadUnica()+" Chica"
-	org, lu, sin, apagado := e.persona("Org"), e.persona("Lu"), e.persona("Sin"), e.persona("Apagado")
+	lu, sin, apagado := e.persona("Lu"), e.persona("Sin"), e.persona("Apagado")
+	// Tres organizadores: cada uno tiene un tope de planes abiertos (logros, 00030).
+	orgs := []persona{e.persona("Org"), e.persona("Org 2"), e.persona("Org 3")}
 	for _, x := range []persona{lu, sin, apagado} {
 		e.pedir(x, "PATCH", "/v1/yo", map[string]any{"ciudad": ciudad}, http.StatusOK, nil)
 	}
@@ -460,10 +462,10 @@ func TestEstaSemana(t *testing.T) {
 	e.telefono(apagado)
 	e.pedir(apagado, "PATCH", "/v1/yo", map[string]any{"avisos": map[string]any{"semana": false}}, http.StatusOK, nil)
 	for i := range 5 {
-		e.planNuevo(org, map[string]any{"ciudad": ciudad, "empiezaEn": lunes.AddDate(0, 0, 1+i%3).Add(time.Hour)})
+		e.planNuevo(orgs[i%3], map[string]any{"ciudad": ciudad, "empiezaEn": lunes.AddDate(0, 0, 1+i%3).Add(time.Hour)})
 	}
-	for range 4 {
-		e.planNuevo(org, map[string]any{"ciudad": chica, "empiezaEn": lunes.AddDate(0, 0, 1).Add(time.Hour)})
+	for i := range 4 {
+		e.planNuevo(orgs[(i+2)%3], map[string]any{"ciudad": chica, "empiezaEn": lunes.AddDate(0, 0, 1).Add(time.Hour)})
 	}
 	chico := e.persona("Chico")
 	e.pedir(chico, "PATCH", "/v1/yo", map[string]any{"ciudad": chica}, http.StatusOK, nil)

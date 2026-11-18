@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { nivelTexto } from '#lib/gestos.ts';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Avatar from '#lib/app-ui/Avatar.svelte';
 	import Confirmar from '#lib/app-ui/Confirmar.svelte';
@@ -79,6 +80,20 @@
 				<span class="sd">{p.organizados} {p.organizados === 1 ? 'organizado' : 'organizados'}</span>
 			</div>
 		</div>
+
+		{#if p.logros && (p.logros.planes > 0 || p.logros.insignias.length)}
+			<!-- Nivel y hasta 3 insignias (la racha es sólo de cada uno). -->
+			<div class="bloque">
+				<span class="rot">{nivelTexto(p.logros)}</span>
+				{#if p.logros.insignias.length}
+					<div class="chips">
+						{#each p.logros.insignias as ins (ins.id)}
+							<span class="interes" title={ins.detalle}>{ins.nombre}</span>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
 
 		{#if p.bio}
 			<div class="caja">

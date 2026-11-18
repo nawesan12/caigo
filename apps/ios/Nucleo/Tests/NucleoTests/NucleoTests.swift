@@ -355,3 +355,46 @@ import Testing
         #expect(lineaConfianza(l) == "Organiza\u{00A0}La\u{00A0}Fonda")
     }
 }
+
+@Suite struct GestosTests {
+    func plan(_ cambios: (inout Plan) -> Void = { _ in }) -> Plan {
+        var p = Plan(id: "x")
+        p.ingreso = "libre"; p.faltan = 2; p.organizador = PersonaCorta(id: "org")
+        cambios(&p)
+        return p
+    }
+
+    @Test func directoSoloSinNadaQueConfirmar() {
+        #expect(Gestos.directo(plan()))
+        #expect(!Gestos.directo(plan { $0.ingreso = "aprobacion" }))
+        #expect(!Gestos.directo(plan { $0.cobro = "entrada" }))
+        #expect(!Gestos.directo(plan { $0.genero = "mujeres" }))
+        #expect(!Gestos.directo(plan { $0.miEstado = "cancelada" }))
+        #expect(!Gestos.directo(plan { $0.faltan = 0 }))
+    }
+
+    @Test func paraDecidirSacaLosMiosYLosCompletos() {
+        let ps = [plan(), plan { $0.faltan = 0 }, plan { $0.miEstado = "pendiente" }, plan { $0.organizador = PersonaCorta(id: "yo") }]
+        #expect(Gestos.paraDecidir(ps, yo: "yo").count == 1)
+    }
+
+    @Test func logrosDesdeLaApi() throws {
+        let json = #"{"id":"a","logros":{"nivel":"Habitué","planes":7,"siguiente":"De fierro","faltan":8,"racha":3,"comodin":true,"insignias":[{"id":"cancha","nombre":"En cancha","detalle":"5 planes de deporte"}],"anfitrion":false}}"#
+        let p = try JSON.leer(Perfil.self, Data(json.utf8))
+        let l = try #require(p.logros)
+        #expect(TextoLogros.cabecera(l) == "Habitué · 7 planes")
+        #expect(TextoLogros.racha(l) == "Racha: 3 semanas · comodín libre")
+        #expect(TextoLogros.siguiente(l) == "Te faltan 8 para De fierro")
+        #expect(l.insignias.first?.nombre == "En cancha")
+        var corta = l; corta.racha = 1
+        #expect(TextoLogros.racha(corta) == nil)
+    }
+
+    @Test func anfitrionYFaltazos() throws {
+        let json = #"{"id":"p","organizador":{"nombre":"Lu","anfitrion":true},"lugar":{"id":"l","beneficioNivel":"Postre"}}"#
+        let p = try JSON.leer(Plan.self, Data(json.utf8))
+        #expect(p.organizador.anfitrion)
+        #expect(p.organizador.faltazos == 0)
+        #expect(p.lugar?.beneficioNivel == "Postre")
+    }
+}

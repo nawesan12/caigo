@@ -35,6 +35,10 @@ struct Ahora: View {
     /// «Esta semana en <ciudad>»: de lunes a miércoles, con 5 planes o más.
     @State private var semana: Semana?
     @State private var vuelta = 0
+    /// «No me interesa» y su «Deshacer».
+    @State private var ocultos = PlanesOcultos()
+    /// «Decidí rápido» abierto: los planes del mazo (los de la lista al abrirlo).
+    @State private var decidiendo: [Plan]?
 
     private struct Clave: Equatable {
         var lat: Double?; var lng: Double?; var sinUbicacion: Bool; var categoria: String?; var chicas: Bool; var q: String?
@@ -44,7 +48,7 @@ struct Ahora: View {
     var body: some View {
         Group {
             if mapa {
-                MapaAhora(planes: planes ?? [], punto: punto, categoria: $categoria, busqueda: $busqueda, alLista: { mapa = false })
+                MapaAhora(planes: ocultos.visibles(planes ?? []), punto: punto, categoria: $categoria, busqueda: $busqueda, alLista: { mapa = false })
             } else {
                 contenido
             }
@@ -115,12 +119,25 @@ struct Ahora: View {
     }
 
     private var contenido: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            encabezado
-            chips
-            lista
+        ZStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 14) {
+                encabezado
+                chips
+                lista
+            }
+            .padding(.top, 6)
+            AvisoDeshacer(ocultos: ocultos)
+            if let d = decidiendo {
+                DecidiRapido(planes: d, ocultos: ocultos) {
+                    decidiendo = nil
+                    vuelta += 1
+                }
+                .transition(.opacity)
+                .zIndex(20)
+            }
         }
-        .padding(.top, 6)
+        .animation(.easeOut(duration: 0.2), value: decidiendo == nil)
+        .ocultarTabBar(decidiendo != nil, ir)
     }
 
     private var encabezado: some View {
@@ -173,6 +190,7 @@ struct Ahora: View {
 
     @ViewBuilder
     private var lista: some View {
+        let planes = self.planes.map { ocultos.visibles($0) }
         if let planes, planes.isEmpty, !cargando {
             ScrollView { PlanesVacioAhora().padding(.bottom, altoTabBar) }
         } else {
@@ -187,6 +205,12 @@ struct Ahora: View {
                             T("Próximas 3 horas", 15, 700, p.texto, unRenglon: true)
                             if let planes {
                                 T("\(planes.count) \(planes.count == 1 ? "plan cerca" : "planes cerca")", 13, 400, p.texto2, unRenglon: true)
+                                let mazo = Gestos.paraDecidir(planes, yo: c.usuarioId)
+                                if mazo.count >= Gestos.minimoDecidir {
+                                    Chip(texto: "Decidí rápido · \(mazo.count)", on: false, gelOff: Gels.chip(p), colorOff: p.texto,
+                                         tam: 13, padH: 12, padV: 7, radio: 12) { decidiendo = mazo }
+                                        .padding(.top, 8)
+                                }
                             }
                         }
                         Spacer(minLength: 8)
@@ -195,7 +219,12 @@ struct Ahora: View {
                             .fixedSize()
                     }
                     if let planes {
-                        ForEach(planes) { pl in TarjetaPlan(plan: pl, alCambiar: { _ in vuelta += 1 }) }
+                        ForEach(planes) { pl in
+                            TarjetaPlan(plan: pl, alCambiar: { _ in vuelta += 1 })
+                                .modifier(DeslizarPlan(radio: 24, alCaigo: {
+                                    Task { if await planesCaigo(c, ir, pl) != nil { vuelta += 1 } }
+                                }, alNoMeInteresa: { withAnimation(.easeOut(duration: 0.2)) { ocultos.ocultar(c, pl) } }))
+                        }
                     } else if let error {
                         VStack(spacing: 14) {
                             T(error, 15, 500, p.texto2, alinear: .center)

@@ -31,9 +31,11 @@ Pagos/Tap.swift
 Planes/Ahora.swift
 Planes/Confirmar.swift
 Planes/Crear.swift
+Planes/DecidiRapido.swift
 Planes/DetallePlan.swift
 Planes/DiaDelPlan.swift
 Planes/Explorar.swift
+Planes/Festejo.swift
 Planes/FotosPlan.swift
 Planes/MapaAhora.swift
 Planes/PlanesComun.swift

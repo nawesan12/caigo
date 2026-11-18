@@ -81,7 +81,10 @@ export const actions: Actions = {
 					telefono: l.telefono,
 					socioActivo: f.get('activo') === 'on',
 					socioVisitas: Number(f.get('visitas')) || 5,
-					socioBeneficio: String(f.get('beneficio') ?? '').trim()
+					socioBeneficio: String(f.get('beneficio') ?? '').trim(),
+					beneficioNivel: String(f.get('beneficioNivel') ?? '')
+						.trim()
+						.slice(0, 80)
 				}
 			});
 			return { socioGuardado: true };

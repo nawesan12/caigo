@@ -41,4 +41,5 @@
 	{accion}
 	confianza={lineaConfianza(plan)}
 	verificados={!!plan.confianza?.todosVerificados}
+	anfitrion={!plan.lugar && !!plan.organizador?.anfitrion}
 />

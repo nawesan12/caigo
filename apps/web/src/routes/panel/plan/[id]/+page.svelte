@@ -76,6 +76,7 @@
 				? `. Cobrá el resto en el lugar: ${pesosDeCentavos(v.saldoCentavos)}.`
 				: '.';
 		if (v.beneficio) t += ` Beneficio desbloqueado: ${v.beneficio}.`;
+		if (v.beneficioNivel) t += ` Es ${v.nivel}: ${v.beneficioNivel}.`;
 		return t;
 	}
 

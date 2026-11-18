@@ -184,6 +184,18 @@ private fun PerfilPersonaClaro(ir: Ir, id: String, desde: String) {
                     Estadistica(if (p.asistencia.de > 0) "${(p.asistencia.fue * 100 + p.asistencia.de / 2) / p.asistencia.de}%" else "—", "asistencia", Modifier.weight(1f))
                     Estadistica(if (p.verificada) "DNI" else "Selfie", "verificado", Modifier.weight(1f))
                 }
+                // Nivel y hasta 3 insignias (la API ya las recorta; ninguna si las ocultó). Sin racha.
+                val l = p.logros
+                if (l != null && l.nivel.isNotEmpty() && !(l.nivel == "Nuevo" && l.insignias.isEmpty())) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.background(C.lima, RoundedCornerShape(13.dp)).padding(horizontal = 12.dp, vertical = 8.dp)) {
+                            T(l.nivel, 13f, 800, C.carbon, unRenglon = true)
+                        }
+                        l.insignias.take(3).forEach { i ->
+                            Box(Modifier.gel(14.dp, Gels.off).padding(horizontal = 13.dp, vertical = 8.dp)) { T(i.nombre, 13f, 700, C.carbon, unRenglon = true) }
+                        }
+                    }
+                }
                 p.prompts.filter { it.r.isNotEmpty() }.forEach { pr ->
                     TarjetaPerfil {
                         T(pr.p, 13f, 700, C.texto2)

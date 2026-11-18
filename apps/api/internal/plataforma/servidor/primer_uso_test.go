@@ -59,6 +59,18 @@ func TestMirarSinDNI(t *testing.T) {
 	}
 	e.pedir(nueva, "PUT", "/v1/yo/ubicacion", map[string]any{"lat": -38.0, "lng": -57.55}, http.StatusNoContent, nil)
 	e.pedir(nueva, "POST", "/v1/reportes", map[string]any{"usuarioId": org.id, "motivo": "falso"}, http.StatusNoContent, nil)
+	// «Esta semana» también se mira (sin direcciones) y «No me interesa» es de quien mira.
+	var sem struct{ Planes []plan }
+	e.pedir(nueva, "GET", "/v1/semana?ciudad="+strings.ReplaceAll(ciudad, " ", "+"), nil, http.StatusOK, &sem)
+	for _, x := range sem.Planes {
+		if x.Direccion != nil {
+			t.Fatalf("semana sin DNI con dirección: %+v", x)
+		}
+	}
+	e.pedir(nueva, "POST", "/v1/planes/"+p.ID+"/ocultar", nil, http.StatusNoContent, nil)
+	e.pedir(nueva, "DELETE", "/v1/planes/"+p.ID+"/ocultar", nil, http.StatusNoContent, nil)
+	// «Traé a alguien»: la hoja (su link y el código de quien la invitó) anda antes del DNI.
+	e.pedir(nueva, "GET", "/v1/yo/invitar", nil, http.StatusOK, nil)
 
 	// Hacer algo con otra gente pide el DNI.
 	crear := map[string]any{"categoria": "juego", "empiezaEn": time.Now().Add(2 * time.Hour), "ciudad": ciudad,
@@ -78,6 +90,9 @@ func TestMirarSinDNI(t *testing.T) {
 		{"POST", "/v1/planes/" + p.ID + "/entradas", map[string]any{"cantidad": 1}},
 		{"POST", "/v1/planes/" + p.ID + "/checkin", map[string]any{}},
 		{"GET", "/v1/tiempo-real", nil},
+		{"POST", "/v1/planes/" + p.ID + "/espera", map[string]any{}},
+		{"POST", "/v1/planes/" + p.ID + "/todo-bien", map[string]any{}},
+		{"GET", "/v1/planes/" + p.ID + "/fotos", nil},
 	} {
 		if cod := codigo(t, e, nueva, c.metodo, c.ruta, c.cuerpo, http.StatusForbidden); cod != "falta_dni" {
 			t.Fatalf("%s %s sin DNI: %q", c.metodo, c.ruta, cod)

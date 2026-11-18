@@ -11,6 +11,10 @@
 	import { diasParaElegir, partes } from '#lib/fechas.ts';
 	import { FECHAS_EXPLORAR, sinViuda, TINTES } from '#lib/app.ts';
 	import type { Plan } from '#lib/tipos.ts';
+	import Deslizable from '#lib/app-ui/Deslizable.svelte';
+	import CapaGestos from '#lib/app-ui/CapaGestos.svelte';
+	import { GestosLista } from '#lib/app-ui/gestos-lista.svelte.ts';
+	import { porDecidir } from '#lib/gestos.ts';
 
 	/*
 	 * Explorar (Mockups v5, pantalla 04). Fotos de las categorías: CC0 de static/fotos. El buscador
@@ -34,6 +38,12 @@
 	];
 	const LARGO = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 	const CORTO = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+	// Gestos sobre la misma lista: deslizar a la derecha «Caigo», a la izquierda «No me interesa».
+	const g = new GestosLista();
+	const yoCorto = $derived(
+		data.yo ? { id: data.yo.id, nombre: data.yo.nombre, foto: data.yo.fotos?.[0] } : null
+	);
 
 	let busqueda = $state(untrack(() => data.q));
 	const activos = $derived(
@@ -70,7 +80,8 @@
 			.map((valor) => ({
 				valor,
 				titulo: largo(valor, dias[0].valor),
-				planes: data.planes
+				planes: g
+					.visibles(data.planes)
 					.filter((p) => diaDe(p.empiezaEn) === valor)
 					.sort((a, b) => a.empiezaEn.localeCompare(b.empiezaEn))
 			}))
@@ -302,23 +313,33 @@
 				<span>{sec.planes.length} {sec.planes.length === 1 ? 'plan' : 'planes'}</span>
 			</div>
 
-			{#each sec.planes as g (g.id)}
-				{@const x = partes(g.empiezaEn)}
-				<a class="fila" href="/app/plan/{g.id}">
-					<span class="fimg" style:background-color={TINTES[g.categoria]}>
-						{#if fotoDelPlan(g)}<img src={fotoDelPlan(g)} alt="" loading="lazy" />{/if}
-					</span>
-					<div class="ftxt">
-						<span class="fh">{x.hora} · {(CATEGORIAS[g.categoria] ?? '').toUpperCase()}</span>
-						<span class="ft">{sinViuda(g.titulo)}</span>
-						<span class="fs"
-							>{sinViuda(
-								[g.lugarNombre || (g.zona && `Zona ${g.zona}`)].filter(Boolean).join('\u00a0· ')
-							)}</span
-						>
-					</div>
-					<span class="fb" class:coral={g.faltan === 1}>{faltanTexto(g.faltan)}</span>
-				</a>
+			{#each sec.planes as pl (pl.id)}
+				{@const x = partes(pl.empiezaEn)}
+				<div class="fila-g">
+					<Deslizable
+						titulo={pl.titulo}
+						onderecha={porDecidir(pl) ? () => g.caigo(pl) : null}
+						onizquierda={() => g.noMeInteresa(pl)}
+					>
+						<a class="fila" href="/app/plan/{pl.id}">
+							<span class="fimg" style:background-color={TINTES[pl.categoria]}>
+								{#if fotoDelPlan(pl)}<img src={fotoDelPlan(pl)} alt="" loading="lazy" />{/if}
+							</span>
+							<div class="ftxt">
+								<span class="fh">{x.hora} · {(CATEGORIAS[pl.categoria] ?? '').toUpperCase()}</span>
+								<span class="ft">{sinViuda(pl.titulo)}</span>
+								<span class="fs"
+									>{sinViuda(
+										[pl.lugarNombre || (pl.zona && `Zona ${pl.zona}`)]
+											.filter(Boolean)
+											.join('\u00a0· ')
+									)}</span
+								>
+							</div>
+							<span class="fb" class:coral={pl.faltan === 1}>{faltanTexto(pl.faltan)}</span>
+						</a>
+					</Deslizable>
+				</div>
 			{:else}
 				<Vacio
 					titulo={data.aviso
@@ -344,6 +365,8 @@
 		{/each}
 	</div>
 </div>
+
+<CapaGestos {g} yo={yoCorto} />
 
 <style>
 	.contenido {
@@ -639,6 +662,9 @@
 		font-weight: 700;
 		color: var(--c-acento);
 	}
+	.fila-g {
+		margin-top: -8px;
+	}
 	.fila {
 		display: grid;
 		grid-template-columns: 64px minmax(0, 1fr) auto;
@@ -650,7 +676,6 @@
 		box-shadow: var(--sh-info);
 		color: inherit;
 		text-decoration: none;
-		margin-top: -8px;
 	}
 	.fimg {
 		width: 64px;

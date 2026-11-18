@@ -277,3 +277,43 @@ fun lineaConfianza(p: Plan): String? {
     if (partes.isEmpty()) return null
     return partes.joinToString("\u00A0· ") { it.replace(" ", " ") }
 }
+
+/** Los gestos sobre la tarjeta de un plan (Ahora y Explorar) y «Decidí rápido». */
+object Gestos {
+    /** Cuánto del ancho de la tarjeta hay que deslizar para que cuente. */
+    const val umbral = 0.35f
+    /** Desde cuántos planes para decidir aparece «Decidí rápido». */
+    const val minimoDecidir = 8
+
+    /**
+     * «Caigo» se suma sin pasar por el detalle sólo si no hay nada que confirmar: ingreso libre, gratis, para
+     * cualquiera, sin pedido previo y con lugar. Si no, se abre el detalle (ahí se confirma).
+     */
+    fun directo(p: Plan): Boolean =
+        p.ingreso == "libre" && p.cobro == "gratis" && p.genero == "cualquiera" && p.miEstado == "ninguno" && p.faltan > 0
+
+    /** Los planes de la lista que entran en «Decidí rápido»: sin pedido, con lugar y que no organizo. */
+    fun paraDecidir(planes: List<Plan>, yo: String): List<Plan> =
+        planes.filter { it.miEstado == "ninguno" && it.faltan > 0 && (yo.isEmpty() || it.organizador.id != yo) }
+}
+
+/** Lo que se muestra de los logros en un perfil. */
+object TextoLogros {
+    /** «Habitué · 7 planes». */
+    fun cabecera(l: Logros): String = "${l.nivel} · ${l.planes} ${if (l.planes == 1) "plan" else "planes"}"
+
+    /** «Racha: 3 semanas · comodín libre» (sólo desde 2 semanas). */
+    fun racha(l: Logros): String? {
+        val r = l.racha ?: return null
+        if (r < 2) return null
+        return "Racha: $r semanas" + if (l.comodin == true) " · comodín libre" else ""
+    }
+
+    /** «Te faltan 3 para De fierro». */
+    fun siguiente(l: Logros): String? {
+        val s = l.siguiente ?: return null
+        val f = l.faltan ?: return null
+        if (s.isEmpty() || f <= 0) return null
+        return "Te faltan $f para $s"
+    }
+}

@@ -199,6 +199,17 @@ struct PerfilPersona: View {
                 estadistica(p.asistencia.de > 0 ? "\((p.asistencia.fue * 100 + p.asistencia.de / 2) / p.asistencia.de)%" : "—", "asistencia")
                 estadistica(p.verificada ? "DNI" : "Selfie", "verificado")
             }
+            // Nivel y hasta 3 insignias (la API ya las recorta; ninguna si las ocultó). Sin racha.
+            if let l = p.logros, !l.nivel.isEmpty, !(l.nivel == "Nuevo" && l.insignias.isEmpty) {
+                GenteFlujo(espacio: 8) {
+                    T(l.nivel, 13, 800, C.carbon, unRenglon: true)
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(C.lima))
+                    ForEach(Array(l.insignias.prefix(3))) { i in
+                        T(i.nombre, 13, 700, C.carbon, unRenglon: true).padding(.horizontal, 13).padding(.vertical, 8).gel(14, Gels.off)
+                    }
+                }
+            }
             ForEach(Array(p.prompts.filter { !$0.r.isEmpty }.enumerated()), id: \.offset) { _, pr in
                 tarjeta {
                     T(pr.p, 13, 700, C.texto2)

@@ -24,6 +24,12 @@ struct CaigoRaiz: View {
                 vistaBase(ir.base)
                     .navigationDestination(for: Ruta.self) { r in vista(r) }
             }
+            if let f = c.festejo {
+                Festejo(f: f) { withAnimation(.easeOut(duration: 0.2)) { c.festejo = nil } }
+                    .transition(.opacity)
+                    .zIndex(45)
+                    .id(f.id)
+            }
             CapaAvisos(avisos: c.avisos)
             if actualizar { ActualizarApp().transition(.opacity).zIndex(50) }
         }

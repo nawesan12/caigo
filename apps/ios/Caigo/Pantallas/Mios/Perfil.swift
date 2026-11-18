@@ -87,6 +87,11 @@ struct MiPerfil: View {
     @State private var fallo = false
     @State private var gente: [PersonaCorta] = []
     @State private var verif: EstadoVerificacion?
+    /// «Traé a alguien» abierta, lo que trae la API y el código de quien me invitó.
+    @State private var trayendo = false
+    @State private var referidos: Referidos?
+    @State private var codigo = ""
+    @State private var usandoCodigo = false
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -110,9 +115,17 @@ struct MiPerfil: View {
                 .padding(.top, 8).padding(.trailing, 20)
             hojaCuenta
             hojaBorrar
+            hojaTraer
         }
-        .ocultarTabBar(opciones || borrando, ir)
+        .ocultarTabBar(opciones || borrando || trayendo, ir)
         .task { await cargar() }
+        .task(id: trayendo) {
+            guard trayendo else { return }
+            do { referidos = try await c.api.referidos() } catch {
+                c.avisos.error(error)
+                trayendo = false
+            }
+        }
     }
 
     private func cargar() async {
@@ -129,7 +142,21 @@ struct MiPerfil: View {
             cabecera(y)
             verificacion(y)
             tarjetaPlus
-            HStack(spacing: 10) { asistenciaReal(y.asistencia).layoutPriority(1.2); planes(y) }
+            if let l = y.logros {
+                cabeceraLogros(y, l)
+            } else {
+                HStack(spacing: 10) { asistenciaReal(y.asistencia).layoutPriority(1.2); planes(y) }
+            }
+            MiosGrupo {
+                MiosFila(icono: I.gente, titulo: "Traé a alguien", ultima: y.logros == nil) { codigo = ""; trayendo = true }
+                if y.logros != nil {
+                    HStack(spacing: 12) {
+                        T("Ocultar mis insignias", 14, 800).frame(maxWidth: .infinity, alignment: .leading)
+                        Interruptor(on: Binding(get: { c.yo?.logros?.ocultas ?? false }, set: { ocultarInsignias($0) }))
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+                }
+            }
             busca(y)
             if !y.intereses.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
@@ -234,6 +261,100 @@ struct MiPerfil: View {
             .gel(24, gelPlus)
         }
         .buttonStyle(EstiloToque())
+    }
+
+    /// Cabecera sobria de lo que se gana yendo: nivel y planes que cuentan, la asistencia real, la racha (desde 2
+    /// semanas), las insignias en chips chicos y cuánto falta para el siguiente nivel. Sin puntos ni festejos.
+    private func cabeceraLogros(_ y: Perfil, _ l: Logros) -> some View {
+        let a = y.asistencia
+        return VStack(alignment: .leading, spacing: 12) {
+            T(TextoLogros.cabecera(l), 15, 800, C.blancoCalido, unRenglon: true)
+            HStack(spacing: 14) {
+                T(a.de > 0 ? "\(a.fue * 100 / a.de)%" : "—", 40, 800, C.lima, alto: 1)
+                VStack(alignment: .leading, spacing: 2) {
+                    T("Asistencia real", 13, 600, C.blancoCalido)
+                    T(a.de > 0 ? "\(a.fue) de \(a.de) con check-in" : "Todavía sin planes con check-in", 12, 400, C.apagado2)
+                }
+            }
+            if let r = TextoLogros.racha(l) { T(r, 12, 600, C.apagado2) }
+            if !l.insignias.isEmpty {
+                MiosFlujo(espacio: 6, renglon: 6) {
+                    ForEach(l.insignias) { i in
+                        ChipFoto(texto: i.nombre, oscuro: true, fondo: Gels.chipOscuro, color: C.blancoCalido)
+                            .accessibilityHint(i.detalle)
+                    }
+                }
+            }
+            if let s = TextoLogros.siguiente(l) { T(s, 12, 400, C.apagado2) }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .gel(22, miosOscura)
+    }
+
+    /// PATCH /v1/yo `ocultarInsignias`: se ve al toque; si la API falla, vuelve.
+    private func ocultarInsignias(_ v: Bool) {
+        guard var y = c.yo, var l = y.logros else { return }
+        let antes = y
+        l.ocultas = v
+        y.logros = l
+        c.yo = y
+        Task {
+            var cambios = CambiosPerfil()
+            cambios.ocultarInsignias = v
+            do { c.yo = try await c.api.actualizarYo(cambios) } catch {
+                c.yo = antes
+                c.avisos.error(error)
+            }
+        }
+    }
+
+    /// «Traé a alguien»: el link para compartir, el premio, cuántos invité y, en los primeros días, el código de
+    /// quien me invitó (POST /v1/yo/invitado).
+    private var hojaTraer: some View {
+        MiosHoja(abierta: trayendo, titulo: "Traé a alguien", cerrar: { trayendo = false }) {
+            if let r = referidos {
+                HStack(spacing: 10) {
+                    T(r.link, 14, 700, unRenglon: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 14).frame(height: 52)
+                        .gel(16, Gels.chip(p))
+                    Cta(texto: "Compartir", gel: Gels.violeta, alto: 52, radio: 16, tam: 15, color: C.blanco) { Sistema.compartir(r.link) }
+                        .frame(width: 124)
+                }
+                T("Cuando vaya a su primer plan, los dos tienen una semana de Plus.", 14, 400, p.texto2, alto: 1.45)
+                T("\(r.invitados) \(r.invitados == 1 ? "invitado" : "invitados") · \(r.premiados) ya fueron", 13, 700)
+                if r.puedeUsarCodigo {
+                    T("¿Te invitó alguien? Poné su código", 14, 700).padding(.top, 4)
+                    HStack(spacing: 10) {
+                        MiosCampo(valor: $codigo, placeholder: "Código", maximo: 24)
+                            .autocorrectionDisabled()
+                        Cta(texto: "Listo", alto: 60, radio: 18, tam: 16, color: C.carbon,
+                            habilitado: !codigo.trimmingCharacters(in: .whitespaces).isEmpty, cargando: usandoCodigo) { usarCodigo() }
+                            .frame(width: 100)
+                    }
+                }
+            } else {
+                Puntitos(color: p.acento).frame(maxWidth: .infinity).frame(height: 120)
+            }
+        }
+    }
+
+    private func usarCodigo() {
+        let cod = codigo.trimmingCharacters(in: .whitespaces)
+        guard !cod.isEmpty, !usandoCodigo else { return }
+        usandoCodigo = true
+        Task {
+            do {
+                try await c.api.usarCodigo(cod)
+                codigo = ""
+                c.avisos.ok("Listo.")
+                referidos = (try? await c.api.referidos()) ?? referidos
+            } catch {
+                c.avisos.error(error)
+            }
+            usandoCodigo = false
+        }
     }
 
     private func asistenciaReal(_ a: Asist) -> some View {

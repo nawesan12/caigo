@@ -23,7 +23,8 @@
 	let socio = $state({
 		activo: ini.socioActivo,
 		visitas: ini.socioVisitas || 5,
-		beneficio: ini.socioBeneficio || ''
+		beneficio: ini.socioBeneficio || '',
+		nivel: ini.beneficioNivel || ''
 	});
 	const activada = $derived(form && 'activada' in form ? form.activada : null);
 
@@ -326,6 +327,17 @@
 					placeholder="Ej: Taller gratis"
 				/>
 			</label>
+			<label class="campo">
+				<span>Beneficio por nivel</span>
+				<input
+					class="input"
+					name="beneficioNivel"
+					maxlength="80"
+					bind:value={socio.nivel}
+					placeholder="Ej: 10 % off"
+				/>
+				<span class="ayuda">Para quien ya fue a 5 planes con check-in. Uno por&nbsp;día.</span>
+			</label>
 			<div class="wallet">
 				<div class="w-fila">
 					<span class="w-n">{lugar.nombre} · Socio</span>
@@ -594,6 +606,11 @@
 		gap: 16px;
 		padding: 22px;
 		border-radius: 28px;
+	}
+	.ayuda {
+		font-size: 13px;
+		font-weight: 600;
+		color: #5c586b;
 	}
 	.wallet {
 		display: flex;
