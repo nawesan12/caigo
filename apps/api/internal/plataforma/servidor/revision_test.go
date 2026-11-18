@@ -3,6 +3,7 @@ package servidor_test
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -135,5 +136,50 @@ func TestLugarConEntradasPagas(t *testing.T) {
 	}
 	if n := e.cuenta(`SELECT count(*) FROM entradas WHERE plan_id = $1 AND estado = 'pagada'`, c.ID); n != 1 {
 		t.Fatalf("entradas pagas: %d", n)
+	}
+}
+
+// Un cobro de la cuenta de Mercado Pago de otro lugar, con la referencia de una entrada ajena, no la
+// deja pagada.
+func TestCobroDeOtraCuentaNoAcredita(t *testing.T) {
+	e, mp, ls, duena, lugarID := lugarConMP(t)
+	ana := e.persona("Ana")
+	e.verificar(ana, true)
+	var p struct{ ID string }
+	e.pedir(duena, "POST", "/v1/lugares/"+lugarID+"/planes", map[string]any{"titulo": "Noche ajena", "categoria": "musica",
+		"empiezaEn": time.Now().Add(48 * time.Hour), "cupo": 20, "cobro": "entrada", "precioCentavos": 800000}, http.StatusCreated, &p)
+	var c struct{ EntradaID string }
+	e.pedir(ana, "POST", "/v1/planes/"+p.ID+"/entradas", map[string]int{"cantidad": 1}, http.StatusOK, &c)
+	cuentaA := mp.usuario
+
+	// Otro lugar conecta su propia cuenta de Mercado Pago.
+	mp.usuario = cuentaA + 1
+	otra, equipo := e.persona("Otra dueña"), e.persona("Equipo 2")
+	e.alEquipo(equipo)
+	var l struct{ ID string }
+	e.pedir(otra, "POST", "/v1/lugares", map[string]any{"nombre": "Bar Trucho", "ciudad": "Villa Gesell", "zona": "Centro",
+		"direccion": "Av. 2 y Paseo 104", "lat": -37.26, "lng": -56.97}, http.StatusCreated, &l)
+	e.pedir(equipo, "POST", "/v1/equipo/lugares/"+l.ID, map[string]any{"aprobar": true}, http.StatusNoContent, nil)
+	var con struct{ Link string }
+	e.pedir(otra, "POST", "/v1/lugares/"+l.ID+"/mercadopago", nil, http.StatusOK, &con)
+	u, _ := url.Parse(con.Link)
+	e.pedir(otra, "POST", "/v1/mercadopago/vuelta", map[string]string{"codigo": "c", "estado": u.Query().Get("state")}, http.StatusOK, nil)
+
+	// El pago 99 (con la referencia de la entrada de Ana) llega por la cuenta del otro lugar: no se aplica.
+	if err := ls.ConciliarPago(context.Background(), mp.usuario, 99); err != nil {
+		t.Fatal(err)
+	}
+	var estado string
+	e.valor(`SELECT estado FROM entradas WHERE id = $1`, &estado, c.EntradaID)
+	if estado != "pendiente" {
+		t.Fatalf("con la cuenta de otro lugar: %q", estado)
+	}
+	// Por la cuenta del lugar del plan, sí.
+	if err := ls.ConciliarPago(context.Background(), cuentaA, 99); err != nil {
+		t.Fatal(err)
+	}
+	e.valor(`SELECT estado FROM entradas WHERE id = $1`, &estado, c.EntradaID)
+	if estado != "pagada" {
+		t.Fatalf("con la cuenta del lugar: %q", estado)
 	}
 }

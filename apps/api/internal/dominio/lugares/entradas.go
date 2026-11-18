@@ -482,19 +482,18 @@ func recortar(s string, n int) string {
 
 // tokenDeCuenta: el lugar dueño de la cuenta de Mercado Pago que cobró y su token. ok es false si la
 // cuenta no es de un lugar (Plus, o un lugar que se desconectó).
-func (s *Servicio) tokenDeCuenta(ctx context.Context, mpUsuario int64) (token string, ok bool, err error) {
-	var lugarID string
+func (s *Servicio) tokenDeCuenta(ctx context.Context, mpUsuario int64) (lugarID, token string, ok bool, err error) {
 	err = s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `SELECT lugar_id FROM mp_conexiones WHERE mp_usuario = $1`, mpUsuario).Scan(&lugarID)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", false, nil
+		return "", "", false, nil
 	}
 	if err != nil {
-		return "", false, err
+		return "", "", false, err
 	}
 	token, err = s.tokenDe(ctx, lugarID)
-	return token, err == nil, err
+	return lugarID, token, err == nil, err
 }
 
 // noExiste: Mercado Pago no conoce el recurso, y reintentar no lo arregla.
@@ -507,7 +506,7 @@ func noExiste(err error) bool {
 // entrada. Idempotente: lo llama el worker por cada aviso de tipo payment (las entradas que se
 // cobraron con preferencias, y los pagos de las órdenes, que también se avisan así).
 func (s *Servicio) ConciliarPago(ctx context.Context, mpUsuario int64, pagoID int64) error {
-	token, ok, err := s.tokenDeCuenta(ctx, mpUsuario)
+	lugarID, token, ok, err := s.tokenDeCuenta(ctx, mpUsuario)
 	if err != nil || !ok {
 		return err
 	}
@@ -523,13 +522,14 @@ func (s *Servicio) ConciliarPago(ctx context.Context, mpUsuario int64, pagoID in
 		}
 		return err
 	}
-	return s.aplicar(ctx, observado{Ref: p.ExternalReference, Pago: p.ID, Estado: p.Status, Pagado: int64(math.Round(p.TransactionAmount * 100))})
+	return s.aplicar(ctx, observado{Lugar: lugarID, Ref: p.ExternalReference, Pago: p.ID, Estado: p.Status,
+		Pagado: int64(math.Round(p.TransactionAmount * 100))})
 }
 
 // ConciliarOrden lee la orden (con el token del lugar) y aplica su transacción relevante a la entrada.
 // Idempotente: lo llama el worker por cada aviso de tipo order.
 func (s *Servicio) ConciliarOrden(ctx context.Context, mpUsuario int64, ordenID string) error {
-	token, ok, err := s.tokenDeCuenta(ctx, mpUsuario)
+	lugarID, token, ok, err := s.tokenDeCuenta(ctx, mpUsuario)
 	if err != nil || !ok {
 		return err
 	}
@@ -540,13 +540,16 @@ func (s *Servicio) ConciliarOrden(ctx context.Context, mpUsuario int64, ordenID 
 	if err != nil {
 		return err
 	}
-	return s.aplicar(ctx, deOrden(o))
+	ob := deOrden(o)
+	ob.Lugar = lugarID
+	return s.aplicar(ctx, ob)
 }
 
 // observado es lo que Mercado Pago dice de un cobro, venga de un pago o de una orden. Estado va en
-// el idioma de la API de Payments (approved, refunded, cancelled…).
+// el idioma de la API de Payments (approved, refunded, cancelled…). Lugar es el dueño de la cuenta
+// que cobró.
 type observado struct {
-	Ref, Estado        string
+	Lugar, Ref, Estado string
 	Pago               int64
 	Orden, Transaccion string
 	Pagado             int64
@@ -590,18 +593,25 @@ func (s *Servicio) aplicar(ctx context.Context, ob observado) error {
 		transaccion = &ob.Transaccion
 	}
 	return s.App.EnSistema(ctx, func(tx pgx.Tx) error {
-		var id, planID, usuarioID, actual string
+		var id, planID, usuarioID, actual, lugarID string
 		var orden *string
 		var cantidad int16
 		var total int64
 		var pagadaEn *time.Time
-		err := tx.QueryRow(ctx, `SELECT id, plan_id, usuario_id, estado, cantidad, lugar_centavos + cargo_centavos, mp_orden, pagada_en
-			FROM entradas WHERE referencia = $1 FOR UPDATE`, ob.Ref).Scan(&id, &planID, &usuarioID, &actual, &cantidad, &total, &orden, &pagadaEn)
+		err := tx.QueryRow(ctx, `SELECT e.id, e.plan_id, e.usuario_id, e.estado, e.cantidad, e.lugar_centavos + e.cargo_centavos,
+				e.mp_orden, e.pagada_en, coalesce(p.lugar_id::text, '')
+			FROM entradas e JOIN planes p ON p.id = e.plan_id WHERE e.referencia = $1 FOR UPDATE OF e`, ob.Ref).
+			Scan(&id, &planID, &usuarioID, &actual, &cantidad, &total, &orden, &pagadaEn, &lugarID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
 		if err != nil {
 			return err
+		}
+		// Sólo cuenta lo que cobró la cuenta de Mercado Pago del lugar del plan: otro lugar con MP podría
+		// cobrarse a sí mismo con la referencia de una entrada ajena y dejarla pagada.
+		if ob.Lugar == "" || lugarID != ob.Lugar {
+			return nil
 		}
 		// Un aviso de una orden que no es la de la entrada no se aplica.
 		if ob.Orden != "" && (orden == nil || *orden != ob.Orden) {
