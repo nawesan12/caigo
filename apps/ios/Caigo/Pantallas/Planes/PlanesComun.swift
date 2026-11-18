@@ -97,6 +97,8 @@ struct PlanesChipPlus: View {
 /// guarda. Sin él (la tarjeta de una lista), se abre el detalle, que tiene la hoja.
 func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensaje: String = "", confirma: Confirma = Confirma(),
                    pedirConfirmacion: ((String) -> Void)? = nil) async -> String? {
+    // Sin DNI se mira; para sumarse, primero «verificamos que seas vos» (y de ahí vuelve al plan).
+    guard c.conDni(ir, "sumarte", plan: plan.id) else { return nil }
     do {
         let e = try await c.api.sumarme(plan.id, cantidad: cantidad, mensaje: mensaje, confirma: confirma).estado
         let quien = plan.organizador.nombre.isEmpty ? "quien organiza" : plan.organizador.nombre
@@ -110,7 +112,7 @@ func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensa
         }
         c.avisos.error(e.detalle)
         if e.codigo == "falta_selfie" { ir.selfie(volver: true) }
-        // falta_dni: lo resuelve la raíz (Contenedor.faltaDni lleva al DNI del alta).
+        // falta_dni: lo resuelve la raíz (Contenedor.faltaDni apila PedirDni).
         return e.estado == 409 ? "" : nil
     } catch {
         c.avisos.error(error)
@@ -226,6 +228,7 @@ struct TarjetaPlan: View {
                     Spacer(minLength: 4)
                     AccionTarjeta(plan: plan, alCambiar: alCambiar)
                 }
+                LineaConfianza(plan: plan)
             }
             .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
         }
@@ -235,6 +238,25 @@ struct TarjetaPlan: View {
         .onTapGesture { ir.plan(plan.id) }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// La línea de confianza (18/11), en la tarjeta y el detalle, no escondida en el perfil:
+/// «Todos verificados · Organiza Martín (9/10) · Van 2 chicas». Con el escudo de «Verificación y seguridad».
+struct LineaConfianza: View {
+    var plan: Plan
+    var tam: CGFloat = 12
+    @Environment(\.paleta) private var p
+
+    var body: some View {
+        if let t = lineaConfianza(plan) {
+            HStack(alignment: .top, spacing: 6) {
+                Icono(I.escudoCheck, tam + 3, p.oscuro ? C.lima : C.violeta, trazo: 2.2)
+                T(t, tam, 600, p.oscuro ? C.apagado2 : C.texto2, alto: 1.35)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .accessibilityElement(children: .combine)
+        }
     }
 }
 

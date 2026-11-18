@@ -62,7 +62,7 @@ private struct PillLavanda: View {
 
 /// Verificación con DNI del prototipo: frente (con lectura del PDF417), dorso, selfie con prueba
 /// de vida y el envío. Se aprueba al subirlo; si después el equipo lo rechaza, se ve el motivo.
-/// Es un paso obligatorio del alta (`alta`): ahí no se puede salir sin hacerlo y al terminar sigue el alta.
+/// Desde el 18/11 se pide al primer «Caigo», crear o chatear (antes, PedirDni); `alta` queda para la base vieja.
 struct Dni: View {
     var plan: String?
     var alta = false
@@ -82,9 +82,13 @@ struct Dni: View {
 
     private var etiquetaFin: String { plan != nil ? "Seguir con el plan" : (alta ? "Seguir" : "Listo") }
 
-    /// Al terminar: en el alta, el paso que falte; si no, de vuelta a donde estaba.
+    /// Al terminar: en el alta, el paso que falte; si no, de vuelta a donde estaba (el plan). Si al perfil le
+    /// falta algo (personas.Faltantes), antes se completa: sigue siendo requisito, pero recién al primer «Caigo».
     private func terminar() {
-        guard alta else { ir.atras(); return }
+        guard alta else {
+            if c.yo?.faltan.isEmpty == false { ir.completarPerfilDespuesDelDni() } else { ir.atras() }
+            return
+        }
         guard !siguiendo else { return }
         siguiendo = true
         Task {
@@ -98,7 +102,7 @@ struct Dni: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     if alta {
-                        IngresoBarraArriba(icono: I.cruz, volver: nil) { T("Paso 3 de 3", 14, 700, C.texto2) }
+                        IngresoBarraArriba(icono: I.cruz, volver: nil) { IngresoEncriptado() }
                     } else {
                         IngresoBarraArriba(icono: I.cruz, volver: { ir.atras() }) { IngresoEncriptado() }
                     }
@@ -226,7 +230,7 @@ struct Dni: View {
         VStack(spacing: 16) {
             IconoLatiendo()
             T("Revisando tus datos…", 26, 700, C.carbon, alto: 1.1, alinear: .center)
-            T(paso == .revisando ? "Comparamos tu selfie con la foto del DNI. Tarda unos segundos." : "Los revisa una persona del equipo, no un bot.",
+            T(paso == .revisando ? "Comparamos tu selfie con la foto del DNI. Tarda unos segundos." : "Lo revisamos y tus fotos se borran a los 30\u{00A0}días.",
               14, 400, C.texto2, alto: 1.5, alinear: .center)
             if paso == .enviado {
                 Spacer().frame(height: 12)
@@ -334,5 +338,56 @@ struct Dni: View {
             selfie = nil
             paso = .selfie
         }
+    }
+}
+
+/// «Para sumarte, verificamos que seas vos» (18/11, «Mirar sin DNI»): se mira sin DNI y se pide recién al
+/// primer «Caigo», crear, chatear o la gente. Lleva al DNI (frente, dorso y selfie) y de ahí vuelve al plan.
+/// motivo: sumarte | crear | chatear | gente.
+struct PedirDni: View {
+    var motivo: String
+    var plan: String?
+    @Environment(Ir.self) private var ir
+
+    /// El título según lo que quiso hacer (espacio duro antes de la última palabra: sin palabras solas).
+    static func titulo(_ motivo: String) -> String {
+        switch motivo {
+        case "sumarte": return "Para sumarte, verificamos que seas\u{00A0}vos"
+        case "crear": return "Para armar tu plan, verificamos que seas\u{00A0}vos"
+        case "chatear": return "Para chatear, verificamos que seas\u{00A0}vos"
+        default: return "Antes, verificamos que seas\u{00A0}vos"
+        }
+    }
+
+    var body: some View {
+        Pantalla {
+            VStack(spacing: 0) {
+                IngresoBarraArriba(icono: I.cruz, volver: { ir.atras() }) { IngresoEncriptado() }
+                    .padding(.horizontal, 20).padding(.top, 8)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        Image("CaigoIcono").resizable().frame(width: 120, height: 120)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 24)
+                        IngresoTitulo(titulo: PedirDni.titulo(motivo),
+                                      bajada: "Todos en Caigo tienen el DNI verificado: así sabés con quién salís. Es un minuto y son tres\u{00A0}fotos.")
+                        HStack(spacing: 8) {
+                            PillLavanda(texto: "Frente del DNI")
+                            PillLavanda(texto: "Dorso")
+                            PillLavanda(texto: "Selfie")
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                }
+                VStack(spacing: 14) {
+                    CtaGrande("Verificarme") { ir.aDni(plan: plan) }
+                    Button { ir.atras() } label: { T("Ahora no", 14, 700, C.violetaTexto) }
+                        .buttonStyle(EstiloPlano())
+                    T("Lo revisamos y tus fotos se borran a los 30\u{00A0}días.", 12, 500, C.texto2, alto: 1.4, alinear: .center)
+                }
+                .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
+            }
+        }
+        .environment(\.colorScheme, .light)
     }
 }

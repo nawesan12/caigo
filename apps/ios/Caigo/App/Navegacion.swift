@@ -43,13 +43,12 @@ struct CaigoRaiz: View {
             default: ir.base = .ingresar; ir.camino = []
             }
         }
-        // 403 `falta_dni`: sin el DNI aprobado no se usa la app; se va al paso del DNI.
+        // 403 `falta_dni` (red de seguridad: las pantallas lo chequean antes con `yo.verificada`): sin DNI se
+        // mira, pero para hacer algo con otra gente se pide, con la pantalla amable de antes del DNI.
         .onChange(of: c.faltaDni) {
-            guard c.conSesion else { return }
-            switch ir.base {
-            case .principal, .intenciones, .completarPerfil: ir.alta(.dni)
-            default: break
-            }
+            guard c.conSesion, case .principal = ir.base else { return }
+            if case .dni = ir.camino.last { return }
+            ir.pedirDni("gente")
         }
     }
 
@@ -81,6 +80,9 @@ struct CaigoRaiz: View {
         case let .intenciones(editar): Intenciones(editar: editar)
         case .verificacion: Verificacion()
         case let .dni(plan): Dni(plan: plan)
+        case let .pedirDni(motivo, plan): PedirDni(motivo: motivo, plan: plan)
+        case let .mazo(modo): VistaMazo(modo: modo)
+        case .completarPerfil: EditarPerfil(completar: true, apilado: true)
         case let .plan(id): DetallePlan(id: id)
         case let .planSlug(slug): DetallePlan(slug: slug)
         case .crear: Crear()

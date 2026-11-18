@@ -117,6 +117,15 @@ final class Contenedor {
 
     var conSesion: Bool { token != nil }
 
+    /// Sin el DNI verificado se mira (18/11); para hacer algo con otra gente (sumarse, crear, chatear, la
+    /// gente) antes se pide, con PedirDni. true: puede seguir; false: ya apiló PedirDni. Con el perfil sin
+    /// cargar no se frena: la API responde 403 `falta_dni` y la raíz hace lo mismo.
+    func conDni(_ ir: Ir, _ motivo: String, plan: String? = nil) -> Bool {
+        guard yo?.verificada == false else { return true }
+        ir.pedirDni(motivo, plan: plan)
+        return false
+    }
+
     func entrar(token: String, usuarioId: String) {
         Llavero.guardar(token, cuenta: "token")
         Llavero.guardar(usuarioId, cuenta: "usuario")

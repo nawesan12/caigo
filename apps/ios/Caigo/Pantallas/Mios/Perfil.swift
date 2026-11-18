@@ -142,6 +142,7 @@ struct MiPerfil: View {
                 }
             }
             miGente(y)
+            conocerGente(y)
             // Al final, la acción destructiva (con el texto de peligro de «Cancelar el plan»).
             Button { mailBaja = ""; borrando = true } label: {
                 T("Borrar mi cuenta", 15, 700, C.coral2).padding(.horizontal, 18).padding(.vertical, 16)
@@ -175,12 +176,13 @@ struct MiPerfil: View {
     /// Verificación y seguridad.
     private func verificacion(_ y: Perfil) -> some View {
         let dni = y.verificada ? "aprobada" : (verif?.dni ?? "ninguna")
-        return Button { ir.verificacion() } label: {
+        // Sin DNI (ni uno en revisión): la pantalla amable de antes del DNI.
+        return Button { if dni == "aprobada" || dni == "pendiente" { ir.verificacion() } else { ir.pedirDni("gente") } } label: {
             HStack(spacing: 14) {
                 Icono(I.escudoCheck, 24, C.lima, trazo: 2.4).frame(width: 48, height: 48).gel(17, miosTileVioleta)
                 VStack(alignment: .leading, spacing: 2) {
                     T("Verificación y seguridad", 15, 800)
-                    T(dni == "aprobada" ? "Tu DNI ya está verificado" : (dni == "pendiente" ? "Ya estamos revisando tu DNI." : "Falta tu DNI para usar Caigo"),
+                    T(dni == "aprobada" ? "Tu DNI ya está verificado" : (dni == "pendiente" ? "Ya estamos revisando tu DNI." : "Verificá tu DNI"),
                       12, 600, p.texto2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -290,6 +292,22 @@ struct MiPerfil: View {
         .gel(22, miosGelTarjeta(p))
         .contentShape(Rectangle())
         .onTapGesture { ir.gente() }
+    }
+
+    /// Gente y Citas salieron de la cabecera de Ahora (18/11): se abren desde acá, sin protagonismo. Citas,
+    /// sólo para quien eligió esa intención. Sin DNI, antes «verificamos que seas vos».
+    private func conocerGente(_ y: Perfil) -> some View {
+        let citas = y.intenciones.contains("citas")
+        return MiosGrupo {
+            MiosFila(icono: I.usuario, titulo: "Conocer gente", sub: "Gente cerca que sale a lo mismo que vos", ultima: !citas) {
+                if c.conDni(ir, "gente") { ir.mazo("gente") }
+            }
+            if citas {
+                MiosFila(icono: I.corazonChico, titulo: "Citas", ultima: true) {
+                    if c.conDni(ir, "gente") { ir.mazo("citas") }
+                }
+            }
+        }
     }
 
     private var hojaCuenta: some View {
@@ -445,8 +463,10 @@ struct MiGente: View {
 
 /// Editar perfil: fotos, nombre, bio, trabajo, zona, preguntas e intereses (PATCH /v1/yo).
 struct EditarPerfil: View {
-    /// Al final del alta: «Completá tu perfil», sin volver y con los mínimos de la API.
+    /// «Completá tu perfil», con los mínimos de la API: después del DNI del primer «Caigo» (apilado: al
+    /// guardar vuelve a donde estaba) o como base vieja del alta (al guardar, a Ahora).
     var completar = false
+    var apilado = false
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var p
@@ -496,7 +516,7 @@ struct EditarPerfil: View {
                         T("Falta: \(faltan.joined(separator: ", ")).", 13, 600, p.texto2).multilineTextAlignment(.center)
                             .padding(.horizontal, 20).padding(.top, 6)
                     }
-                    Cta(texto: completar ? "Listo, entrar" : "Guardar",
+                    Cta(texto: completar ? (apilado ? "Listo, seguir" : "Listo, entrar") : "Guardar",
                         habilitado: !nombre.trimmingCharacters(in: .whitespaces).isEmpty && !subiendo && (!completar || faltan.isEmpty),
                         cargando: guardando) { guardar() }
                         .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
@@ -640,7 +660,7 @@ struct EditarPerfil: View {
                 c.yo = try await c.api.actualizarYo(cambios)
                 if completar {
                     c.avisos.ok("¡Listo! Ya podés sumarte a planes.")
-                    ir.principal(.ahora, modo: nil)
+                    if apilado { ir.atras() } else { ir.principal(.ahora, modo: nil) }
                 } else {
                     c.avisos.ok("Listo, actualizamos tu perfil.")
                     ir.atras()

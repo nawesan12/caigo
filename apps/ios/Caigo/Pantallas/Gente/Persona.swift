@@ -71,6 +71,8 @@ struct PerfilPersona: View {
     }
 
     private func reaccionarYAvisar(_ p: Perfil, _ accion: String) async throws {
+        // Sin DNI se mira el perfil; sumar o reaccionar pide verificarse antes.
+        guard c.conDni(ir, "gente") else { return }
         let r = try await c.api.reaccionar(p.id, modo: modo, accion: accion)
         c.plus = r.plus
         c.avisos.ok(genteMensaje(nombre: p.nombre, accion: accion, modo: modo, mutuo: r.mutuo))
@@ -253,7 +255,7 @@ struct PerfilPersona: View {
                             }
                         }
                     }) { Icono(I.mas, 32, C.carbon, trazo: 3.4) }
-                    GenteBotonRedondo(tam: 60, gel: genteGelVioletaRedondo, etiqueta: "Invitar a un plan", accion: { invitando = true }) {
+                    GenteBotonRedondo(tam: 60, gel: genteGelVioletaRedondo, etiqueta: "Invitar a un plan", accion: { if c.conDni(ir, "gente") { invitando = true } }) {
                         Icono(I.calendarioSimple, 24, C.blanco, trazo: 2.4)
                     }
                 }
@@ -277,7 +279,7 @@ struct PerfilPersona: View {
                 }
             } else {
                 Cta(texto: "Invitar a un plan", gel: Gels.violeta, alto: 58, color: C.blanco, icono: I.calendarioSimple,
-                    iconoTrazo: 2.4, iconoTam: 20) { invitando = true }
+                    iconoTrazo: 2.4, iconoTam: 20) { if c.conDni(ir, "gente") { invitando = true } }
             }
         }
         .frame(maxWidth: .infinity)
