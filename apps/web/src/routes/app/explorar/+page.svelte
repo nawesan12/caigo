@@ -14,7 +14,7 @@
 
 	/*
 	 * Explorar (Mockups v5, pantalla 04). Fotos de las categorías: CC0 de static/fotos. El buscador
-	 * y los filtros (fecha, zona, cupo, verificados) van a la API; el panel de filtros no está
+	 * y los filtros (fecha, zona, sólo chicas, cupo, verificados) van a la API; el panel de filtros no está
 	 * dibujado: se arma con los chips y el overline del handoff.
 	 */
 	let { data } = $props();
@@ -37,7 +37,9 @@
 
 	let busqueda = $state(untrack(() => data.q));
 	const activos = $derived(
-		[data.fecha, data.zona, data.faltan, data.verificados && '1'].filter(Boolean).length
+		[data.fecha, data.zona, data.faltan, data.verificados && '1', data.chicas && '1'].filter(
+			Boolean
+		).length
 	);
 	let filtros = $state(untrack(() => activos > 0));
 
@@ -207,6 +209,15 @@
 							>
 						{/each}
 					</div>
+					<span class="overline">QUIÉNES</span>
+					<div class="chips">
+						<a
+							class="chip"
+							class:sel={data.chicas}
+							href={url({ chicas: data.chicas ? '' : '1' })}
+							data-sveltekit-noscroll>Sólo chicas</a
+						>
+					</div>
 					<span class="overline">CUPO</span>
 					<div class="chips">
 						{#each CUPOS as cu (cu.valor)}
@@ -221,7 +232,7 @@
 					{#if activos}
 						<a
 							class="limpiar"
-							href={url({ fecha: '', zona: '', faltan: '', verificados: '' })}
+							href={url({ fecha: '', zona: '', faltan: '', verificados: '', chicas: '' })}
 							data-sveltekit-noscroll>Sacar los filtros</a
 						>
 					{/if}

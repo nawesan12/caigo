@@ -61,7 +61,10 @@ export const actions: Actions = {
 			if (!(e instanceof ErrorApi)) throw e;
 			// Sin selfie o sin DNI: a verificarse y de vuelta al plan (en Caigo desde la web).
 			if (e.codigo === 'falta_selfie' || e.codigo === 'falta_dni')
-				redirect(303, `/app/verificar?volver=${encodeURIComponent(`/app/plan/${plan.id}`)}`);
+				redirect(
+					303,
+					`/app/verificar?motivo=sumarte&volver=${encodeURIComponent(`/app/plan/${plan.id}`)}`
+				);
 			// Plan sólo para mujeres o para diversidades (se confirma al sumarse y no se guarda): lo
 			// pregunta el detalle de /app.
 			if (e.codigo === 'confirmar_mujer' || e.codigo === 'confirmar_diversidad')

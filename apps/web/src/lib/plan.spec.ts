@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { cobroTexto, faltanTexto, fotoDelPlan, iniciales, lista, primerNombre } from './plan.ts';
+import {
+	cobroTexto,
+	faltanTexto,
+	fotoDelPlan,
+	iniciales,
+	lineaConfianza,
+	lista,
+	primerNombre
+} from './plan.ts';
 
 describe('primerNombre', () => {
 	it('una cuenta purgada no firma «Cuenta»', () => {
@@ -40,5 +48,31 @@ describe('fotoDelPlan', () => {
 		);
 		expect(fotoDelPlan({ foto: '', categoria: 'gastronomia' })).toBe('/fotos/lugar.jpg');
 		expect(fotoDelPlan({ categoria: 'cultura' })).toBe('');
+	});
+});
+
+describe('lineaConfianza', () => {
+	const sinCortes = (xs: string[]) => xs.map((x) => x.replace(/\u00a0/g, ' '));
+	const org = { nombre: 'Martín Gómez', asistencia: { fue: 9, de: 10 } };
+	it('todos verificados, quien organiza con su asistencia y cuántas chicas', () => {
+		const l = lineaConfianza({
+			organizador: org,
+			confianza: { todosVerificados: true, soloChicas: true, chicas: 2 }
+		});
+		expect(sinCortes(l)).toEqual(['Todos verificados', 'Organiza Martín (9/10)', 'Van 2 chicas']);
+		// Cada parte sin espacios comunes: no se corta en el medio.
+		expect(l.every((x) => !x.includes(' '))).toBe(true);
+	});
+	it('sin asistencia todavía no muestra «(0/0)»; una sola chica no se cuenta', () => {
+		const l = lineaConfianza({
+			organizador: { nombre: 'Lu', asistencia: { fue: 0, de: 0 } },
+			confianza: { todosVerificados: false, soloChicas: true }
+		});
+		expect(sinCortes(l)).toEqual(['Organiza Lu', 'Sólo chicas']);
+	});
+	it('una respuesta vieja sin confianza', () => {
+		expect(sinCortes(lineaConfianza({ organizador: { nombre: 'Nico' } }))).toEqual([
+			'Organiza Nico'
+		]);
 	});
 });

@@ -7,12 +7,14 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async (event) => {
 	const c = event.url.searchParams.get('categoria') ?? '';
 	const categoria = FILTROS_AHORA.some((f) => f.valor === c) ? c : '';
+	// «Sólo chicas» (planes «Solo mujeres»): seguridad, gratis para todos.
+	const chicas = event.url.searchParams.get('chicas') === '1';
 	const { yo } = await event.parent();
-	const q = conUbicacion(event, { categoria }, yo?.ciudad);
+	const q = conUbicacion(event, { categoria, chicas: chicas ? '1' : '' }, yo?.ciudad);
 	const { planes, aviso } = await planesQuizas(
 		event,
 		`/v1/planes/ahora?${q}`,
 		`/v1/publico/planes/ahora?${q}`
 	);
-	return { planes, aviso, categoria };
+	return { planes, aviso, categoria, chicas };
 };

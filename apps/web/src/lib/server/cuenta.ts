@@ -1,12 +1,12 @@
 import { json, redirect, type RequestEvent } from '@sveltejs/kit';
 import { api, cortarSiSuspendida, esDePagina, ErrorApi, ipDe } from './api.ts';
 import { borrarSesion } from './sesion.ts';
-import { verificada } from '#lib/verificacion.ts';
+import { motivoDni, verificada } from '#lib/verificacion.ts';
 import type { Verificacion, Yo } from '#lib/tipos.ts';
 
 /**
- * El control de la verificación de /app, en un solo lugar (hooks.server.ts): teléfono, selfie y DNI
- * aprobado. No alcanza con el `load` del layout: las form actions y los +server.ts de /app no lo
+ * El control de la verificación de /app, en un solo lugar (hooks.server.ts): el DNI aprobado para
+ * todo lo que no sea mirar (soloMira). No alcanza con el `load` del layout: las form actions y los +server.ts de /app no lo
  * corren, y sin esto se podía chatear, crear o subir fotos sin verificarse.
  */
 
@@ -34,15 +34,38 @@ export const SIN_CUENTA = new Set([
 	'/app/borrar'
 ]);
 
+/**
+ * Lo que se mira con cuenta y sin el DNI (18/11, «Mirar sin DNI»): Ahora, el mapa, Explorar, el
+ * detalle, los perfiles, Mis planes y el perfil propio. Sólo para mirar (GET): sumarse, crear o
+ * chatear piden el DNI, y la API también lo exige (403 `falta_dni`).
+ */
+const MIRAR = new Set([...SIN_CUENTA, '/app/persona/[id]', '/app/perfil', '/app/mis']);
+
+export function soloMira(event: RequestEvent): boolean {
+	const m = event.request.method;
+	return (
+		MIRAR.has(event.route.id ?? '') &&
+		(m === 'GET' || m === 'HEAD') &&
+		!event.request.headers.get('x-sveltekit-action')
+	);
+}
+
 export function exentaDeVerificar(rutaId: string): boolean {
 	return SIN_VERIFICAR.some((r) => rutaId === r || rutaId.startsWith(r + '/'));
 }
 
-/** /app/verificar y de vuelta a donde estaba (las form actions vuelven a la página). */
+/**
+ * /app/verificar y de vuelta a donde estaba (las form actions vuelven a la página). Con el motivo
+ * (sumarte, crear, chatear) para el título de la primera lámina.
+ */
 export function aVerificar(event: RequestEvent): never {
 	const volver =
 		event.request.method === 'GET' ? event.url.pathname + event.url.search : event.url.pathname;
-	redirect(303, `/app/verificar?volver=${encodeURIComponent(volver)}`);
+	const motivo = motivoDni(event.route.id ?? '');
+	redirect(
+		303,
+		`/app/verificar?volver=${encodeURIComponent(volver)}${motivo ? `&motivo=${motivo}` : ''}`
+	);
 }
 
 /**
@@ -87,7 +110,7 @@ export async function guardApp(event: RequestEvent): Promise<Response | null> {
 		throw e;
 	}
 	const v = event.locals.verif;
-	if (!v || verificada(v) || exentaDeVerificar(ruta)) return null;
+	if (!v || verificada(v) || exentaDeVerificar(ruta) || soloMira(event)) return null;
 	if (esDePagina(event)) aVerificar(event);
 	return json(
 		{ error: 'Primero terminá de verificar tu cuenta.', code: 'falta_verificacion' },

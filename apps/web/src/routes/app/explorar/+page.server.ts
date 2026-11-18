@@ -23,7 +23,8 @@ async function zonasDe(event: Parameters<PageServerLoad>[0], ciudad: string): Pr
 
 /**
  * Explorar (04): la agenda de las próximas dos semanas. Filtros: categoría (tiles), fecha (hoy,
- * mañana, el finde o un día), zona y búsqueda (básicos); cupo y "Solo verificados" son de Plus.
+ * mañana, el finde o un día), zona y búsqueda (básicos); «Sólo chicas» y «verificados» (seguridad,
+ * gratis siempre); el cupo es de Plus (comodidad).
  */
 export const load: PageServerLoad = async (event) => {
 	const sp = event.url.searchParams;
@@ -31,6 +32,7 @@ export const load: PageServerLoad = async (event) => {
 	// hasOwn y no `in`: "toString" o "__proto__" están en cualquier objeto y la API daba 400.
 	const categoria = Object.hasOwn(CATEGORIAS, c) ? c : '';
 	const verificados = sp.get('verificados') === '1';
+	const chicas = sp.get('chicas') === '1';
 	const f = sp.get('faltan') ?? '';
 	const faltan = ['2', '3', '4'].includes(f) ? f : '';
 	const fecha = sp.get('fecha') ?? '';
@@ -48,6 +50,7 @@ export const load: PageServerLoad = async (event) => {
 		{
 			categoria,
 			verificados: verificados ? '1' : '',
+			chicas: chicas ? '1' : '',
 			faltan,
 			zona,
 			q,
@@ -65,7 +68,7 @@ export const load: PageServerLoad = async (event) => {
 			`/v1/publico/planes/explorar?${qs}`
 		));
 	} catch (e) {
-		// "Solo verificados" y el cupo son filtros finos: de Caigo Plus.
+		// El cupo es un filtro fino: de Caigo Plus.
 		if (e instanceof ErrorApi && e.codigo === 'plus') redirect(303, '/plus');
 		throw e;
 	}
@@ -85,6 +88,7 @@ export const load: PageServerLoad = async (event) => {
 		aviso,
 		categoria,
 		verificados,
+		chicas,
 		faltan,
 		zona,
 		zonas,

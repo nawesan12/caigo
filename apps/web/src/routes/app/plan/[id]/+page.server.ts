@@ -43,7 +43,10 @@ export const actions: Actions = {
 			if (!(e instanceof ErrorApi)) throw e;
 			// Sin selfie o sin DNI: a verificarse y de vuelta acá.
 			if (e.codigo === 'falta_selfie' || e.codigo === 'falta_dni')
-				redirect(303, `/app/verificar?volver=${encodeURIComponent(`/app/plan/${id}`)}`);
+				redirect(
+					303,
+					`/app/verificar?motivo=sumarte&volver=${encodeURIComponent(`/app/plan/${id}`)}`
+				);
 			return fail(e.estado === 400 ? 400 : 409, { error: mensajeDe(e), codigo: e.codigo });
 		}
 		redirect(303, link, { external: true });
