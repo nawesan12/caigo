@@ -461,7 +461,9 @@ func (s *Servicio) Ver(ctx context.Context, usuarioID, idOSlug string, desdePunt
 		}
 		var err error
 		p, err = escanear(tx.QueryRow(ctx, `SELECT `+columnas+desde+`
-			WHERE `+campo+` = $2 AND ((p.visibilidad = 'link' AND `+sinBloqueo+`) OR (`+visible+`))`, usuarioID, idOSlug))
+			WHERE `+campo+` = $2 AND ((p.visibilidad = 'link' AND `+sinBloqueo+`) OR (`+visible+`))
+				-- Como en las listas: el plan de una cuenta suspendida o dada de baja no se ve, ni por link.
+				AND `+organizaActivo, usuarioID, idOSlug))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("Ese plan no existe o no lo podés ver.")
 		}
@@ -500,7 +502,7 @@ func (s *Servicio) Publico(ctx context.Context, slugPlan string) (Plan, error) {
 	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		var err error
 		p, err = escanear(tx.QueryRow(ctx, `SELECT `+columnas+desde+`
-			WHERE `+campo+` = $2 AND p.visibilidad IN ('publico', 'link')`, nadie, slugPlan))
+			WHERE `+campo+` = $2 AND p.visibilidad IN ('publico', 'link') AND `+organizaActivo, nadie, slugPlan))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("Ese plan no existe o es privado.")
 		}

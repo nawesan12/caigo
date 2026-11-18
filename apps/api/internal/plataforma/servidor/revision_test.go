@@ -200,3 +200,15 @@ func TestInvitacionNoPisaLaCantidad(t *testing.T) {
 		t.Fatalf("cantidad: %d %+v", cantidad, res)
 	}
 }
+
+// El plan de una cuenta suspendida no se ve por link, ni con sesión ni sin ella.
+func TestPlanDeSuspendidaNoSeVe(t *testing.T) {
+	e := nuevoEntorno(t)
+	nico, lu := e.persona("Nico"), e.persona("Lu")
+	p := e.planNuevo(nico, map[string]any{"visibilidad": "link"})
+	e.pedir(lu, "GET", "/v1/planes/"+p.Slug, nil, http.StatusOK, nil)
+	e.pedir(persona{}, "GET", "/v1/publico/planes/"+p.Slug, nil, http.StatusOK, nil)
+	e.sistema(`UPDATE usuarios SET suspendido_en = now() WHERE id = $1`, nico.id)
+	e.pedir(lu, "GET", "/v1/planes/"+p.Slug, nil, http.StatusNotFound, nil)
+	e.pedir(persona{}, "GET", "/v1/publico/planes/"+p.Slug, nil, http.StatusNotFound, nil)
+}
