@@ -25,11 +25,9 @@
 	{#each vistos as p, i (i)}
 		{@const [bg, fg] = COLORES[i % COLORES.length]}
 		<span class="av" style:background-color={bg} style:color={fg} title={p.nombre}>
-			{#if p.foto}
-				<img src={p.foto} alt="" loading="lazy" />
-			{:else}
-				{(p.nombre[0] ?? '·').toUpperCase()}
-			{/if}
+			<!-- La inicial siempre debajo: si la foto no carga, no queda un círculo vacío. -->
+			<span class="ini">{(p.nombre?.[0] ?? '·').toUpperCase()}</span>
+			{#if p.foto}<img src={p.foto} alt="" loading="lazy" />{/if}
 		</span>
 	{/each}
 	{#if resto > 0}
@@ -58,6 +56,10 @@
 			rgba(255, 255, 255, 0.6),
 			rgba(255, 255, 255, 0) 42%
 		);
+	}
+	.av .ini,
+	.av img {
+		grid-area: 1 / 1;
 	}
 	.av img {
 		width: 100%;

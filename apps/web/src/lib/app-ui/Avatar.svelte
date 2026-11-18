@@ -34,7 +34,9 @@
 	style:font-size="{Math.round(tam * 0.4)}px"
 	style:border={borde || undefined}
 >
-	{#if foto}<img src={foto} alt="" loading="lazy" />{:else}{(nombre?.[0] ?? '·').toUpperCase()}{/if}
+	<!-- La inicial va siempre debajo: si la foto tarda o no carga (404, sin red), no queda un círculo vacío. -->
+	<span class="ini">{(nombre?.[0] ?? '·').toUpperCase()}</span>
+	{#if foto}<img src={foto} alt="" loading="lazy" />{/if}
 </span>
 
 <style>
@@ -51,6 +53,10 @@
 			rgba(255, 255, 255, 0.6),
 			rgba(255, 255, 255, 0) 42%
 		);
+	}
+	.ini,
+	img {
+		grid-area: 1 / 1;
 	}
 	img {
 		width: 100%;
