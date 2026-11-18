@@ -119,6 +119,10 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 			return err
 		}
 		if estado == "aceptada" {
+			// Con ingreso libre no hay nada que responder, pero quien organiza se entera de que se sumó alguien.
+			if err := outbox.Publicar(ctx, tx, "solicitud.sumada", map[string]string{"planId": planID, "usuarioId": usuarioID}); err != nil {
+				return err
+			}
 			return completo(ctx, tx, planID)
 		}
 		return outbox.Publicar(ctx, tx, "solicitud.nueva", map[string]string{"planId": planID, "usuarioId": usuarioID})
@@ -138,17 +142,29 @@ func (s *Servicio) Salir(ctx context.Context, usuarioID, planID string) error {
 		if pago {
 			return problema.Conflicto("con_entrada", "Para irte, cancelá tu entrada.")
 		}
-		tag, err := tx.Exec(ctx, `
-			UPDATE solicitudes s SET estado = 'cancelada', respondida_en = now()
-			FROM planes p WHERE p.id = s.plan_id AND s.plan_id = $1 AND s.usuario_id = $2
-				AND s.estado IN ('pendiente', 'aceptada') AND p.organizador_id <> $2`, planID, usuarioID)
+		// El estado de antes: si estaba adentro, se liberó un lugar y quien organiza se entera.
+		var antes string
+		var vigente bool
+		err := tx.QueryRow(ctx, `
+			SELECT s.estado, p.cancelado_en IS NULL AND p.empieza_en + make_interval(mins => p.duracion_min) > now()
+			FROM solicitudes s JOIN planes p ON p.id = s.plan_id
+			WHERE s.plan_id::text = $1 AND s.usuario_id = $2 AND s.estado IN ('pendiente', 'aceptada')
+				AND p.organizador_id <> $2
+			FOR UPDATE OF s`, planID, usuarioID).Scan(&antes, &vigente)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return problema.NoEncontrado("No estabas en ese plan.")
+		}
 		if err != nil {
 			return err
 		}
-		if tag.RowsAffected() == 0 {
-			return problema.NoEncontrado("No estabas en ese plan.")
+		if _, err := tx.Exec(ctx, `UPDATE solicitudes SET estado = 'cancelada', respondida_en = now()
+			WHERE plan_id::text = $1 AND usuario_id = $2`, planID, usuarioID); err != nil {
+			return err
 		}
-		return nil
+		if antes != "aceptada" || !vigente {
+			return nil
+		}
+		return outbox.Publicar(ctx, tx, "solicitud.salio", map[string]string{"planId": planID, "usuarioId": usuarioID})
 	})
 }
 
@@ -256,13 +272,19 @@ func (s *Servicio) Responder(ctx context.Context, usuarioID, solicitudID string,
 // completo deja el mensaje de sistema en el chat cuando el plan se llena.
 func completo(ctx context.Context, tx pgx.Tx, planID string) error {
 	var lleno bool
+	// Una sola vez por plan: si alguien se baja y otro completa el lugar, el chat no repite el aviso.
 	if err := tx.QueryRow(ctx, `SELECT p.total <= (SELECT coalesce(sum(cantidad), 0) FROM solicitudes
-		WHERE plan_id = p.id AND estado = 'aceptada') FROM planes p WHERE p.id = $1`, planID).Scan(&lleno); err != nil || !lleno {
+		WHERE plan_id = p.id AND estado = 'aceptada')
+		AND NOT EXISTS (SELECT 1 FROM mensajes m WHERE m.plan_id = p.id AND m.usuario_id IS NULL AND m.texto = $2)
+		FROM planes p WHERE p.id = $1`, planID, textoCompleto).Scan(&lleno); err != nil || !lleno {
 		return err
 	}
-	_, err := tx.Exec(ctx, `INSERT INTO mensajes (plan_id, texto) VALUES ($1, 'Plan completo. A disfrutar.')`, planID)
+	_, err := tx.Exec(ctx, `INSERT INTO mensajes (plan_id, texto) VALUES ($1, $2)`, planID, textoCompleto)
 	return err
 }
+
+// textoCompleto: el mensaje del sistema cuando el plan se llena.
+const textoCompleto = "Plan completo. A disfrutar."
 
 // organizaActivo (con p = planes): quien organiza no está suspendido ni dado de baja. Los planes de
 // una cuenta suspendida no salen en las listas, no admiten sumarse y la recurrencia no los repite (si

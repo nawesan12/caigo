@@ -210,6 +210,8 @@ func (e *Enviador) olvidar(ctx context.Context, token string) error {
 func (e *Enviador) Manejadores() map[string]outbox.Manejador {
 	return map[string]outbox.Manejador{
 		"solicitud.nueva":    e.solicitudNueva,
+		"solicitud.sumada":   e.solicitudSumada,
+		"solicitud.salio":    e.solicitudSalio,
 		"solicitud.aceptada": e.solicitudAceptada,
 		"mensaje.plan":       e.mensajePlan,
 		"privado.nuevo":      e.privadoNuevo,
@@ -359,6 +361,51 @@ func (e *Enviador) solicitudNueva(ctx context.Context, ev outbox.Evento) error {
 		Datos: map[string]string{"plan": d.PlanID, "pantalla": "solicitudes"}, Colapso: "sol-" + d.PlanID})
 }
 
+// solicitudSumada: alguien entró directo a un plan con ingreso libre (no hubo nada que responder).
+func (e *Enviador) solicitudSumada(ctx context.Context, ev outbox.Evento) error {
+	var d struct{ PlanID, UsuarioID string }
+	if err := json.Unmarshal(ev.Datos, &d); err != nil {
+		return nil
+	}
+	var org, titulo, nombre, estado string
+	var cantidad, sumados, total int
+	if err := e.leer(ctx, `SELECT p.organizador_id, p.titulo, u.nombre, s.cantidad, s.estado,
+			(SELECT coalesce(sum(x.cantidad), 0)::integer FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'aceptada'), p.total
+		FROM planes p JOIN solicitudes s ON s.plan_id = p.id JOIN usuarios u ON u.id = s.usuario_id
+		WHERE p.id = $1 AND s.usuario_id = $2 AND p.cancelado_en IS NULL`, []any{d.PlanID, d.UsuarioID},
+		&org, &titulo, &nombre, &cantidad, &estado, &sumados, &total); err != nil {
+		return ignorarSiNoEsta(err)
+	}
+	// Si ya se bajó (o lo sacaron) antes de que saliera el aviso, no hay nada que contar.
+	if estado != "aceptada" {
+		return nil
+	}
+	t := nombre + " se sumó"
+	if cantidad > 1 {
+		t = fmt.Sprintf("%s y %d más se sumaron", nombre, cantidad-1)
+	}
+	cuerpo := fmt.Sprintf("%s · Somos %d de %d.", titulo, sumados, total)
+	if sumados >= total {
+		cuerpo = titulo + " · ¡Plan completo!"
+	}
+	return e.Mandar(ctx, org, Aviso{Titulo: t, Cuerpo: cuerpo, Datos: map[string]string{"plan": d.PlanID}, Colapso: "sum-" + d.PlanID})
+}
+
+// solicitudSalio: alguien que estaba adentro se bajó; quien organiza se entera de que hay lugar.
+func (e *Enviador) solicitudSalio(ctx context.Context, ev outbox.Evento) error {
+	var d struct{ PlanID, UsuarioID string }
+	if err := json.Unmarshal(ev.Datos, &d); err != nil {
+		return nil
+	}
+	var org, titulo, nombre string
+	if err := e.leer(ctx, `SELECT p.organizador_id, p.titulo, u.nombre FROM planes p JOIN usuarios u ON u.id = $2
+		WHERE p.id = $1 AND p.cancelado_en IS NULL`, []any{d.PlanID, d.UsuarioID}, &org, &titulo, &nombre); err != nil {
+		return ignorarSiNoEsta(err)
+	}
+	return e.Mandar(ctx, org, Aviso{Titulo: nombre + " se bajó", Cuerpo: titulo + " · Se liberó un lugar.",
+		Datos: map[string]string{"plan": d.PlanID}, Colapso: "sum-" + d.PlanID})
+}
+
 func (e *Enviador) solicitudAceptada(ctx context.Context, ev outbox.Evento) error {
 	var d struct{ PlanID, UsuarioID string }
 	if err := json.Unmarshal(ev.Datos, &d); err != nil {
@@ -450,10 +497,16 @@ func (e *Enviador) interesNuevo(ctx context.Context, ev outbox.Evento) error {
 		[]any{d.De, d.A}, &de, &a); err != nil {
 		return ignorarSiNoEsta(err)
 	}
-	if d.Mutuo && d.Modo == "citas" {
+	// Mutuo (en Citas o en Gente, donde los dos se sumaron): a los dos, con el nombre y al privado. El
+	// aviso genérico de «Recibidos» llevaba a una lista donde esa persona ya no está.
+	if d.Mutuo {
+		cuerpo := "Ya pueden hablar."
+		if d.Modo == "gente" {
+			cuerpo = "Se sumaron a su gente. Ya pueden hablar."
+		}
 		return errors.Join(
-			e.Mandar(ctx, d.A, Aviso{Titulo: "¡Es mutuo con " + de + "!", Cuerpo: "Ya pueden hablar.", Datos: map[string]string{"privado": d.De}}),
-			e.Mandar(ctx, d.De, Aviso{Titulo: "¡Es mutuo con " + a + "!", Cuerpo: "Ya pueden hablar.", Datos: map[string]string{"privado": d.A}}),
+			e.Mandar(ctx, d.A, Aviso{Titulo: "¡Es mutuo con " + de + "!", Cuerpo: cuerpo, Datos: map[string]string{"privado": d.De}}),
+			e.Mandar(ctx, d.De, Aviso{Titulo: "¡Es mutuo con " + a + "!", Cuerpo: cuerpo, Datos: map[string]string{"privado": d.A}}),
 		)
 	}
 	t := "Alguien te sumó a su gente"
