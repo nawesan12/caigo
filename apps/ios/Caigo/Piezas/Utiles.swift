@@ -238,6 +238,14 @@ enum Sistema {
     }
     #endif
 
+    /// Toque suave (un gesto que pasa el umbral).
+    @MainActor
+    static func suave() {
+        #if os(iOS)
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        #endif
+    }
+
     /// Vibración corta de confirmación.
     @MainActor
     static func vibrar(_ exito: Bool = true) {

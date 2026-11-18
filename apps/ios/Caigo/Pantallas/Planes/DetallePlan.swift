@@ -142,6 +142,9 @@ private struct ContenidoDetalle: View {
                         if !p.descripcion.isEmpty { T(p.descripcion, 15, 400, pal.texto2, alto: 1.5) }
                         if p.lugar != nil { tarjetaEntrada }
                         if !p.beneficio.isEmpty { PlanesBeneficio(texto: p.beneficio, desbloqueado: false) }
+                        if let b = p.lugar?.beneficioNivel, !b.isEmpty {
+                            T("Habitué o más: \(b)", 13, 600, pal.texto2, alto: 1.4)
+                        }
                         PlanesFlujo(espacio: 6, renglon: 6) {
                             T("Requisitos", 13, 700, pal.texto2).padding(.vertical, 6)
                             ForEach(requisitos(p), id: \.self) { r in
@@ -287,6 +290,10 @@ private struct ContenidoDetalle: View {
                 HStack(spacing: 6) {
                     T("Organiza \(nombre)", 15, 700, pal.texto, unRenglon: true)
                     if o.verificada { Verificado(tam: 16, color: pal.oscuro ? C.lima : C.violeta, tilde: pal.oscuro ? C.carbon : C.blanco) }
+                    if o.anfitrion && p.lugar == nil {
+                        ChipFoto(texto: "Anfitrión", oscuro: false, fondo: pal.oscuro ? Gel(fondo: .liso(Color(hex: 0x2E2A3D))) : Gels.chipClaro, color: pal.texto)
+                            .fixedSize()
+                    }
                 }
                 T(p.lugar != nil ? "Lugar aliado · verificado por Caigo"
                     : (o.asistencia.de > 0 ? "Fue a \(o.asistencia.fue) de \(o.asistencia.de) \(o.asistencia.de == 1 ? "plan" : "planes") · \(asistencia(o.asistencia))" : "Nuevo en Caigo"),

@@ -34,6 +34,8 @@ struct Explorar: View {
     @State private var semana: [Plan]?
     @State private var error: String?
     @State private var vuelta = 0
+    /// «No me interesa» y su «Deshacer».
+    @State private var ocultos = PlanesOcultos()
 
     private var conPlus: Bool { c.plus?.activo == true }
 
@@ -53,7 +55,7 @@ struct Explorar: View {
 
     var body: some View {
         // La búsqueda la hace la API con `q` (título, zona y lugar).
-        let planes = semana ?? []
+        let planes = ocultos.visibles(semana ?? [])
         let delDia = planes.filter { pl in Fecha.parse(pl.empiezaEn).map { Fecha.diasEntre(Date(), $0) == dia } ?? false }
         let recurrente = planes.first { $0.recurrente }
 
@@ -94,7 +96,12 @@ struct Explorar: View {
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 10)
                     } else {
-                        ForEach(todos ? delDia : Array(delDia.prefix(4))) { pl in FilaAgenda(plan: pl) }
+                        ForEach(todos ? delDia : Array(delDia.prefix(4))) { pl in
+                            FilaAgenda(plan: pl)
+                                .modifier(DeslizarPlan(radio: 24, alCaigo: {
+                                    Task { if await planesCaigo(c, ir, pl) != nil { vuelta += 1 } }
+                                }, alNoMeInteresa: { withAnimation(.easeOut(duration: 0.2)) { ocultos.ocultar(c, pl) } }))
+                        }
                     }
                 }
                 .padding(.horizontal, 20)
@@ -104,6 +111,7 @@ struct Explorar: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .refreshable { vuelta += 1 }
+        .overlay { AvisoDeshacer(ocultos: ocultos) }
         .task {
             if c.plus == nil { await c.recargarPlus() }
             // La ubicación sólo sirve para la distancia: si no hay permiso, no se pide de nuevo acá.

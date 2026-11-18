@@ -193,6 +193,7 @@ private struct TarjetaSolicitud: View {
                         if per.verificada { MiosVerificado(tam: 15) }
                     }
                     T(per.enMiGente ? miosAsistencia(per.asistencia, extra: "está en tu gente") : miosAsistencia(per.asistencia), 12, 400, p.texto2)
+                    if per.faltazos >= 2 { T("Faltó a \(per.faltazos) planes este mes", 12, 600, C.coral2) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if completan {
