@@ -199,6 +199,7 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
     var sena by remember { mutableStateOf(leerModoCheckout(ctx, p.id) == "sena" && p.cobro == "sena") }
     var cancelandoPlan by remember { mutableStateOf(false) }
     var cancelandoEntrada by remember { mutableStateOf(false) }
+    var bajandome by remember { mutableStateOf(false) }
     val deLugar = esDeLugar(p)
     val link = "https://caigo.com.ar/p/${p.slug}"
 
@@ -254,18 +255,8 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
             add("Cancelar el plan" to { cancelandoPlan = true })
         }
         if (!p.esMio && p.adentro && deLugar && vivo) add("Cancelar mi entrada" to { cancelandoEntrada = true })
-        if (!p.esMio && (p.adentro || p.miEstado == "pendiente") && !deLugar) add("Bajarme del plan" to {
-            alcance.launch {
-                try {
-                    c.api.salir(p.id)
-                    avisos.ok("Listo, te bajaste del plan.")
-                    recargar()
-                } catch (e: Throwable) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    avisos.error(mensajeDe(e))
-                }
-            }
-        })
+        // Con confirmación: era un toque y salía sin vuelta atrás (y el lugar lo podía tomar otro).
+        if (!p.esMio && (p.adentro || p.miEstado == "pendiente") && !deLugar) add((if (p.adentro) "Bajarme del plan" else "Retirar mi pedido") to { bajandome = true })
         if (!p.esMio) add("Reportar" to { reportando = true })
     }
 
@@ -378,6 +369,16 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
             cancelandoEntrada, if (p.cancelacion == "strict") "Tu entrada no tiene reembolso" else "¿Cancelar tu entrada?",
             planesPolitica(p.cancelacion), if (p.cancelacion == "strict") null else "Cancelar mi entrada", { cancelandoEntrada = false },
         ) { cancelarMiEntrada() }
+        HojaConfirmar(
+            bajandome, if (p.adentro) "¿Te bajás del plan?" else "¿Retirás tu pedido?",
+            if (p.adentro) "Tu lugar queda libre para otra persona y salís del chat del plan."
+            else "${p.organizador.nombre.ifEmpty { "Quien organiza" }} ya no va a ver tu pedido.",
+            if (p.adentro) "Bajarme" else "Retirar el pedido", { bajandome = false },
+        ) {
+            c.api.salir(p.id)
+            avisos.ok(if (p.adentro) "Listo, te bajaste del plan." else "Listo, retiraste tu pedido.")
+            recargar()
+        }
         // «Antes de sumarte» (confirmar_mujer / confirmar_diversidad): en Android es la hoja global
         // de Genero.kt (conConfirmacion).
     }

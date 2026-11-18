@@ -116,6 +116,7 @@ private struct ContenidoDetalle: View {
     @State private var pide: String?
     @State private var cancelandoPlan = false
     @State private var cancelandoEntrada = false
+    @State private var bajandome = false
 
     private var deLugar: Bool { esDeLugar(p) }
     private var link: String { "https://caigo.com.ar/p/\(p.slug)" }
@@ -201,6 +202,14 @@ private struct ContenidoDetalle: View {
             HojaConfirmar(abierta: cancelandoEntrada, titulo: p.cancelacion == "strict" ? "Tu entrada no tiene reembolso" : "¿Cancelar tu entrada?",
                           cuerpo: planesPolitica(p.cancelacion), accion: p.cancelacion == "strict" ? nil : "Cancelar mi entrada", cerrar: { cancelandoEntrada = false }) {
                 try await cancelarMiEntrada()
+            }
+            HojaConfirmar(abierta: bajandome, titulo: p.adentro ? "¿Te bajás del plan?" : "¿Retirás tu pedido?",
+                          cuerpo: p.adentro ? "Tu lugar queda libre para otra persona y salís del chat del plan."
+                                            : "\(p.organizador.nombre.isEmpty ? "Quien organiza" : p.organizador.nombre) ya no va a ver tu pedido.",
+                          accion: p.adentro ? "Bajarme" : "Retirar el pedido", cerrar: { bajandome = false }) {
+                try await c.api.salir(p.id)
+                c.avisos.ok(p.adentro ? "Listo, te bajaste del plan." : "Listo, retiraste tu pedido.")
+                recargar()
             }
             HojaAntesDeSumarte(pide: pide, cerrar: { pide = nil }) { sumarme(confirma: $0) }
         }
@@ -505,15 +514,8 @@ private struct ContenidoDetalle: View {
             f.append(Opcion(texto: "Cancelar mi entrada") { withAnimation { cancelandoEntrada = true } })
         }
         if !p.esMio && (p.adentro || p.miEstado == "pendiente") && !deLugar {
-            f.append(Opcion(texto: "Bajarme del plan") {
-                Task {
-                    do {
-                        try await c.api.salir(p.id)
-                        c.avisos.ok("Listo, te bajaste del plan.")
-                        recargar()
-                    } catch { c.avisos.error(error) }
-                }
-            })
+            // Con confirmación: era un toque y salía sin vuelta atrás (y el lugar lo podía tomar otro).
+            f.append(Opcion(texto: p.adentro ? "Bajarme del plan" : "Retirar mi pedido") { withAnimation { bajandome = true } })
         }
         if !p.esMio { f.append(Opcion(texto: "Reportar") { withAnimation { reportando = true } }) }
         return f
