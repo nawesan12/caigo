@@ -42,7 +42,7 @@
 			</nav>
 		</div>
 		<div class="filtros">
-			{#each FILTROS_AHORA as f (f.valor)}
+			{#each FILTROS_AHORA as f, i (f.valor)}
 				<a
 					class="filtro"
 					class:on={data.categoria === f.valor}
@@ -50,14 +50,17 @@
 					data-sveltekit-noscroll
 					aria-current={data.categoria === f.valor ? 'true' : undefined}>{f.etiqueta}</a
 				>
+				<!-- «Sólo chicas» al lado de «Todos»: la seguridad a la vista, gratis. -->
+				{#if i === 0}
+					<a
+						class="filtro"
+						class:on={data.chicas}
+						href="/app{q(data.categoria, !data.chicas)}"
+						data-sveltekit-noscroll
+						aria-current={data.chicas ? 'true' : undefined}>Sólo chicas</a
+					>
+				{/if}
 			{/each}
-			<a
-				class="filtro"
-				class:on={data.chicas}
-				href="/app{q(data.categoria, !data.chicas)}"
-				data-sveltekit-noscroll
-				aria-current={data.chicas ? 'true' : undefined}>Sólo chicas</a
-			>
 		</div>
 	</div>
 

@@ -332,9 +332,7 @@
 				<button class="gel gel-lima cta" onclick={() => (empezo = true)}>Verificarme</button>
 				<a class="ahora-no" href={data.volver}>Ahora no</a>
 			</div>
-		{/if}
-
-		{#if vista === 'telefono'}
+		{:else if vista === 'telefono'}
 			<div class="txt">
 				<h1>¿Cuál es tu número?</h1>
 				<p>

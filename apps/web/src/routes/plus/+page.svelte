@@ -59,9 +59,9 @@
 		['Ver quién te sumó', '—', '✓'],
 		['Me encanta en Citas', `${encantasGratis} por día`, '5 por día'],
 		['Tu plan destacado', '—', '1 por semana'],
-		['Filtros de edad y cupo', '—', '✓'],
+		['Edad y cupo', '—', '✓'],
 		// Plus vende comodidad, nunca seguridad: verificados y «Sólo chicas» son para todos.
-		['Verificados y Sólo chicas', 'Siempre', 'Siempre']
+		['Sólo chicas', 'Siempre', 'Siempre']
 	]);
 	const sinSumadas = $derived(!!estado && estado.sumadasHoy >= estado.limite);
 

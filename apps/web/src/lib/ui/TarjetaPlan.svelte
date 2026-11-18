@@ -91,7 +91,7 @@
 		</div>
 		{#if confianza.length}
 			<p class="confianza">
-				{#if verificados}<Verificado tam={14} />{/if}<span>{confianza.join(' · ')}</span>
+				{#if verificados}<Verificado tam={14} />{/if}<span>{confianza.join('\u00a0· ')}</span>
 			</p>
 		{/if}
 	</div>
