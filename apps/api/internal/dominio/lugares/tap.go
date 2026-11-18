@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/logros"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
@@ -130,11 +131,12 @@ type ResultadoTap struct {
 	Uso   string `json:"uso"`
 	// Plan de hoy en el lugar al que se hizo check-in.
 	Plan *struct {
-		ID        string `json:"id"`
-		Titulo    string `json:"titulo"`
-		Beneficio string `json:"beneficio,omitempty"`
-		Saldo     int32  `json:"saldoCentavos"`
-		Repetido  bool   `json:"repetido"`
+		ID             string `json:"id"`
+		Titulo         string `json:"titulo"`
+		Beneficio      string `json:"beneficio,omitempty"`
+		BeneficioNivel string `json:"beneficioNivel,omitempty"`
+		Saldo          int32  `json:"saldoCentavos"`
+		Repetido       bool   `json:"repetido"`
 	} `json:"plan,omitempty"`
 	// Pase de socio.
 	Socio *struct {
@@ -195,11 +197,12 @@ func (s *Servicio) Tap(ctx context.Context, usuarioID string, l Lectura) (Result
 		ahora := s.ahora()
 		// Plan de hoy: desde media hora antes hasta una hora después del final.
 		var plan struct {
-			ID        string `json:"id"`
-			Titulo    string `json:"titulo"`
-			Beneficio string `json:"beneficio,omitempty"`
-			Saldo     int32  `json:"saldoCentavos"`
-			Repetido  bool   `json:"repetido"`
+			ID             string `json:"id"`
+			Titulo         string `json:"titulo"`
+			Beneficio      string `json:"beneficio,omitempty"`
+			BeneficioNivel string `json:"beneficioNivel,omitempty"`
+			Saldo          int32  `json:"saldoCentavos"`
+			Repetido       bool   `json:"repetido"`
 		}
 		var antes *time.Time
 		err = tx.QueryRow(ctx, `SELECT p.id, p.titulo, p.beneficio, coalesce(e.saldo_centavos, 0), s.checkin_en
@@ -221,6 +224,10 @@ func (s *Servicio) Tap(ctx context.Context, usuarioID string, l Lectura) (Result
 					err = wallet.Actualizado(ctx, tx, "e-"+entrada)
 				}
 				if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+					return err
+				}
+				// Beneficio por nivel de hoy (Habitué o más), uno por día en el lugar.
+				if plan.BeneficioNivel, _, err = logros.BeneficioNivel(ctx, tx, lugarID, usuarioID, ahora); err != nil {
 					return err
 				}
 			}

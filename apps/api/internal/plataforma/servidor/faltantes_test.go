@@ -705,6 +705,8 @@ func TestAvisosDeTuGenteYCerca(t *testing.T) {
 		if slices.Contains(c, cerca.id) {
 			t.Fatalf("plan %d: cerca pasó el tope", i)
 		}
+		// Se cancela después de repartir: sin Plus se pueden tener 3 planes abiertos a la vez.
+		e.sistema(`UPDATE planes SET cancelado_en = now() WHERE id = $1`, p.ID)
 	}
 	// Un plan que empieza en más de 3 h no avisa a los de cerca.
 	otra := e.persona("Otra cerca")

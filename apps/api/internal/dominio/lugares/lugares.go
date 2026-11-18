@@ -46,23 +46,25 @@ func (s *Servicio) ahora() time.Time {
 
 // Lugar como lo ve el panel.
 type Lugar struct {
-	ID             string     `json:"id"`
-	Slug           string     `json:"slug"`
-	Nombre         string     `json:"nombre"`
-	Rubro          string     `json:"rubro"`
-	Ciudad         string     `json:"ciudad"`
-	Zona           string     `json:"zona"`
-	Direccion      string     `json:"direccion"`
-	Lat            float64    `json:"lat"`
-	Lng            float64    `json:"lng"`
-	Foto           string     `json:"foto"`
-	Instagram      string     `json:"instagram"`
-	Telefono       string     `json:"telefono"`
-	Estado         string     `json:"estado"`
-	Motivo         string     `json:"motivo,omitempty"`
-	SocioActivo    bool       `json:"socioActivo"`
-	SocioVisitas   int16      `json:"socioVisitas"`
-	SocioBeneficio string     `json:"socioBeneficio"`
+	ID             string  `json:"id"`
+	Slug           string  `json:"slug"`
+	Nombre         string  `json:"nombre"`
+	Rubro          string  `json:"rubro"`
+	Ciudad         string  `json:"ciudad"`
+	Zona           string  `json:"zona"`
+	Direccion      string  `json:"direccion"`
+	Lat            float64 `json:"lat"`
+	Lng            float64 `json:"lng"`
+	Foto           string  `json:"foto"`
+	Instagram      string  `json:"instagram"`
+	Telefono       string  `json:"telefono"`
+	Estado         string  `json:"estado"`
+	Motivo         string  `json:"motivo,omitempty"`
+	SocioActivo    bool    `json:"socioActivo"`
+	SocioVisitas   int16   `json:"socioVisitas"`
+	SocioBeneficio string  `json:"socioBeneficio"`
+	// Beneficio por nivel: para quien es Habitué o más (uno por persona y por día).
+	BeneficioNivel string     `json:"beneficioNivel"`
 	Rol            string     `json:"rol,omitempty"`
 	MPConectado    bool       `json:"mpConectado"`
 	MPDesde        *time.Time `json:"mpDesde,omitempty"`
@@ -71,7 +73,7 @@ type Lugar struct {
 
 const columnas = `l.id, l.slug, l.nombre, l.rubro, l.ciudad, l.zona, l.direccion, l.lat, l.lng, l.foto,
 	l.instagram, l.telefono, l.estado, l.motivo, l.socio_activo, l.socio_visitas, l.socio_beneficio,
-	coalesce(m.rol, ''), c.lugar_id IS NOT NULL, c.conectada_en, l.creado_en`
+	l.beneficio_nivel, coalesce(m.rol, ''), c.lugar_id IS NOT NULL, c.conectada_en, l.creado_en`
 
 const desde = ` FROM lugares l LEFT JOIN lugar_miembros m ON m.lugar_id = l.id AND m.usuario_id = $1
 	LEFT JOIN mp_conexiones c ON c.lugar_id = l.id`
@@ -80,7 +82,7 @@ func escanear(row pgx.Row) (Lugar, error) {
 	var l Lugar
 	err := row.Scan(&l.ID, &l.Slug, &l.Nombre, &l.Rubro, &l.Ciudad, &l.Zona, &l.Direccion, &l.Lat, &l.Lng,
 		&l.Foto, &l.Instagram, &l.Telefono, &l.Estado, &l.Motivo, &l.SocioActivo, &l.SocioVisitas,
-		&l.SocioBeneficio, &l.Rol, &l.MPConectado, &l.MPDesde, &l.CreadoEn)
+		&l.SocioBeneficio, &l.BeneficioNivel, &l.Rol, &l.MPConectado, &l.MPDesde, &l.CreadoEn)
 	return l, err
 }
 
@@ -270,6 +272,7 @@ type Edicion struct {
 	SocioActivo    *bool   `json:"socioActivo"`
 	SocioVisitas   *int16  `json:"socioVisitas"`
 	SocioBeneficio *string `json:"socioBeneficio"`
+	BeneficioNivel *string `json:"beneficioNivel"`
 }
 
 // Editar el lugar.
@@ -279,6 +282,12 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, lugarID string, e Edic
 	}
 	if e.SocioVisitas != nil && (*e.SocioVisitas < 2 || *e.SocioVisitas > 30) {
 		return Lugar{}, problema.Invalido("Las visitas para el beneficio van de 2 a 30.")
+	}
+	if e.BeneficioNivel != nil {
+		*e.BeneficioNivel = strings.TrimSpace(*e.BeneficioNivel)
+		if len([]rune(*e.BeneficioNivel)) > 80 {
+			return Lugar{}, problema.Invalido("El beneficio es muy largo.")
+		}
 	}
 	if e.SocioBeneficio != nil && len([]rune(*e.SocioBeneficio)) > 80 {
 		return Lugar{}, problema.Invalido("El beneficio es muy largo.")
@@ -297,9 +306,9 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, lugarID string, e Edic
 		_, err := tx.Exec(ctx, `UPDATE lugares SET nombre = $2, rubro = $3, ciudad = $4, zona = $5, direccion = $6,
 			lat = $7, lng = $8, foto = $9, instagram = $10, telefono = $11,
 			socio_activo = coalesce($12, socio_activo), socio_visitas = coalesce($13, socio_visitas),
-			socio_beneficio = coalesce($14, socio_beneficio) WHERE id::text = $1`,
+			socio_beneficio = coalesce($14, socio_beneficio), beneficio_nivel = coalesce($15, beneficio_nivel) WHERE id::text = $1`,
 			lugarID, e.Nombre, e.Rubro, e.Ciudad, e.Zona, e.Direccion, e.Lat, e.Lng, e.Foto, e.Instagram, e.Telefono,
-			e.SocioActivo, e.SocioVisitas, e.SocioBeneficio)
+			e.SocioActivo, e.SocioVisitas, e.SocioBeneficio, e.BeneficioNivel)
 		if err != nil || fotoAntes == e.Foto {
 			return err
 		}

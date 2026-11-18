@@ -322,7 +322,9 @@ func Exenta(patron string) bool {
 	switch metodo + " " + ruta {
 	case "GET /v1/yo", "PATCH /v1/yo", "DELETE /v1/yo", "DELETE /v1/cuenta",
 		"POST /v1/archivos", "GET /v1/archivos/{id}", "POST /v1/sesion", "DELETE /v1/sesion",
-		"PUT /v1/dispositivos", "DELETE /v1/dispositivos/{token}", "POST /v1/mercadopago/vuelta":
+		"PUT /v1/dispositivos", "DELETE /v1/dispositivos/{token}", "POST /v1/mercadopago/vuelta",
+		// El código de quien la invitó se pone al entrar, antes del DNI (el premio igual espera al DNI).
+		"POST /v1/yo/invitado":
 		return true
 	}
 	return ruta == "/v1/verificacion" || strings.HasPrefix(ruta, "/v1/verificacion/") ||

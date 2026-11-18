@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/logros"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
@@ -703,6 +704,9 @@ type Validacion struct {
 	Plan      string `json:"plan"`
 	Saldo     int32  `json:"saldoCentavos"`
 	Beneficio string `json:"beneficio,omitempty"`
+	// Beneficio por nivel que le toca hoy (Habitué o más) y su nivel. Queda anotado como canjeado.
+	BeneficioNivel string `json:"beneficioNivel,omitempty"`
+	Nivel          string `json:"nivel,omitempty"`
 	// Ya había entrado (se validó antes).
 	Repetida bool `json:"repetida"`
 }
@@ -749,8 +753,12 @@ func (s *Servicio) Validar(ctx context.Context, usuarioID, lugarID, codigo strin
 		if err := wallet.Actualizado(ctx, tx, "e-"+id); err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `UPDATE solicitudes SET checkin_en = coalesce(checkin_en, now()), checkin_metodo = coalesce(checkin_metodo, 'qr')
-			WHERE plan_id = $1 AND usuario_id = $2`, planID, persona)
+		// La validó el lugar en la puerta: cuenta para los logros como check-in del lugar.
+		if _, err = tx.Exec(ctx, `UPDATE solicitudes SET checkin_en = coalesce(checkin_en, now()), checkin_metodo = coalesce(checkin_metodo, 'puerta')
+			WHERE plan_id = $1 AND usuario_id = $2`, planID, persona); err != nil {
+			return err
+		}
+		v.BeneficioNivel, v.Nivel, err = logros.BeneficioNivel(ctx, tx, lugarID, persona, s.ahora())
 		return err
 	})
 	return v, err

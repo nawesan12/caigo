@@ -68,6 +68,20 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 		}
 		respuesta.JSON(w, http.StatusOK, map[string]any{"planes": ps})
 	}))
+	mux.Handle("POST /v1/planes/{id}/ocultar", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
+		if err := s.Ocultar(r.Context(), p.ID, r.PathValue("id")); err != nil {
+			mal(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	mux.Handle("DELETE /v1/planes/{id}/ocultar", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
+		if err := s.Mostrar(r.Context(), p.ID, r.PathValue("id")); err != nil {
+			mal(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
 	mux.Handle("POST /v1/planes/{id}/destacar", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
 		plan, err := s.Destacar(r.Context(), p.ID, r.PathValue("id"))
 		if err != nil {

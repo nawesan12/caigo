@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/logros"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
@@ -76,6 +77,8 @@ type Perfil struct {
 	Proximos []Proximo `json:"proximos,omitempty"`
 	// Sólo en /v1/yo: lo que le falta al perfil para estar completo (ver Faltantes). Vacío: completo.
 	Faltan []string `json:"faltan,omitempty"`
+	// Premios por ir: nivel, insignias y «Anfitrión»; en el propio, también la racha.
+	Logros *logros.Logros `json:"logros,omitempty"`
 }
 
 // Lo mínimo para que un perfil no quede vacío (Nahuel, 1/11). Las apps piden completarlo antes de
@@ -179,6 +182,11 @@ func (s *Servicio) Yo(ctx context.Context, usuarioID, clerkID string) (Perfil, e
 			return err
 		}
 		p.EnMiGente, p.Compartidos = false, 0
+		l, err := logros.Calcular(ctx, tx, usuarioID, time.Now(), true)
+		if err != nil {
+			return err
+		}
+		p.Logros = &l
 		contacto, av := "", Avisos{PlanesCerca: true, TuGente: true}
 		err = tx.QueryRow(ctx, `SELECT coalesce(telefono, ''), avisos_cerca, avisos_gente, contacto_confianza, email
 			FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&p.Telefono, &av.PlanesCerca, &av.TuGente, &contacto, &p.Email)
@@ -229,6 +237,11 @@ func (s *Servicio) Ver(ctx context.Context, usuarioID, otroID string) (Perfil, e
 		if err != nil {
 			return err
 		}
+		l, err := logros.Calcular(ctx, tx, p.ID, time.Now(), false)
+		if err != nil {
+			return err
+		}
+		p.Logros = &l
 		// Sus próximos planes (organiza o va) que quien mira puede ver.
 		rows, err := tx.Query(ctx, `
 			SELECT p.id, p.titulo, p.categoria, p.empieza_en, p.foto FROM planes p
@@ -278,6 +291,8 @@ type Cambios struct {
 	} `json:"avisos"`
 	// De dónde llegó (p:<slug>, utm:instagram). Se guarda sólo la primera vez.
 	Origen *string `json:"origen"`
+	// «Ocultar mis insignias»: los demás ven el nivel y la asistencia, no las insignias.
+	OcultarInsignias *bool `json:"ocultarInsignias"`
 }
 
 // Actualizar aplica los cambios al perfil propio.
@@ -400,9 +415,10 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 				trabajo = coalesce($7, trabajo), intereses = coalesce($8, intereses),
 				intenciones = coalesce($9, intenciones), prompts = coalesce($10, prompts),
 				fotos = coalesce($11, fotos), actualizado_en = now(),
-				origen = CASE WHEN origen = '' THEN coalesce($12, '') ELSE origen END
+				origen = CASE WHEN origen = '' THEN coalesce($12, '') ELSE origen END,
+				ocultar_insignias = coalesce($13, ocultar_insignias)
 			WHERE id = $1`, usuarioID, c.Nombre, edad, c.Zona, c.Ciudad, c.Bio, c.Trabajo,
-			c.Intereses, c.Intenciones, prompts, c.Fotos, c.Origen); err != nil {
+			c.Intereses, c.Intenciones, prompts, c.Fotos, c.Origen, c.OcultarInsignias); err != nil {
 			return err
 		}
 		if c.Fotos != nil {

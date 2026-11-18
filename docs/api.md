@@ -132,6 +132,45 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | GET | `/v1/yo` | sesión | dominio/personas |
 | PATCH | `/v1/yo` | sesión | dominio/personas |
 | PUT | `/v1/yo/ubicacion` | sesión | dominio/personas |
+| GET | `/v1/yo/invitar` | sesión | dominio/logros |
+| POST | `/v1/yo/invitado` | sesión (sin DNI) | dominio/logros |
+| POST | `/v1/planes/{id}/ocultar` | sesión | dominio/planes |
+| DELETE | `/v1/planes/{id}/ocultar` | sesión | dominio/planes |
+
+## Premios por ir, gestos y festejo (18/11, rama `mejoras-gamificacion`, migración 00030, sin desplegar)
+Sobrio a pedido de Nahuel: cuatro niveles, pocas insignias, sin puntos a la vista, sin rankings y racha semanal.
+Todo sale de los check-ins (`internal/dominio/logros`; reglas en `calculo.go`, probadas en `calculo_test.go` y
+`servidor/logros_test.go`).
+
+- **Qué cuenta:** un plan con check-in de la persona, si llegó al menos otra cuenta que valida (DNI, sin suspender y
+  con 7 días o más el día del plan) o si lo validó el lugar (puerta, entrada o Caigo Tap). Quien organiza suma sólo si
+  el plan se hizo: 2 check-ins ajenos que validan. Entre el mismo grupo, un plan por semana. Crear no da nada.
+- **`GET /v1/yo`** suma `logros`: `{nivel, planes, siguiente, faltan, racha, comodin, insignias:[{id,nombre,detalle}],
+  anfitrion, ocultas}`. Niveles: Nuevo (0), Habitué (5), De fierro (15), Leyenda (40); nunca bajan. Racha: semanas
+  seguidas (lunes a domingo, Argentina) con un plan; la semana en curso no corta; un comodín automático por mes.
+  Insignias: «En cancha», «De la mesa», «De noche», «Cultura», «Buen diente» (5 planes de la familia), «Local de X»
+  (quien más días fue al lugar en 30, con 3 o más) y «Anfitrión».
+- **`GET /v1/personas/{id}`** suma `logros` sin `racha`/`comodin` y con hasta 3 insignias (ninguna si las ocultó).
+- **`PATCH /v1/yo`** acepta `ocultarInsignias` (bool).
+- **«Anfitrión»** (`organizador.anfitrion` en cada plan, también en las rutas públicas): 3 planes hechos o más y 90 % o
+  más de lo organizado se hizo. Se miran los planes que usaron el check-in y los cancelados con menos de 6 h (restan).
+- **Faltazos:** `GET /v1/planes/{id}/solicitudes` trae `persona.faltazos` en las pendientes de quien tiene 2 o más en 30
+  días (se sumó, el plan usó el check-in y no llegó).
+- **Tope de planes abiertos:** 3 a la vez (5 con Plus). `POST /v1/planes` responde 409 `tope_planes`.
+- **«No me interesa»:** `POST /v1/planes/{id}/ocultar` (204) lo saca de Ahora y Explorar hasta el fin del día;
+  `DELETE /v1/planes/{id}/ocultar` es «Deshacer».
+- **Beneficio por nivel en lugares aliados:** el lugar carga `beneficioNivel` (PATCH del lugar, hasta 80 letras; se ve
+  en `GET /v1/lugares/...` y en `plan.lugar.beneficioNivel`). Al validar en la puerta (QR, entrada o
+  `.../checkin/{usuarioId}`) a alguien Habitué o más, la respuesta trae `beneficioNivel` y `nivel`; en `POST /v1/tap`,
+  `plan.beneficioNivel`. Uno por persona, por lugar y por día (tabla `canjes_nivel`). La entrada validada en la puerta
+  ahora deja `checkin_metodo = 'puerta'`.
+- **«Traé a alguien»:** `GET /v1/yo/invitar` → `{codigo, link: <sitio>/i/<codigo>, invitados, premiados,
+  puedeUsarCodigo}`. `POST /v1/yo/invitado {codigo}` (204; sirve antes del DNI, en los primeros 14 días; 404 código
+  inexistente, 409 `propio`/`ya_invitado`/`tarde`). El worker da una semana de Plus a los dos (`suscripciones.origen =
+  'referido'`, sin renovación) cuando el referido tiene el DNI aprobado y su primer plan que cuenta. Tope: 10 premios por
+  mes a quien invita (el referido igual recibe el suyo).
+- Pendiente: «2 faltazos en 30 días → los planes de lugar piden seña» y «desde la 4.ª semana de racha el beneficio se
+  duplica» no están hechos (necesitan definir con los lugares qué es «doble»).
 
 ## Revisión con ojos de usuario (18/11, rama `revision-usuario`)
 - Push nuevos a quien organiza: `solicitud.sumada` (alguien entró directo a un plan de ingreso libre: «Lu se sumó»,

@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/logros"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
@@ -75,6 +76,10 @@ type Persona struct {
 	Organizador bool   `json:"organizador,omitempty"`
 	// Ya hizo check-in en el plan ("Lu y Nico ya llegaron"; sólo en la lista de los que van).
 	Llego bool `json:"llego,omitempty"`
+	// «Anfitrión»: sus planes se hacen (sólo en quien organiza; ver logros.Anfitrion).
+	Anfitrion bool `json:"anfitrion,omitempty"`
+	// Faltazos en los últimos 30 días, si llegó a logros.FaltazosAviso (sólo en las solicitudes).
+	Faltazos int `json:"faltazos,omitempty"`
 }
 
 // Asist es la asistencia real: fue a Fue de De planes con check-in.
@@ -146,6 +151,8 @@ type LugarCorto struct {
 	Nombre string `json:"nombre"`
 	Zona   string `json:"zona"`
 	Foto   string `json:"foto,omitempty"`
+	// Beneficio por nivel del lugar (para Habitué o más).
+	BeneficioNivel string `json:"beneficioNivel,omitempty"`
 }
 
 // Cargo por servicio por persona: 7,5 % del precio, redondeado a $100 (lo paga quien compra).
@@ -350,6 +357,9 @@ func (s *Servicio) Crear(ctx context.Context, usuarioID string, e Entrada) (Plan
 	}
 	var id string
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		if err := s.topeAbiertos(ctx, tx, usuarioID); err != nil {
+			return err
+		}
 		if err := archivos.ExigirPropias(ctx, tx, s.APIPublica, "foto", []string{usuarioID}, nil, e.Foto); err != nil {
 			return err
 		}
@@ -403,6 +413,40 @@ func (s *Servicio) Crear(ctx context.Context, usuarioID string, e Entrada) (Plan
 	return s.Ver(ctx, usuarioID, id, nil)
 }
 
+// Planes abiertos a la vez (que todavía no terminaron) por persona: contra el spam de planes.
+const (
+	AbiertosGratis = 3
+	AbiertosPlus   = 5
+)
+
+// topeAbiertos frena un plan nuevo si ya tiene AbiertosGratis abiertos (AbiertosPlus con Plus).
+func (s *Servicio) topeAbiertos(ctx context.Context, tx pgx.Tx, usuarioID string) error {
+	// Un candado por persona: dos «Publicar» a la vez no pasan los dos con el último lugar.
+	if err := plus.Bloquear(ctx, tx, usuarioID); err != nil {
+		return err
+	}
+	var abiertos int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM planes WHERE organizador_id = $1 AND cancelado_en IS NULL
+		AND empieza_en + make_interval(mins => duracion_min) > $2`, usuarioID, s.ahora()).Scan(&abiertos); err != nil {
+		return err
+	}
+	if abiertos < AbiertosGratis {
+		return nil
+	}
+	e, err := plus.Leer(ctx, tx, usuarioID, s.ahora())
+	if err != nil {
+		return err
+	}
+	if e.Activo && abiertos < AbiertosPlus {
+		return nil
+	}
+	tope := AbiertosGratis
+	if e.Activo {
+		tope = AbiertosPlus
+	}
+	return problema.Conflicto("tope_planes", fmt.Sprintf("Ya tenés %d planes abiertos. Cuando pase uno, armás otro.", tope))
+}
+
 // columnas del plan con todo lo que hace falta para mostrarlo. $1 es quien mira.
 const columnas = `
 	p.id, p.slug, p.titulo, p.categoria, p.descripcion, p.empieza_en, p.duracion_min, p.recurrente,
@@ -413,7 +457,7 @@ const columnas = `
 	coalesce(m.estado, 'ninguno'), coalesce(m.cantidad, 0),
 	CASE WHEN p.organizador_id = $1 THEN
 		(SELECT count(*) FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'pendiente') ELSE 0 END,
-	l.id, coalesce(l.slug, ''), coalesce(l.nombre, ''), coalesce(l.zona, ''), coalesce(l.foto, ''),
+	l.id, coalesce(l.slug, ''), coalesce(l.nombre, ''), coalesce(l.zona, ''), coalesce(l.foto, ''), coalesce(l.beneficio_nivel, ''),
 	p.cobro, p.precio_centavos, p.sena_pct, p.incluye, p.cancelacion, p.beneficio, p.acepta_grupos,
 	p.destacado_en IS NOT NULL,
 	CASE WHEN p.organizador_id = $1 THEN CASE p.moderacion WHEN 'revisar' THEN 'revision' WHEN 'oculto' THEN 'oculto' ELSE '' END
@@ -454,7 +498,7 @@ func escanear(row pgx.Row) (Plan, error) {
 		&p.Organizador.ID, &p.Organizador.Nombre, &p.Organizador.Foto, &p.Organizador.Edad,
 		&p.Organizador.Verificada, &p.Organizador.Asistencia.Fue, &p.Organizador.Asistencia.De,
 		&p.MiEstado, &p.MiCantidad, &p.Pendientes,
-		&lugarID, &lugar.Slug, &lugar.Nombre, &lugar.Zona, &lugar.Foto,
+		&lugarID, &lugar.Slug, &lugar.Nombre, &lugar.Zona, &lugar.Foto, &lugar.BeneficioNivel,
 		&p.Cobro, &p.PrecioCentavos, &p.SenaPct, &p.Incluye, &p.Cancelacion, &p.Beneficio, &p.AceptaGrupos, &p.Destacado, &p.Moderacion)
 	if lugarID != nil {
 		lugar.ID = *lugarID
@@ -548,7 +592,7 @@ func anonimo(p *Plan) {
 		nombre, _, _ := strings.Cut(strings.TrimSpace(x.Nombre), " ")
 		// El badge de verificada y la asistencia son la reputación que se ve en el plan: quedan.
 		return Persona{Nombre: nombre, Foto: x.Foto, Verificada: x.Verificada, Asistencia: x.Asistencia,
-			Organizador: x.Organizador}
+			Organizador: x.Organizador, Anfitrion: x.Anfitrion}
 	}
 	p.Organizador = corto(p.Organizador)
 	for i := range p.Van {
@@ -587,7 +631,27 @@ func (s *Servicio) completar(ctx context.Context, tx pgx.Tx, usuarioID string, p
 		u.Organizador = u.ID == por[planID].Organizador.ID
 		por[planID].Van = append(por[planID].Van, u)
 	}
-	return rows.Err()
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	// «Anfitrión» de quienes organizan (una consulta para toda la lista).
+	var orgs []string
+	vistos := map[string]bool{}
+	for _, p := range ps {
+		if id := p.Organizador.ID; id != "" && !vistos[id] {
+			vistos[id] = true
+			orgs = append(orgs, id)
+		}
+	}
+	anf, err := logros.Anfitriones(ctx, tx, orgs, s.ahora())
+	if err != nil {
+		return err
+	}
+	for _, p := range ps {
+		p.Organizador.Anfitrion = anf[p.Organizador.ID]
+	}
+	return nil
 }
 
 // Filtro de las listas.
@@ -679,7 +743,9 @@ func (s *Servicio) listar(ctx context.Context, usuarioID string, f Filtro) ([]Pl
 	args := []any{usuarioID, f.Desde, f.Hasta}
 	// Los de una cuenta suspendida (o dada de baja) no salen.
 	where := []string{"p.cancelado_en IS NULL", "p.empieza_en BETWEEN $2 AND $3", "p.visibilidad <> 'link'", visible, noOculto,
-		"o.suspendido_en IS NULL", "o.baja_en IS NULL"}
+		"o.suspendido_en IS NULL", "o.baja_en IS NULL",
+		// «No me interesa»: lo que la persona ocultó por hoy no vuelve a salir.
+		"NOT EXISTS (SELECT 1 FROM planes_ocultos h WHERE h.usuario_id = $1 AND h.plan_id = p.id AND h.hasta > now())"}
 	arg := func(v any) string { args = append(args, v); return fmt.Sprintf("$%d", len(args)) }
 	if f.Lat != nil && f.Lng != nil {
 		dLat := f.RadioKm / 111.0

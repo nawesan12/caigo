@@ -13,6 +13,7 @@ import (
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/logros"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/lugares"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
@@ -127,6 +128,12 @@ func programados(ctx context.Context, app *db.Pool) {
 	for {
 		if _, err := av.Pasada(ctx); err != nil && ctx.Err() == nil {
 			slog.Warn("avisos programados", "error", err)
+		}
+		// «Traé a alguien»: la semana de Plus cuando el referido ya fue a su primer plan.
+		if n, err := logros.PremiarReferidos(ctx, app, time.Now()); err != nil && ctx.Err() == nil {
+			slog.Warn("referidos", "error", err)
+		} else if n > 0 {
+			slog.Info("referidos premiados", "cantidad", n)
 		}
 		if n, err := ps.Recurrencia(ctx); err != nil && ctx.Err() == nil {
 			slog.Warn("recurrencia", "error", err)
