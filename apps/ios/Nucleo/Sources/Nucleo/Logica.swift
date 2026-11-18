@@ -248,7 +248,7 @@ public enum Moderacion {
 }
 
 /// La línea de confianza de la tarjeta y el detalle: «Todos verificados · Organiza Martín (9/10) · Van 2 chicas».
-/// Cada parte lleva espacios duros: el renglón sólo corta entre partes (sin palabras solas al final).
+/// Cada parte lleva espacios duros y el «·» va pegado a la anterior: el renglón sólo corta después de un «·».
 public func lineaConfianza(_ p: Plan) -> String? {
     var partes: [String] = []
     if p.confianza.todosVerificados { partes.append("Todos verificados") }
@@ -265,5 +265,5 @@ public func lineaConfianza(_ p: Plan) -> String? {
         partes.append("Sólo chicas")
     }
     if partes.isEmpty { return nil }
-    return partes.map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }.joined(separator: " · ")
+    return partes.map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }.joined(separator: "\u{00A0}· ")
 }
