@@ -1,5 +1,18 @@
 # Estado
 
+## 18/11/2026: revisión con ojos de usuario (rama `revision-usuario`, sin desplegar)
+
+Stack local con 5 cuentas (sesiones `cs_` directas en la base) y flujos de punta a punta. API: con ingreso libre quien
+organiza recibe «X se sumó» / «X se bajó» (eventos `solicitud.sumada` y `solicitud.salio`); «Plan completo» una sola
+vez; mutuo en Gente avisa «¡Es mutuo con…!» a los dos; la carta del mazo sin planes ocultos; el QR del organizador le
+cuenta su check-in; la asistencia sólo mira planes con algún check-in (**migración 00027**). Web: foto de la categoría
+o del lugar si el plan no tiene; avatar con la inicial debajo; todas las fotos en el perfil ajeno; «Hoy» sin horas
+pasadas; «Plan publicado» dice Explorar si no es de las próximas 3 h; link de un plan cancelado; con la API caída, la
+página de error de Caigo. Apps (sin compilar): foto vieja al reusar en iOS, foto de categoría de respaldo, entradas con
+la foto del lugar, Reintentar en Recibidos y el mazo, solicitudes sin doble respuesta, «Sumarme» cerrado a la media
+hora, confirmar bajarse, doble toque en publicar y pagar, avatar con inicial. Para desplegar: pg_dump,
+`desplegar-api.sh --migrar` (00027), web y las apps en la próxima tanda.
+
 ## 18/11/2026: moderación con IA (rama `moderacion-ia`, sin desplegar)
 
 Filtro propio (`internal/dominio/moderacion/filtro.go`) y, para lo dudoso, Claude Haiku 5.5 (`internal/plataforma/ia`,

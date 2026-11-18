@@ -133,6 +133,17 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | PATCH | `/v1/yo` | sesión | dominio/personas |
 | PUT | `/v1/yo/ubicacion` | sesión | dominio/personas |
 
+## Revisión con ojos de usuario (18/11, rama `revision-usuario`)
+- Push nuevos a quien organiza: `solicitud.sumada` (alguien entró directo a un plan de ingreso libre: «Lu se sumó»,
+  «Truco · Somos 3 de 4.» o «¡Plan completo!») y `solicitud.salio` (alguien que estaba aceptado se bajó: «Lu se bajó»,
+  «… · Se liberó un lugar.»). Datos `{"plan": id}`. Retirar un pedido pendiente no avisa.
+- `interes.nuevo` mutuo en modo Gente: «¡Es mutuo con X!» a los dos con `{"privado": id}` (antes sólo en Citas).
+- «Plan completo. A disfrutar.» se escribe una sola vez por plan.
+- `GET /v1/gente/mazo`: `proximos` sin planes ocultos por las normas ni de cuentas suspendidas o borradas.
+- `POST /v1/planes/{id}/checkin` con `qr`/`nfc` (el código del organizador) marca también el check-in de quien organiza.
+- Asistencia (`asistencia.fue/de` en personas, solicitudes y planes): sólo cuenta planes terminados donde alguien hizo
+  check-in (migración 00027). Un plan sin ningún check-in ya no es una falta para nadie.
+
 ## Moderación automática (18/11, rama `moderacion-ia`, sin desplegar)
 
 Primero un filtro propio (sin costo, al instante) y sólo lo dudoso va a Claude Haiku 5.5 (Anthropic). A la IA va
