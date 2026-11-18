@@ -188,7 +188,37 @@ Variables (api y worker): `ANTHROPIC_API_KEY` (sin ella, sin IA), `CAIGO_IA_TOPE
 `CAIGO_IA_PRUEBA_REAL=1 ANTHROPIC_API_KEY=… go test ./internal/dominio/moderacion -run CacheReal -v`.
 Guarda: la cola se borra al año de resuelta (y al año de purgada la cuenta).
 
-## Sin DNI no se usa Caigo (16/11, decisión de Nahuel)
+## Mirar sin DNI; el DNI al primer «Caigo» (18/11, Nahuel; rama `mejoras-primer-uso`)
+
+Revierte en parte «Sin DNI no se usa Caigo» (16/11, abajo): sin DNI se **mira**; el DNI sigue siendo obligatorio
+para **hacer algo con otra gente**, y lo exige la API (no sólo las apps).
+
+- **Se puede sin DNI** (`sesion.Exenta` y `sesion.Mirar`), además de lo de antes: `GET /v1/planes/ahora|explorar|{id}|mios`,
+  `GET /v1/personas/{id}`, `PUT /v1/yo/ubicacion`, `GET /v1/invitaciones|pases|plus|gente|privados` (lo propio:
+  sin DNI viene vacío), y lo de seguridad: `GET/PUT/DELETE /v1/bloqueos…` y `POST /v1/reportes`.
+- **Recortes sin DNI.** El detalle del plan viene sin `direccion` (aunque el plan no la oculte; quien organiza o
+  está aceptado sí la ve). El perfil ajeno viene sin `zona`, `trabajo`, `proximos` ni `compartidos` (se mira, no
+  se ubica a nadie). Las listas ya no traían dirección.
+- **Pide DNI (403 `falta_dni`)**: sumarse, crear y editar planes, solicitudes, chat del plan y privados (leer y
+  mandar), el mazo de Gente y sus reacciones, sumar a Mi gente, invitar, entradas, check-in, ¿Repetimos?, en vivo,
+  tap, Plus (comprar) y el WebSocket. El detalle ahora dice «Para sumarte, armar un plan o chatear, verificá que
+  seas vos con tu DNI. Es un minuto.».
+- **Verificarse es un solo paso.** `POST /v1/verificacion/dni` ya no pide antes el teléfono ni la selfie suelta
+  (chau 422 `falta_telefono`/`falta_selfie` ahí): la selfie con prueba de vida del DNI queda también como la selfie
+  de la cuenta (`selfie_en`). El teléfono queda opcional (Perfil › Verificación).
+
+**Confianza en la tarjeta.** Cada plan (listas, detalle y rutas públicas) trae
+`confianza: {todosVerificados, soloChicas, chicas?}`: `todosVerificados` si quien organiza y todos los que van
+tienen el DNI; `soloChicas` si es un plan «Solo mujeres»; `chicas` = cuántas van, sólo en esos planes y desde 2
+(no se señala a una sola). Caigo no guarda el género (AAIP 1.2, 00022), así que en un plan mixto **no** se cuenta
+cuántas mujeres van. La asistencia de quien organiza ya viene en `organizador.asistencia` (`app.asistencia`, 00027:
+sólo planes con check-in). Las apps arman la línea: «Todos verificados · Organiza Martín (9/10) · Van 2 chicas».
+
+**Seguridad gratis.** Ahora/Explorar (con sesión y `/v1/publico/…`): `verificados=1` deja de ser de Plus y suma
+`chicas=1` («Sólo chicas»: planes «Solo mujeres»), gratis para cualquiera. Siguen de Plus `faltan`, `edadDesde`,
+`edadHasta` y `gratis`.
+
+## Sin DNI no se usa Caigo (16/11, decisión de Nahuel; en parte revertido el 18/11, arriba)
 
 **El DNI se aprueba al subirlo.** `POST /v1/verificacion/dni` (mismo cuerpo: `frenteId`, `dorsoId`, `selfieId`,
 `numero`, `nacimiento`) responde 204 y la verificación queda `aprobada` en el momento: `dni_en`, `verificada: true`
@@ -298,9 +328,10 @@ Cambios de contrato para las apps y la web (además de «Sin DNI no se usa Caigo
   ve primero a quien se lo dio, en el mazo y en «Les interesás».
 - `POST /v1/planes/{id}/destacar` (Plus, uno por semana, plan propio que no pasó): el plan sale con
   `destacado: true` y va primero en Ahora y Explorar. Sin Plus: 403 `plus`; ya usado: 409 `destacado_usado`.
-- Filtros finos de Ahora/Explorar (Plus): `verificados=1`, `faltan=N`, `edadDesde`,
+- Filtros finos de Ahora/Explorar (Plus): `faltan=N`, `edadDesde`,
   `edadHasta` (edad de quien organiza) y `gratis=1`. Sin Plus: 403 `plus`. Los básicos (`categoria`,
-  `ciudad`, `desde`, `hasta`, `lat`, `lng`, `radio`) son para todos.
+  `ciudad`, `desde`, `hasta`, `lat`, `lng`, `radio`) y los de seguridad (`verificados=1`, `chicas=1`; desde el
+  18/11) son para todos.
 - `POST /v1/planes/{id}/entradas` acepta `modo`: `entrada` (pagar todo) o `sena` (sólo si el plan
   tiene seña). Vacío: lo que diga el plan.
 

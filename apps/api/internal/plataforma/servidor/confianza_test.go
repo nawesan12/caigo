@@ -88,8 +88,8 @@ func TestVerificacion(t *testing.T) {
 	e := nuevoEntorno(t)
 	mar, otro, equipo := e.personaSinDNI("Martina"), e.persona("Otro"), e.persona("Nahuel")
 	e.alEquipo(equipo)
-	// Sin el DNI, Caigo no se puede usar (salvo el perfil y la verificación).
-	if c := codigo(t, e, mar, "GET", "/v1/planes/ahora", nil, http.StatusForbidden); c != "falta_dni" {
+	// Sin el DNI se mira, pero no se arma nada (TestMirarSinDNI tiene el detalle).
+	if c := codigo(t, e, mar, "GET", "/v1/gente/mazo?modo=gente", nil, http.StatusForbidden); c != "falta_dni" {
 		t.Fatalf("sin DNI: %s", c)
 	}
 	e.pedir(mar, "GET", "/v1/yo", nil, http.StatusOK, nil)
@@ -128,7 +128,7 @@ func TestVerificacion(t *testing.T) {
 		"apellido": "GOMEZ", "nombres": "MARTINA", "sexo": "F", "nacimiento": "1999-03-02"}
 	e.pedir(mar, "POST", "/v1/verificacion/dni", dni, http.StatusNoContent, nil)
 	// Se aprueba al subirlo: ya tiene la edad del DNI y puede usar Caigo.
-	e.pedir(mar, "GET", "/v1/planes/ahora", nil, http.StatusOK, nil)
+	e.pedir(mar, "GET", "/v1/gente/mazo?modo=gente", nil, http.StatusOK, nil)
 	if c := codigo(t, e, mar, "POST", "/v1/verificacion/dni", dni, http.StatusConflict); c != "ya_verificado" {
 		t.Fatalf("otra vez: %s", c)
 	}

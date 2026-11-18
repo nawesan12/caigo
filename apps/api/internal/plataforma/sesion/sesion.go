@@ -39,7 +39,8 @@ type Persona struct {
 	Nombre string
 	Equipo bool
 	// DNI: tiene el DNI aprobado (usuarios.dni_en). Sin DNI, Exigir sólo deja pasar las rutas exentas
-	// (ver Exenta): el perfil, la verificación, la baja, el panel de lugares y el equipo.
+	// (ver Exenta): el perfil, la verificación, la baja, mirar planes y perfiles, bloquear y reportar,
+	// el panel de lugares y el equipo.
 	DNI bool
 }
 
@@ -307,26 +308,51 @@ func (s *Resolvedor) Exigir(next http.Handler) http.Handler {
 	})
 }
 
-// FaltaDNI es lo que ve quien todavía no verificó su DNI y quiere usar Caigo (decisión de Nahuel,
-// 16/11: sin DNI aprobado no se puede hacer nada). Las apps lo mapean a la pantalla del DNI.
+// FaltaDNI es lo que ve quien todavía no verificó su DNI y quiere sumarse, crear un plan, chatear o
+// ver a la gente. Mirar planes y perfiles se puede sin DNI (Nahuel, 18/11: «Mirar sin DNI»; antes,
+// desde el 16/11, sin DNI no se podía hacer nada). Las apps lo mapean a la pantalla del DNI.
 func FaltaDNI() *problema.Problema {
 	return &problema.Problema{Estado: http.StatusForbidden, Codigo: "falta_dni", Titulo: "Falta tu DNI",
-		Detalle: "Antes de usar Caigo, verificá tu DNI."}
+		Detalle: "Para sumarte, armar un plan o chatear, verificá que seas vos con tu DNI. Es un minuto."}
 }
 
-// Exenta dice si una ruta con sesión (su patrón: "GET /v1/yo") se puede usar sin el DNI aprobado: el
-// perfil propio, la verificación y sus fotos, la baja, la sesión y los dispositivos de push, el panel
-// de lugares (otra regla: lo usan comercios) y el backoffice del equipo. Todo lo demás pide DNI.
+// Exenta dice si una ruta con sesión (su patrón: "GET /v1/yo") se puede usar sin el DNI aprobado:
+//   - el perfil propio, la verificación y sus fotos, la baja, la sesión y los dispositivos de push, el
+//     panel de lugares (otra regla: lo usan comercios) y el backoffice del equipo;
+//   - mirar (Mirar): las listas de planes, el detalle y los perfiles, y lo propio que esas pantallas
+//     piden al abrir (Mis planes, Mi gente, privados, invitaciones, pases, Plus), que sin DNI
+//     viene vacío;
+//   - lo de seguridad: bloquear y reportar (siempre, con o sin DNI).
+//
+// Todo lo que hace algo con otra gente (sumarse, crear, chatear, privados, el mazo, invitar, entradas,
+// check-in) pide el DNI.
 func Exenta(patron string) bool {
 	metodo, ruta, _ := strings.Cut(patron, " ")
 	switch metodo + " " + ruta {
 	case "GET /v1/yo", "PATCH /v1/yo", "DELETE /v1/yo", "DELETE /v1/cuenta",
 		"POST /v1/archivos", "GET /v1/archivos/{id}", "POST /v1/sesion", "DELETE /v1/sesion",
-		"PUT /v1/dispositivos", "DELETE /v1/dispositivos/{token}", "POST /v1/mercadopago/vuelta":
+		"PUT /v1/dispositivos", "DELETE /v1/dispositivos/{token}", "POST /v1/mercadopago/vuelta",
+		"GET /v1/bloqueos", "PUT /v1/bloqueos/{id}", "DELETE /v1/bloqueos/{id}", "POST /v1/reportes":
+		return true
+	}
+	if Mirar(patron) {
 		return true
 	}
 	return ruta == "/v1/verificacion" || strings.HasPrefix(ruta, "/v1/verificacion/") ||
 		ruta == "/v1/lugares" || strings.HasPrefix(ruta, "/v1/lugares/") || strings.HasPrefix(ruta, "/v1/equipo/")
+}
+
+// Mirar dice si la ruta es de las de mirar sin DNI. En esas, los handlers recortan lo que no se
+// muestra sin DNI (ver planes.SinDNI y personas.SinDNI): la dirección exacta y, de una persona, el
+// barrio, el trabajo y sus próximos planes.
+func Mirar(patron string) bool {
+	switch patron {
+	case "GET /v1/planes/ahora", "GET /v1/planes/explorar", "GET /v1/planes/{id}", "GET /v1/planes/mios",
+		"GET /v1/personas/{id}", "PUT /v1/yo/ubicacion", "GET /v1/invitaciones", "GET /v1/pases",
+		"GET /v1/plus", "GET /v1/gente", "GET /v1/privados":
+		return true
+	}
+	return false
 }
 
 // Comodines de las rutas que son ids (uuid). Uno mal formado es un 404 antes de llegar a la base

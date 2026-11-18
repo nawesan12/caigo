@@ -137,6 +137,43 @@ type Plan struct {
 	Cancelacion    string `json:"cancelacion,omitempty"`
 	Beneficio      string `json:"beneficio,omitempty"`
 	AceptaGrupos   bool   `json:"aceptaGrupos"`
+	// La línea de confianza de la tarjeta («Todos verificados · Organiza Martín (9/10) · Van 2 chicas»).
+	Confianza Confianza `json:"confianza"`
+}
+
+// Confianza es lo que la tarjeta del plan muestra para que se vea que es seguro, con datos reales y
+// sin exponer de más. La asistencia de quien organiza ya viene en organizador.asistencia (app.asistencia,
+// 00027: sólo planes con check-in).
+type Confianza struct {
+	// Todos los que van (quien organiza incluido) tienen el DNI verificado.
+	TodosVerificados bool `json:"todosVerificados"`
+	// Un plan «Solo mujeres». Caigo no guarda el género de nadie (AAIP 1.2, 00022): lo único que se sabe
+	// de quiénes van es que, en un plan así, cada una lo confirmó al sumarse.
+	SoloChicas bool `json:"soloChicas"`
+	// Cuántas van, sólo en un plan «Solo mujeres» y desde 2 (para no señalar a una sola). 0: no se muestra.
+	Chicas int `json:"chicas,omitempty"`
+}
+
+// confianza arma la línea de confianza de un plan con los que van ya cargados (completar).
+func confianza(p *Plan) {
+	c := Confianza{TodosVerificados: len(p.Van) > 0 && p.Organizador.Verificada, SoloChicas: p.Genero == "mujeres"}
+	for _, v := range p.Van {
+		if !v.Verificada {
+			c.TodosVerificados = false
+		}
+	}
+	if c.SoloChicas && p.Somos >= 2 {
+		c.Chicas = p.Somos
+	}
+	p.Confianza = c
+}
+
+// SinDNI recorta un plan para quien lo mira sin el DNI verificado (puede mirar, no sumarse): sin la
+// dirección exacta, que se ve recién al verificarse (y, si el plan la oculta, al entrar).
+func SinDNI(p *Plan) {
+	if p.MiEstado != "organizador" && p.MiEstado != "aceptada" {
+		p.Direccion = nil
+	}
 }
 
 // LugarCorto es el lugar aliado de un plan.
@@ -587,7 +624,13 @@ func (s *Servicio) completar(ctx context.Context, tx pgx.Tx, usuarioID string, p
 		u.Organizador = u.ID == por[planID].Organizador.ID
 		por[planID].Van = append(por[planID].Van, u)
 	}
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, p := range ps {
+		confianza(p)
+	}
+	return nil
 }
 
 // Filtro de las listas.
@@ -602,18 +645,20 @@ type Filtro struct {
 	// Texto libre (título, zona o lugar; 2 letras o más) y zona exacta.
 	Q, Zona string
 	Limite  int
-	// Filtros finos (Caigo Plus): sólo verificados, que falten al menos N, edad de quien
-	// organiza y sólo gratis.
+	// Seguridad, gratis siempre (Plus vende comodidad, nunca seguridad): sólo planes «sólo
+	// verificados» y sólo planes «Solo mujeres» («Sólo chicas»).
 	SoloVerificados bool
-	FaltanMin       int
-	EdadDesde       int
-	EdadHasta       int
-	SoloGratis      bool
+	SoloChicas      bool
+	// Filtros finos (Caigo Plus): que falten al menos N, edad de quien organiza y sólo gratis.
+	FaltanMin  int
+	EdadDesde  int
+	EdadHasta  int
+	SoloGratis bool
 }
 
-// finos: si pide algún filtro de Plus.
+// finos: si pide algún filtro de Plus. Los de seguridad (verificados, sólo chicas) no son de Plus.
 func (f Filtro) finos() bool {
-	return f.SoloVerificados || f.FaltanMin > 0 || f.EdadDesde > 0 || f.EdadHasta > 0 || f.SoloGratis
+	return f.FaltanMin > 0 || f.EdadDesde > 0 || f.EdadHasta > 0 || f.SoloGratis
 }
 
 // Ahora: los planes de las próximas 3 horas cerca, del más cercano al más lejano.
@@ -703,6 +748,9 @@ func (s *Servicio) listar(ctx context.Context, usuarioID string, f Filtro) ([]Pl
 	}
 	if f.SoloVerificados {
 		where = append(where, "p.solo_verificados")
+	}
+	if f.SoloChicas {
+		where = append(where, "p.genero = 'mujeres'")
 	}
 	if f.FaltanMin > 0 {
 		where = append(where, "p.total - coalesce(c.sumados, 0) >= "+arg(f.FaltanMin))
