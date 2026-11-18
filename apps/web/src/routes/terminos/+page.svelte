@@ -5,7 +5,7 @@
 <Legal
 	titulo="Términos y&nbsp;condiciones"
 	ruta="/terminos"
-	vigencia="12 de noviembre de 2026"
+	vigencia="18 de noviembre de 2026"
 	descripcion="Los términos de Caigo: cómo funcionan los planes, las sumadas, los pagos con Mercado Pago y la verificación, y qué esperamos de toda la comunidad."
 >
 	<p>
@@ -58,6 +58,14 @@
 		Podés reportar a una persona o un plan y bloquear a quien quieras desde la app. El equipo de
 		Caigo revisa los reportes y puede borrar contenido y suspender cuentas que no cumplan estas
 		reglas. Si creés que te suspendimos por error, escribinos.
+	</p>
+	<p>
+		Además, los títulos y las descripciones de los planes y los mensajes pasan por una moderación
+		automática. Si algo no cumple estas reglas, puede no publicarse (te decimos por qué, para que lo
+		corrijas) u ocultarse después de publicado. Lo que se marca lo revisa una persona del equipo,
+		que puede volver a mostrarlo o tomar las medidas de arriba. Si creés que nos equivocamos,
+		escribinos a <a href="mailto:hola@caigo.com.ar">hola@caigo.com.ar</a> y lo revisamos. Cómo se
+		tratan esos textos está en la <a href="/privacidad">política de&nbsp;privacidad</a>.
 	</p>
 
 	<h2>5. Planes y encuentros</h2>

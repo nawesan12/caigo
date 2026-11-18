@@ -10,12 +10,14 @@
 	huella del número (no el número ni el nombre), y sus fotos y la selfie se borran cuando el equipo
 	revisa la verificación, y como máximo a los 30 días (migraciones 00021, 00022 y 00023,
 	confianza/fotos_dni.go). Desde el 16/11 el DNI es obligatorio y se aprueba al subirlo.
+	Moderación automática (18/11, docs/api.md): a Anthropic va sólo el texto a revisar; la cola del
+	equipo (tabla moderaciones, migración 00026) se borra al año de resuelta.
 -->
 
 <Legal
 	titulo="Política de&nbsp;privacidad"
 	ruta="/privacidad"
-	vigencia="13 de noviembre de 2026"
+	vigencia="18 de noviembre de 2026"
 	descripcion="Qué datos usa Caigo (teléfono, selfie, ubicación), para qué, con quién los compartimos y cómo pedís verlos, corregirlos o borrarlos cuando quieras."
 >
 	<p>
@@ -106,6 +108,15 @@
 			Para cuidar a la comunidad: verificar que cada cuenta sea una persona real y mayor de edad,
 			que no haya cuentas repetidas, y revisar reportes.
 		</li>
+		<li>
+			Para moderar lo que se publica: los títulos y las descripciones de los planes y los mensajes
+			(del chat del plan y los privados) pasan por un filtro automático propio que busca insultos,
+			acoso, contenido sexual, estafas o datos de contacto. Si el filtro tiene dudas, manda
+			<b>sólo ese texto</b> a Anthropic para que lo clasifique (ver la sección 5). Lo que se marca
+			puede no publicarse u ocultarse, y lo revisa una persona del equipo. Si creés que nos
+			equivocamos, pedí que lo revisemos escribiendo a
+			<a href="mailto:privacidad@caigo.com.ar">privacidad@caigo.com.ar</a>.
+		</li>
 		<li>Para cobrar las entradas, las señas y Caigo Plus, y llevar la contabilidad.</li>
 		<li>Para mejorar Caigo con estadísticas que no identifican a nadie.</li>
 	</ul>
@@ -149,6 +160,15 @@
 			navegador y nuestro servidor pasa por su red, en Estados Unidos y otros países.
 		</li>
 		<li>Clerk (ingreso con Google, Apple o mail y contraseña), en Estados Unidos.</li>
+		<li>
+			Anthropic, PBC (Claude), en Estados Unidos, para clasificar los textos en los que el filtro
+			automático tiene dudas. Le llega sólo ese texto: el título y la descripción de un plan o un
+			mensaje. <b
+				>Nunca le mandamos tu nombre, tus fotos, tu DNI, tu ubicación ni el resto de
+				la&nbsp;conversación.</b
+			> Anthropic no usa esos textos para entrenar sus modelos (es su servicio comercial) y los guarda
+			por un plazo&nbsp;limitado.
+		</li>
 		<li>Mercado Pago (cobros de entradas, señas y Caigo Plus en la web).</li>
 		<li>
 			Apple y Google (compras en la app, avisos y pases de Wallet), en Estados Unidos y otros
@@ -208,6 +228,10 @@
 		<li>
 			Las fotos del DNI y la selfie de la verificación del DNI: hasta que el equipo revisa la
 			verificación, y como máximo 30 días. En ese momento se borran.
+		</li>
+		<li>
+			Los textos que marca la moderación automática y quedan para que los revise el equipo: hasta un
+			año después de&nbsp;resueltos.
 		</li>
 	</ul>
 
