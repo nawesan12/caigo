@@ -285,7 +285,8 @@ func (s *Servicio) VerEnVivo(ctx context.Context, token string) (EnVivo, error) 
 				s.checkin_en IS NOT NULL
 			FROM planes p JOIN planes_direccion d ON d.plan_id = p.id
 			JOIN solicitudes s ON s.plan_id = p.id AND s.usuario_id::text = $2 JOIN usuarios u ON u.id = s.usuario_id
-			WHERE p.id::text = $1`, partes[0], partes[1]).Scan(&v.Quien, &v.Plan, &v.EmpiezaEn, &dur, &v.Lugar,
+			-- El link vale mientras siga en el plan: si la sacaron o se canceló, la dirección ya no se muestra.
+			WHERE p.id::text = $1 AND s.estado = 'aceptada' AND p.cancelado_en IS NULL`, partes[0], partes[1]).Scan(&v.Quien, &v.Plan, &v.EmpiezaEn, &dur, &v.Lugar,
 			&v.Direccion, &v.Lat, &v.Lng, &v.Llego); err != nil {
 			return err
 		}
