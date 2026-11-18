@@ -1,5 +1,5 @@
 import { error, json } from '@sveltejs/kit';
-import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
+import { conSesion, ErrorApi, FOTO_MAX, FOTO_PESADA, mensajeDe } from '#lib/server/api.ts';
 import type { RequestHandler } from './$types';
 
 const TIPOS = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
@@ -15,8 +15,7 @@ export const POST: RequestHandler = async (event) => {
 	if (!TIPOS.includes(tipo))
 		return json({ error: 'Subí una foto (JPG, PNG o WebP).' }, { status: 400 });
 	const cuerpo = await event.request.arrayBuffer();
-	if (cuerpo.byteLength > 12 * 1024 * 1024)
-		return json({ error: 'La foto es muy pesada (hasta 12 MB).' }, { status: 413 });
+	if (cuerpo.byteLength > FOTO_MAX) return json({ error: FOTO_PESADA }, { status: 413 });
 	try {
 		const a = await conSesion<{ id: string; url: string }>(
 			event,

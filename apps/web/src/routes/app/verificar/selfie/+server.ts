@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { dev } from '$app/env';
-import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
+import { conSesion, ErrorApi, FOTO_MAX, FOTO_PESADA, mensajeDe } from '#lib/server/api.ts';
 import { COOKIE_SELFIE } from '#lib/server/cuenta.ts';
 import type { RequestHandler } from './$types';
 
@@ -16,8 +16,7 @@ export const POST: RequestHandler = async (event) => {
 	if (!['image/jpeg', 'image/png', 'image/webp'].includes(tipo))
 		return json({ error: 'Subí una foto (JPG o PNG).' }, { status: 400 });
 	const cuerpo = await event.request.arrayBuffer();
-	if (cuerpo.byteLength > 12 * 1024 * 1024)
-		return json({ error: 'La foto es muy pesada.' }, { status: 413 });
+	if (cuerpo.byteLength > FOTO_MAX) return json({ error: FOTO_PESADA }, { status: 413 });
 	try {
 		const a = await conSesion<{ id: string }>(event, 'POST', '/v1/archivos?tipo=selfie', {
 			crudo: cuerpo,

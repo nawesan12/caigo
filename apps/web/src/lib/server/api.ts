@@ -27,6 +27,13 @@ export class ErrorApi extends Error {
 	}
 }
 
+/**
+ * El tope de una foto: el mismo que la API (archivos.Maximo, 8 MB). Con más, el servidor web la
+ * aceptaba y la API la cortaba después.
+ */
+export const FOTO_MAX = 8 << 20;
+export const FOTO_PESADA = 'La foto es muy pesada (hasta 8 MB).';
+
 const SIN_RESPUESTA = 'No pudimos hablar con Caigo. Probá de nuevo en un rato.';
 
 type Opciones = {
