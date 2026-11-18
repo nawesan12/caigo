@@ -329,11 +329,11 @@ fun Avatar(
             .then(if (borde > 0.dp) Modifier.border(borde, colorBorde, CircleShape) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
+        // La inicial va siempre debajo: si la foto tarda o no carga (sin red, borrada), no queda un círculo vacío.
+        T(texto ?: nombre.take(1).uppercase(), tamTexto, 800, fg, unRenglon = true)
         if (!foto.isNullOrBlank()) {
             AsyncImage(foto, null, Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
             if (borde > 0.dp) Box(Modifier.fillMaxSize().border(borde, colorBorde, CircleShape))
-        } else {
-            T(texto ?: nombre.take(1).uppercase(), tamTexto, 800, fg, unRenglon = true)
         }
     }
 }

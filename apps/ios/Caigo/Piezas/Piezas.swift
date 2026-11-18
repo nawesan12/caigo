@@ -221,10 +221,10 @@ struct Avatar: View {
             Circle().fill(bg)
             Circle().fill(RadialGradient(stops: Fondo.paradas((0, rgba(255, 255, 255, 0.6)), (0.42, rgba(255, 255, 255, 0))),
                                          center: UnitPoint(x: 0.3, y: 0.25), startRadius: 0, endRadius: tam * 0.9))
+            // La inicial va siempre debajo: si la foto tarda o no carga (sin red, borrada), no queda un círculo vacío.
+            T(texto ?? String(nombre.prefix(1)).uppercased(), tamTexto ?? tam * 0.4, 800, fg, unRenglon: true)
             if let foto, !foto.isEmpty {
                 ImagenRed(url: foto).clipShape(Circle())
-            } else {
-                T(texto ?? String(nombre.prefix(1)).uppercased(), tamTexto ?? tam * 0.4, 800, fg, unRenglon: true)
             }
             if borde > 0 { Circle().strokeBorder(colorBorde ?? p.bordeAvatar, lineWidth: borde) }
         }
