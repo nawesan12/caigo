@@ -212,3 +212,26 @@ func TestCheckinConQRCuentaAlOrganizador(t *testing.T) {
 		t.Fatal("el organizador quedó sin check-in")
 	}
 }
+
+// Un plan que terminó sin ningún check-in no cuenta como falta para nadie (el check-in es opcional):
+// la asistencia sólo mira los planes donde alguien lo usó.
+func TestAsistenciaSoloConCheckin(t *testing.T) {
+	e := nuevoEntorno(t)
+	nico, lu := e.persona("Nico"), e.persona("Lu")
+	e.verificar(lu, true)
+	p := e.planNuevo(nico, nil)
+	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	e.sistema(`UPDATE planes SET empieza_en = now() - interval '1 day' WHERE id = $1`, p.ID)
+	asistencia := func() (int, int) {
+		var perfil struct{ Asistencia struct{ Fue, De int } }
+		e.pedir(nico, "GET", "/v1/personas/"+lu.id, nil, http.StatusOK, &perfil)
+		return perfil.Asistencia.Fue, perfil.Asistencia.De
+	}
+	if fue, de := asistencia(); fue != 0 || de != 0 {
+		t.Fatalf("sin check-in: %d de %d", fue, de)
+	}
+	e.sistema(`UPDATE solicitudes SET checkin_en = now(), checkin_metodo = 'geo' WHERE plan_id = $1 AND usuario_id = $2`, p.ID, nico.id)
+	if fue, de := asistencia(); fue != 0 || de != 1 {
+		t.Fatalf("con el check-in de otro: %d de %d", fue, de)
+	}
+}
