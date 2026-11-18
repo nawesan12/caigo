@@ -285,6 +285,8 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                     if (p.descripcion.isNotEmpty()) T(p.descripcion, 15f, 400, pal.texto2, alto = 1.5f)
                     if (p.lugar != null) TarjetaEntrada(p)
                     if (p.beneficio.isNotEmpty()) PlanesBeneficio(p.beneficio, desbloqueado = false)
+                    val beneficioNivel = p.lugar?.beneficioNivel.orEmpty()
+                    if (beneficioNivel.isNotEmpty()) T("Habitué o más: $beneficioNivel", 13f, 600, pal.texto2, alto = 1.4f)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         T("Requisitos", 13f, 700, pal.texto2, modifier = Modifier.padding(vertical = 6.dp))
                         requisitos(p).forEach {
@@ -542,6 +544,9 @@ private fun Organizador(ir: Ir, p: Plan) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 T("Organiza $nombre", 15f, 700, pal.texto, Modifier.weight(1f, fill = false), unRenglon = true)
                 if (o.verificada) Verificado(16.dp, color = if (pal.oscuro) C.lima else C.violeta, tilde = if (pal.oscuro) C.carbon else C.blanco)
+                if (o.anfitrion && p.lugar == null) {
+                    ChipFoto("Anfitrión", oscuro = false, fondo = if (pal.oscuro) Gel(vertical(Color(0xFF2E2A3D), Color(0xFF2E2A3D)), emptyList()) else Gels.chipClaro, color = pal.texto)
+                }
             }
             T(
                 if (p.lugar != null) "Lugar aliado · verificado por Caigo"

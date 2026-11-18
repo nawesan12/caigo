@@ -80,7 +80,9 @@ import ar.com.caigo.app.tema.gel
 import ar.com.caigo.app.tema.interna
 import ar.com.caigo.app.tema.px
 import ar.com.caigo.app.tema.rgba
+import ar.com.caigo.app.piezas.Sistema
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 
 /** Las categorías del filtro de Ahora (las del mockup 02). */
@@ -119,6 +121,10 @@ fun Ahora(ir: Ir, modoInicial: String?) {
     var invitaciones by remember { mutableStateOf<Invitaciones?>(null) }
     var vuelta by remember { mutableIntStateOf(0) }
     var pidio by rememberSaveable { mutableStateOf(false) }
+    // «No me interesa» y su «Deshacer».
+    val ocultos = remember { PlanesOcultos() }
+    // «Decidí rápido» abierto: los planes del mazo (los de la lista al abrirlo).
+    var decidiendo by remember { mutableStateOf<List<Plan>?>(null) }
     val (permiso, pedir) = rememberPermisoUbicacion()
 
     val conCitas = yo?.intenciones?.contains("citas") == true
@@ -158,7 +164,7 @@ fun Ahora(ir: Ir, modoInicial: String?) {
     }
 
     if (modoActual == "planes" && mapa) {
-        MapaAhora(ir, planes.orEmpty(), punto, categoria, { categoria = it }, busqueda, { busqueda = it }, onLista = { mapa = false })
+        MapaAhora(ir, ocultos.visibles(planes.orEmpty()), punto, categoria, { categoria = it }, busqueda, { busqueda = it }, onLista = { mapa = false })
         return
     }
 
@@ -172,9 +178,23 @@ fun Ahora(ir: Ir, modoInicial: String?) {
             Encabezado(ir, modoActual, conCitas, lugarActual, invitaciones) { modo = it }
             if (modoActual == "planes") Chips(categoria) { categoria = it }
             if (modoActual == "planes") Box(Modifier.weight(1f)) {
-                Lista(ir, planes, cargando, error, invitaciones, alMapa = { mapa = true }, recargar = { vuelta++ })
+                Lista(
+                    ir, planes?.let { ocultos.visibles(it) }, cargando, error, invitaciones, ocultos,
+                    alMapa = { mapa = true }, recargar = { vuelta++ }, alDecidir = { decidiendo = it },
+                )
             }
         }
+        if (modoActual == "planes") AvisoDeshacer(ocultos, altoTabBar())
+        androidx.compose.animation.AnimatedVisibility(
+            decidiendo != null, Modifier.fillMaxSize(),
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)),
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200)),
+        ) {
+            val ultimo = remember { arrayOfNulls<List<Plan>>(1) }
+            decidiendo?.let { ultimo[0] = it }
+            ultimo[0]?.let { d -> DecidiRapido(ir, d, ocultos) { decidiendo = null; vuelta++ } }
+        }
+        ar.com.caigo.app.app.OcultarTabBar(decidiendo != null)
     }
 }
 
@@ -249,10 +269,14 @@ private fun Chips(categoria: String?, alElegir: (String?) -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Lista(
-    ir: Ir, planes: List<Plan>?, cargando: Boolean, error: String?, inv: Invitaciones?,
-    alMapa: () -> Unit, recargar: () -> Unit,
+    ir: Ir, planes: List<Plan>?, cargando: Boolean, error: String?, inv: Invitaciones?, ocultos: PlanesOcultos,
+    alMapa: () -> Unit, recargar: () -> Unit, alDecidir: (List<Plan>) -> Unit,
 ) {
     val p = LocalPaleta.current
+    val c = LocalApp.current
+    val avisos = ar.com.caigo.app.piezas.LocalAvisos.current
+    val vista = androidx.compose.ui.platform.LocalView.current
+    val alcance = androidx.compose.runtime.rememberCoroutineScope()
     val abajo = altoTabBar()
     if (planes != null && planes.isEmpty() && !cargando) {
         PullToRefreshBox(false, recargar, Modifier.fillMaxSize()) {
@@ -271,14 +295,29 @@ private fun Lista(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         T("Próximas 3 horas", 15f, 700, p.texto, unRenglon = true)
-                        if (planes != null) T("${planes.size} ${if (planes.size == 1) "plan cerca" else "planes cerca"}", 13f, 400, p.texto2, unRenglon = true)
+                        if (planes != null) {
+                            T("${planes.size} ${if (planes.size == 1) "plan cerca" else "planes cerca"}", 13f, 400, p.texto2, unRenglon = true)
+                            val mazo = ar.com.caigo.app.nucleo.Gestos.paraDecidir(planes, c.sesion.usuarioId)
+                            if (mazo.size >= ar.com.caigo.app.nucleo.Gestos.minimoDecidir) {
+                                Chip(
+                                    "Decidí rápido · ${mazo.size}", false, { alDecidir(mazo) }, Modifier.padding(top = 8.dp),
+                                    gelOff = Gels.chip(p), colorOff = p.texto, tam = 13f, padH = 12.dp, padV = 7.dp, radio = 12.dp,
+                                )
+                            }
+                        }
                     }
                     Spacer(Modifier.width(8.dp))
                     Segmentado(listOf("Lista", "Mapa"), 0, { if (it == 1) alMapa() }, radio = 14.dp, radioOpcion = 11.dp, alto = 40.dp, tam = 14f, llenar = false)
                 }
             }
             when {
-                planes != null -> items(planes, key = { it.id }) { TarjetaPlan(it, ir, alCambiar = { recargar() }) }
+                planes != null -> items(planes, key = { it.id }) { pl ->
+                    DeslizarPlan(
+                        24.dp,
+                        alCaigo = { alcance.launch { if (planesCaigo(c, ir, avisos, pl) { Sistema.vibrar(vista) } != null) recargar() } },
+                        alNoMeInteresa = { ocultos.ocultar(c, avisos, pl) },
+                    ) { m -> TarjetaPlan(pl, ir, m, alCambiar = { recargar() }) }
+                }
                 error != null -> item {
                     Column(Modifier.fillMaxWidth().padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         T(error, 15f, 500, p.texto2, alinear = TextAlign.Center)

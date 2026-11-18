@@ -61,6 +61,7 @@ import ar.com.caigo.app.piezas.fotoCategoria
 import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.app.LocalApp
 import ar.com.caigo.app.app.altoTabBar
+import kotlinx.coroutines.launch
 import ar.com.caigo.app.nucleo.Api
 import ar.com.caigo.app.nucleo.Categorias
 import ar.com.caigo.app.nucleo.Cupo
@@ -133,6 +134,11 @@ fun Explorar(ir: Ir) {
     var zonas by remember { mutableStateOf<List<String>>(emptyList()) }
     var punto by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     var filtros by rememberSaveable { mutableStateOf(false) }
+    // «No me interesa» y su «Deshacer».
+    val ocultos = remember { PlanesOcultos() }
+    val avisos = ar.com.caigo.app.piezas.LocalAvisos.current
+    val vista = androidx.compose.ui.platform.LocalView.current
+    val alcance = androidx.compose.runtime.rememberCoroutineScope()
     var todos by rememberSaveable { mutableStateOf(false) }
     var semana by remember { mutableStateOf<List<Plan>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -174,12 +180,13 @@ fun Explorar(ir: Ir) {
     }
 
     // La búsqueda la hace la API con `q` (título, zona y lugar).
-    val planes = semana.orEmpty()
+    val planes = ocultos.visibles(semana.orEmpty())
     val ahora = ZonedDateTime.now(ZonaAR)
     val delDia = planes.filter { pl -> Fecha.parse(pl.empiezaEn)?.let { Fecha.diasEntre(ahora, it) == dia } ?: false }
     val recurrente = planes.firstOrNull { it.recurrente }
     fun fechaDia(i: Int) = ahora.toLocalDate().plusDays(i.toLong()).atStartOfDay(ZonaAR)
 
+    Box(Modifier.fillMaxSize()) {
     PullToRefreshBox(false, { vuelta++ }, Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.fillMaxSize(),
@@ -254,9 +261,23 @@ fun Explorar(ir: Ir) {
                         Chip("Armá un plan", true, { ir.crear() })
                     }
                 }
-                else -> items(if (todos) delDia else delDia.take(4), key = { it.id }) { Box(Modifier.padding(horizontal = 20.dp)) { FilaAgenda(it, ir) } }
+                else -> items(if (todos) delDia else delDia.take(4), key = { it.id }) { pl ->
+                    Box(Modifier.padding(horizontal = 20.dp)) {
+                        DeslizarPlan(
+                            24.dp,
+                            alCaigo = {
+                                alcance.launch {
+                                    if (planesCaigo(c, ir, avisos, pl) { ar.com.caigo.app.piezas.Sistema.vibrar(vista) } != null) vuelta++
+                                }
+                            },
+                            alNoMeInteresa = { ocultos.ocultar(c, avisos, pl) },
+                        ) { m -> FilaAgenda(pl, ir, m) }
+                    }
+                }
             }
         }
+    }
+    AvisoDeshacer(ocultos, altoTabBar())
     }
 }
 
@@ -409,12 +430,12 @@ private fun TarjetaRecurrente(p: Plan, ir: Ir) {
 
 /** Fila de la agenda: foto 64, "18:00 · PÁDEL", título, lugar y badge. */
 @Composable
-private fun FilaAgenda(p: Plan, ir: Ir) {
+private fun FilaAgenda(p: Plan, ir: Ir, modifier: Modifier = Modifier) {
     val pal = LocalPaleta.current
     val f = p.faltan
     val acento = if (pal.oscuro) C.lima else C.violeta
     Row(
-        Modifier.fillMaxWidth().semantics(mergeDescendants = true) { role = Role.Button }.toque(alBajar = 0.dp) { ir.plan(p.id) }
+        modifier.fillMaxWidth().semantics(mergeDescendants = true) { role = Role.Button }.toque(alBajar = 0.dp) { ir.plan(p.id) }
             .gel(24.dp, if (pal.oscuro) Gels.tarjetaOscura else gelTarjetaFila).padding(start = 10.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {

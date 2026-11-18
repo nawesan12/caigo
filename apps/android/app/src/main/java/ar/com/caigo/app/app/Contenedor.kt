@@ -53,6 +53,14 @@ sealed interface Destino {
     data class Web(val url: String) : Destino
 }
 
+/** Un plan al que la persona acaba de entrar (aceptada): lo festeja la raíz, a pantalla completa. */
+data class PlanFestejado(
+    val plan: ar.com.caigo.app.nucleo.Plan,
+    /** Con cuántos entró (para «Somos N de M»). */
+    val cantidad: Int,
+    val id: Long = System.nanoTime(),
+)
+
 /**
  * Todo lo que comparten las pantallas: API, sesión, tiempo real, ubicación y destinos pendientes
  * (como Contenedor.swift del iPhone).
@@ -77,6 +85,8 @@ class Contenedor(val ctx: Context) {
     val destino = MutableStateFlow<Destino?>(null)
     /** Sube cada vez que la API responde 403 `falta_dni`: la navegación lleva a la verificación con DNI. */
     val faltaDni = MutableStateFlow(0)
+    /** «¡Estás adentro!»: el plan al que se acaba de entrar (lo muestra la raíz; null, nada). */
+    val festejo = MutableStateFlow<PlanFestejado?>(null)
     /** Resultado del último tap en una placa (pantalla "Adentro"). */
     var ultimoTap: ResultadoTap? = null
     /** Placa leída (link o NFC) que la pantalla de Caigo Tap tiene que mandar a la API. */
@@ -167,6 +177,7 @@ class Contenedor(val ctx: Context) {
         destino.value = null
         tapPendiente = null
         ultimoTap = null
+        festejo.value = null
     }
 
     fun tienePermisoUbicacion() =

@@ -31,6 +31,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -170,6 +172,11 @@ fun Perfil(ir: Ir) {
     var verif by remember { mutableStateOf<EstadoVerificacion?>(null) }
     var plus by remember { mutableStateOf<EstadoPlus?>(null) }
     var refrescando by remember { mutableStateOf(false) }
+    // «Traé a alguien» abierta, lo que trae la API y el código de quien me invitó.
+    var trayendo by remember { mutableStateOf(false) }
+    var referidos by remember { mutableStateOf<ar.com.caigo.app.nucleo.Referidos?>(null) }
+    var codigo by remember { mutableStateOf("") }
+    var usandoCodigo by remember { mutableStateOf(false) }
 
     suspend fun cargar() {
         fallo = c.recargarYo() == null
@@ -183,7 +190,52 @@ fun Perfil(ir: Ir) {
         }
     }
     LaunchedEffect(Unit) { cargar() }
-    OcultarTabBar(opciones || borrando)
+    OcultarTabBar(opciones || borrando || trayendo)
+    LaunchedEffect(trayendo) {
+        if (!trayendo) return@LaunchedEffect
+        try {
+            referidos = c.api.referidos()
+        } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            avisos.error(ar.com.caigo.app.nucleo.mensajeDe(e))
+            trayendo = false
+        }
+    }
+
+    // PATCH /v1/yo `ocultarInsignias`: se ve al toque; si la API falla, vuelve.
+    fun ocultarInsignias(v: Boolean) {
+        val antes = c.yo.value ?: return
+        val l = antes.logros ?: return
+        c.yo.value = antes.copy(logros = l.copy(ocultas = v))
+        alcance.launch {
+            try {
+                c.yo.value = c.api.actualizarYo(ar.com.caigo.app.nucleo.CambiosPerfil(ocultarInsignias = v))
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                c.yo.value = antes
+                avisos.error(ar.com.caigo.app.nucleo.mensajeDe(e))
+            }
+        }
+    }
+
+    fun usarCodigo() {
+        val cod = codigo.trim()
+        if (cod.isEmpty() || usandoCodigo) return
+        usandoCodigo = true
+        alcance.launch {
+            try {
+                c.api.usarCodigo(cod)
+                codigo = ""
+                avisos.ok("Listo.")
+                referidos = runCatching { c.api.referidos() }.getOrNull() ?: referidos
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                avisos.error(ar.com.caigo.app.nucleo.mensajeDe(e))
+            } finally {
+                usandoCodigo = false
+            }
+        }
+    }
 
     Pantalla { arriba, _ ->
         val y = yo
@@ -276,8 +328,11 @@ fun Perfil(ir: Ir) {
                     }
                 }
 
+                // Con logros: cabecera sobria (nivel y planes que cuentan, asistencia, racha, insignias y lo que falta).
+                val logros = y.logros
+                if (logros != null) CabeceraLogros(y, logros)
                 // Asistencia real y planes (las dos del mismo alto).
-                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                else Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     val a = y.asistencia
                     Column(Modifier.weight(1.2f).fillMaxHeight().gel(22.dp, miosOscura).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         T(if (a.de > 0) "${a.fue * 100 / a.de}%" else "—", 40f, 800, C.lima, alto = 1f)
@@ -288,6 +343,17 @@ fun Perfil(ir: Ir) {
                         T("${y.planes}", 40f, 800, if (p.oscuro) C.lima else C.violetaTexto, alto = 1f)
                         T("Planes", 13f, 600)
                         T(if (y.organizados == 1) "1 organizado" else "${y.organizados} organizados", 12f, 400, p.texto2)
+                    }
+                }
+
+                MiosGrupo {
+                    MiosFila(I.gente, "Traé a alguien", ultima = logros == null) { codigo = ""; trayendo = true }
+                    if (logros != null) Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        T("Ocultar mis insignias", 14f, 800, modifier = Modifier.weight(1f))
+                        ar.com.caigo.app.piezas.Interruptor(logros.ocultas, { ocultarInsignias(it) })
                     }
                 }
 
@@ -347,6 +413,37 @@ fun Perfil(ir: Ir) {
             I.sol, { opciones = true }, Modifier.align(Alignment.TopEnd).padding(top = arriba + 8.dp, end = 20.dp),
             iconoTam = 20.dp, trazo = 2f, gel = if (p.oscuro) Gels.chipOscuro else Gels.chipClaro, color = p.texto,
         )
+        // «Traé a alguien»: el link para compartir, el premio, cuántos invité y, en los primeros días, el código de
+        // quien me invitó (POST /v1/yo/invitado).
+        MiosHoja(trayendo, { trayendo = false }, "Traé a alguien") {
+            val r = referidos
+            if (r != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(Modifier.weight(1f).height(52.dp).gel(16.dp, Gels.chip(p)).padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) {
+                        T(r.link, 14f, 700, unRenglon = true)
+                    }
+                    Cta("Compartir", { Sistema.compartir(ctx, r.link) }, Modifier.width(124.dp), gel = Gels.violeta, alto = 52.dp, radio = 16.dp, tam = 15f, color = C.blanco)
+                }
+                T("Cuando vaya a su primer plan, los dos tienen una semana de Plus.", 14f, 400, p.texto2, alto = 1.45f)
+                T("${r.invitados} ${if (r.invitados == 1) "invitado" else "invitados"} · ${r.premiados} ya fueron", 13f, 700)
+                if (r.puedeUsarCodigo) {
+                    T("¿Te invitó alguien? Poné su código", 14f, 700, modifier = Modifier.padding(top = 4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        MiosCampo(
+                            codigo, { codigo = it }, Modifier.weight(1f), placeholder = "Código", maximo = 24,
+                            mayusculas = androidx.compose.ui.text.input.KeyboardCapitalization.None,
+                            teclado = androidx.compose.ui.text.input.KeyboardType.Ascii,
+                        )
+                        Cta(
+                            "Listo", { usarCodigo() }, Modifier.width(100.dp), alto = 60.dp, radio = 18.dp, tam = 16f, color = C.carbon,
+                            habilitado = codigo.trim().isNotEmpty(), cargando = usandoCodigo,
+                        )
+                    }
+                }
+            } else {
+                Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) { Puntitos(p.acento) }
+            }
+        }
         MiosHoja(opciones, { opciones = false }, "Tu cuenta") {
             MiosGrupo {
                 MiosFila(I.usuario, "Editar perfil") { opciones = false; ir.editarPerfil() }
@@ -656,5 +753,36 @@ private fun Etiquetado(etiqueta: String, campo: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         T(etiqueta, 14f, 700)
         campo()
+    }
+}
+
+/**
+ * Cabecera sobria de lo que se gana yendo: nivel y planes que cuentan, la asistencia real, la racha (desde 2
+ * semanas), las insignias en chips chicos y cuánto falta para el siguiente nivel. Sin puntos ni festejos.
+ */
+@Composable
+private fun CabeceraLogros(y: ar.com.caigo.app.nucleo.Perfil, l: ar.com.caigo.app.nucleo.Logros) {
+    val a = y.asistencia
+    Column(Modifier.fillMaxWidth().gel(22.dp, miosOscura).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        T(ar.com.caigo.app.nucleo.TextoLogros.cabecera(l), 15f, 800, C.blancoCalido, unRenglon = true)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            T(if (a.de > 0) "${a.fue * 100 / a.de}%" else "—", 40f, 800, C.lima, alto = 1f)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                T("Asistencia real", 13f, 600, C.blancoCalido)
+                T(if (a.de > 0) "${a.fue} de ${a.de} con check-in" else "Todavía sin planes con check-in", 12f, 400, C.apagado2)
+            }
+        }
+        ar.com.caigo.app.nucleo.TextoLogros.racha(l)?.let { T(it, 12f, 600, C.apagado2) }
+        if (l.insignias.isNotEmpty()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                l.insignias.forEach { i ->
+                    ar.com.caigo.app.pantallas.planes.ChipFoto(
+                        i.nombre, oscuro = true, modifier = Modifier.semantics { stateDescription = i.detalle },
+                        fondo = Gels.chipOscuro, color = C.blancoCalido,
+                    )
+                }
+            }
+        }
+        ar.com.caigo.app.nucleo.TextoLogros.siguiente(l)?.let { T(it, 12f, 400, C.apagado2) }
     }
 }

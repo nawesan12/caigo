@@ -274,6 +274,7 @@ private fun Tarjeta(s: Solicitud, completan: Boolean, ocupado: Boolean, aceptar:
                     if (per.verificada) MiosVerificado(15.dp)
                 }
                 T(if (per.enMiGente) miosAsistencia(per.asistencia, "está en tu gente") else miosAsistencia(per.asistencia), 12f, 400, p.texto2)
+                if (per.faltazos >= 2) T("Faltó a ${per.faltazos} planes este mes", 12f, 600, C.coral2)
             }
             if (completan) {
                 Box(Modifier.gel(10.dp, Gels.limaChico).padding(horizontal = 9.dp, vertical = 5.dp)) { T("Completan", 11f, 800, C.carbon) }

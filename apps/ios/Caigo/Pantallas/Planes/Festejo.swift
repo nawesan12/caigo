@@ -98,7 +98,6 @@ struct Festejo: View {
                 Cta(texto: "Avisarle a alguien", gel: Gels.blanco, alto: 52, tam: 14, color: C.carbon) {
                     Sistema.compartir("\(plan.titulo) · \(Cupo.badge(max(0, plan.faltan - f.cantidad))). Sumate en Caigo: \(planesLink(plan))")
                 }
-                .layoutPriority(1)
             }
         }
     }
