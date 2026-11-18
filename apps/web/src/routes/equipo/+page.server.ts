@@ -4,6 +4,7 @@ import type {
 	Arrepentimiento,
 	DNIPendiente,
 	Lugar,
+	ModeracionEquipo,
 	PedidoPlacas,
 	PlanEquipo,
 	Reporte,
@@ -15,7 +16,7 @@ import type { Actions, PageServerLoad } from './$types';
 
 /**
  * Backoffice del equipo de Caigo: métricas, usuarios, planes, lugares (todos y pendientes), DNI,
- * reportes, arrepentimientos, pedidos de placas y planes semilla (contrato §7). Cada sección carga por separado: si
+ * reportes, moderación automática, arrepentimientos, pedidos de placas y planes semilla (contrato §7). Cada sección carga por separado: si
  * una ruta de la API todavía no existe o falla, esa sección muestra el aviso y el resto anda.
  */
 
@@ -27,6 +28,7 @@ const TABS = [
 	'lugares',
 	'dni',
 	'reportes',
+	'moderacion',
 	'arrepentimientos',
 	'placas',
 	'semilla'
@@ -108,10 +110,11 @@ export const load: PageServerLoad = async (event) => {
 	};
 
 	// Las colas se cargan siempre (sus números van en la barra).
-	const [l, d, r, a, pp] = await Promise.all([
+	const [l, d, r, m, a, pp] = await Promise.all([
 		intentar<{ lugares: Lugar[] }>(event, '/v1/equipo/lugares?estado=pendiente'),
 		intentar<{ pendientes: DNIPendiente[] }>(event, '/v1/equipo/dni'),
 		intentar<{ reportes: Reporte[] }>(event, '/v1/equipo/reportes'),
+		intentar<{ moderaciones: ModeracionEquipo[] }>(event, '/v1/equipo/moderacion'),
 		intentar<{ arrepentimientos: Arrepentimiento[] }>(event, '/v1/equipo/arrepentimientos'),
 		intentar<{ pedidos: PedidoPlacas[] }>(event, '/v1/equipo/pedidos-placas')
 	]);
@@ -155,6 +158,8 @@ export const load: PageServerLoad = async (event) => {
 		dniError: d.error,
 		reportes: r.datos?.reportes ?? [],
 		reportesError: r.error,
+		moderaciones: m.datos?.moderaciones ?? [],
+		moderacionesError: m.error,
 		arrepentimientos: a.datos?.arrepentimientos ?? [],
 		arrepentimientosError: a.error,
 		placas: pp.datos?.pedidos ?? [],
@@ -251,6 +256,26 @@ export const actions: Actions = {
 				: d === 'suspender'
 					? 'Cuenta suspendida.'
 					: 'Reporte resuelto.'
+		);
+	},
+	/** Cola de moderación: aprobar (queda normal), ocultar o suspender la cuenta (con motivo). */
+	moderacion: async (event) => {
+		const f = await event.request.formData();
+		const d = String(f.get('decision') ?? '');
+		if (!['aprobar', 'ocultar', 'suspender'].includes(d))
+			return fail(400, { error: 'Elegí qué hacer.' });
+		const m = motivo(f);
+		if (d === 'suspender' && !m) return fail(400, { error: 'Poné el motivo de la suspensión.' });
+		return hacer(
+			() =>
+				conSesion(event, 'POST', `/v1/equipo/moderacion/${id(f)}`, {
+					cuerpo: d === 'suspender' ? { accion: d, motivo: m } : { accion: d }
+				}),
+			d === 'aprobar'
+				? 'Listo, aprobado.'
+				: d === 'ocultar'
+					? 'Oculto. Le avisamos.'
+					: 'Cuenta suspendida.'
 		);
 	},
 	usuario: async (event) => {

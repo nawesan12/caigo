@@ -36,6 +36,7 @@
 		{ k: 'lugares', l: 'Lugares pendientes', icono: 'pin', n: data.lugares.length },
 		{ k: 'dni', l: 'DNI para revisar', icono: 'usuario', n: data.dni.length },
 		{ k: 'reportes', l: 'Reportes', icono: 'escudo', n: data.reportes.length },
+		{ k: 'moderacion', l: 'Moderación', icono: 'escudo', n: data.moderaciones.length },
 		{
 			k: 'arrepentimientos',
 			l: 'Arrepentimientos',
@@ -56,6 +57,32 @@
 		no_vino: 'No vino',
 		inapropiado: 'Inapropiado',
 		inseguro: 'Inseguro',
+		otro: 'Otro'
+	};
+	/** Cola de moderación automática (docs/api.md, «Moderación automática»). */
+	const TIPOS_MOD: Record<string, string> = {
+		plan: 'Plan',
+		mensaje: 'Mensaje en un plan',
+		privado: 'Mensaje privado'
+	};
+	const ORIGENES_MOD: Record<string, string> = { filtro: 'Filtro', ia: 'IA', sin_ia: 'Sin IA' };
+	const ESTADOS_MOD: Record<string, string> = {
+		revision: 'Publicado, en revisión',
+		oculto: 'Oculto',
+		bloqueado: 'Frenado, no se publicó'
+	};
+	const CATEGORIAS_MOD: Record<string, string> = {
+		insultos: 'Insultos',
+		odio: 'Odio',
+		acoso: 'Acoso',
+		sexual: 'Sexual',
+		menores: 'Menores',
+		violencia: 'Violencia',
+		drogas: 'Drogas',
+		estafa: 'Estafa',
+		spam: 'Spam',
+		contacto: 'Contacto por fuera',
+		datos_personales: 'Datos personales',
 		otro: 'Otro'
 	};
 	const ESTADOS_LUGAR: Record<string, string> = {
@@ -645,6 +672,66 @@
 					</form>
 				{:else}
 					<p class="vacia tarjeta-plana">{data.dniError || 'No hay DNI para revisar.'}</p>
+				{/each}
+			</div>
+		{:else if data.tab === 'moderacion'}
+			<h1>Moderación</h1>
+			<div class="lista">
+				{#each data.moderaciones as m (m.id)}
+					<form
+						method="POST"
+						action={accion('moderacion')}
+						class="tarjeta-plana item"
+						use:enhance={confirmar(`¿Suspender a ${m.autor.nombre}? No va a poder entrar a Caigo.`)}
+					>
+						<input type="hidden" name="id" value={m.id} />
+						<div class="cab">
+							<div>
+								<span class="t"
+									>{TIPOS_MOD[m.tipo] ?? m.tipo} · {CATEGORIAS_MOD[m.categoria] ??
+										m.categoria}</span
+								>
+								<span class="s"
+									><a href="?tab=usuarios&q={m.autor.id}" title="Ver la ficha">{m.autor.nombre}</a
+									>{m.planTitulo ? ` · ${m.planTitulo}` : ''} · {fecha(m.creadaEn)}</span
+								>
+							</div>
+							<div class="chips-dato">
+								<span class="chip-dato" class:alerta={m.estado !== 'revision'}
+									>{ESTADOS_MOD[m.estado] ?? m.estado}</span
+								>
+								<span class="chip-dato">{ORIGENES_MOD[m.origen] ?? m.origen}</span>
+								{#if m.autorReportes}
+									<a
+										class="chip-dato"
+										class:alerta={m.autorReportes > 1}
+										href="?tab=reportes"
+										title="Ver los reportes abiertos"
+										>{m.autorReportes} {m.autorReportes === 1 ? 'reporte' : 'reportes'}</a
+									>
+								{/if}
+							</div>
+						</div>
+						<p class="detalle">{m.texto}</p>
+						{#if m.motivo}<p class="s">{pegar(m.motivo)}</p>{/if}
+						<input
+							class="input"
+							name="motivo"
+							maxlength="300"
+							placeholder="Motivo (si suspendés la cuenta)"
+						/>
+						<div class="acc">
+							<button class="gel gel-lima b" name="decision" value="aprobar"
+								>{m.estado === 'bloqueado' ? 'Cerrar' : 'Aprobar'}</button
+							>
+							{#if m.estado === 'revision'}
+								<button class="b gris" name="decision" value="ocultar">Ocultar</button>
+							{/if}
+							<button class="b rechazar" name="decision" value="suspender">Suspender cuenta</button>
+						</div>
+					</form>
+				{:else}
+					<p class="vacia tarjeta-plana">{data.moderacionesError || 'No hay nada para revisar.'}</p>
 				{/each}
 			</div>
 		{:else if data.tab === 'arrepentimientos'}
