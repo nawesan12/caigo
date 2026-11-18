@@ -212,3 +212,33 @@ func TestPlanDeSuspendidaNoSeVe(t *testing.T) {
 	e.pedir(lu, "GET", "/v1/planes/"+p.Slug, nil, http.StatusNotFound, nil)
 	e.pedir(persona{}, "GET", "/v1/publico/planes/"+p.Slug, nil, http.StatusNotFound, nil)
 }
+
+// «¿Repetimos?»: un plan cancelado no se republica, y a quien hay un bloqueo de por medio no se lo
+// suma a mi gente.
+func TestRepetimosCanceladoYBloqueo(t *testing.T) {
+	e := nuevoEntorno(t)
+	nico, lu, fede := e.persona("Nico"), e.persona("Lu"), e.persona("Fede")
+	e.verificar(lu, true)
+	e.verificar(fede, true)
+	p := e.planNuevo(nico, map[string]any{"faltan": 3})
+	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	e.pedir(fede, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	e.pedir(fede, "PUT", "/v1/bloqueos/"+lu.id, nil, http.StatusNoContent, nil)
+	e.sistema(`UPDATE planes SET empieza_en = now() - interval '3 hours' WHERE id = $1`, p.ID)
+	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/repetimos", map[string]any{"volveria": []map[string]any{
+		{"usuarioId": fede.id, "si": true}, {"usuarioId": nico.id, "si": true}}}, http.StatusOK, nil)
+	if n := e.cuenta(`SELECT count(*) FROM mi_gente WHERE usuario_id = $1 AND otro_id = $2`, lu.id, fede.id); n != 0 {
+		t.Fatal("pasó a mi gente alguien con bloqueo")
+	}
+	if n := e.cuenta(`SELECT count(*) FROM mi_gente WHERE usuario_id = $1 AND otro_id = $2`, lu.id, nico.id); n != 1 {
+		t.Fatal("no pasó Nico a mi gente")
+	}
+
+	e.sistema(`UPDATE planes SET cancelado_en = now() WHERE id = $1`, p.ID)
+	if c := codigo(t, e, nico, "POST", "/v1/planes/"+p.ID+"/repetimos", map[string]any{"repetir": true}, http.StatusConflict); c != "cancelado" {
+		t.Fatalf("repetir un cancelado: %s", c)
+	}
+	if n := e.cuenta(`SELECT count(*) FROM planes WHERE serie_id = $1`, p.ID); n != 0 {
+		t.Fatalf("se republicó: %d", n)
+	}
+}

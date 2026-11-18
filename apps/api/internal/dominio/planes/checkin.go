@@ -132,13 +132,19 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var org, titulo, zona string
 		var empieza time.Time
-		err := tx.QueryRow(ctx, `SELECT p.organizador_id, p.empieza_en, p.titulo, p.zona FROM planes p JOIN solicitudes s ON s.plan_id = p.id
-			WHERE p.id::text = $1 AND s.usuario_id = $2 AND s.estado = 'aceptada'`, planID, usuarioID).Scan(&org, &empieza, &titulo, &zona)
+		var cancelado bool
+		err := tx.QueryRow(ctx, `SELECT p.organizador_id, p.empieza_en, p.titulo, p.zona, p.cancelado_en IS NOT NULL
+			FROM planes p JOIN solicitudes s ON s.plan_id = p.id
+			WHERE p.id::text = $1 AND s.usuario_id = $2 AND s.estado = 'aceptada'`, planID, usuarioID).Scan(&org, &empieza, &titulo, &zona, &cancelado)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("No estuviste en ese plan.")
 		}
 		if err != nil {
 			return err
+		}
+		// Un plan cancelado no pasó: no hay a quién volver a ver ni nada que repetir.
+		if cancelado {
+			return problema.Conflicto("cancelado", "Este plan se canceló.")
 		}
 		if empieza.After(s.ahora()) {
 			return problema.Conflicto("no_paso", "El plan todavía no pasó.")
@@ -147,9 +153,12 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 			if o.UsuarioID == usuarioID {
 				continue
 			}
+			// Con un bloqueo de por medio (en cualquier sentido) no se guarda ni pasa a mi gente.
 			var estaba bool
-			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM solicitudes WHERE plan_id::text = $1 AND usuario_id::text = $2 AND estado = 'aceptada')`,
-				planID, o.UsuarioID).Scan(&estaba); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM solicitudes WHERE plan_id::text = $1 AND usuario_id::text = $2 AND estado = 'aceptada')
+				AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $3 AND b.bloqueado_id::text = $2)
+					OR (b.usuario_id::text = $2 AND b.bloqueado_id = $3))`,
+				planID, o.UsuarioID, usuarioID).Scan(&estaba); err != nil {
 				return err
 			}
 			if !estaba {
