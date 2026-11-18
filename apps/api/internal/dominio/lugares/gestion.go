@@ -3,6 +3,7 @@ package lugares
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -216,6 +217,16 @@ func cerrarEntrada(ctx context.Context, tx pgx.Tx, entradaID, planID, usuarioID,
 	return err
 }
 
+// claveReembolso: la clave de idempotencia de Mercado Pago cambia con el monto. Con la misma para la
+// devolución parcial (baja, cancelar con «flex») y la total (plan cancelado), MP le contestaría a la
+// total con la respuesta guardada de la parcial (o con su error) y el resto nunca se devolvería.
+func claveReembolso(entradaID string, centavos *int64) string {
+	if centavos == nil {
+		return "reembolso-" + entradaID + "-total"
+	}
+	return "reembolso-" + entradaID + "-" + strconv.FormatInt(*centavos, 10)
+}
+
 // reembolsar devuelve una entrada pagada por Mercado Pago con el token del lugar que cobró:
 // centavos nil devuelve el pago entero (cargo incluido). Idempotente: una entrada que ya no está
 // pagada no se toca, y Mercado Pago recibe siempre la misma clave de idempotencia.
@@ -243,7 +254,7 @@ func (s *Servicio) reembolsar(ctx context.Context, entradaID string, centavos *i
 	if err != nil {
 		return err
 	}
-	idem := "reembolso-" + entradaID
+	idem := claveReembolso(entradaID, centavos)
 	devuelto := total
 	if centavos != nil {
 		devuelto = *centavos
