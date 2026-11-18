@@ -72,6 +72,8 @@ import ar.com.caigo.app.nucleo.Mazo
 import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.app.altoTabBar
 import ar.com.caigo.app.piezas.Avatar
+import ar.com.caigo.app.piezas.BotonIcono
+import ar.com.caigo.app.piezas.Pantalla
 import ar.com.caigo.app.piezas.LocalAvisos
 import ar.com.caigo.app.piezas.Puntitos
 import ar.com.caigo.app.piezas.rememberCarga
@@ -102,10 +104,11 @@ import androidx.compose.ui.semantics.semantics
 /**
  * Modos Gente y Citas del prototipo: mazo de personas arrastrables. Derecha (más de 100 px) = me
  * prendo / me interesa; izquierda = paso. Tocar arriba a los costados cambia de foto; tocar abajo abre
- * el perfil.
+ * el perfil. Desde el 18/11 ya no está en la cabecera de Ahora: se abre apilado ([VistaMazo]) desde
+ * Perfil › Mi gente. [apilado]: debajo de su propio encabezado, sin la tab bar abajo.
  */
 @Composable
-internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
+internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier, apilado: Boolean = false) {
     val c = LocalApp.current
     val avisos = LocalAvisos.current
     val alcance = rememberCoroutineScope()
@@ -123,6 +126,9 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
     val personas = mazo.dato.orEmpty()
     val arriba = personas.getOrNull(estado.indice)
     val siguiente = personas.getOrNull(estado.indice + 1)
+    // Apilado: la fila de arriba sube 44 (10 en vez de 54) y abajo no está la tab bar.
+    val sube = if (apilado) 44.dp else 0.dp
+    val barra = if (apilado) 0.dp else altoTabBar()
 
     /** Reacciona y hace volar la carta. accion: prendo | interesa | encanta | paso. */
     fun reaccionar(accion: String, mensaje: String? = null) {
@@ -178,7 +184,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize()) {
         // Fila de arriba: quién te sumó y cuántas sumadas te quedan.
         Row(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 54.dp),
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 54.dp - sube),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             val rs = recibidos.dato
@@ -215,7 +221,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
             }
         }
 
-        BoxWithConstraints(Modifier.fillMaxSize().padding(top = 98.dp, bottom = altoTabBar() + 96.dp, start = 14.dp, end = 14.dp)) {
+        BoxWithConstraints(Modifier.fillMaxSize().padding(top = 98.dp - sube, bottom = barra + 96.dp, start = 14.dp, end = 14.dp)) {
             val alto = maxHeight
             when {
                 mazo.dato == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -311,7 +317,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
             val escMeGusta by animateFloatAsState(1f + .15f * (if (dx.value > 0) k else 0f), tween(150), label = "mg")
             val escPaso by animateFloatAsState(1f + .18f * (if (dx.value < 0) k else 0f), tween(150), label = "ps")
             Row(
-                Modifier.align(Alignment.BottomCenter).padding(bottom = altoTabBar() + 14.dp).height(76.dp),
+                Modifier.align(Alignment.BottomCenter).padding(bottom = barra + 14.dp).height(76.dp),
                 horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.CenterVertically,
             ) {
                 GenteBotonRedondo(60.dp, genteGelPaso, "Paso", Modifier.scale(escPaso), { reaccionar("paso") }) { Icono(I.cruz, 24.dp, C.coral2, 3.2f) }
@@ -441,5 +447,23 @@ private fun MazoVacio(sumados: Int, onOtraVez: () -> Unit) {
             Modifier.toque(onClick = onOtraVez).gel(16.dp, vertical(C.blanco, Color(0xFFF3F0FA)), listOf(interna(2f, 0f, C.blanco), interna(-3f, 0f, rgba(116, 86, 241, .1f)), externa(3f, 0f, C.borde3)))
                 .padding(horizontal = 18.dp, vertical = 12.dp),
         ) { T("Ver de nuevo", 14f, 800, C.carbon) }
+    }
+}
+
+/** Gente o Citas apilado (18/11): salió de la cabecera de Ahora; se abre desde Perfil › Mi gente. */
+@Composable
+fun VistaMazo(ir: Ir, modo: String) {
+    val p = LocalPaleta.current
+    Pantalla { arriba, abajo ->
+        Column(Modifier.fillMaxSize().padding(top = arriba, bottom = abajo)) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 10.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                BotonIcono(I.atras, { ir.atras() }, iconoTam = 20.dp, trazo = 2.6f, gel = Gels.neutra)
+                T(if (modo == "citas") "Citas" else "Gente", 28f, 800, p.texto, alto = 1f, espaciado = px(-.8f, 28f), unRenglon = true)
+            }
+            MazoGente(ir, modo, Modifier.weight(1f), apilado = true)
+        }
     }
 }

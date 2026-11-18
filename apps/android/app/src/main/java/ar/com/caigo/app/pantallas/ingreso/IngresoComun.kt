@@ -85,36 +85,23 @@ internal const val ingresoRutaApp = "principal?tab=Ahora&modo="
 internal const val ingresoRutaDni = "altadni"
 
 /**
- * El paso del alta que le falta a la persona: datos → teléfono → selfie → DNI → intenciones → la app.
- * Lee GET /v1/yo y GET /v1/verificacion y deja el perfil en [Contenedor.yo].
+ * El paso del alta que le falta a la persona: datos → la app (lo demás, al primer «Caigo»).
+ * Lee GET /v1/yo y deja el perfil en [Contenedor.yo].
  */
 suspend fun ingresoRutaDeAlta(c: Contenedor): String {
     val yo = try {
         c.api.yo()
     } catch (e: ErrorApi) {
-        when {
-            e.estado == 403 && e.codigo == "sin_permiso" -> {
-                // Cuenta suspendida: se olvida la sesión y quien llamó muestra el detalle.
-                c.salirLocal()
-                throw e
-            }
-            e.estado == 403 && e.codigo == "falta_dni" -> return ingresoRutaDni
-            else -> throw e
+        if (e.estado == 403 && e.codigo == "sin_permiso") {
+            // Cuenta suspendida: se olvida la sesión y quien llamó muestra el detalle.
+            c.salirLocal()
         }
+        throw e
     }
     c.yo.value = yo
-    val v = c.api.verificacion()
-    return when {
-        yo.nombre.isBlank() || yo.edad == null -> "datos"
-        v.telefono.isEmpty() -> "telefono"
-        !v.selfie -> "selfie?volver=false"
-        // El DNI es obligatorio (se aprueba solo al subirlo; `rechazada` muestra el motivo y no sigue).
-        v.dni != "aprobada" -> ingresoRutaDni
-        yo.intenciones.isEmpty() -> "intenciones?editar=false"
-        // Sin perfiles vacíos: bio, fotos e intereses mínimos (personas.Faltantes en la API).
-        yo.faltan.isNotEmpty() -> "completar"
-        else -> ingresoRutaApp
-    }
+    // Alta corta (18/11, «Mirar sin DNI»): nombre, nacimiento y ciudad, y a mirar planes. El DNI (con su
+    // selfie), el perfil completo y el resto se piden recién al primer «Caigo», crear o chatear (PedirDni).
+    return if (yo.nombre.isBlank() || yo.edad == null) "datos" else ingresoRutaApp
 }
 
 /** El error para el toast: el detalle del problema o el primer campo con problemas. */

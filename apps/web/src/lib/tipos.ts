@@ -59,7 +59,12 @@ export type Plan = {
 	aceptaGrupos: boolean;
 	/** Sólo para quien organiza: el equipo lo revisa o lo ocultó. */
 	moderacion?: Moderacion;
+	/** La línea de confianza de la tarjeta (ver lineaConfianza). Las respuestas viejas no la traen. */
+	confianza?: Confianza;
 };
+
+/** `confianza` de un plan (API, 18/11). `chicas` sólo en planes «Solo mujeres» y desde 2. */
+export type Confianza = { todosVerificados: boolean; soloChicas: boolean; chicas?: number };
 
 export type Lugar = {
 	id: string;

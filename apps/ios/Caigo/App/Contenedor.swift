@@ -60,7 +60,7 @@ final class Contenedor {
     var tapPendiente: Destino?
     /// Token de APNs (hex) para registrarlo cuando haya sesión.
     var tokenPush: String?
-    /// Sube cada vez que la API responde 403 `falta_dni`: la raíz lleva a la verificación con DNI.
+    /// Sube cada vez que la API responde 403 `falta_dni`: la raíz apila PedirDni.
     var faltaDni = 0
     /// 01b · «Voy solo / Somos 2 / Somos 4»: con cuántos se suma por defecto (1, 2 o 4).
     var somos: Int {
@@ -116,6 +116,15 @@ final class Contenedor {
     @ObservationIgnored private let avisoDni: Vencimiento
 
     var conSesion: Bool { token != nil }
+
+    /// Sin el DNI verificado se mira (18/11); para hacer algo con otra gente (sumarse, crear, chatear, la
+    /// gente) antes se pide, con PedirDni. true: puede seguir; false: ya apiló PedirDni. Con el perfil sin
+    /// cargar no se frena: la API responde 403 `falta_dni` y la raíz hace lo mismo.
+    func conDni(_ ir: Ir, _ motivo: String, plan: String? = nil) -> Bool {
+        guard yo?.verificada == false else { return true }
+        ir.pedirDni(motivo, plan: plan)
+        return false
+    }
 
     func entrar(token: String, usuarioId: String) {
         Llavero.guardar(token, cuenta: "token")

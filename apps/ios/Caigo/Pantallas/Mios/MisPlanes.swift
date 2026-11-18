@@ -74,7 +74,7 @@ struct MisPlanes: View {
     @ViewBuilder
     private var vacio: some View {
         switch tab {
-        case 0: MiosVacio(titulo: "Todavía no armaste ningún plan", cuerpo: "Armá uno en menos de 30 segundos. Siempre hay alguien que se prende.", cta: "Armá un plan") { ir.crear() }
+        case 0: MiosVacio(titulo: "Todavía no armaste ningún plan", cuerpo: "Armá uno en menos de 30 segundos. Siempre hay alguien que se prende.", cta: "Armá un plan") { if c.conDni(ir, "crear") { ir.crear() } }
         case 1: MiosVacio(titulo: "Todavía no te sumaste a nada", cuerpo: "Hay una mesa de truco a la que le falta uno. Y sabemos que te la sabés.", cta: "Ver planes cerca") { ir.pestana = .ahora }
         default: MiosVacio(titulo: "Todavía no fuiste a ningún plan", cuerpo: "Los planes que pasaron quedan acá, para repetirlos.", cta: "Ver planes cerca") { ir.pestana = .ahora }
         }

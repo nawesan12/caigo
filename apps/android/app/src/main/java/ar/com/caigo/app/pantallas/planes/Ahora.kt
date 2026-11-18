@@ -54,11 +54,11 @@ import ar.com.caigo.app.app.LocalApp
 import ar.com.caigo.app.app.Pestana
 import ar.com.caigo.app.app.altoTabBar
 import ar.com.caigo.app.nucleo.Api
+import ar.com.caigo.app.nucleo.FiltrosFinos
 import ar.com.caigo.app.nucleo.Invitaciones
 import ar.com.caigo.app.nucleo.Plan
 import ar.com.caigo.app.nucleo.VacioAhora
 import ar.com.caigo.app.nucleo.mensajeDe
-import ar.com.caigo.app.pantallas.gente.MazoGente
 import ar.com.caigo.app.piezas.Avatar
 import ar.com.caigo.app.piezas.BotonIcono
 import ar.com.caigo.app.piezas.Chip
@@ -91,21 +91,26 @@ private val filtrosAhora = listOf(
 
 /** Lo que dispara una carga (el `Clave` de iOS). */
 private data class ClaveAhora(
-    val lat: Double?, val lng: Double?, val sinUbicacion: Boolean, val categoria: String?, val q: String?, val vuelta: Int,
+    val lat: Double?, val lng: Double?, val sinUbicacion: Boolean, val categoria: String?, val chicas: Boolean, val q: String?,
+    val vuelta: Int,
 )
 
 /**
- * Ahora (02 lista · 03 mapa · 13a vacío · 14a oscuro) con los modos del prototipo: Planes, Gente y
- * Citas (Citas sólo si la persona eligió esa intención).
+ * Ahora (02 lista · 03 mapa · 13a vacío · 14a oscuro): sólo planes. Gente y Citas salieron de la
+ * cabecera (18/11: un mazo de caras con «Me encanta» cambiaba la lectura de toda la app); se abren desde
+ * Perfil › Mi gente (un aviso que pide Ahora en modo gente/citas abre el mazo: ver [Ir.principal]).
+ * `modoInicial` queda por compatibilidad y no se usa.
  */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun Ahora(ir: Ir, modoInicial: String?) {
     val c = LocalApp.current
     val ctx = LocalContext.current
     val yo by c.yo.collectAsState()
-    var modo by rememberSaveable { mutableStateOf<String?>(null) }
     var mapa by rememberSaveable { mutableStateOf(false) }
     var categoria by rememberSaveable { mutableStateOf<String?>(null) }
+    // «Sólo chicas» (planes «Solo mujeres»): gratis, como toda la seguridad.
+    var chicas by rememberSaveable { mutableStateOf(false) }
     var punto by remember { mutableStateOf<Pair<Double, Double>?>(null) }
     // Sin permiso de ubicación (o sin señal): se consulta por la ciudad del perfil.
     var sinUbicacion by remember { mutableStateOf(false) }
@@ -121,10 +126,6 @@ fun Ahora(ir: Ir, modoInicial: String?) {
     var pidio by rememberSaveable { mutableStateOf(false) }
     val (permiso, pedir) = rememberPermisoUbicacion()
 
-    val conCitas = yo?.intenciones?.contains("citas") == true
-    val m = modo ?: modoInicial ?: "planes"
-    val modoActual = if (m == "citas" && !conCitas && yo != null) "planes" else m
-
     LaunchedEffect(Unit) { if (yo == null) c.recargarYo() }
     // Pide el permiso si hace falta. Sin ubicación se consulta por ciudad, y si después llega el permiso
     // (la persona lo acepta en el cartel del sistema) se pasa a la ubicación.
@@ -137,14 +138,14 @@ fun Ahora(ir: Ir, modoInicial: String?) {
     }
     LaunchedEffect(Unit) { invitaciones = runCatching { c.api.invitaciones() }.getOrNull() }
     val q = if (mapa) Api.busqueda(busqueda) else null
-    LaunchedEffect(ClaveAhora(punto?.first, punto?.second, sinUbicacion, categoria, q, vuelta)) {
+    LaunchedEffect(ClaveAhora(punto?.first, punto?.second, sinUbicacion, categoria, chicas, q, vuelta)) {
         if (punto == null && !sinUbicacion) return@LaunchedEffect
         // Mientras se escribe en el buscador, se espera a que la persona pare (y la tarea anterior se cancela).
         if (q != null) delay(350)
         cargando = true
         try {
             val ciudad = if (punto == null) (yo?.ciudad?.ifEmpty { null } ?: "Mar del Plata") else null
-            planes = c.api.ahora(punto?.first, punto?.second, categoria, q = q, ciudad = ciudad).planes
+            planes = c.api.ahora(punto?.first, punto?.second, categoria, q = q, finos = FiltrosFinos(chicas = chicas), ciudad = ciudad).planes
             error = null
         } catch (e: Throwable) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -157,23 +158,17 @@ fun Ahora(ir: Ir, modoInicial: String?) {
         lugarActual = barrio(ctx, la, ln)
     }
 
-    if (modoActual == "planes" && mapa) {
+    if (mapa) {
         MapaAhora(ir, planes.orEmpty(), punto, categoria, { categoria = it }, busqueda, { busqueda = it }, onLista = { mapa = false })
         return
     }
 
     val arriba = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    Box(Modifier.fillMaxSize()) {
-        if (modoActual != "planes") {
-            // Sin el renglón de ubicación y logo (ver encabezado): el mazo sube y gana lugar.
-            MazoGente(ir, modoActual, Modifier.padding(top = arriba + 24.dp))
-        }
-        Column(Modifier.fillMaxSize().padding(top = arriba + 6.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Encabezado(ir, modoActual, conCitas, lugarActual, invitaciones) { modo = it }
-            if (modoActual == "planes") Chips(categoria) { categoria = it }
-            if (modoActual == "planes") Box(Modifier.weight(1f)) {
-                Lista(ir, planes, cargando, error, invitaciones, alMapa = { mapa = true }, recargar = { vuelta++ })
-            }
+    Column(Modifier.fillMaxSize().padding(top = arriba + 6.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Encabezado(ir, lugarActual, invitaciones)
+        Chips(categoria, { categoria = it }, chicas, { chicas = it })
+        Box(Modifier.weight(1f)) {
+            Lista(ir, planes, cargando, error, invitaciones, alMapa = { mapa = true }, recargar = { vuelta++ })
         }
     }
 }
@@ -186,13 +181,12 @@ private suspend fun barrio(ctx: android.content.Context, la: Double, ln: Double)
 }
 
 @Composable
-private fun Encabezado(ir: Ir, modoActual: String, conCitas: Boolean, lugarActual: String?, invitaciones: Invitaciones?, alModo: (String) -> Unit) {
+private fun Encabezado(ir: Ir, lugarActual: String?, invitaciones: Invitaciones?) {
     val c = LocalApp.current
     val p = LocalPaleta.current
     val yo by c.yo.collectAsState()
     Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        // En Gente y Citas la ubicación y el logo se sacan: le roban lugar a la tarjeta (Nahuel, 1/11).
-        if (modoActual == "planes") Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Icono(I.pin, 16.dp, if (p.oscuro) C.lima else C.violeta, 2.2f)
             val delPerfil = listOf(yo?.zona.orEmpty(), yo?.ciudad.orEmpty()).filter { it.isNotEmpty() }.joinToString(", ")
             val lugar = lugarActual ?: delPerfil
@@ -204,7 +198,7 @@ private fun Encabezado(ir: Ir, modoActual: String, conCitas: Boolean, lugarActua
                 val hay = invitaciones?.invitaciones?.isNotEmpty() == true
                 Box {
                     BotonIcono(
-                        I.campana, { ir.recibidos(if (modoActual == "citas") "citas" else "gente", if (hay) 1 else 0) },
+                        I.campana, { ir.recibidos("gente", if (hay) 1 else 0) },
                         Modifier.semantics { contentDescription = "Te sumaron y te invitan" },
                         tam = 42.dp, radio = 15.dp, iconoTam = 20.dp, trazo = 2f,
                     )
@@ -212,23 +206,12 @@ private fun Encabezado(ir: Ir, modoActual: String, conCitas: Boolean, lugarActua
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            T(when (modoActual) { "gente" -> "Gente"; "citas" -> "Citas"; else -> "Ahora" }, 40f, 800, p.texto, alto = 1f, espaciado = px(-1.4f, 40f), unRenglon = true)
-            Spacer(Modifier.width(8.dp))
-            Spacer(Modifier.weight(1f))
-            val modos = listOf("planes" to "Planes", "gente" to "Gente") + if (conCitas) listOf("citas" to "Citas") else emptyList()
-            Segmentado(
-                modos.map { it.second }, maxOf(0, modos.indexOfFirst { it.first == modoActual }), { alModo(modos[it].first) },
-                radio = 14.dp, radioOpcion = 11.dp, alto = 42.dp, llenar = false, padOpcion = if (modos.size > 2) 10.dp else 13.dp,
-                gelOn = { if (modos[it].first == "citas") Gels.coralBadge else null },
-                colorOn = { if (modos[it].first == "citas") C.carbon else null },
-            )
-        }
+        T("Ahora", 40f, 800, p.texto, alto = 1f, espaciado = px(-1.4f, 40f), unRenglon = true)
     }
 }
 
 @Composable
-private fun Chips(categoria: String?, alElegir: (String?) -> Unit) {
+private fun Chips(categoria: String?, alElegir: (String?) -> Unit, chicas: Boolean, alChicas: (Boolean) -> Unit) {
     val p = LocalPaleta.current
     LazyRow(
         Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -237,6 +220,16 @@ private fun Chips(categoria: String?, alElegir: (String?) -> Unit) {
         items(filtrosAhora, key = { it.second }) { (k, l) ->
             Chip(
                 l, k == categoria, { alElegir(k) },
+                gelOn = if (p.oscuro) Gels.limaChico else Gels.oscuroSel,
+                gelOff = if (p.oscuro) Gels.chipOscuro else Gels.chipClaro,
+                colorOn = if (p.oscuro) C.carbon else C.blancoCalido,
+                colorOff = p.texto,
+            )
+        }
+        // Al final, un interruptor aparte de la categoría: se suma a la que esté elegida.
+        item(key = "chicas") {
+            Chip(
+                "Sólo chicas", chicas, { alChicas(!chicas) },
                 gelOn = if (p.oscuro) Gels.limaChico else Gels.oscuroSel,
                 gelOff = if (p.oscuro) Gels.chipOscuro else Gels.chipClaro,
                 colorOn = if (p.oscuro) C.carbon else C.blancoCalido,
@@ -323,6 +316,7 @@ private fun BannerInvitaciones(ir: Ir, inv: Invitaciones) {
 @Composable
 internal fun PlanesVacioAhora(ir: Ir) {
     val p = LocalPaleta.current
+    val c = LocalApp.current
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -334,7 +328,7 @@ internal fun PlanesVacioAhora(ir: Ir) {
         T(VacioAhora.titulo, 30f, 700, p.texto, alto = 1.08f, espaciado = px(-.6f, 30f), alinear = TextAlign.Center)
         T(VacioAhora.cuerpo(), 15f, 400, p.texto2, alto = 1.5f, alinear = TextAlign.Center)
         Column(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Cta("Armá un plan", { ir.crear() }, Modifier.fillMaxWidth(), alto = 58.dp, tam = 16f)
+            Cta("Armá un plan", { if (c.conDni(ir, "crear")) ir.crear() }, Modifier.fillMaxWidth(), alto = 58.dp, tam = 16f)
             T("Ver lo que hay mañana", 14f, 700, C.violetaTexto, modifier = Modifier.tocable { ir.principal(Pestana.Explorar) })
         }
     }

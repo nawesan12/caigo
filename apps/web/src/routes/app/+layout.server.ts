@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { conSesion } from '#lib/server/api.ts';
-import { aVerificar, exentaDeVerificar, SIN_CUENTA } from '#lib/server/cuenta.ts';
+import { aVerificar, exentaDeVerificar, SIN_CUENTA, soloMira } from '#lib/server/cuenta.ts';
 import { verificada } from '#lib/verificacion.ts';
 import { COOKIE_UBIC, leerUbicacion } from '#lib/app.ts';
 import type { Verificacion, Yo } from '#lib/tipos.ts';
@@ -10,16 +10,16 @@ import type { LayoutServerLoad } from './$types';
 const TEMAS = ['claro', 'oscuro', 'sistema'] as const;
 type Tema = (typeof TEMAS)[number];
 
-/** Onboarding (01a–01c y "¿Qué buscás?"): cookies de "ya lo vio". */
+/** Onboarding (01a–01c): cookie de "ya lo vio". */
 const COOKIE_BIENVENIDA = 'caigo_bienvenida';
-const COOKIE_INTERESES = 'caigo_intereses';
 const AL_PASO = new Set(['/app/verificar', '/app/borrar', '/app/bienvenida', '/app/intereses']);
 
 /**
- * Caigo desde la web. Sin cuenta se pueden mirar los planes; para sumarse, crear o chatear pide
- * sesión (Google o Apple) y, una sola vez, la verificación: teléfono, selfie y DNI. El control de
- * verdad está en hooks.server.ts (lib/server/cuenta.ts), que cubre también las form actions y los
- * +server.ts; acá sólo se arma el orden del alta.
+ * Caigo desde la web. Sin cuenta, o con cuenta y sin DNI, se miran los planes, el detalle y los
+ * perfiles; para sumarse, crear o chatear pide sesión (Google o Apple) y, una sola vez, la
+ * verificación: selfie y DNI. Después, si falta, el perfil completo. El control de verdad está en
+ * hooks.server.ts (lib/server/cuenta.ts), que cubre también las form actions y los +server.ts; acá
+ * sólo se arma el orden.
  */
 export const load: LayoutServerLoad = async (event) => {
 	const t = event.cookies.get('caigo_tema') as Tema;
@@ -44,20 +44,15 @@ export const load: LayoutServerLoad = async (event) => {
 		conSesion<Yo>(event, 'GET', '/v1/yo'),
 		event.locals.verif ?? conSesion<Verificacion>(event, 'GET', '/v1/verificacion')
 	]);
-	// Sin la verificación completa, sólo el alta (hooks.server.ts ya cortó lo demás).
-	if (!verificada(verif) && !exentaDeVerificar(ruta)) aVerificar(event);
-	// Mientras se verifica no se le piden intereses ni perfil: primero termina la verificación.
+	// Sin el DNI, mirar y el alta (hooks.server.ts ya cortó lo demás).
+	if (!verificada(verif) && !exentaDeVerificar(ruta) && !soloMira(event)) aVerificar(event);
+	// Mientras no se verifica no se le pide el perfil: se mira tranquilo.
 	if (!verificada(verif)) {
 		event.setHeaders({ 'cache-control': 'private, no-store' });
 		return { yo, verif, anonimo: false, tema, ubic: leerUbicacion(event.cookies.get(COOKIE_UBIC)) };
 	}
-	// Ya verificada, una vez: qué busca y qué le copa (intenciones e intereses).
-	const intenciones = (yo as Yo & { intenciones?: string[] }).intenciones ?? [];
-	if (!intenciones.length && !AL_PASO.has(ruta) && !event.cookies.get(COOKIE_INTERESES)) {
-		const volver = event.url.pathname + event.url.search;
-		redirect(303, `/app/intereses?volver=${encodeURIComponent(volver)}`);
-	}
-	// Y antes de usar la app, el perfil completo (personas.Faltantes en la API): sin perfiles vacíos.
+	// «¿Qué buscás?» ya no se pide en el alta (18/11): /app/intereses queda para editarlo desde el perfil.
+	// Ya verificada, antes de usar la app, el perfil completo (personas.Faltantes en la API): sin perfiles vacíos.
 	const faltan = (yo as Yo & { faltan?: string[] }).faltan ?? [];
 	if (faltan.length && !AL_PASO.has(ruta) && ruta !== '/app/perfil/editar') {
 		const volver = event.url.pathname + event.url.search;

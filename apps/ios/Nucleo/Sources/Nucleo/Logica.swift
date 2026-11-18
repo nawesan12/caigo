@@ -246,3 +246,24 @@ public enum Moderacion {
     /// Evento `moderado` del WebSocket: un mensaje ajeno que quedó oculto se saca; uno propio se reemplaza.
     public static func sacar(_ m: String, mio: Bool) -> Bool { m == "oculto" && !mio }
 }
+
+/// La línea de confianza de la tarjeta y el detalle: «Todos verificados · Organiza Martín (9/10) · Van 2 chicas».
+/// Cada parte lleva espacios duros y el «·» va pegado a la anterior: el renglón sólo corta después de un «·».
+public func lineaConfianza(_ p: Plan) -> String? {
+    var partes: [String] = []
+    if p.confianza.todosVerificados { partes.append("Todos verificados") }
+    // Un plan de lugar aliado lo organiza el lugar (como en el detalle), sin asistencia.
+    if let l = p.lugar, !l.nombre.isEmpty {
+        partes.append("Organiza \(l.nombre)")
+    } else if let nombre = p.organizador.nombre.trimmingCharacters(in: .whitespaces).split(separator: " ").first.map(String.init) {
+        let a = p.organizador.asistencia
+        partes.append("Organiza \(nombre)" + (a.de > 0 ? " (\(a.fue)/\(a.de))" : ""))
+    }
+    if let n = p.confianza.chicas, n >= 2 {
+        partes.append("Van \(n) chicas")
+    } else if p.confianza.soloChicas {
+        partes.append("Sólo chicas")
+    }
+    if partes.isEmpty { return nil }
+    return partes.map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }.joined(separator: "\u{00A0}· ")
+}

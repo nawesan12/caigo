@@ -308,9 +308,11 @@ type DatosDNI struct {
 
 var reDNI = regexp.MustCompile(`^[0-9]{7,9}$`)
 
-// PedirDNI verifica el DNI en el momento (decisión de Nahuel, 16/11): con las fotos, el número y la
-// fecha, y la selfie y el teléfono ya verificados, la verificación queda aprobada y la persona toma la
-// edad del DNI. El equipo la revisa después (RevisarDNI): si algo no cierra, suspende la cuenta.
+// PedirDNI verifica el DNI en el momento (decisión de Nahuel, 16/11): con las fotos (frente, dorso y
+// la selfie con prueba de vida), el número y la fecha, la verificación queda aprobada y la persona toma
+// la edad del DNI. El equipo la revisa después (RevisarDNI): si algo no cierra, suspende la cuenta.
+// Desde el 18/11 («Mirar sin DNI») es un solo paso: no hace falta el teléfono ni una selfie aparte
+// antes (la selfie del DNI queda como la de la cuenta). El teléfono sigue siendo opcional.
 func (s *Servicio) PedirDNI(ctx context.Context, usuarioID string, d DatosDNI) error {
 	d.Numero = strings.TrimLeft(strings.ReplaceAll(d.Numero, ".", ""), "0")
 	nac, err := time.Parse(time.DateOnly, d.Nacimiento)
@@ -351,19 +353,13 @@ func (s *Servicio) PedirDNI(ctx context.Context, usuarioID string, d DatosDNI) e
 		return errDNIRepetido
 	}
 	err = s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
-		var selfie, telefono, aprobado bool
-		if err := tx.QueryRow(ctx, `SELECT u.selfie_en IS NOT NULL, u.dni_en IS NOT NULL,
-				EXISTS (SELECT 1 FROM usuarios_privado p WHERE p.usuario_id = u.id AND p.telefono_verificado_en IS NOT NULL)
-			FROM usuarios u WHERE u.id = $1 FOR UPDATE`, usuarioID).Scan(&selfie, &aprobado, &telefono); err != nil {
+		var aprobado bool
+		if err := tx.QueryRow(ctx, `SELECT u.dni_en IS NOT NULL FROM usuarios u WHERE u.id = $1 FOR UPDATE`,
+			usuarioID).Scan(&aprobado); err != nil {
 			return err
 		}
-		switch {
-		case aprobado:
+		if aprobado {
 			return problema.Conflicto("ya_verificado", "Tu DNI ya está verificado.")
-		case !telefono:
-			return problema.NoProcesable("falta_telefono", "Antes del DNI, verificá tu teléfono.")
-		case !selfie:
-			return problema.NoProcesable("falta_selfie", "Antes del DNI, verificá tu identidad con una selfie.")
 		}
 		var n int
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM archivos WHERE usuario_id = $1 AND (
@@ -387,7 +383,10 @@ func (s *Servicio) PedirDNI(ctx context.Context, usuarioID string, d DatosDNI) e
 			usuarioID, d.FrenteID, d.DorsoID, d.SelfieID, huella, nac); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE usuarios SET dni_en = now(), edad = $2 WHERE id = $1`, usuarioID, edad); err != nil {
+		// La selfie con prueba de vida del DNI es también la de la cuenta (selfie_en): verificarse es un
+		// solo paso, «1 minuto, 3 fotos».
+		if _, err := tx.Exec(ctx, `UPDATE usuarios SET dni_en = now(), edad = $2, selfie_en = coalesce(selfie_en, now())
+			WHERE id = $1`, usuarioID, edad); err != nil {
 			return err
 		}
 		_, err := tx.Exec(ctx, `INSERT INTO usuarios_privado (usuario_id, nacimiento) VALUES ($1, $2)

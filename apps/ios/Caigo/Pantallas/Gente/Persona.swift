@@ -54,7 +54,9 @@ struct PerfilPersona: View {
         }
     }
 
+    /// Sin DNI se mira el perfil; sumar, pasar, invitar o responder pide verificarse antes.
     private func accion(_ f: @escaping () async throws -> Void) {
+        guard c.conDni(ir, "gente") else { return }
         Task {
             do { try await f() } catch { c.avisos.error(error) }
         }
@@ -253,7 +255,7 @@ struct PerfilPersona: View {
                             }
                         }
                     }) { Icono(I.mas, 32, C.carbon, trazo: 3.4) }
-                    GenteBotonRedondo(tam: 60, gel: genteGelVioletaRedondo, etiqueta: "Invitar a un plan", accion: { invitando = true }) {
+                    GenteBotonRedondo(tam: 60, gel: genteGelVioletaRedondo, etiqueta: "Invitar a un plan", accion: { if c.conDni(ir, "gente") { invitando = true } }) {
                         Icono(I.calendarioSimple, 24, C.blanco, trazo: 2.4)
                     }
                 }
@@ -277,7 +279,7 @@ struct PerfilPersona: View {
                 }
             } else {
                 Cta(texto: "Invitar a un plan", gel: Gels.violeta, alto: 58, color: C.blanco, icono: I.calendarioSimple,
-                    iconoTrazo: 2.4, iconoTam: 20) { invitando = true }
+                    iconoTrazo: 2.4, iconoTam: 20) { if c.conDni(ir, "gente") { invitando = true } }
             }
         }
         .frame(maxWidth: .infinity)

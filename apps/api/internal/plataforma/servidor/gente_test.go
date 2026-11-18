@@ -260,7 +260,8 @@ func TestPlusMeEncantaDestacadoYFiltros(t *testing.T) {
 	}
 	primero, segundo := crear(a, time.Hour), crear(yo, 2*time.Hour)
 	e.pedir(yo, "POST", "/v1/planes/"+segundo+"/destacar", nil, http.StatusForbidden, nil)
-	e.pedir(yo, "GET", "/v1/planes/explorar?ciudad="+strings.ReplaceAll(ciudad, " ", "+")+"&verificados=1", nil, http.StatusForbidden, nil)
+	// «Verificados» es de seguridad: gratis.
+	e.pedir(yo, "GET", "/v1/planes/explorar?ciudad="+strings.ReplaceAll(ciudad, " ", "+")+"&verificados=1", nil, http.StatusOK, nil)
 	e.pedir(yo, "GET", "/v1/planes/explorar?ciudad="+strings.ReplaceAll(ciudad, " ", "+")+"&edadDesde=25", nil, http.StatusForbidden, nil)
 	conPlus(yo)
 	e.pedir(yo, "POST", "/v1/planes/"+primero+"/destacar", nil, http.StatusNotFound, nil)

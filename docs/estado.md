@@ -1,5 +1,18 @@
 # Estado
 
+## 18/11/2026: primer uso, confianza y seguridad (rama `mejoras-primer-uso`, sin desplegar)
+
+Del informe `caigo-investigacion/mejoras-producto.md` (A3, C1, C3, C6, C5 en parte). Nahuel aprobó revertir en parte
+«sin DNI no se usa Caigo»: **sin DNI se mira** (planes, detalle, perfiles), y el DNI se pide al tocar «Sumarme», crear
+o chatear; la API lo sigue exigiendo (403 `falta_dni`, `sesion.Exenta`/`Mirar`). Sin DNI, el detalle no trae la
+dirección y el perfil ajeno no trae barrio, trabajo ni próximos planes. Verificarse es un solo paso (frente, dorso y la
+selfie del DNI; el teléfono queda opcional). Alta corta: cuenta → datos → Ahora; «¿Qué buscás?» fuera del alta y el
+perfil completo se pide recién verificada. Cada plan trae `confianza` («Todos verificados · Organiza Martín (9/10) ·
+Van 2 chicas»; las chicas sólo en planes «Solo mujeres» y desde 2, porque el género no se guarda). Filtros
+`verificados` y `chicas` («Sólo chicas») gratis; Plus vende comodidad. Gente y Citas salen de la cabecera de Ahora
+(apps: Perfil › Mi gente). Sin migración. Contrato en `docs/api.md` › «Mirar sin DNI». Para desplegar: API y web
+juntas (la web vieja con la API nueva sigue andando; la nueva necesita la API nueva), y las apps en la próxima tanda.
+
 ## 18/11/2026: revisión con ojos de usuario (rama `revision-usuario`, sin desplegar)
 
 Stack local con 5 cuentas (sesiones `cs_` directas en la base) y flujos de punta a punta. API: con ingreso libre quien

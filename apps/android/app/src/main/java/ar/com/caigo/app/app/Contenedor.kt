@@ -75,7 +75,7 @@ class Contenedor(val ctx: Context) {
     /** Estado de Plus (se recarga al entrar a Perfil, al comprar y en el paywall). */
     val plus = MutableStateFlow<EstadoPlus?>(null)
     val destino = MutableStateFlow<Destino?>(null)
-    /** Sube cada vez que la API responde 403 `falta_dni`: la navegación lleva a la verificación con DNI. */
+    /** Sube cada vez que la API responde 403 `falta_dni`: la navegación apila PedirDni. */
     val faltaDni = MutableStateFlow(0)
     /** Resultado del último tap en una placa (pantalla "Adentro"). */
     var ultimoTap: ResultadoTap? = null
@@ -83,6 +83,17 @@ class Contenedor(val ctx: Context) {
     var tapPendiente: Destino.Tap? = null
     /** Mientras la pantalla de Caigo Tap está abierta, MainActivity lee placas NFC en primer plano. */
     val nfcActivo = MutableStateFlow(false)
+
+    /**
+     * Sin el DNI verificado se mira (18/11); para hacer algo con otra gente (sumarse, crear, chatear, la
+     * gente) antes se pide, con PedirDni. true: puede seguir; false: ya apiló PedirDni. Con el perfil sin
+     * cargar no se frena: la API responde 403 `falta_dni` y la navegación hace lo mismo.
+     */
+    fun conDni(ir: Ir, motivo: String, planId: String? = null): Boolean {
+        if (yo.value?.verificada != false) return true
+        ir.pedirDni(motivo, planId)
+        return false
+    }
 
     /** Recarga mi perfil; si falla, queda el que había. */
     suspend fun recargarYo(): Perfil? = runCatching { api.yo() }.getOrNull()?.also { yo.value = it } ?: yo.value

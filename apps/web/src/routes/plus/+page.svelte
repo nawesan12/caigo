@@ -59,7 +59,9 @@
 		['Ver quién te sumó', '—', '✓'],
 		['Me encanta en Citas', `${encantasGratis} por día`, '5 por día'],
 		['Tu plan destacado', '—', '1 por semana'],
-		['Filtros finos', 'Básicos', 'Todos']
+		['Edad y cupo', '—', '✓'],
+		// Plus vende comodidad, nunca seguridad: verificados y «Sólo chicas» son para todos.
+		['Sólo chicas', 'Siempre', 'Siempre']
 	]);
 	const sinSumadas = $derived(!!estado && estado.sumadasHoy >= estado.limite);
 
@@ -128,7 +130,7 @@
 
 <Seo
 	titulo="Caigo Plus · Caigo"
-	descripcion="Con Caigo Plus sumás a toda la gente que quieras, ves quién te sumó, usás todos los filtros y tu plan sale destacado para que se llene más rápido."
+	descripcion="Con Caigo Plus sumás a toda la gente que quieras, ves quién te sumó, filtrás por edad y cupo, y tu plan sale destacado para que se llene más rápido."
 	ruta="/plus"
 	imagen={urlOgFija('plus')}
 	imagenAlt={OG_FIJAS.plus.alt}

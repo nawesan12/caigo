@@ -165,7 +165,10 @@ fun Datos(ir: Ir) {
     } }
 }
 
-/** 01d · Teléfono (Paso 1 de 3): número, código de 6 dígitos por mail y "Reenviar en 0:24". */
+/**
+ * 01d · Teléfono: número, código de 6 dígitos por mail y "Reenviar en 0:24". Desde el 18/11 es opcional y
+ * se llega desde Perfil › Verificación (ya no es un paso del alta).
+ */
 @Composable
 fun Telefono(ir: Ir) {
     val c = LocalApp.current
@@ -205,7 +208,7 @@ fun Telefono(ir: Ir) {
 
     ingresoClaro { Pantalla(oscuro = false) { arriba, abajo ->
         Column(Modifier.fillMaxSize().padding(top = arriba)) {
-            ingresoBarraArriba(I.atras, { ir.alta("datos") }, { T("Paso 1 de 3", 14f, 700, C.texto2) },
+            ingresoBarraArriba(I.atras, { if (ir.apilada) ir.atras() else ir.alta("datos") }, { ingresoEncriptado() },
                 Modifier.padding(start = 20.dp, end = 24.dp, top = 12.dp))
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, top = 32.dp),
@@ -247,7 +250,7 @@ fun Telefono(ir: Ir) {
                         cargando = true
                         try {
                             c.api.confirmarCodigo(codigo)
-                            ir.alta(ingresoRutaDeAlta(c))
+                            if (ir.apilada) ir.atras() else ir.alta(ingresoRutaDeAlta(c))
                         } catch (e: Exception) {
                             if (e is kotlinx.coroutines.CancellationException) throw e
                             avisos.error(ingresoMensaje(e))

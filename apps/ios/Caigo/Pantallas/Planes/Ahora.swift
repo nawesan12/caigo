@@ -8,16 +8,19 @@ private let filtrosAhora: [(String?, String)] = [
     ("cita_doble", "Cita doble"), ("salida", "Salida"), ("taller", "Taller"),
 ]
 
-/// Ahora (02 lista · 03 mapa · 13a vacío · 14a oscuro) con los modos del prototipo: Planes, Gente y
-/// Citas (Citas sólo si la persona eligió esa intención).
+/// Ahora (02 lista · 03 mapa · 13a vacío · 14a oscuro): sólo planes. Gente y Citas salieron de la
+/// cabecera (18/11: un mazo de caras con «Me encanta» cambiaba la lectura de toda la app); se abren desde
+/// Perfil › Mi gente (un aviso que pide Ahora en modo gente/citas abre el mazo: ver `Ir.principal`).
+/// `modoInicial` queda por compatibilidad y no se usa.
 struct Ahora: View {
     var modoInicial: String?
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var p
-    @State private var modo: String?
     @State private var mapa = false
     @State private var categoria: String?
+    /// «Sólo chicas» (planes «Solo mujeres»): gratis, como toda la seguridad.
+    @State private var chicas = false
     @State private var punto: (Double, Double)?
     /// Sin permiso de ubicación (o sin señal): se consulta por la ciudad del perfil.
     @State private var sinUbicacion = false
@@ -31,19 +34,14 @@ struct Ahora: View {
     @State private var invitaciones: Invitaciones?
     @State private var vuelta = 0
 
-    private var modoActual: String {
-        let m = modo ?? modoInicial ?? "planes"
-        return m == "citas" && !conCitas && c.yo != nil ? "planes" : m
-    }
-    private var conCitas: Bool { c.yo?.intenciones.contains("citas") == true }
-
     private struct Clave: Equatable {
-        var lat: Double?; var lng: Double?; var sinUbicacion: Bool; var categoria: String?; var q: String?; var vuelta: Int
+        var lat: Double?; var lng: Double?; var sinUbicacion: Bool; var categoria: String?; var chicas: Bool; var q: String?
+        var vuelta: Int
     }
 
     var body: some View {
         Group {
-            if modoActual == "planes" && mapa {
+            if mapa {
                 MapaAhora(planes: planes ?? [], punto: punto, categoria: $categoria, busqueda: $busqueda, alLista: { mapa = false })
             } else {
                 contenido
@@ -54,7 +52,7 @@ struct Ahora: View {
             await ubicar()
         }
         .task { invitaciones = try? await c.api.invitaciones() }
-        .task(id: Clave(lat: punto?.0, lng: punto?.1, sinUbicacion: sinUbicacion, categoria: categoria,
+        .task(id: Clave(lat: punto?.0, lng: punto?.1, sinUbicacion: sinUbicacion, categoria: categoria, chicas: chicas,
                         q: mapa ? Api.busqueda(busqueda) : nil, vuelta: vuelta)) {
             await cargar()
         }
@@ -88,7 +86,8 @@ struct Ahora: View {
         cargando = true
         do {
             let ciudad = punto == nil ? ((c.yo?.ciudad).flatMap { $0.isEmpty ? nil : $0 } ?? "Mar del Plata") : nil
-            planes = try await c.api.ahora(lat: punto?.0, lng: punto?.1, categoria: categoria, q: q, ciudad: ciudad).planes
+            planes = try await c.api.ahora(lat: punto?.0, lng: punto?.1, categoria: categoria, filtros: FiltrosFinos(chicas: chicas),
+                                           q: q, ciudad: ciudad).planes
             error = nil
         } catch is CancellationError {
         } catch let e as URLError where e.code == .cancelled {
@@ -110,25 +109,16 @@ struct Ahora: View {
     }
 
     private var contenido: some View {
-        ZStack(alignment: .top) {
-            if modoActual != "planes" {
-                // Sin el renglón de ubicación y logo (ver encabezado): el mazo sube y gana lugar.
-                MazoGente(modo: modoActual)
-                    .padding(.top, 24)
-            }
-            VStack(alignment: .leading, spacing: 14) {
-                encabezado
-                if modoActual == "planes" { chips }
-                if modoActual == "planes" { lista }
-            }
-            .padding(.top, 6)
+        VStack(alignment: .leading, spacing: 14) {
+            encabezado
+            chips
+            lista
         }
+        .padding(.top, 6)
     }
 
     private var encabezado: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // En Gente y Citas la ubicación y el logo se sacan: le roban lugar a la tarjeta (Nahuel, 1/11).
-            if modoActual == "planes" {
             HStack(spacing: 4) {
                 Icono(I.pin, 16, p.oscuro ? C.lima : C.violeta, trazo: 2.2)
                 let delPerfil = [c.yo?.zona ?? "", c.yo?.ciudad ?? ""].filter { !$0.isEmpty }.joined(separator: ", ")
@@ -140,7 +130,7 @@ struct Ahora: View {
                 } else {
                     let hay = invitaciones?.invitaciones.isEmpty == false
                     BotonIcono(d: I.campana, tam: 42, radio: 15, iconoTam: 20, trazo: 2) {
-                        ir.recibidos(modo: modoActual == "citas" ? "citas" : "gente", pestana: hay ? 1 : 0)
+                        ir.recibidos(modo: "gente", pestana: hay ? 1 : 0)
                     }
                     .overlay(alignment: .topTrailing) {
                         if hay { Circle().fill(C.coral).frame(width: 9, height: 9).offset(x: -10, y: 9) }
@@ -148,20 +138,7 @@ struct Ahora: View {
                     .accessibilityLabel("Te sumaron y te invitan")
                 }
             }
-            }
-            HStack {
-                T(modoActual == "gente" ? "Gente" : (modoActual == "citas" ? "Citas" : "Ahora"), 40, 800, p.texto,
-                  alto: 1, espaciado: -1.4, unRenglon: true)
-                Spacer(minLength: 8)
-                let modos: [(String, String)] = [("planes", "Planes"), ("gente", "Gente")] + (conCitas ? [("citas", "Citas")] : [])
-                Segmentado(
-                    opciones: modos.map(\.1),
-                    seleccion: Binding(get: { max(0, modos.firstIndex { $0.0 == modoActual } ?? 0) }, set: { modo = modos[$0].0 }),
-                    radio: 14, radioOpcion: 11, alto: 42, llenar: false, padOpcion: modos.count > 2 ? 10 : 13,
-                    gelOn: { modos[$0].0 == "citas" ? Gels.coralBadge : nil },
-                    colorOn: { modos[$0].0 == "citas" ? C.carbon : nil })
-                    .fixedSize()
-            }
+            T("Ahora", 40, 800, p.texto, alto: 1, espaciado: -1.4, unRenglon: true)
         }
         .padding(.horizontal, 20)
     }
@@ -176,6 +153,13 @@ struct Ahora: View {
                          colorOn: p.oscuro ? C.carbon : C.blancoCalido,
                          colorOff: p.texto) { categoria = k }
                 }
+                // Al final, un interruptor aparte de la categoría: se suma a la que esté elegida.
+                Chip(texto: "Sólo chicas", on: chicas,
+                     gelOn: p.oscuro ? Gels.limaChico : Gels.oscuroSel,
+                     gelOff: Gels.chip(p),
+                     colorOn: p.oscuro ? C.carbon : C.blancoCalido,
+                     colorOff: p.texto) { chicas.toggle() }
+                    .accessibilityAddTraits(chicas ? .isSelected : [])
             }
             .padding(.horizontal, 20).padding(.top, 2).padding(.bottom, 6)
         }
@@ -258,6 +242,7 @@ private struct BannerInvitaciones: View {
 
 /// 13a · No hay planes cerca.
 struct PlanesVacioAhora: View {
+    @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var p
 
@@ -272,7 +257,7 @@ struct PlanesVacioAhora: View {
             T(VacioAhora.titulo, 30, 700, p.texto, alto: 1.08, espaciado: -0.6, alinear: .center)
             T(VacioAhora.cuerpo(Date()), 15, 400, p.texto2, alto: 1.5, alinear: .center)
             VStack(spacing: 12) {
-                Cta(texto: "Armá un plan", alto: 58, tam: 16) { ir.crear() }
+                Cta(texto: "Armá un plan", alto: 58, tam: 16) { if c.conDni(ir, "crear") { ir.crear() } }
                 Button { ir.principal(.explorar) } label: { T("Ver lo que hay mañana", 14, 700, C.violetaTexto) }
                     .buttonStyle(EstiloPlano())
             }

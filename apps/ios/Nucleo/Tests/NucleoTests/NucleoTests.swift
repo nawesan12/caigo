@@ -336,4 +336,22 @@ import Testing
         let s = String(decoding: try JSON.codificador.encode(c), as: UTF8.self)
         #expect(s == #"{"total":6}"#)
     }
+
+    @Test func lineaDeConfianza() throws {
+        let p = try JSON.leer(Plan.self, Data(#"{"organizador":{"nombre":"Martín Pérez","asistencia":{"fue":9,"de":10}},"confianza":{"todosVerificados":true,"soloChicas":true,"chicas":2}}"#.utf8))
+        #expect(lineaConfianza(p) == "Todos\u{00A0}verificados\u{00A0}· Organiza\u{00A0}Martín\u{00A0}(9/10)\u{00A0}· Van\u{00A0}2\u{00A0}chicas")
+        var q = Plan(id: "x")
+        q.organizador.nombre = "Lu"
+        q.confianza.soloChicas = true
+        q.confianza.chicas = 1
+        #expect(lineaConfianza(q) == "Organiza\u{00A0}Lu\u{00A0}· Sólo\u{00A0}chicas")
+        // Sin el campo (API vieja): sólo el organizador, sin asistencia si no hay datos.
+        let r = try JSON.leer(Plan.self, Data(#"{"organizador":{"nombre":"Fede"}}"#.utf8))
+        #expect(lineaConfianza(r) == "Organiza\u{00A0}Fede")
+        #expect(lineaConfianza(Plan(id: "y")) == nil)
+        var l = Plan(id: "z")
+        l.organizador = PersonaCorta(nombre: "Ana", asistencia: Asist(fue: 1, de: 2))
+        l.lugar = LugarCorto(nombre: "La Fonda")
+        #expect(lineaConfianza(l) == "Organiza\u{00A0}La\u{00A0}Fonda")
+    }
 }

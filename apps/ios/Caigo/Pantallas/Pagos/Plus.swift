@@ -105,6 +105,9 @@ struct VistaPlus: View {
                     encabezado
                     if let n = recibidos?.personas.count, n > 0 { TeaserRecibidos(fotos: fotosTeaser, n: n) }
                     TablaPlus()
+                    T("Lo de seguridad es gratis siempre: todos con DNI verificado y el filtro «Sólo\u{00A0}chicas».",
+                      12, 600, textoSuave, alto: 1.45, alinear: .center)
+                        .frame(maxWidth: .infinity)
                     T("Elegí tu plan", 20, 700, C.blanco).padding(.top, 4)
                     if cargando && planes.isEmpty {
                         Puntitos(color: C.lima).frame(maxWidth: .infinity).padding(20)
@@ -324,7 +327,8 @@ private struct TablaPlus: View {
         ("Ver quién te sumó", "—", "✓"),
         ("Me encanta en Citas", "1 por día", "5 por día"),
         ("Tu plan destacado", "—", "1 por semana"),
-        ("Filtros finos", "Básicos", "Todos"),
+        // Plus vende comodidad, nunca seguridad (18/11): los filtros de verificados y «Sólo chicas» son gratis.
+        ("Filtros de edad, cupo y precio", "—", "✓"),
     ]
 
     var body: some View {

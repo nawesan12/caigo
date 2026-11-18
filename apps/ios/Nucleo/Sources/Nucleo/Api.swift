@@ -288,19 +288,25 @@ public final class Api: @unchecked Sendable {
     public func tap(_ l: Lectura) async throws -> ResultadoTap { try await enviar("POST", "/v1/tap", l) }
 }
 
-/// Los filtros finos de Ahora/Explorar (Plus). Sin Plus, la API responde 403 `plus`.
+/// Los filtros de Ahora/Explorar. Los de seguridad (`verificados`, `chicas`: «Sólo chicas») son gratis
+/// siempre; los finos (faltan, edad de quien organiza, sólo gratis) son de Plus: sin Plus, 403 `plus`.
 public struct FiltrosFinos: Equatable, Sendable {
     public var verificados = false
+    public var chicas = false
     public var faltan: Int?
     public var edadDesde: Int?
     public var edadHasta: Int?
     public var gratis = false
-    public init(verificados: Bool = false, faltan: Int? = nil, edadDesde: Int? = nil, edadHasta: Int? = nil, gratis: Bool = false) {
-        self.verificados = verificados; self.faltan = faltan; self.edadDesde = edadDesde; self.edadHasta = edadHasta; self.gratis = gratis
+    public init(verificados: Bool = false, chicas: Bool = false, faltan: Int? = nil, edadDesde: Int? = nil,
+                edadHasta: Int? = nil, gratis: Bool = false) {
+        self.verificados = verificados; self.chicas = chicas; self.faltan = faltan; self.edadDesde = edadDesde
+        self.edadHasta = edadHasta; self.gratis = gratis
     }
-    public var activos: Bool { verificados || faltan != nil || edadDesde != nil || edadHasta != nil || gratis }
+    public var activos: Bool { verificados || chicas || dePlus }
+    /// Alguno de los que son de Plus.
+    public var dePlus: Bool { faltan != nil || edadDesde != nil || edadHasta != nil || gratis }
     public var query: Query {
-        [("verificados", verificados ? "1" : nil), ("faltan", faltan.map(String.init)),
+        [("verificados", verificados ? "1" : nil), ("chicas", chicas ? "1" : nil), ("faltan", faltan.map(String.init)),
          ("edadDesde", edadDesde.map(String.init)), ("edadHasta", edadHasta.map(String.init)), ("gratis", gratis ? "1" : nil)]
     }
 }

@@ -86,6 +86,9 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 			mal(w, err)
 			return
 		}
+		if !p.DNI {
+			SinDNI(&plan)
+		}
 		respuesta.JSON(w, http.StatusOK, plan)
 	}))
 	mux.Handle("DELETE /v1/planes/{id}", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
@@ -254,8 +257,8 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 	})
 }
 
-// filtro lee ?lat&lng&radio&categoria&ciudad&desde&hasta y los finos (Plus):
-// verificados, faltan, edadDesde, edadHasta y gratis.
+// filtro lee ?lat&lng&radio&categoria&ciudad&desde&hasta, los de seguridad (gratis: verificados y
+// chicas, «Sólo chicas») y los finos (Plus): faltan, edadDesde, edadHasta y gratis.
 func filtro(r *http.Request) (Filtro, error) {
 	q := r.URL.Query()
 	var f Filtro
@@ -303,6 +306,7 @@ func filtro(r *http.Request) (Filtro, error) {
 	}
 	f.Zona = q.Get("zona")
 	f.SoloVerificados = q.Get("verificados") == "1"
+	f.SoloChicas = q.Get("chicas") == "1"
 	if v := q.Get("faltan"); v != "" {
 		f.FaltanMin, _ = strconv.Atoi(v)
 	}

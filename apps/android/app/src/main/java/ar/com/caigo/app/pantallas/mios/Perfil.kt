@@ -224,7 +224,8 @@ fun Perfil(ir: Ir) {
                 // Verificación y seguridad.
                 val dni = if (y.verificada) "aprobada" else verif?.dni ?: "ninguna"
                 Row(
-                    Modifier.fillMaxWidth().toque(alBajar = 2.dp) { ir.verificacion() }
+                    // Sin DNI (ni uno en revisión): la pantalla amable de antes del DNI.
+                    Modifier.fillMaxWidth().toque(alBajar = 2.dp) { if (dni == "aprobada" || dni == "pendiente") ir.verificacion() else ir.pedirDni("gente") }
                         .gel(24.dp, if (p.oscuro) Gels.tarjetaOscura else gelVerificacion)
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -237,7 +238,7 @@ fun Perfil(ir: Ir) {
                             when (dni) {
                                 "aprobada" -> "Tu DNI ya está verificado"
                                 "pendiente" -> "Ya estamos revisando tu DNI."
-                                else -> "Falta tu DNI para usar Caigo"
+                                else -> "Verificá tu DNI"
                             },
                             12f, 600, p.texto2,
                         )
@@ -331,6 +332,16 @@ fun Perfil(ir: Ir) {
                         }
                     }
                     Icono(I.adelante, 20.dp, p.texto, 2.2f)
+                }
+
+                // Gente y Citas salieron de la cabecera de Ahora (18/11): se abren desde acá, sin protagonismo.
+                // Citas, sólo para quien eligió esa intención. Sin DNI, antes «verificamos que seas vos».
+                val citas = y.intenciones.contains("citas")
+                MiosGrupo {
+                    MiosFila(I.usuario, "Conocer gente", "Gente cerca que sale a lo mismo que vos", ultima = !citas) {
+                        if (c.conDni(ir, "gente")) ir.mazo("gente")
+                    }
+                    if (citas) MiosFila(I.corazonChico, "Citas", ultima = true) { if (c.conDni(ir, "gente")) ir.mazo("citas") }
                 }
 
                 // Al final, la acción destructiva (con el texto de peligro de «Cancelar el plan»).
@@ -465,10 +476,11 @@ fun MiGente(ir: Ir) {
 
 /**
  * Editar perfil: fotos, nombre, bio, trabajo, zona, preguntas e intereses (PATCH /v1/yo).
- * Con [completar] (al final del alta): «Completá tu perfil», sin volver y con los mínimos de la API.
+ * Con [completar]: «Completá tu perfil», con los mínimos de la API: después del DNI del primer «Caigo»
+ * ([apilado]: al guardar vuelve a donde estaba) o como ruta vieja del alta (al guardar, a Ahora).
  */
 @Composable
-fun EditarPerfil(ir: Ir, completar: Boolean = false) {
+fun EditarPerfil(ir: Ir, completar: Boolean = false, apilado: Boolean = false) {
     val c = LocalApp.current
     val p = LocalPaleta.current
     val ctx = LocalContext.current
@@ -618,7 +630,7 @@ fun EditarPerfil(ir: Ir, completar: Boolean = false) {
                 )
             }
             Cta(
-                if (completar) "Listo, entrar" else "Guardar", {
+                if (completar) (if (apilado) "Listo, seguir" else "Listo, entrar") else "Guardar", {
                     guardando = true
                     alcance.launch {
                         try {
@@ -631,7 +643,7 @@ fun EditarPerfil(ir: Ir, completar: Boolean = false) {
                             )
                             if (completar) {
                                 avisos.ok("¡Listo! Ya podés sumarte a planes.")
-                                ir.principal(Pestana.Ahora)
+                                if (apilado) ir.atras() else ir.principal(Pestana.Ahora)
                             } else {
                                 avisos.ok("Listo, actualizamos tu perfil.")
                                 ir.atras()

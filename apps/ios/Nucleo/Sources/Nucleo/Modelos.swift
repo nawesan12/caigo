@@ -47,6 +47,21 @@ public struct Direccion: Codable, Hashable, Sendable {
     public init(from d: Decoder) throws { let c = try d.lector(); texto = c.v("texto", ""); lat = c.v("lat", 0.0); lng = c.v("lng", 0.0) }
 }
 
+/// La línea de confianza de la tarjeta (`confianza` de planes.go). Caigo no guarda el género: `chicas`
+/// sólo viene en planes «Solo mujeres» y desde 2.
+public struct Confianza: Codable, Hashable, Sendable {
+    public var todosVerificados = false
+    public var soloChicas = false
+    public var chicas: Int?
+    public init(todosVerificados: Bool = false, soloChicas: Bool = false, chicas: Int? = nil) {
+        self.todosVerificados = todosVerificados; self.soloChicas = soloChicas; self.chicas = chicas
+    }
+    public init(from d: Decoder) throws {
+        let c = try d.lector()
+        todosVerificados = c.v("todosVerificados", false); soloChicas = c.v("soloChicas", false); chicas = c.o("chicas")
+    }
+}
+
 public struct LugarCorto: Codable, Hashable, Sendable {
     public var id = "", slug = "", nombre = "", zona = "", foto = ""
     public init(id: String = "", slug: String = "", nombre: String = "", zona: String = "", foto: String = "") {
@@ -107,6 +122,7 @@ public struct Plan: Codable, Hashable, Identifiable, Sendable {
     public var aceptaGrupos = true
     /// Sólo para quien organiza: "" normal, "revision" (lo mira el equipo) u "oculto" (nadie más lo ve).
     public var moderacion = ""
+    public var confianza = Confianza()
 
     public init(id: String) { self.id = id }
 
@@ -127,6 +143,7 @@ public struct Plan: Codable, Hashable, Identifiable, Sendable {
         precioCentavos = c.o("precioCentavos"); senaPct = c.o("senaPct"); cargoCentavos = c.v("cargoCentavos", 0)
         incluye = c.v("incluye", ""); cancelacion = c.v("cancelacion", ""); beneficio = c.v("beneficio", "")
         aceptaGrupos = c.v("aceptaGrupos", true); moderacion = c.v("moderacion", "")
+        confianza = c.v("confianza", Confianza())
     }
 
     /// Plan de un lugar aliado con entrada o seña: el botón es "Entrada" en vez de "Sumarme".

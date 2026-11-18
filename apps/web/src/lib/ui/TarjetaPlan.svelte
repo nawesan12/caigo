@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Avatares, { type Avatar } from './Avatares.svelte';
+	import Verificado from '#lib/app-ui/Verificado.svelte';
 	import { faltanTexto } from '#lib/plan.ts';
 
 	/** La tarjeta de plan de "Ahora · lista" (Mockups v5, pantalla 02). */
@@ -16,7 +17,9 @@
 		personas,
 		href,
 		enlace,
-		accion = 'Sumarme'
+		accion = 'Sumarme',
+		confianza = [],
+		verificados = false
 	}: {
 		foto?: string;
 		tinte?: string;
@@ -33,6 +36,10 @@
 		/** Toda la tarjeta lleva acá (el detalle del plan). */
 		enlace?: string;
 		accion?: string;
+		/** La línea de confianza (lineaConfianza): «Todos verificados · Organiza Martín (9/10)». */
+		confianza?: string[];
+		/** Con el sello violeta adelante: todos los que van tienen el DNI. */
+		verificados?: boolean;
 	} = $props();
 </script>
 
@@ -82,6 +89,11 @@
 				>
 			{/if}
 		</div>
+		{#if confianza.length}
+			<p class="confianza">
+				{#if verificados}<Verificado tam={14} />{/if}<span>{confianza.join('\u00a0· ')}</span>
+			</p>
+		{/if}
 	</div>
 </article>
 
@@ -181,6 +193,19 @@
 		font-weight: 600;
 		color: var(--texto-2);
 		white-space: nowrap;
+	}
+	.confianza {
+		display: flex;
+		align-items: flex-start;
+		gap: 6px;
+		margin-top: -2px;
+		font-size: 12px;
+		font-weight: 600;
+		line-height: 1.35;
+		color: var(--texto-2);
+	}
+	.confianza :global(svg) {
+		margin-top: 1px;
 	}
 	.sumarme {
 		position: relative;

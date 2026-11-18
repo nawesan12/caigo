@@ -13,6 +13,9 @@ enum class Pestana { Ahora, Explorar, Mis, Perfil }
  * Las acciones de navegación que usan las pantallas. Ninguna pantalla toca el NavController:
  * así cada una se puede armar y probar sola.
  */
+/** La ruta de PedirDni en el NavHost. */
+const val RUTA_PEDIR_DNI = "pedirdni?motivo={motivo}&plan={plan}"
+
 class Ir(private val nav: NavController) {
     /** Pestaña de Principal (se puede cambiar desde cualquier pantalla). */
     var pestana by mutableStateOf(Pestana.Ahora)
@@ -21,6 +24,9 @@ class Ir(private val nav: NavController) {
     private fun ir(ruta: String) = nav.navigate(ruta) { launchSingleTop = true }
     private fun e(s: String) = Uri.encode(s)
 
+    /** Hay una pantalla abajo (se llegó apilando, no como paso del alta). */
+    val apilada: Boolean get() = nav.previousBackStackEntry != null
+
     fun atras() {
         // Sin nada apilado no se hace nada: desde el alta no se saltean pasos.
         if (nav.previousBackStackEntry != null) nav.popBackStack()
@@ -28,11 +34,14 @@ class Ir(private val nav: NavController) {
 
     fun principal(pestana: Pestana = Pestana.Ahora, modo: String? = null) {
         this.pestana = pestana
-        modoAhora = modo
-        nav.navigate("principal?tab=${pestana.name}&modo=${modo.orEmpty()}") {
+        // Gente y Citas ya no son modos de Ahora (18/11): Ahora y, encima, el mazo.
+        val modoMazo = modo?.takeIf { it == "gente" || it == "citas" }
+        modoAhora = if (modoMazo != null) null else modo
+        nav.navigate("principal?tab=${pestana.name}&modo=${modoAhora.orEmpty()}") {
             popUpTo(0) { inclusive = true }
             launchSingleTop = true
         }
+        if (modoMazo != null) mazo(modoMazo)
     }
 
     fun intro() = nav.navigate("intro") { popUpTo(0) { inclusive = true } }
@@ -64,6 +73,30 @@ class Ir(private val nav: NavController) {
     fun plus(motivo: String = "perfil") = ir("plus?motivo=$motivo")
     fun verificacion() = ir("verificacion")
     fun dni(planId: String? = null) = ir("dni?plan=${planId.orEmpty()}")
+
+    /**
+     * «Para sumarte, verificamos que seas vos»: antes del DNI, al primer «Caigo», crear, chatear o la gente.
+     * motivo: sumarte | crear | chatear | gente.
+     */
+    fun pedirDni(motivo: String, planId: String? = null) {
+        if (nav.currentDestination?.route == RUTA_PEDIR_DNI) return
+        ir("pedirdni?motivo=${e(motivo)}&plan=${planId.orEmpty()}")
+    }
+
+    /** De «Verificarme» al DNI: reemplaza la pantalla que lo pidió. */
+    fun aDni(planId: String?) = nav.navigate("dni?plan=${planId.orEmpty()}") {
+        popUpTo(RUTA_PEDIR_DNI) { inclusive = true }
+        launchSingleTop = true
+    }
+
+    /** Al terminar el DNI fuera del alta, si al perfil le falta algo: reemplaza el DNI por completarlo. */
+    fun completarPerfilDespuesDelDni() = nav.navigate("completarapilado") {
+        popUpTo("dni?plan={plan}") { inclusive = true }
+        launchSingleTop = true
+    }
+
+    /** El mazo de Gente o Citas (salió de la cabecera de Ahora; se abre desde Perfil › Mi gente). */
+    fun mazo(modo: String) = ir("mazo?modo=$modo")
     fun checkout(planId: String, cantidad: Int) = ir("checkout/${e(planId)}?cantidad=$cantidad")
     fun entrada(entradaId: String, planId: String) = ir("entrada/${e(entradaId)}?plan=${e(planId)}")
     fun qrEntrada(entradaId: String) = ir("qrentrada/${e(entradaId)}")

@@ -119,7 +119,7 @@ fun MisPlanes(ir: Ir) {
                 planes == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Puntitos(p.acento) }
                 planes.isEmpty() -> Box(Modifier.fillMaxSize().padding(horizontal = 28.dp).padding(bottom = altoTabBar()), contentAlignment = Alignment.Center) {
                     when (tab) {
-                        0 -> MiosVacio("Todavía no armaste ningún plan", "Armá uno en menos de 30 segundos. Siempre hay alguien que se prende.", "Armá un plan", { ir.crear() })
+                        0 -> MiosVacio("Todavía no armaste ningún plan", "Armá uno en menos de 30 segundos. Siempre hay alguien que se prende.", "Armá un plan", { if (c.conDni(ir, "crear")) ir.crear() })
                         1 -> MiosVacio("Todavía no te sumaste a nada", "Hay una mesa de truco a la que le falta uno. Y sabemos que te la sabés.", "Ver planes cerca", { ir.principal(Pestana.Ahora) })
                         else -> MiosVacio("Todavía no fuiste a ningún plan", "Los planes que pasaron quedan acá, para repetirlos.", "Ver planes cerca", { ir.principal(Pestana.Ahora) })
                     }

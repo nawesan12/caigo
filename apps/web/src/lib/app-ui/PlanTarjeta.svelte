@@ -1,6 +1,6 @@
 <script lang="ts">
 	import TarjetaPlan from '#lib/ui/TarjetaPlan.svelte';
-	import { CATEGORIAS, fotoDelPlan } from '#lib/plan.ts';
+	import { CATEGORIAS, fotoDelPlan, lineaConfianza } from '#lib/plan.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
 	import { distancia, TINTES } from '#lib/app.ts';
 	import type { Plan } from '#lib/tipos.ts';
@@ -39,4 +39,6 @@
 	enlace="/app/plan/{plan.id}"
 	href="/app/plan/{plan.id}"
 	{accion}
+	confianza={lineaConfianza(plan)}
+	verificados={!!plan.confianza?.todosVerificados}
 />

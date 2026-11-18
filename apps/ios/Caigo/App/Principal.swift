@@ -26,7 +26,7 @@ struct Principal: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             if !ir.tabBarOculta {
-                TabBar(activa: ir.pestana, alTocar: { ir.pestana = $0 }, alCrear: { ir.crear() })
+                TabBar(activa: ir.pestana, alTocar: { ir.pestana = $0 }, alCrear: { if c.conDni(ir, "crear") { ir.crear() } })
                     .transition(.opacity)
             }
         }
