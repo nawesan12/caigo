@@ -55,6 +55,8 @@
     "/app/plan/pl1/chat": "ruta:chat:pl1",
     "/app/plan/pl1/editar": "ruta:editarPlan:pl1",
     "/app/plan/pl1/repetimos": "ruta:repetimos:pl1",
+    "/app/plan/pl1/fotos": "ruta:fotos:pl1",
+    "/app/semana": "ruta:semana",
     "/app/plan/pl1/solicitudes": "ruta:solicitudes:pl1",
     "/app/algo-nuevo": "web-en-app"
   }

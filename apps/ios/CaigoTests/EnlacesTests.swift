@@ -45,6 +45,8 @@ final class EnlacesTests: XCTestCase {
             case let .editarPlan(id): "ruta:editarPlan:\(id)"
             case let .repetimos(id): "ruta:repetimos:\(id)"
             case let .solicitudes(id): "ruta:solicitudes:\(id)"
+            case let .fotosPlan(id): "ruta:fotos:\(id)"
+            case .semana: "ruta:semana"
             default: "ruta:?"
             }
         }
