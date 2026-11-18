@@ -23,6 +23,8 @@ struct DiaTarjeta: View {
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 2) {
                     T(Dia.cuentaRegresiva(p.empiezaEn, ahora: ahora), 34, 800, C.lima, alto: 1, espaciado: -1.2, unRenglon: true)
+                        // El dato principal no se corta con letra grande: crece hasta un tope.
+                        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                     T(llegaron.isEmpty ? Cupo.somos(p.somos, p.total)
                         : "\(miosNombres(llegaron.map { miosPrimer($0.nombre) })) ya \(llegaron.count == 1 ? "llegó" : "llegaron")",
                       14, 600, C.blancoCalido)
@@ -83,6 +85,68 @@ struct DiaTarjeta: View {
             avisando = false
         }
     }
+}
+
+/// El plan de hoy, fijo arriba de Ahora y de Mis planes (6.8 del informe): la cuenta regresiva y las dos
+/// cosas del día, «Llegué» y «¿Todo bien?», a un toque. El contador oscuro de DiaTarjeta en chico; tocar
+/// arriba abre el plan. Igual que TarjetaHoy.svelte y HoyTarjeta en DiaDelPlan.kt.
+struct HoyTarjeta: View {
+    var p: Plan
+    var todoBien: () -> Void
+    @Environment(Ir.self) private var ir
+    @State private var ahora = Date()
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Button { ir.plan(p.id) } label: {
+                HStack(alignment: .center, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        T("HOY", 12, 800, C.lima, espaciado: 0.6, unRenglon: true)
+                        T(p.titulo, 16, 700, C.blancoCalido, unRenglon: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    T(Dia.cuentaRegresiva(p.empiezaEn, ahora: ahora), 22, 800, C.lima, espaciado: -0.6, unRenglon: true)
+                        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+                }
+            }
+            .buttonStyle(EstiloPlano())
+            .accessibilityLabel("Hoy: \(p.titulo), \(Dia.cuentaRegresiva(p.empiezaEn, ahora: ahora))")
+            HStack(spacing: 10) {
+                if p.mio?.llegue == true {
+                    HStack(spacing: 6) {
+                        Icono(I.check, 18, C.carbon, trazo: 3.4)
+                        T("Llegaste", 15, 800, C.carbon)
+                    }
+                    .frame(maxWidth: .infinity).frame(minHeight: 48)
+                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(C.lima))
+                } else {
+                    Cta(texto: "Llegué", alto: 48, radio: 16, tam: 15, color: C.carbon, icono: I.check, iconoTrazo: 3.4, iconoTam: 18) {
+                        ir.checkin(p.id)
+                    }
+                }
+                Cta(texto: p.mio?.todoBien == true ? "¿Todo bien? · Activo" : "¿Todo bien?", gel: Gels.blanco, alto: 48, radio: 16, tam: 15,
+                    color: C.carbon, icono: I.escudo, iconoTrazo: 2.2, iconoTam: 18, accion: todoBien)
+            }
+        }
+        .padding(14)
+        .gel(24, miosOscura)
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                ahora = Date()
+            }
+        }
+    }
+}
+
+/// El plan de hoy de quien mira (el próximo en el que está adentro y «en el día»), para HoyTarjeta.
+@MainActor
+func planDeHoy(_ c: Contenedor) async -> Plan? {
+    let o = (try? await c.api.mios("organizo").planes) ?? []
+    let m = (try? await c.api.mios("me_sume").planes) ?? []
+    let todos = o + m
+    return todos.filter { ($0.miEstado == "aceptada" || $0.miEstado == "organizador") && Dia.enElDia($0) }
+        .sorted { $0.empiezaEn < $1.empiezaEn }.first
 }
 
 /// «¿Seguís yendo?» la víspera: Voy confirma; Me bajo libera el lugar (con la confirmación de siempre).
@@ -156,16 +220,28 @@ struct EsperaAbajo: View {
     var enviandoEntrar: Bool
     var pedirConfirmacion: (String) -> Void
     @Environment(Contenedor.self) private var c
+    @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var pal
     @State private var enviando = false
 
     var body: some View {
         if let e = p.mio?.espera {
             if e.estado == "avisado" {
-                T("Se liberó un lugar. Es tuyo por 15\u{00A0}min.", 14, 700, C.carbon, alinear: .center)
-                    .padding(10).frame(maxWidth: .infinity)
-                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(C.lima))
-                Cta(texto: "Entrar al plan", alto: 58, color: C.carbon, cargando: enviandoEntrar, accion: entrar)
+                // Con la hora de verdad (venceEn), refrescada: si venció, no se ofrece más «Entrar».
+                TimelineView(.periodic(from: .now, by: 30)) { t in
+                    if let guardado = Dia.lugarGuardado(e.venceEn, ahora: t.date) {
+                        VStack(spacing: 12) {
+                            T("Se liberó un lugar. \(guardado.replacingOccurrences(of: " ", with: "\u{00A0}")).", 14, 700, C.carbon, alinear: .center)
+                                .padding(10).frame(maxWidth: .infinity)
+                                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(C.lima))
+                            Cta(texto: "Entrar al plan", alto: 58, color: C.carbon, cargando: enviandoEntrar, accion: entrar)
+                        }
+                    } else {
+                        T("Se venció tu lugar. Si se libera otro, te avisamos.", 14, 700, pal.texto2, alinear: .center)
+                            .padding(10).frame(maxWidth: .infinity)
+                            .task { recargar() }
+                    }
+                }
             } else {
                 T("En la lista · \(e.posicion)°", 17, 800, C.violetaTexto, alinear: .center)
                     .frame(maxWidth: .infinity).frame(height: 58)
@@ -176,6 +252,8 @@ struct EsperaAbajo: View {
             T("Completo", 17, 800, C.carbon).frame(maxWidth: .infinity).frame(height: 50).gel(20, Gels.limaBadge)
             CtaVioleta("Anotame en la lista", cargando: enviando) {
                 guard !enviando else { return }
+                // Sin DNI se mira: anotarse pide verificarse, con el pedido de «sumarte» (no el genérico).
+                guard c.conDni(ir, "sumarte", plan: p.id) else { return }
                 enviando = true
                 Task {
                     if await esperaAnotar(c, p, pedirConfirmacion: pedirConfirmacion) { recargar() }
@@ -196,7 +274,8 @@ struct EsperaAbajo: View {
 }
 
 /// «¿Todo bien?»: avisarle a un contacto si no hay check-in, compartir la ubicación, «Me quiero ir»,
-/// 911, Línea 144 y reportar.
+/// 911, Línea 144 y reportar. Dice a quién le llega el aviso sin prometer de más: con un mail le escribimos
+/// al contacto; con un teléfono (no hay SMS), te avisamos a vos para que le escribas.
 struct HojaTodoBien: View {
     var p: Plan
     var abierta: Bool
@@ -207,34 +286,53 @@ struct HojaTodoBien: View {
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var pal
     @State private var estado: TodoBien?
+    @State private var cargando = false
+    @State private var fallo = false
+    @State private var nombreNuevo = ""
+    @State private var contactoNuevo = ""
+    @State private var guardando = false
+
+    /// Mientras carga (o si falló), los contactos del perfil: nadie con contactos ve «no tenés a quién avisar».
+    private var contactos: [Contacto] { estado?.contactos ?? (c.yo?.contactosConfianza ?? []) }
 
     var body: some View {
         MiosHoja(abierta: abierta, titulo: "¿Todo bien?", cerrar: cerrar) {
-            let contacto = estado?.contacto ?? estado?.contactos.first
+            let contacto = estado?.contacto ?? contactos.first
             MiosGrupo {
                 if let t = estado, t.activo, let k = t.contacto {
-                    MiosFila(icono: I.escudo, titulo: "Avisamos a \(k.mostrar)",
-                             sub: "Si a las \(Fecha.hora(t.avisaEn)) no hiciste check-in. Tocá para apagarlo.") { apagar() }
-                } else if let t = estado, !t.contactos.isEmpty {
-                    ForEach(Array(t.contactos.enumerated()), id: \.offset) { i, k in
-                        MiosFila(icono: I.escudo, titulo: "Avisale a \(k.mostrar) si no llego",
-                                 sub: "A la media hora, si no hice check-in") { activar(i) }
+                    MiosFila(icono: I.escudo, titulo: k.leEscribimos ? "Le escribimos a \(k.mostrar)" : "Te avisamos para que le escribas a \(k.mostrar)",
+                             sub: t.avisado ? "Ya avisamos." : "Si a las \(Fecha.hora(t.avisaEn)) no hiciste check-in. Antes te preguntamos. Tocá para apagarlo.") { apagar() }
+                } else if !Dia.puedeActivarTodoBien(p) {
+                    EmptyView()
+                } else if fallo && estado == nil && contactos.isEmpty {
+                    MiosFila(icono: I.escudo, titulo: "No pudimos cargar «¿Todo bien?»", sub: "Probar de nuevo") { Task { await cargar() } }
+                } else if !contactos.isEmpty {
+                    ForEach(Array(contactos.enumerated()), id: \.offset) { i, k in
+                        MiosFila(icono: I.escudo, titulo: k.filaTodoBien,
+                                 sub: k.leEscribimos ? "A la media hora, si no hice check-in" : "No mandamos SMS: con un mail, le escribimos nosotros") {
+                            activar(i)
+                        }
                     }
-                } else {
-                    MiosFila(icono: I.usuario, titulo: "Sumá un contacto de confianza", sub: "Le avisamos si no llegás") {
-                        cerrar()
-                        ir.verificacion()
+                } else if !cargando {
+                    // Sin contactos: se carga acá mismo y queda activo, sin ir a otra pantalla.
+                    VStack(alignment: .leading, spacing: 10) {
+                        T("¿A quién avisamos si no llegás?", 15, 700, pal.texto)
+                        MiosCampo(valor: $nombreNuevo, placeholder: "Nombre (Mamá, Sofi…)", maximo: 40)
+                        MiosCampo(valor: $contactoNuevo, placeholder: "Mail (le escribimos) o teléfono", maximo: 80)
+                        Cta(texto: "Activar", alto: 52, radio: 18, tam: 16, color: C.carbon, cargando: guardando) { sumarYActivar() }
+                            .disabled(contactoNuevo.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
+                    .padding(16)
                 }
                 MiosFila(icono: I.ubicacion, titulo: "Compartir mi ubicación", sub: "Sale de tu teléfono; no la guardamos") {
                     compartirUbicacion(contacto)
                 }
                 if let k = contacto, k.esTelefono {
-                    MiosFila(icono: I.usuario, titulo: "Me quiero ir", sub: "Llamar a \(k.mostrar)") {
+                    MiosFila(icono: I.telefono, titulo: "Me quiero ir", sub: "Llamar a \(k.mostrar)") {
                         Sistema.abrir("tel:" + k.contacto.filter { $0.isNumber || $0 == "+" })
                     }
                 }
-                MiosFila(icono: I.adelante, titulo: "Pedir un auto", sub: "Para volver ya", ultima: true) {
+                MiosFila(icono: I.auto, titulo: "Pedir un auto", sub: "Para volver ya", ultima: true) {
                     Sistema.abrir(Dia.pedirAuto.absoluteString)
                 }
             }
@@ -251,7 +349,35 @@ struct HojaTodoBien: View {
                 }
         }
         .task(id: abierta) {
-            if abierta { estado = try? await c.api.todoBien(p.id) }
+            if abierta { await cargar() }
+        }
+    }
+
+    private func cargar() async {
+        cargando = true
+        fallo = false
+        do { estado = try await c.api.todoBien(p.id) } catch { fallo = true }
+        cargando = false
+    }
+
+    /// Sin contactos: lo suma al perfil (al final, sin tocar los demás) y activa «¿Todo bien?» con él.
+    private func sumarYActivar() {
+        guard !guardando else { return }
+        guardando = true
+        Task {
+            do {
+                var cambios = CambiosPerfil()
+                let lista = Array(((c.yo?.contactosConfianza ?? []) + [Contacto(nombre: nombreNuevo.trimmingCharacters(in: .whitespaces),
+                                                                               contacto: contactoNuevo.trimmingCharacters(in: .whitespaces))]).prefix(3))
+                cambios.contactosConfianza = lista
+                _ = try await c.api.actualizarYo(cambios)
+                _ = await c.recargarYo()
+                guardando = false
+                activar(lista.count - 1)
+            } catch {
+                guardando = false
+                c.avisos.error(error)
+            }
         }
     }
 
@@ -259,7 +385,7 @@ struct HojaTodoBien: View {
         Task {
             do {
                 estado = try await c.api.activarTodoBien(p.id, contacto: i)
-                c.avisos.ok("Si no llegás, le avisamos a \(estado?.contacto?.mostrar ?? "tu contacto").")
+                c.avisos.ok(estado?.contacto?.activado ?? "Listo.")
                 cerrar()
                 recargar()
             } catch { c.avisos.error(error) }

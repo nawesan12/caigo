@@ -16,6 +16,8 @@ struct VistaSolicitudes: View {
     /// Los que ya van (aceptados): el organizador puede sacarlos (contrato §2).
     @State private var van: [Solicitud] = []
     @State private var sacando: Solicitud?
+    /// A quiénes ya se marcó que vinieron (se ve al toque, sin recargar).
+    @State private var marcados: Set<String> = []
 
     var body: some View {
         Pantalla {
@@ -116,11 +118,25 @@ struct VistaSolicitudes: View {
         }
     }
 
-    /// «Ya van»: los aceptados, con «Sacar» (antes de que empiece el plan).
+    /// «Marcar que vino»: POST /v1/planes/{id}/personas/{usuario}/vino.
+    private func marcarVino(_ per: PersonaCorta) {
+        Task {
+            do {
+                try await c.api.marcarVino(planId, persona: per.id)
+                marcados.insert(per.id)
+                c.avisos.ok("Listo, quedó que vino.")
+            } catch { c.avisos.error(error) }
+        }
+    }
+
+    /// «Ya van»: los aceptados, con «Sacar» (antes de que empiece el plan). Cuando ya pasó, «Fueron», y quien
+    /// organiza puede marcar que vino alguien que fue y no tocó «Llegué» (si el plan usó el check-in).
     private func yaVan(_ pl: Plan) -> some View {
         let empezo = Fecha.parse(pl.empiezaEn).map { Date() > $0 } ?? false
+        let termino = Fecha.parse(pl.empiezaEn).map { Date() > $0.addingTimeInterval(Double(pl.duracionMin) * 60) } ?? false
+        let conCheckin = pl.van.contains { $0.llego }
         return VStack(alignment: .leading, spacing: 10) {
-            MiosSeccion(texto: "Ya van · \(van.reduce(0) { $0 + $1.cantidad })").padding(.top, 10)
+            MiosSeccion(texto: "\(termino ? "Fueron" : "Ya van") · \(van.reduce(0) { $0 + $1.cantidad })").padding(.top, 10)
             ForEach(van) { s in
                 let per = s.persona
                 HStack(spacing: 12) {
@@ -141,6 +157,12 @@ struct VistaSolicitudes: View {
                         }
                         .buttonStyle(EstiloPlano())
                         .accessibilityLabel("Sacar a \(miosPrimer(per.nombre)) del plan")
+                    } else if termino && conCheckin && !marcados.contains(per.id) && pl.van.first(where: { $0.id == per.id })?.llego == false {
+                        Button { marcarVino(per) } label: {
+                            T("Marcar que vino", 14, 700, p.oscuro ? C.lima : C.violetaTexto, unRenglon: true)
+                                .padding(.horizontal, 12).padding(.vertical, 12)
+                        }
+                        .buttonStyle(EstiloPlano())
                     }
                 }
                 .padding(12)
@@ -193,7 +215,7 @@ private struct TarjetaSolicitud: View {
                         if per.verificada { MiosVerificado(tam: 15) }
                     }
                     T(per.enMiGente ? miosAsistencia(per.asistencia, extra: "está en tu gente") : miosAsistencia(per.asistencia), 12, 400, p.texto2)
-                    if per.faltazos >= 2 { T("Faltó a \(per.faltazos) planes este mes", 12, 600, C.coral2) }
+                    if per.faltazos >= 2 { T("Faltó a \(per.faltazos) planes este mes", 12, 600, p.texto2) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if completan {

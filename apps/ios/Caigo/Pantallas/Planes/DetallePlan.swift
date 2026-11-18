@@ -144,19 +144,22 @@ private struct ContenidoDetalle: View {
                         if p.adentro && !deLugar && Dia.enElDia(p) {
                             DiaTarjeta(p: p) { withAnimation { todoBien = true } }
                         }
-                        if p.miEstado == "aceptada" && !p.cancelado && Dia.esVispera(p) && p.mio?.confirme != true {
+                        // Sólo planes gratis: con entrada paga no se libera el lugar con un toque (se cancela la entrada).
+                        if p.miEstado == "aceptada" && !p.cancelado && p.cobro == "gratis" && Dia.esVispera(p) && p.mio?.confirme != true {
                             VisperaTarjeta(p: p, bajarme: { withAnimation { bajandome = true } }, recargar: recargar)
                         }
                         if p.adentro && !p.cancelado && yaPaso(p) { DespuesTarjeta(p: p) }
                         PlanesContador(p: p)
                         organizador
-                        LineaConfianza(plan: p, tam: 13)
+                        // Quien organiza ya tiene su fila: acá sólo «Todos verificados · Plan de chicas».
+                        LineaConfianza(plan: p, tam: 13, detalle: true)
                         info
                         if !p.descripcion.isEmpty { T(p.descripcion, 15, 400, pal.texto2, alto: 1.5) }
                         if p.lugar != nil { tarjetaEntrada }
                         if !p.beneficio.isEmpty { PlanesBeneficio(texto: p.beneficio, desbloqueado: false) }
                         if let b = p.lugar?.beneficioNivel, !b.isEmpty {
-                            T("Habitué o más: \(b)", 13, 600, pal.texto2, alto: 1.4)
+                            // Según quien mira: «Tenés: …» o «Con 3 planes más: …».
+                            T(TextoLogros.beneficio(b, c.yo?.logros), 13, 600, pal.texto2, alto: 1.4)
                         }
                         PlanesFlujo(espacio: 6, renglon: 6) {
                             T("Requisitos", 13, 700, pal.texto2).padding(.vertical, 6)
@@ -309,14 +312,13 @@ private struct ContenidoDetalle: View {
                 HStack(spacing: 6) {
                     T("Organiza \(nombre)", 15, 700, pal.texto, unRenglon: true)
                     if o.verificada { Verificado(tam: 16, color: pal.oscuro ? C.lima : C.violeta, tilde: pal.oscuro ? C.carbon : C.blanco) }
-                    if o.anfitrion && p.lugar == nil {
-                        ChipFoto(texto: "Anfitrión", oscuro: false, fondo: pal.oscuro ? Gel(fondo: .liso(Color(hex: 0x2E2A3D))) : Gels.chipClaro, color: pal.texto)
-                            .fixedSize()
-                    }
+                    if o.anfitrion && p.lugar == nil { ChipInsignia(texto: "Anfitrión") }
                 }
-                T(p.lugar != nil ? "Lugar aliado · verificado por Caigo"
-                    : (o.asistencia.de > 0 ? "Fue a \(o.asistencia.fue) de \(o.asistencia.de) \(o.asistencia.de == 1 ? "plan" : "planes") · \(asistencia(o.asistencia))" : "Nuevo en Caigo"),
-                  13, 400, pal.texto2)
+                // «Fue a 9 de 10 · 4,5 · 10+ opiniones» (sin porcentaje; sin dato, nada: no inventamos un «Nuevo»).
+                let rep = p.lugar != nil ? "Lugar aliado · verificado por Caigo"
+                    : [asistenciaTexto(o.asistencia).map { "F" + String($0.dropFirst()) }, Caras.texto(o.caritas)]
+                        .compactMap { $0 }.joined(separator: "\u{00A0}· ")
+                if !rep.isEmpty { T(rep, 13, 400, pal.texto2) }
             }
             Spacer(minLength: 0)
         }

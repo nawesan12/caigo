@@ -53,7 +53,13 @@ struct Festejo: View {
                 .accessibilityLabel("Cerrar")
                 .padding(.top, 8).padding(.trailing, 16)
         }
+        // Una capa encima de todo: para VoiceOver es modal (no se recorre lo de abajo), se anuncia y se cierra
+        // con el gesto de escape.
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
+        .accessibilityAction(.escape, cerrar)
         .task {
+            AccessibilityNotification.ScreenChanged("¡Estás adentro!").post()
             if sinMovimiento { fase = 2; return }
             withAnimation(.easeOut(duration: 0.25)) { fase = 1 }
             try? await Task.sleep(nanoseconds: 220_000_000)

@@ -11,8 +11,49 @@ struct MisPlanes: View {
     @State private var tab = 0
     @State private var planes: [String: [Plan]] = [:]
     @State private var errores: [String: String] = [:]
+    /// «Repetir» del historial: se confirma con la fecha antes de publicar.
+    @State private var aRepetir: Plan?
+    /// La hoja «¿Todo bien?» del plan de hoy.
+    @State private var hojaHoy = false
+
+    /// El plan de hoy (fijo arriba, con «Llegué» y «¿Todo bien?»), de lo que ya se trajo.
+    private var hoy: Plan? {
+        ((planes["organizo"] ?? []) + (planes["me_sume"] ?? []))
+            .filter { ($0.miEstado == "aceptada" || $0.miEstado == "organizador") && Dia.enElDia($0) }
+            .sorted { $0.empiezaEn < $1.empiezaEn }.first
+    }
 
     var body: some View {
+        ZStack {
+            principal
+            if let pl = aRepetir {
+                HojaConfirmar(abierta: true, titulo: "¿Repetimos «\(pl.titulo)»?",
+                              cuerpo: "\(proximaFecha(pl)). Se publica igual que la última vez.", accion: "Publicar",
+                              cerrar: { withAnimation { aRepetir = nil } }) {
+                    if let nuevo = try await c.api.repetimos(pl.id, repetir: true, volveria: [], carita: nil).nuevo {
+                        aRepetir = nil
+                        c.avisos.ok("Listo, se repite. Ya está publicado.")
+                        ir.plan(nuevo.id)
+                    }
+                }
+                .zIndex(10)
+            }
+            if let h = hoy {
+                HojaTodoBien(p: h, abierta: hojaHoy, cerrar: { withAnimation { hojaHoy = false } },
+                             reportar: { ir.plan(h.id) }, recargar: { Task { await cargarTodo() } })
+                    .zIndex(9)
+            }
+        }
+    }
+
+    /// El mismo día y hora, la semana que viene (o la próxima que no pasó): «Jue 27 · 21:30».
+    private func proximaFecha(_ pl: Plan) -> String {
+        guard var t = Fecha.parse(pl.empiezaEn) else { return "" }
+        repeat { t = t.addingTimeInterval(7 * 86_400) } while t <= Date()
+        return Fecha.cuando(Fecha.iso(t))
+    }
+
+    private var principal: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 16) {
                 T("Mis planes", 40, 800, alto: 1, espaciado: -1.4, unRenglon: true)
@@ -54,9 +95,10 @@ struct MisPlanes: View {
             } else {
                 ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: 14) {
+                        if let h = hoy, tab != 2 { HoyTarjeta(p: h) { withAnimation { hojaHoy = true } } }
                         ForEach(tab == 2 ? [("", lista)] : agrupar(lista), id: \.0) { titulo, grupo in
                             if !titulo.isEmpty { MiosOverline(texto: titulo) }
-                            ForEach(grupo) { pl in TarjetaMio(pl: pl, cual: k) }
+                            ForEach(grupo) { pl in TarjetaMio(pl: pl, cual: k, repetir: { aRepetir = pl }) }
                         }
                     }
                     .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, altoTabBar)
@@ -115,24 +157,18 @@ func miosLinkCompartir(_ pl: Plan) -> String { "\(pl.titulo) · https://\(linkPl
 private struct TarjetaMio: View {
     var pl: Plan
     var cual: String
+    /// «Repetir»: abre la confirmación con la fecha (MisPlanes).
+    var repetir: () -> Void = {}
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var p
-    @State private var repitiendo = false
 
-    /// POST /repetimos con repetir: publica el mismo plan la semana que viene y lo abre.
-    private func repetir() {
-        guard !repitiendo else { return }
-        repitiendo = true
-        Task {
-            do {
-                if let nuevo = try await c.api.repetimos(pl.id, repetir: true, volveria: [], carita: nil).nuevo {
-                    c.avisos.ok("Listo, se repite. Ya está publicado.")
-                    ir.plan(nuevo.id)
-                }
-            } catch { c.avisos.error(error) }
-            repitiendo = false
-        }
+    /// Un link chico del pie con 44 pt de alto para el dedo (sin agrandar el renglón).
+    private func enlace(_ texto: String, _ accion: @escaping () -> Void) -> some View {
+        T(texto, 12, 700, p.oscuro ? C.lima : C.violetaTexto)
+            .padding(.vertical, 14).padding(.horizontal, 4).contentShape(Rectangle())
+            .tocable(accion)
+            .padding(.vertical, -14).padding(.horizontal, -4)
     }
 
     var body: some View {
@@ -174,7 +210,7 @@ private struct TarjetaMio: View {
 
     @ViewBuilder
     private func pie(hoy: Bool) -> some View {
-        let enlace = p.oscuro ? C.lima : C.violetaTexto
+        let colorEnlace = p.oscuro ? C.lima : C.violetaTexto
         switch cual {
         case "me_sume":
             if pl.miEstado == "aceptada" {
@@ -183,14 +219,15 @@ private struct TarjetaMio: View {
                 MiosPill(texto: "Esperando", fondo: C.tinte1, color: C.violetaTexto, tam: 15)
             }
         case "historial":
-            // «Repetir» en un toque (quien organizó): el mismo plan la semana que viene.
+            // «Repetir» (quien organizó, con confirmación), «¿Cómo estuvo?» / «Tu gente» y las fotos, siempre.
             if pl.esMio && !pl.cancelado && pl.lugar == nil {
-                T(repitiendo ? "Repitiendo…" : "Repetir", 12, 700, enlace).tocable { repetir() }
-            } else {
-                T(pl.mio?.carita != nil ? "Tu gente" : "¿Cómo estuvo?", 12, 700, enlace).tocable { ir.repetimos(pl.id) }
+                enlace("Repetir", repetir)
+                T("·", 12, 700, p.texto2)
             }
-            if let n = pl.mio?.fotos, n > 0 {
-                T("Fotos · \(n)", 12, 700, enlace).tocable { ir.fotosPlan(pl.id) }
+            if !pl.cancelado {
+                enlace(pl.esMio || pl.mio?.carita != nil ? "Tu gente" : "¿Cómo estuvo?") { ir.repetimos(pl.id) }
+                T("·", 12, 700, p.texto2)
+                enlace((pl.mio?.fotos ?? 0) > 0 ? "Fotos · \(pl.mio?.fotos ?? 0)" : "Fotos") { ir.fotosPlan(pl.id) }
             }
         default:
             badge(hoy: hoy)
@@ -201,7 +238,7 @@ private struct TarjetaMio: View {
                     .accessibilityLabel("Destacado")
             }
             if !Cupo.completo(pl.faltan) && !hoy {
-                T("Compartir link", 12, 700, enlace).tocable { Sistema.compartir(miosLinkCompartir(pl)) }
+                T("Compartir link", 12, 700, colorEnlace).tocable { Sistema.compartir(miosLinkCompartir(pl)) }
             }
         }
     }

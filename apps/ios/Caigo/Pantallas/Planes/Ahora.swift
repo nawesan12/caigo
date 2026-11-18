@@ -39,6 +39,9 @@ struct Ahora: View {
     @State private var ocultos = PlanesOcultos()
     /// «Decidí rápido» abierto: los planes del mazo (los de la lista al abrirlo).
     @State private var decidiendo: [Plan]?
+    /// El plan de hoy (fijo arriba, con «Llegué» y «¿Todo bien?») y su hoja.
+    @State private var hoy: Plan?
+    @State private var hojaHoy = false
 
     private struct Clave: Equatable {
         var lat: Double?; var lng: Double?; var sinUbicacion: Bool; var categoria: String?; var chicas: Bool; var q: String?
@@ -58,6 +61,7 @@ struct Ahora: View {
             await ubicar()
         }
         .task { invitaciones = try? await c.api.invitaciones() }
+        .task(id: vuelta) { if c.yo?.verificada == true { hoy = await planDeHoy(c) } }
         .task {
             guard Dia.semanaVisible(), let s = try? await c.api.semana(), s.total >= 5 else { return }
             semana = s
@@ -127,6 +131,11 @@ struct Ahora: View {
             }
             .padding(.top, 6)
             AvisoDeshacer(ocultos: ocultos)
+            if let hoy {
+                HojaTodoBien(p: hoy, abierta: hojaHoy, cerrar: { withAnimation { hojaHoy = false } },
+                             reportar: { ir.plan(hoy.id) }, recargar: { vuelta += 1 })
+                    .zIndex(15)
+            }
             if let d = decidiendo {
                 DecidiRapido(planes: d, ocultos: ocultos) {
                     decidiendo = nil
@@ -176,13 +185,9 @@ struct Ahora: View {
                          colorOn: p.oscuro ? C.carbon : C.blancoCalido,
                          colorOff: p.texto) { categoria = k }
                 }
-                // Al final, un interruptor aparte de la categoría: se suma a la que esté elegida.
-                Chip(texto: "Sólo chicas", on: chicas,
-                     gelOn: p.oscuro ? Gels.limaChico : Gels.oscuroSel,
-                     gelOff: Gels.chip(p),
-                     colorOn: p.oscuro ? C.carbon : C.blancoCalido,
-                     colorOff: p.texto) { chicas.toggle() }
-                    .accessibilityAddTraits(chicas ? .isSelected : [])
+                // Al final y separado: un interruptor (se suma a la categoría elegida), no otra categoría.
+                Rectangle().fill(p.oscuro ? Color(hex: 0x3A3550) : C.lavanda).frame(width: 1, height: 22)
+                InterruptorChicas(on: $chicas)
             }
             .padding(.horizontal, 20).padding(.top, 2).padding(.bottom, 6)
         }
@@ -199,6 +204,7 @@ struct Ahora: View {
                     if let inv = invitaciones, !inv.invitaciones.isEmpty {
                         BannerInvitaciones(inv: inv)
                     }
+                    if let hoy { HoyTarjeta(p: hoy) { withAnimation { hojaHoy = true } } }
                     if let semana { TarjetaSemana(s: semana) }
                     HStack {
                         VStack(alignment: .leading, spacing: 0) {
@@ -223,7 +229,8 @@ struct Ahora: View {
                             TarjetaPlan(plan: pl, alCambiar: { _ in vuelta += 1 })
                                 .modifier(DeslizarPlan(radio: 24, alCaigo: {
                                     Task { if await planesCaigo(c, ir, pl) != nil { vuelta += 1 } }
-                                }, alNoMeInteresa: { withAnimation(.easeOut(duration: 0.2)) { ocultos.ocultar(c, pl) } }))
+                                }, alNoMeInteresa: { withAnimation(.easeOut(duration: 0.2)) { ocultos.ocultar(c, pl) } },
+                                pista: pl.id == planes.first?.id))
                         }
                     } else if let error {
                         VStack(spacing: 14) {
@@ -300,5 +307,33 @@ struct PlanesVacioAhora: View {
             .padding(.top, 6)
         }
         .padding(.horizontal, 28)
+    }
+}
+
+/// «Sólo chicas» como interruptor (no como otra categoría): borde y escudo apagado, lima con tilde prendido.
+struct InterruptorChicas: View {
+    @Binding var on: Bool
+    @Environment(\.paleta) private var p
+
+    var body: some View {
+        Button { on.toggle() } label: {
+            HStack(spacing: 6) {
+                Icono(on ? I.check : I.escudo, 15, on ? C.carbon : (p.oscuro ? C.lima : C.violeta), trazo: on ? 3 : 2.2)
+                T("Sólo chicas", 14, on ? 700 : 600, on ? C.carbon : (p.oscuro ? C.lima : C.violetaTexto), unRenglon: true)
+            }
+            .padding(.horizontal, 13).padding(.vertical, 8)
+            .background {
+                if on {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous).fill(C.lima)
+                } else {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder((p.oscuro ? C.lima : C.violeta).opacity(0.4), lineWidth: 1.5)
+                }
+            }
+        }
+        .buttonStyle(EstiloToque())
+        .accessibilityLabel("Sólo chicas")
+        .accessibilityValue(on ? "Activado" : "Desactivado")
+        .accessibilityAddTraits(.isToggle)
     }
 }

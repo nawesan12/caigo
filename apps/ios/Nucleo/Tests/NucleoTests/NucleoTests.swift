@@ -338,21 +338,45 @@ import Testing
     }
 
     @Test func lineaDeConfianza() throws {
-        let p = try JSON.leer(Plan.self, Data(#"{"organizador":{"nombre":"Martín Pérez","asistencia":{"fue":9,"de":10}},"confianza":{"todosVerificados":true,"soloChicas":true,"chicas":2}}"#.utf8))
-        #expect(lineaConfianza(p) == "Todos\u{00A0}verificados\u{00A0}· Organiza\u{00A0}Martín\u{00A0}(9/10)\u{00A0}· Van\u{00A0}2\u{00A0}chicas")
-        var q = Plan(id: "x")
-        q.organizador.nombre = "Lu"
-        q.confianza.soloChicas = true
-        q.confianza.chicas = 1
-        #expect(lineaConfianza(q) == "Organiza\u{00A0}Lu\u{00A0}· Sólo\u{00A0}chicas")
-        // Sin el campo (API vieja): sólo el organizador, sin asistencia si no hay datos.
+        func nb(_ x: String) -> String { x.replacingOccurrences(of: "\u{00A0}", with: " ") }
+        let p = try JSON.leer(Plan.self, Data(#"{"organizador":{"nombre":"Martín Pérez","asistencia":{"fue":9,"de":10},"anfitrion":true},"confianza":{"todosVerificados":true,"soloChicas":true,"chicas":2}}"#.utf8))
+        // En la tarjeta: lo que distingue al plan, sin «Todos verificados» ni cuántas chicas.
+        #expect(lineaConfianza(p).map(nb) == "Martín fue a 9 de 10 · Anfitrión · Plan de chicas")
+        // En el detalle, sin quien organiza (ya tiene su fila).
+        #expect(lineaConfianza(p, detalle: true).map(nb) == "Todos verificados · Plan de chicas")
+        // Sin asistencia, no hay nada que decir de quien organiza.
         let r = try JSON.leer(Plan.self, Data(#"{"organizador":{"nombre":"Fede"}}"#.utf8))
-        #expect(lineaConfianza(r) == "Organiza\u{00A0}Fede")
+        #expect(lineaConfianza(r) == nil)
         #expect(lineaConfianza(Plan(id: "y")) == nil)
         var l = Plan(id: "z")
         l.organizador = PersonaCorta(nombre: "Ana", asistencia: Asist(fue: 1, de: 2))
         l.lugar = LugarCorto(nombre: "La Fonda")
         #expect(lineaConfianza(l) == "Organiza\u{00A0}La\u{00A0}Fonda")
+        #expect(asistenciaTexto(Asist(fue: 3, de: 5)) == "fue a 3 de 5")
+        #expect(asistenciaTexto(Asist()) == nil)
+    }
+
+    @Test func diaDelPlan() throws {
+        func nb(_ x: String) -> String { x.replacingOccurrences(of: "\u{00A0}", with: " ") }
+        for t in ["0223 15 592-6772", "223 15 5926772", "2235926772", "0223 592-6772", "+54 9 223 592-6772"] {
+            #expect(Dia.numeroWhatsapp(t) == "5492235926772", "\(t)")
+        }
+        #expect(Dia.numeroWhatsapp("011 15 4444-1290") == "5491144441290")
+        #expect(Dia.numeroWhatsapp("+598 99 123 456") == "59899123456")
+        let mail = try JSON.leer(Contacto.self, Data(#"{"nombre":"Mamá","contacto":"mama@x.com","avisa":"contacto"}"#.utf8))
+        #expect(mail.filaTodoBien == "Le escribimos a Mamá si no llegás")
+        let tel = Contacto(nombre: "Sofi", contacto: "223 555 0101")
+        #expect(tel.filaTodoBien == "Te avisamos para que le escribas a Sofi")
+        let ahora = try #require(Fecha.parse("2026-11-18T20:00:00-03:00"))
+        #expect(Dia.lugarGuardado("2026-11-18T20:40:00-03:00", ahora: ahora) == "Es tuyo hasta las 20:40")
+        #expect(Dia.lugarGuardado("2026-11-18T19:40:00-03:00", ahora: ahora) == nil)
+        var p = Plan(id: "x"); p.empiezaEn = "2026-11-18T17:00:00-03:00"; p.duracionMin = 120
+        // Terminó a las 19: «Hoy» sigue para la vuelta, pero «¿Todo bien?» ya no se activa.
+        #expect(Dia.enElDia(p, ahora: ahora))
+        #expect(!Dia.puedeActivarTodoBien(p, ahora: ahora))
+        #expect(Fecha.cuando("2026-11-17T19:08:00-03:00", ahora: ahora) == "Ayer 19:08")
+        let c = try JSON.leer(Caritas.self, Data(#"{"promedio":4.5,"cantidad":10}"#.utf8))
+        #expect(Caras.texto(c).map(nb) == "4,5 · 10+ opiniones")
     }
 }
 
@@ -373,8 +397,9 @@ import Testing
         #expect(!Gestos.directo(plan { $0.faltan = 0 }))
     }
 
-    @Test func paraDecidirSacaLosMiosYLosCompletos() {
-        let ps = [plan(), plan { $0.faltan = 0 }, plan { $0.miEstado = "pendiente" }, plan { $0.organizador = PersonaCorta(id: "yo") }]
+    @Test func paraDecidirSoloLosQueSeSumanConUnToque() {
+        let ps = [plan(), plan { $0.faltan = 0 }, plan { $0.miEstado = "pendiente" }, plan { $0.organizador = PersonaCorta(id: "yo") },
+                  plan { $0.ingreso = "aprobacion" }, plan { $0.genero = "mujeres" }]
         #expect(Gestos.paraDecidir(ps, yo: "yo").count == 1)
     }
 
@@ -382,8 +407,11 @@ import Testing
         let json = #"{"id":"a","logros":{"nivel":"Habitué","planes":7,"siguiente":"De fierro","faltan":8,"racha":3,"comodin":true,"insignias":[{"id":"cancha","nombre":"En cancha","detalle":"5 planes de deporte"}],"anfitrion":false}}"#
         let p = try JSON.leer(Perfil.self, Data(json.utf8))
         let l = try #require(p.logros)
-        #expect(TextoLogros.cabecera(l) == "Habitué · 7 planes")
-        #expect(TextoLogros.racha(l) == "Racha: 3 semanas · comodín libre")
+        #expect(TextoLogros.cabecera(l) == "Habitué · 7\u{00A0}con\u{00A0}check-in")
+        #expect(TextoLogros.racha(l) == "Racha: 3\u{00A0}semanas")
+        #expect(TextoLogros.beneficio("Postre", l) == "Tenés: Postre")
+        var poco = l; poco.planes = 2
+        #expect(TextoLogros.beneficio("Postre", poco) == "Con 3 planes más: Postre")
         #expect(TextoLogros.siguiente(l) == "Te faltan 8 para De fierro")
         #expect(l.insignias.first?.nombre == "En cancha")
         var corta = l; corta.racha = 1

@@ -205,8 +205,9 @@ struct PerfilPersona: View {
                     T(l.nivel, 13, 800, C.carbon, unRenglon: true)
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(C.lima))
+                    // Las insignias con su chip propio (no como un gusto), con el detalle para el lector de pantalla.
                     ForEach(Array(l.insignias.prefix(3))) { i in
-                        T(i.nombre, 13, 700, C.carbon, unRenglon: true).padding(.horizontal, 13).padding(.vertical, 8).gel(14, Gels.off)
+                        ChipInsignia(texto: i.nombre).accessibilityLabel("\(i.nombre). \(i.detalle)")
                     }
                 }
             }

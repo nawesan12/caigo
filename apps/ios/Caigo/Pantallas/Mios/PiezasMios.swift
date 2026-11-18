@@ -36,10 +36,9 @@ let miosVioletaChico = Gel(fondo: Gels.fondoVioleta, sombras: [
 
 /// "94% asistencia · 11 planes", o "Nuevo en Caigo · todavía sin planes".
 func miosAsistencia(_ a: Asist, extra: String? = nil) -> String {
-    if a.de <= 0 { return "Nuevo en Caigo · todavía sin planes" }
-    let pct = a.fue * 100 / a.de
-    if let extra { return "\(pct)% asistencia · \(extra)" }
-    return "\(pct)% asistencia · \(a.de) \(a.de == 1 ? "plan" : "planes")"
+    // El mismo formato en todas las pantallas (asistenciaTexto): «Fue a 3 de 5», sin porcentaje.
+    let base = asistenciaTexto(a).map { "F" + String($0.dropFirst()) } ?? "Todavía sin planes con check-in"
+    return [base, extra].compactMap { $0 }.joined(separator: " · ")
 }
 
 /// Badge de verificado: el sello violeta con el check blanco del mockup 11.

@@ -39,12 +39,29 @@ public struct Caritas: Codable, Hashable, Sendable {
     public init(from d: Decoder) throws { let c = try d.lector(); promedio = c.v("promedio", 0.0); cantidad = c.v("cantidad", 0) }
 }
 
-/// Contacto de confianza: nombre y teléfono o mail.
+/// Contacto de confianza: nombre y teléfono o mail. `avisa` (en «¿Todo bien?»): "contacto" (es un mail: le
+/// escribimos nosotros) o "vos" (es un teléfono: no hay SMS, te avisamos a vos para que le escribas).
 public struct Contacto: Codable, Hashable, Sendable {
     public var nombre = ""
     public var contacto = ""
+    public var avisa = ""
     public init(nombre: String = "", contacto: String = "") { self.nombre = nombre; self.contacto = contacto }
-    public init(from d: Decoder) throws { let c = try d.lector(); nombre = c.v("nombre", ""); contacto = c.v("contacto", "") }
+    public init(from d: Decoder) throws {
+        let c = try d.lector(); nombre = c.v("nombre", ""); contacto = c.v("contacto", ""); avisa = c.v("avisa", "")
+    }
+    public func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: Claves.self)
+        try c.encode(nombre, forKey: .nombre); try c.encode(contacto, forKey: .contacto)
+    }
+    enum Claves: String, CodingKey { case nombre, contacto }
+    /// Le escribimos nosotros (mail); si no, te avisamos a vos.
+    public var leEscribimos: Bool { avisa.isEmpty ? contacto.contains("@") : avisa == "contacto" }
+    /// «Le escribimos a Mamá si no llegás» / «Te avisamos para que le escribas a Sofi».
+    public var filaTodoBien: String {
+        leEscribimos ? "Le escribimos a \(mostrar) si no llegás" : "Te avisamos para que le escribas a \(mostrar)"
+    }
+    /// El aviso al activarlo.
+    public var activado: String { leEscribimos ? "Si no llegás, le escribimos a \(mostrar)." : "Si no hacés check-in, te avisamos." }
     /// Lo que se muestra: el nombre, o el teléfono o mail si no tiene.
     public var mostrar: String { nombre.isEmpty ? contacto : nombre }
     /// Es un teléfono (se puede llamar o escribirle por WhatsApp).
@@ -57,12 +74,14 @@ public struct TodoBien: Decodable, Sendable {
     public var contacto: Contacto?
     public var avisaEn = ""
     public var avisado = false
+    /// Ya le preguntamos «¿Llegaste?» (el aviso sale 10 min después).
+    public var preguntado = false
     public var contactos: [Contacto] = []
     public init() {}
     public init(from d: Decoder) throws {
         let c = try d.lector()
         activo = c.v("activo", false); contacto = c.o("contacto"); avisaEn = c.v("avisaEn", "")
-        avisado = c.v("avisado", false); contactos = c.v("contactos", [])
+        avisado = c.v("avisado", false); preguntado = c.v("preguntado", false); contactos = c.v("contactos", [])
     }
 }
 
@@ -102,32 +121,63 @@ public struct Semana: Decodable, Sendable {
         ciudad = c.v("ciudad", ""); total = c.v("total", 0); aliados = c.v("aliados", 0); deTuGente = c.v("deTuGente", 0)
         dias = c.v("dias", []); planes = c.v("planes", [])
     }
-    /// «14 planes · 3 en lugares aliados · 1 de tu gente».
+    /// «14 planes · 3 en lugares aliados · 1 de tu gente» (cada parte sin cortes adentro).
     public var resumen: String {
         [total == 1 ? "1 plan" : "\(total) planes",
          aliados == 0 ? nil : (aliados == 1 ? "1 en un lugar aliado" : "\(aliados) en lugares aliados"),
-         deTuGente == 0 ? nil : "\(deTuGente) de tu gente"].compactMap { $0 }.joined(separator: " · ")
+         deTuGente == 0 ? nil : "\(deTuGente) de tu gente"].compactMap { $0?.replacingOccurrences(of: " ", with: "\u{00A0}") }
+            .joined(separator: " · ")
+    }
+    /// Las cifras de la pantalla: sólo las que dicen algo (un cero grande hace parecer vacía la ciudad).
+    public var cifras: [(numero: Int, texto: String)] {
+        [(total, total == 1 ? "plan" : "planes"), (aliados, "aliados"), (deTuGente, "de tu gente")]
+            .enumerated().filter { $0.offset == 0 || $0.element.0 > 0 }.map { $0.element }
     }
 }
 
-/// Las caritas del 1 al 5 (como Timeleft): privadas, sólo suman al promedio de quien organiza.
+/// Las caritas del 1 al 5 (como Timeleft): privadas, sólo suman al promedio de quien organiza. Se dibujan
+/// con los íconos `carita1`…`carita5` (del mismo trazo que el resto), no con emojis del sistema.
 public enum Caras {
-    public static let todas: [(valor: Int, cara: String, texto: String)] = [
-        (1, "😣", "Mal"), (2, "😕", "Flojo"), (3, "🙂", "Bien"), (4, "😄", "Muy bien"), (5, "🤩", "Genial"),
+    public static let todas: [(valor: Int, icono: String, texto: String)] = [
+        (1, "carita1", "Mal"), (2, "carita2", "Flojo"), (3, "carita3", "Bien"), (4, "carita4", "Muy bien"), (5, "carita5", "Genial"),
     ]
+    /// «4,5 · 10+ opiniones» (el promedio llega a medio punto y la cantidad en escalones).
+    public static func texto(_ c: Caritas?) -> String? {
+        guard let c, c.cantidad >= 3 else { return nil }
+        let p = String(format: "%.1f", c.promedio).replacingOccurrences(of: ".", with: ",")
+        return "\(p)\u{00A0}·\u{00A0}\(c.cantidad)+\u{00A0}opiniones"
+    }
 }
 
 public enum Dia {
-    /// «Hoy» va desde 3 h antes hasta el final del plan.
+    /// «Hoy» va desde 3 h antes hasta 2 h después del final: la vuelta también es parte del plan («Me
+    /// quiero ir», compartir la ubicación). Activar «¿Todo bien?» sigue hasta el final (puedeActivarTodoBien).
     public static func enElDia(_ p: Plan, ahora: Date = Date()) -> Bool {
         guard !p.cancelado, let t = Fecha.parse(p.empiezaEn) else { return false }
-        return ahora >= t.addingTimeInterval(-3 * 3600) && ahora < t.addingTimeInterval(Double(p.duracionMin) * 60)
+        return ahora >= t.addingTimeInterval(-3 * 3600) && ahora < t.addingTimeInterval(Double(p.duracionMin) * 60 + 2 * 3600)
+    }
+
+    /// «¿Todo bien?» se activa hasta el final del plan (como la API).
+    public static func puedeActivarTodoBien(_ p: Plan, ahora: Date = Date()) -> Bool {
+        guard let t = Fecha.parse(p.empiezaEn) else { return false }
+        return ahora < t.addingTimeInterval(Double(p.duracionMin) * 60)
+    }
+
+    /// Los minutos que faltan, para arriba: la misma cuenta en el chip «Ahora · en N» y en «Hoy».
+    public static func minutosHasta(_ t: Date, ahora: Date = Date()) -> Int {
+        Int((t.timeIntervalSince(ahora) / 60).rounded(.up))
+    }
+
+    /// «Es tuyo hasta las 21:40» (el lugar guardado de la lista de espera); nil si ya venció.
+    public static func lugarGuardado(_ venceEn: String, ahora: Date = Date()) -> String? {
+        guard let t = Fecha.parse(venceEn), t > ahora else { return nil }
+        return "Es tuyo hasta las \(Fecha.hora(t))"
     }
 
     /// «en 25 min» · «en 2 h 10» · «Ya arrancó».
     public static func cuentaRegresiva(_ empieza: String, ahora: Date = Date()) -> String {
         guard let t = Fecha.parse(empieza) else { return "" }
-        let min = Int((t.timeIntervalSince(ahora) / 60).rounded(.up))
+        let min = minutosHasta(t, ahora: ahora)
         if min <= 0 { return "Ya arrancó" }
         if min < 60 { return "en \(min) min" }
         let h = min / 60, m = min % 60
@@ -154,14 +204,28 @@ public enum Dia {
         String(format: "https://maps.google.com/?q=%.5f,%.5f", lat, lng)
     }
 
-    /// wa.me con el número (Argentina por defecto) y el texto.
-    public static func whatsapp(_ tel: String, _ texto: String) -> URL? {
-        var n = tel.filter(\.isNumber)
-        if !tel.trimmingCharacters(in: .whitespaces).hasPrefix("+") {
-            if n.hasPrefix("0") { n.removeFirst() }
-            if n.hasPrefix("15") { n.removeFirst(2) }
-            n = "549" + n
+    /// El número para WhatsApp. Con «+», tal cual (otro país). Si no, Argentina: sin el 0 de larga distancia
+    /// y sin el 15 de celular que va después de la característica (2 a 4 dígitos), con 549 adelante.
+    /// «0223 15 592-6772», «223 15 5926772» y «2235926772» dan 5492235926772. Igual que dia.ts y Dia.kt.
+    public static func numeroWhatsapp(_ tel: String) -> String {
+        let d = tel.filter(\.isNumber)
+        if tel.trimmingCharacters(in: .whitespaces).hasPrefix("+") { return d }
+        var n = d.hasPrefix("0") ? String(d.dropFirst()) : d
+        if n.hasPrefix("549") && n.count == 13 { return n }
+        if n.hasPrefix("54") && n.count == 12 { return "549" + n.dropFirst(2) }
+        if n.count == 12 {
+            let a = Array(n)
+            for k in 2...4 where String(a[k..<k + 2]) == "15" {
+                n = String(a[0..<k]) + String(a[(k + 2)...])
+                break
+            }
         }
+        return n.count == 10 ? "549" + n : d
+    }
+
+    /// wa.me con el número y el texto.
+    public static func whatsapp(_ tel: String, _ texto: String) -> URL? {
+        let n = numeroWhatsapp(tel)
         var c = URLComponents(string: "https://wa.me/\(n)")
         c?.queryItems = [URLQueryItem(name: "text", value: texto)]
         return c?.url
@@ -205,7 +269,14 @@ extension Api {
         try JSON.leer(FotoPlan.self, try await crudo("POST", url("/v1/planes/\(id)/fotos"), cuerpo: jpeg, tipo: "image/jpeg"))
     }
     public func borrarFotoPlan(_ id: String, foto: String) async throws { try await sinCuerpo("DELETE", "/v1/planes/\(id)/fotos/\(foto)") }
-    public func reportarFotoPlan(_ id: String, foto: String) async throws { try await sinCuerpo("POST", "/v1/planes/\(id)/fotos/\(foto)/reportar") }
+    /// motivo: "salgo_yo" (quien aparece y no quiere estar: se oculta al instante) o "inapropiada".
+    public func reportarFotoPlan(_ id: String, foto: String, motivo: String = "inapropiada") async throws {
+        try await sinCuerpo("POST", "/v1/planes/\(id)/fotos/\(foto)/reportar?motivo=\(motivo)")
+    }
+    /// «Marcar que vino»: quien organiza corrige a alguien que fue y no tocó «Llegué».
+    public func marcarVino(_ id: String, persona: String) async throws {
+        try await sinCuerpo("POST", "/v1/planes/\(id)/personas/\(persona)/vino")
+    }
 
     // MARK: Esta semana
 

@@ -366,7 +366,7 @@ struct PedirDni: View {
                     .padding(.horizontal, 20).padding(.top, 8)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        Image("CaigoIcono").resizable().frame(width: 120, height: 120)
+                        Image("CaigoIcono").resizable().frame(width: 120, height: 120).accessibilityHidden(true)
                             .frame(maxWidth: .infinity)
                             .padding(.top, 24)
                         IngresoTitulo(titulo: PedirDni.titulo(motivo),

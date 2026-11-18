@@ -48,7 +48,7 @@ struct VistaSemana: View {
                             dias(s)
                             if s.planes.isEmpty {
                                 MiosVacio(titulo: "Esta semana armá el tuyo", cuerpo: "Si publicás algo, sos lo primero que ven.",
-                                          cta: "Armá un plan") { ir.crear() }
+                                          cta: "Armá un plan") { if c.conDni(ir, "crear") { ir.crear() } }
                             } else {
                                 T("Lo mejor de la semana", 20, 700)
                                 ForEach(s.planes) { pl in TarjetaPlan(plan: pl) }
@@ -57,7 +57,11 @@ struct VistaSemana: View {
                         .padding(.horizontal, 20).padding(.vertical, 18)
                     }
                 } else if let error {
-                    MiosVacio(titulo: "No pudimos traer la semana", cuerpo: error, cta: "Probar de nuevo") { Task { await cargar() } }
+                    MiosVacio(titulo: "No pudimos traer la semana", cuerpo: error, cta: "Probar de nuevo") {
+                        // Sin el error, se ven los puntitos mientras recarga.
+                        self.error = nil
+                        Task { await cargar() }
+                    }
                         .padding(28)
                 } else {
                     Puntitos(color: p.acento).frame(maxHeight: .infinity)
@@ -72,10 +76,9 @@ struct VistaSemana: View {
     }
 
     private func numeros(_ s: Semana) -> some View {
+        // Sólo las cifras que dicen algo (un cero grande hace parecer vacía la ciudad).
         HStack(alignment: .top, spacing: 8) {
-            numero(s.total, "planes")
-            numero(s.aliados, "en lugares aliados")
-            numero(s.deTuGente, "de tu gente")
+            ForEach(Array(s.cifras.enumerated()), id: \.offset) { _, x in numero(x.numero, x.texto) }
         }
         .padding(16)
         .gel(24, miosOscura)
@@ -107,6 +110,9 @@ struct VistaSemana: View {
                 .frame(maxWidth: .infinity).padding(.vertical, 8)
                 .gel(14, Gels.chip(p))
                 .opacity(d.cantidad == 0 ? 0.55 : 1)
+                // Cada día es un elemento: «lunes 17: 3 planes».
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(Fecha.diaLargo(fecha).lowercased()) \(Fecha.calendario.component(.day, from: fecha)): \(d.cantidad == 1 ? "1 plan" : "\(d.cantidad) planes")")
             }
         }
     }

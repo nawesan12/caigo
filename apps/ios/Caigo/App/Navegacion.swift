@@ -149,6 +149,8 @@ struct CaigoRaiz: View {
                 if let privado { ir.privado(privado, nombre: "") } else if let plan { ir.plan(plan) }
             }
         case let .seccion(p): ir.principal(p)
+        // «Armá un plan» desde un link: sin DNI, primero el pedido con su título («Para armar tu plan…»).
+        case .ruta(.crear): if c.conDni(ir, "crear") { ir.crear() }
         case let .ruta(r): ir.ir(r)
         case let .web(u): web = u
         }

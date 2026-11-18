@@ -18,6 +18,9 @@ struct FotosDelPlan: View {
     @State private var abierta: FotoPlan?
     @State private var eleccion: PhotosPickerItem?
     @State private var subiendo = false
+    /// Un error que no es «no fuiste»: no es «no hay fotos».
+    @State private var error: String?
+    @State private var confirmarBorrar = false
 
     var body: some View {
         Pantalla {
@@ -26,10 +29,17 @@ struct FotosDelPlan: View {
                     .padding(.horizontal, 16).padding(.top, 6)
                 if let cerrado {
                     MiosVacio(titulo: "Sólo para quienes fueron", cuerpo: cerrado, cta: "Volver") { ir.atras() }.padding(28)
+                } else if let error, fotos == nil {
+                    MiosVacio(titulo: "No pudimos traer las fotos", cuerpo: error, cta: "Probar de nuevo") {
+                        self.error = nil
+                        Task { await cargar() }
+                    }
+                    .padding(28)
                 } else if let fotos {
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 14) {
-                            T("Sólo las ven quienes fueron. Se borran a los 6\u{00A0}meses.", 13, 400, p.texto2)
+                            T("Sólo las ven quienes fueron. Subí las que estén bien para todos los que salen. Se borran a los 6\u{00A0}meses.",
+                              13, 400, p.texto2, alto: 1.4)
                             if fotos.isEmpty {
                                 T("Todavía no hay fotos. Subí la primera.", 15, 600, p.texto2).padding(.vertical, 24)
                             } else {
@@ -40,6 +50,7 @@ struct FotosDelPlan: View {
                                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                                             .onTapGesture { withAnimation { abierta = f } }
                                             .accessibilityLabel("Foto de \(miosPrimer(f.autor.nombre))")
+                                            .accessibilityAddTraits(.isButton)
                                     }
                                 }
                             }
@@ -63,9 +74,27 @@ struct FotosDelPlan: View {
                 if let f = abierta {
                     Foto(url: f.url).aspectRatio(1, contentMode: .fit)
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    T(f.mia ? "Borrar mi foto" : "Reportar esta foto", 14, 700, p.oscuro ? C.lima : C.violetaTexto)
-                        .frame(maxWidth: .infinity)
-                        .tocable { accion(f) }
+                    let enlace = p.oscuro ? C.lima : C.violetaTexto
+                    if f.mia {
+                        if confirmarBorrar {
+                            T("¿Borrar tu foto?", 15, 700, p.texto).frame(maxWidth: .infinity)
+                            HStack(spacing: 10) {
+                                Cta(texto: "Ahora no", gel: Gels.blanco, alto: 50, radio: 16, tam: 15, color: C.carbon) { confirmarBorrar = false }
+                                Cta(texto: "Sí, borrarla", alto: 50, radio: 16, tam: 15, color: C.carbon) { accion(f, motivo: nil) }
+                            }
+                        } else {
+                            T("Borrar mi foto", 14, 700, enlace).frame(maxWidth: .infinity).padding(.vertical, 12)
+                                .tocable { confirmarBorrar = true }
+                        }
+                    } else {
+                        // «Salgo yo» la oculta al instante; «No va» la manda a revisar (también se oculta).
+                        HStack(spacing: 10) {
+                            Cta(texto: "Salgo yo y no quiero", gel: Gels.blanco, alto: 50, radio: 16, tam: 14, color: C.carbon) {
+                                accion(f, motivo: "salgo_yo")
+                            }
+                            Cta(texto: "No va", gel: Gels.blanco, alto: 50, radio: 16, tam: 14, color: C.carbon) { accion(f, motivo: "inapropiada") }
+                        }
+                    }
                 }
             }
         }
@@ -81,8 +110,8 @@ struct FotosDelPlan: View {
         } catch let e as ErrorApi where e.estado == 404 {
             cerrado = e.detalle
         } catch {
-            c.avisos.error(error)
-            fotos = []
+            // Sin vaciar la lista: un error no es «no hay fotos».
+            if fotos == nil { self.error = mensajeDe(error) } else { c.avisos.error(error) }
         }
     }
 
@@ -104,16 +133,17 @@ struct FotosDelPlan: View {
         }
     }
 
-    private func accion(_ f: FotoPlan) {
+    private func accion(_ f: FotoPlan, motivo: String?) {
         Task {
             do {
                 if f.mia {
                     try await c.api.borrarFotoPlan(planId, foto: f.id)
                     c.avisos.ok("Foto borrada.")
                 } else {
-                    try await c.api.reportarFotoPlan(planId, foto: f.id)
-                    c.avisos.ok("Gracias. La revisamos.")
+                    try await c.api.reportarFotoPlan(planId, foto: f.id, motivo: motivo ?? "inapropiada")
+                    c.avisos.ok("Listo, ya no se ve. La revisamos.")
                 }
+                confirmarBorrar = false
                 withAnimation { abierta = nil }
                 await cargar()
             } catch { c.avisos.error(error) }

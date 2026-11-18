@@ -95,15 +95,16 @@ struct PlanesChipPlus: View {
 /// Con `pedirConfirmacion`, el 422 `confirmar_mujer` / `confirmar_diversidad` no se muestra: se llama
 /// con lo que pide (Generos.pide) para abrir «Antes de sumarte» y reintentar con `confirma`, que no se
 /// guarda. Sin él (la tarjeta de una lista), se abre el detalle, que tiene la hoja.
+/// `festejar` en false («Decidí rápido»): sin el festejo a pantalla completa (el mazo marca «Adentro»).
 func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensaje: String = "", confirma: Confirma = Confirma(),
-                   pedirConfirmacion: ((String) -> Void)? = nil) async -> String? {
+                   festejar: Bool = true, pedirConfirmacion: ((String) -> Void)? = nil) async -> String? {
     // Sin DNI se mira; para sumarse, primero «verificamos que seas vos» (y de ahí vuelve al plan).
     guard c.conDni(ir, "sumarte", plan: plan.id) else { return nil }
     do {
         let e = try await c.api.sumarme(plan.id, cantidad: cantidad, mensaje: mensaje, confirma: confirma).estado
         if e == "aceptada" {
             // Adentro: lo festeja la raíz a pantalla completa (Festejo.swift), en vez del aviso.
-            withAnimation(.easeOut(duration: 0.2)) { c.festejo = PlanFestejado(plan: plan, cantidad: cantidad) }
+            if festejar { withAnimation(.easeOut(duration: 0.2)) { c.festejo = PlanFestejado(plan: plan, cantidad: cantidad) } }
         } else {
             let quien = plan.organizador.nombre.isEmpty ? "quien organiza" : plan.organizador.nombre
             c.avisos.ok("Le pediste a \(quien) sumarte.")
@@ -130,12 +131,12 @@ func planesSumarse(_ c: Contenedor, _ ir: Ir, _ plan: Plan, cantidad: Int, mensa
 /// Devuelve el estado nuevo si se mandó el pedido.
 @MainActor
 @discardableResult
-func planesCaigo(_ c: Contenedor, _ ir: Ir, _ plan: Plan) async -> String? {
+func planesCaigo(_ c: Contenedor, _ ir: Ir, _ plan: Plan, festejar: Bool = true) async -> String? {
     guard Gestos.directo(plan), !cerroParaSumarse(plan), plan.organizador.id != c.usuarioId else {
         ir.plan(plan.id)
         return nil
     }
-    return await planesSumarse(c, ir, plan, cantidad: 1)
+    return await planesSumarse(c, ir, plan, cantidad: 1, festejar: festejar)
 }
 
 /// El link público de un plan (el que comparte el detalle).
@@ -208,6 +209,8 @@ struct AccionTarjeta: View {
 struct TarjetaPlan: View {
     var plan: Plan
     var altoFoto: CGFloat = 150
+    /// false en «Decidí rápido»: el mazo tiene sus botones abajo (si no, había dos «Sumarme»).
+    var conAccion = true
     var alCambiar: (String) -> Void = { _ in }
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var p
@@ -221,10 +224,10 @@ struct TarjetaPlan: View {
                     HStack(spacing: 6) {
                         ChipFoto(texto: Categorias.nombre(plan.categoria), oscuro: false)
                         ChipFoto(texto: Fecha.cuando(plan.empiezaEn), oscuro: true)
+                        // Sobre la foto, sólo qué, cuándo y si es de un lugar aliado (Prototipo): «Anfitrión» va en
+                        // la línea de confianza, junto a quien organiza.
                         if plan.lugar != nil {
                             ChipFoto(texto: "Lugar aliado", oscuro: false, fondo: Gel(fondo: .liso(C.lima)), color: C.carbon)
-                        } else if plan.organizador.anfitrion {
-                            ChipFoto(texto: "Anfitrión", oscuro: false)
                         }
                         Spacer(minLength: 0)
                     }
@@ -246,12 +249,16 @@ struct TarjetaPlan: View {
                     T(lugarYDistancia(plan), 13, 400, p.texto2, unRenglon: true)
                 }
                 HStack(spacing: 6) {
-                    // Con "Adentro" / "Esperando…" el botón es más ancho: van sólo las cuentas.
-                    let conAvatares = !plan.van.isEmpty && plan.miEstado == "ninguno"
-                    if conAvatares { Avatares(personas: plan.van.map { ($0.nombre, $0.foto) }, total: plan.somos) }
+                    // Con "Adentro" / "Esperando…" el botón es más ancho: van sólo las cuentas. Con el botón
+                    // al lado, dos caras y el resto en «+N»: el cupo no se corta a 375 pt.
+                    let conAvatares = !plan.van.isEmpty && (plan.miEstado == "ninguno" || !conAccion)
+                    if conAvatares {
+                        Avatares(personas: plan.van.map { ($0.nombre, $0.foto) }, total: plan.somos, max: conAccion ? 2 : 3)
+                    }
                     T(Cupo.somos(plan.somos, plan.total), 13, 600, p.oscuro ? C.apagado2 : C.texto2, unRenglon: true)
-                    Spacer(minLength: 4)
-                    AccionTarjeta(plan: plan, alCambiar: alCambiar)
+                        .layoutPriority(1)
+                    Spacer(minLength: 12)
+                    if conAccion { AccionTarjeta(plan: plan, alCambiar: alCambiar) }
                 }
                 LineaConfianza(plan: plan)
             }
@@ -266,17 +273,20 @@ struct TarjetaPlan: View {
     }
 }
 
-/// La línea de confianza (18/11), en la tarjeta y el detalle, no escondida en el perfil:
-/// «Todos verificados · Organiza Martín (9/10) · Van 2 chicas». Con el escudo de «Verificación y seguridad».
+/// La línea de confianza (18/11), con lo que distingue al plan: en la tarjeta «Martín fue a 9 de 10 ·
+/// Anfitrión»; en el detalle (`detalle`), con el escudo, «Todos verificados · Plan de chicas».
 struct LineaConfianza: View {
     var plan: Plan
     var tam: CGFloat = 12
+    var detalle = false
     @Environment(\.paleta) private var p
 
     var body: some View {
-        if let t = lineaConfianza(plan) {
+        if let t = lineaConfianza(plan, detalle: detalle) {
             HStack(alignment: .top, spacing: 6) {
-                Icono(I.escudoCheck, tam + 3, p.oscuro ? C.lima : C.violeta, trazo: 2.2)
+                if detalle && plan.confianza.todosVerificados {
+                    Icono(I.escudoCheck, tam + 3, p.oscuro ? C.lima : C.violeta, trazo: 2.2).accessibilityHidden(true)
+                }
                 T(t, tam, 600, p.oscuro ? C.apagado2 : C.texto2, alto: 1.35)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -285,22 +295,46 @@ struct LineaConfianza: View {
     }
 }
 
-// MARK: - Deslizar una tarjeta: «Caigo» y «No me interesa»
+/// Una insignia («Anfitrión», «De la mesa»…): el mismo chip en el detalle, el perfil y donde aparezca
+/// (grafito con texto lima), distinto de los gustos (lavanda). Igual que .insignia de la web.
+struct ChipInsignia: View {
+    var texto: String
+    /// Sobre una tarjeta oscura, un grafito más claro (si no, el chip se pierde).
+    var sobreOscuro = false
+    @Environment(\.paleta) private var p
+    var body: some View {
+        T(texto, 12, 800, C.lima, unRenglon: true)
+            .padding(.horizontal, 9).padding(.vertical, 3)
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(sobreOscuro || p.oscuro ? Color(hex: 0x45405A) : C.grafito))
+            .fixedSize()
+    }
+}
 
-/// Deslizar la tarjeta de un plan: a la derecha asoma «Caigo» sobre lima, a la izquierda «No me interesa» sobre
+// MARK: - Deslizar una tarjeta: «Sumarme» y «No me interesa»
+
+/// Deslizar la tarjeta de un plan: a la derecha asoma «Sumarme» sobre lima, a la izquierda «No me interesa» sobre
 /// grafito. Cuenta pasado el 35 % del ancho (Gestos.umbral), con un toque suave al cruzarlo; si no llega, vuelve a
 /// su lugar. Sólo toma el arrastre horizontal: el vertical sigue siendo de la lista. Las mismas dos acciones van
 /// como acciones de accesibilidad. Con «reducir movimiento», la tarjeta no vuela: desaparece.
+///
+/// El dedo se sigue con un @GestureState, que vuelve solo a cero si la lista se queda con el arrastre o entra
+/// un gesto del sistema (ahí no llega onEnded y un @State dejaba la tarjeta corrida). La salida y la pista van
+/// en `salida`, que sí se anima.
 struct DeslizarPlan: ViewModifier {
     var radio: CGFloat
     var alCaigo: () -> Void
     var alNoMeInteresa: () -> Void
+    /// La primera vez (una sola), la tarjeta se corre ~40 pt a cada lado y deja ver los dos fondos.
+    var pista = false
     @Environment(\.accessibilityReduceMotion) private var sinMovimiento
-    @State private var dx: CGFloat = 0
+    struct Arrastre: Equatable { var dx: CGFloat = 0; var horizontal: Bool? }
+    @GestureState private var arrastre = Arrastre()
+    @State private var salida: CGFloat = 0
     @State private var ancho: CGFloat = 1
-    /// nil: todavía no se sabe; true: el arrastre es horizontal (de la tarjeta); false: vertical (de la lista).
-    @State private var horizontal: Bool?
     @State private var paso = false
+    private var dx: CGFloat { arrastre.dx + salida }
+    private static let clavePista = "caigo.pista.gestos"
 
     func body(content: Content) -> some View {
         content
@@ -313,9 +347,11 @@ struct DeslizarPlan: ViewModifier {
                         .onChange(of: g.size.width) { _, w in ancho = max(w, 1) }
                 }
             }
-            .simultaneousGesture(arrastre)
-            .accessibilityAction(named: "Caigo", alCaigo)
+            .simultaneousGesture(gesto)
+            .accessibilityAction(named: "Sumarme", alCaigo)
             .accessibilityAction(named: "No me interesa", alNoMeInteresa)
+            .onDisappear { salida = 0 }
+            .task { await mostrarPista() }
     }
 
     @ViewBuilder
@@ -325,7 +361,7 @@ struct DeslizarPlan: ViewModifier {
                 Color.clear.gel(radio, Gel(fondo: Gels.fondoLima))
                 HStack(spacing: 8) {
                     Icono(I.mas, 18, C.carbon, trazo: 3.4)
-                    T("Caigo", 17, 800, C.carbon, unRenglon: true)
+                    T("Sumarme", 17, 800, C.carbon, unRenglon: true)
                 }
                 .padding(.leading, 24)
             }
@@ -341,47 +377,54 @@ struct DeslizarPlan: ViewModifier {
         }
     }
 
-    private var arrastre: some Gesture {
+    private var gesto: some Gesture {
         DragGesture(minimumDistance: 12)
+            .updating($arrastre) { v, estado, _ in
+                if estado.horizontal == nil { estado.horizontal = abs(v.translation.width) > abs(v.translation.height) * 1.3 }
+                guard estado.horizontal == true else { return }
+                estado.dx = v.translation.width
+            }
             .onChanged { v in
-                if horizontal == nil { horizontal = abs(v.translation.width) > abs(v.translation.height) * 1.3 }
-                guard horizontal == true else { return }
-                dx = v.translation.width
-                let pasa = abs(dx) >= ancho * Gestos.umbral
+                guard abs(v.translation.width) > abs(v.translation.height) * 1.3 else { return }
+                let pasa = abs(v.translation.width) >= ancho * Gestos.umbral
                 if pasa != paso {
                     paso = pasa
                     if pasa { Sistema.suave() }
                 }
             }
             .onEnded { v in
-                let eraHorizontal = horizontal == true
-                horizontal = nil
                 paso = false
-                guard eraHorizontal else { return }
+                // Sólo la decisión: el desplazamiento del dedo ya volvió solo (GestureState).
+                guard abs(v.translation.width) > abs(v.translation.height) * 1.3 else { return }
                 let w = v.translation.width
                 if w >= ancho * Gestos.umbral {
-                    volver()
                     alCaigo()
                 } else if w <= -ancho * Gestos.umbral {
                     if sinMovimiento {
-                        dx = 0
                         alNoMeInteresa()
                     } else {
-                        withAnimation(.easeIn(duration: 0.18)) { dx = -ancho * 1.15 }
+                        salida = w
+                        withAnimation(.easeIn(duration: 0.18)) { salida = -ancho * 1.15 }
                         Task { @MainActor in
                             try? await Task.sleep(nanoseconds: 180_000_000)
                             alNoMeInteresa()
-                            dx = 0
+                            salida = 0
                         }
                     }
-                } else {
-                    volver()
                 }
             }
     }
 
-    private func volver() {
-        if sinMovimiento { dx = 0 } else { withAnimation(.easeOut(duration: 0.22)) { dx = 0 } }
+    @MainActor
+    private func mostrarPista() async {
+        guard pista, !sinMovimiento, !UserDefaults.standard.bool(forKey: Self.clavePista) else { return }
+        UserDefaults.standard.set(true, forKey: Self.clavePista)
+        try? await Task.sleep(nanoseconds: 700_000_000)
+        withAnimation(.easeOut(duration: 0.3)) { salida = 44 }
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        withAnimation(.easeInOut(duration: 0.35)) { salida = -44 }
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        withAnimation(.easeOut(duration: 0.3)) { salida = 0 }
     }
 }
 
@@ -452,7 +495,10 @@ struct AvisoDeshacer: View {
                 .transition(sinMovimiento ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 .id(o.id)
                 .task(id: o.id) {
-                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+                    // Con VoiceOver se anuncia y dura más: llegar a «Deshacer» lleva tiempo (WCAG 2.2.1).
+                    let lector = UIAccessibility.isVoiceOverRunning
+                    if lector { AccessibilityNotification.Announcement("Ocultaste \(o.plan.titulo). Deshacer, disponible.").post() }
+                    try? await Task.sleep(nanoseconds: lector ? 12_000_000_000 : 5_000_000_000)
                     if ocultos.aviso?.id == o.id { withAnimation(.easeOut(duration: 0.2)) { ocultos.aviso = nil } }
                 }
             }

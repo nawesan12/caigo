@@ -64,6 +64,7 @@ public enum Fecha {
         switch diasEntre(ahora, t) {
         case 0: return "Hoy \(hora(t))"
         case 1: return "Mañana \(hora(t))"
+        case -1: return "Ayer \(hora(t))"
         case 2...6: return "\(diaCorto(t)) \(hora(t))"
         default:
             let k = calendario.dateComponents([.day, .month], from: t)
@@ -74,7 +75,8 @@ public enum Fecha {
     /// "Ahora · en 2 h", "Ahora · en 40 min" o nil si falta más de 3 h.
     public static func enCuanto(_ iso: String, ahora: Date = Date()) -> String? {
         guard let t = parse(iso) else { return nil }
-        let min = Int(t.timeIntervalSince(ahora) / 60)
+        // Para arriba, como la cuenta regresiva de «Hoy» (Dia.minutosHasta): las dos dicen lo mismo.
+        let min = Dia.minutosHasta(t, ahora: ahora)
         if min <= 0 { return "Ahora" }
         if min < 60 { return "Ahora · en \(min) min" }
         if min <= 180 { return "Ahora · en \((min + 30) / 60) h" }

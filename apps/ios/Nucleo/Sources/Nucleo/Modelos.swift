@@ -57,18 +57,17 @@ public struct Direccion: Codable, Hashable, Sendable {
     public init(from d: Decoder) throws { let c = try d.lector(); texto = c.v("texto", ""); lat = c.v("lat", 0.0); lng = c.v("lng", 0.0) }
 }
 
-/// La línea de confianza de la tarjeta (`confianza` de planes.go). Caigo no guarda el género: `chicas`
-/// sólo viene en planes «Solo mujeres» y desde 2.
+/// La línea de confianza de la tarjeta (`confianza` de planes.go). Caigo no guarda el género y nunca dice
+/// cuántas chicas van: sólo si el plan es «Solo mujeres».
 public struct Confianza: Codable, Hashable, Sendable {
     public var todosVerificados = false
     public var soloChicas = false
-    public var chicas: Int?
-    public init(todosVerificados: Bool = false, soloChicas: Bool = false, chicas: Int? = nil) {
-        self.todosVerificados = todosVerificados; self.soloChicas = soloChicas; self.chicas = chicas
+    public init(todosVerificados: Bool = false, soloChicas: Bool = false) {
+        self.todosVerificados = todosVerificados; self.soloChicas = soloChicas
     }
     public init(from d: Decoder) throws {
         let c = try d.lector()
-        todosVerificados = c.v("todosVerificados", false); soloChicas = c.v("soloChicas", false); chicas = c.o("chicas")
+        todosVerificados = c.v("todosVerificados", false); soloChicas = c.v("soloChicas", false)
     }
 }
 

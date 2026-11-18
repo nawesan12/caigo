@@ -136,6 +136,7 @@ struct Repetimos: View {
     @State private var carita: Int?
     /// Con quiénes quedó mutuo al responder: ya pueden hablar por privado.
     @State private var mutuos: [PersonaCorta] = []
+    @State private var planNuevo: String?
 
     /// `radial-gradient(120% 70% at 85% 0%, #A38FFF, #7456F1 45%, #5A3DD8)`.
     private var fondo: some View {
@@ -200,7 +201,7 @@ struct Repetimos: View {
                 T("¿Repetimos?", 52, 800, C.blanco, alto: 0.95, espaciado: -2, unRenglon: true)
                 HStack(spacing: 10) {
                     Cta(texto: t.map { "Sí, el \(Fecha.diaLargo($0).lowercased())" } ?? "Sí", alto: 54, radio: 18, tam: 16, color: C.carbon,
-                        habilitado: mandando == nil || mandando == true, cargando: mandando == true) { responder(true) }
+                        habilitado: mutuos.isEmpty && (mandando == nil || mandando == true), cargando: mandando == true) { responder(true) }
                         .layoutPriority(1.4)
                     Button { responder(false) } label: {
                         Group { if mandando == false { Puntitos(color: C.blanco) } else { T("Esta vez no", 16, 700, C.blanco, unRenglon: true) } }
@@ -208,13 +209,15 @@ struct Repetimos: View {
                             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(hex: 0xA897F7), lineWidth: 2))
                     }
                     .buttonStyle(EstiloToque())
-                    .disabled(mandando != nil)
+                    .disabled(mandando != nil || !mutuos.isEmpty)
                 }
             }
             .padding(.horizontal, 24).padding(.top, 26).padding(.bottom, 26)
 
+            ScrollViewReader { lector in
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
+                    Color.clear.frame(height: 0).id("arriba")
                     ForEach(mutuos) { m in
                         HStack(spacing: 12) {
                             Avatar(nombre: m.nombre, foto: m.foto, tam: 44, borde: 0, tamTexto: 17)
@@ -230,8 +233,15 @@ struct Repetimos: View {
                         .gel(20, miosGelTarjeta(p))
                     }
                     if !mutuos.isEmpty {
-                        T("Listo", 14, 700, p.oscuro ? C.lima : C.violetaTexto).frame(maxWidth: .infinity).tocable { ir.atras() }
-                    }
+                        // Ya se mandó: «¡Es mutuo!» reemplaza el formulario (no se puede mandar de nuevo).
+                        if let nuevo = planNuevo {
+                            Cta(texto: "Ver el plan nuevo", alto: 52, radio: 18, tam: 16, color: C.carbon) {
+                                ir.atras()
+                                ir.plan(nuevo)
+                            }
+                        }
+                        T("Listo", 14, 700, p.oscuro ? C.lima : C.violetaTexto).frame(maxWidth: .infinity).padding(.vertical, 12).tocable { ir.atras() }
+                    } else {
                     if !pl.esMio {
                         VStack(alignment: .leading, spacing: 4) {
                             T("¿Cómo estuvo?", 22, 700)
@@ -239,16 +249,18 @@ struct Repetimos: View {
                         }
                         HStack(spacing: 8) {
                             ForEach(Caras.todas, id: \.valor) { k in
-                                Text(k.cara).font(.system(size: 26))
+                                let elegida = (carita ?? pl.mio?.carita) == k.valor
+                                Icono(I.carita(k.valor), 30, elegida ? (p.oscuro ? C.carbon : C.blancoCalido) : p.texto2, trazo: 2)
                                     .frame(maxWidth: .infinity).frame(height: 56)
-                                    .gel(18, (carita ?? pl.mio?.carita) == k.valor ? (p.oscuro ? Gels.limaChico : Gels.oscuroSel) : Gels.chip(p))
+                                    .gel(18, elegida ? (p.oscuro ? Gels.limaChico : Gels.oscuroSel) : Gels.chip(p))
                                     .tocable { carita = k.valor }
                                     .accessibilityLabel(k.texto)
+                                    .accessibilityAddTraits(elegida ? [.isButton, .isSelected] : .isButton)
                             }
                         }
                     }
                     MiosGrupo {
-                        MiosFila(icono: I.gente, titulo: (pl.mio?.fotos ?? 0) > 0 ? "Fotos del plan · \(pl.mio!.fotos)" : "Fotos del plan",
+                        MiosFila(icono: I.imagen, titulo: (pl.mio?.fotos ?? 0) > 0 ? "Fotos del plan · \(pl.mio!.fotos)" : "Fotos del plan",
                                  sub: (pl.mio?.fotos ?? 0) > 0 ? "Sólo las ven quienes fueron" : "Subí la primera", ultima: true) { ir.fotosPlan(pl.id) }
                     }
                     if !gente.isEmpty {
@@ -257,6 +269,7 @@ struct Repetimos: View {
                             T("Los que sumes a tu gente ven primero tus próximos planes. Nadie ve tus respuestas.", 13, 400, p.texto2, alto: 1.45)
                         }
                         ForEach(gente) { g in filaPersona(g, pl) }
+                    }
                     }
                     HStack(spacing: 0) {
                         T("¿Pasó algo? ", 13, 600, p.texto2)
@@ -268,6 +281,8 @@ struct Repetimos: View {
                     .onTapGesture { reportar = true }
                 }
                 .padding(.horizontal, 20).padding(.top, 24).padding(.bottom, 14)
+            }
+            .onChange(of: mutuos.isEmpty) { _, vacio in if !vacio { withAnimation { lector.scrollTo("arriba", anchor: .top) } } }
             }
             .background(UnevenRoundedRectangle(topLeadingRadius: 32, topTrailingRadius: 32, style: .continuous).fill(p.fondo).ignoresSafeArea(edges: .bottom))
         }
@@ -307,8 +322,10 @@ struct Repetimos: View {
                 let r = try await c.api.repetimos(planId, repetir: repetir,
                                                   volveria: volveria.filter { $0.value }.map { Opinion(usuarioId: $0.key, si: true) },
                                                   carita: carita)
-                if !r.mutuos.isEmpty && r.nuevo == nil {
-                    // Mutuo: se queda para que escriba ya («¡Es mutuo con…! Ya pueden hablar»).
+                if !r.mutuos.isEmpty {
+                    // Mutuo: se queda para que escriba ya («¡Es mutuo con…! Ya pueden hablar»). Con un plan
+                    // repetido, primero los mutuos y «Ver el plan nuevo».
+                    planNuevo = r.nuevo?.id
                     mutuos = r.mutuos
                     mandando = nil
                     return

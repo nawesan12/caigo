@@ -142,19 +142,33 @@ struct MiPerfil: View {
             cabecera(y)
             verificacion(y)
             tarjetaPlus
-            if let l = y.logros {
+            // Sin DNI, lo que falta va primero (verificacion) y lo de ir a planes, después de verificarse.
+            if let l = y.logros, y.verificada {
                 cabeceraLogros(y, l)
             } else {
                 HStack(spacing: 10) { asistenciaReal(y.asistencia).layoutPriority(1.2); planes(y) }
             }
-            MiosGrupo {
-                MiosFila(icono: I.gente, titulo: "Traé a alguien", ultima: y.logros == nil) { codigo = ""; trayendo = true }
-                if y.logros != nil {
-                    HStack(spacing: 12) {
-                        T("Ocultar mis insignias", 14, 800).frame(maxWidth: .infinity, alignment: .leading)
-                        Interruptor(on: Binding(get: { c.yo?.logros?.ocultas ?? false }, set: { ocultarInsignias($0) }))
+            if y.verificada {
+                MiosGrupo {
+                    MiosFila(icono: I.gente, titulo: "Traé a alguien", ultima: y.logros == nil) { codigo = ""; trayendo = true }
+                    if y.logros != nil {
+                        let ocultas = c.yo?.logros?.ocultas ?? false
+                        // Toda la fila es el interruptor (y se lee como uno, con su nombre).
+                        HStack(spacing: 12) {
+                            Icono(I.ojoTachado, 20, p.oscuro ? C.lima : C.violeta, trazo: 2)
+                            T("Ocultar mis insignias", 14, 800).frame(maxWidth: .infinity, alignment: .leading)
+                            Interruptor(on: Binding(get: { ocultas }, set: { ocultarInsignias($0) }))
+                                .accessibilityHidden(true)
+                        }
+                        .padding(.horizontal, 16).padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                        .onTapGesture { ocultarInsignias(!ocultas) }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Ocultar mis insignias")
+                        .accessibilityValue(ocultas ? "Sí" : "No")
+                        .accessibilityAddTraits(.isToggle)
+                        .accessibilityAction { ocultarInsignias(!ocultas) }
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 12)
                 }
             }
             busca(y)
@@ -278,10 +292,14 @@ struct MiPerfil: View {
             }
             if let r = TextoLogros.racha(l) { T(r, 12, 600, C.apagado2) }
             if !l.insignias.isEmpty {
-                MiosFlujo(espacio: 6, renglon: 6) {
+                // Cada insignia con su chip propio y el detalle a la vista (no escondido en un toque largo).
+                VStack(alignment: .leading, spacing: 8) {
                     ForEach(l.insignias) { i in
-                        ChipFoto(texto: i.nombre, oscuro: true, fondo: Gels.chipOscuro, color: C.blancoCalido)
-                            .accessibilityHint(i.detalle)
+                        HStack(spacing: 10) {
+                            ChipInsignia(texto: i.nombre, sobreOscuro: true)
+                            T(i.detalle, 12, 400, C.apagado2, unRenglon: true)
+                        }
+                        .accessibilityElement(children: .combine)
                     }
                 }
             }

@@ -149,6 +149,8 @@ type Avisos struct {
 type Contacto struct {
 	Nombre   string `json:"nombre"`
 	Contacto string `json:"contacto"`
+	// Avisa lo calcula «¿Todo bien?» (planes.Contacto); si una app lo manda de vuelta, se ignora.
+	Avisa string `json:"avisa,omitempty"`
 }
 
 // MaxContactos de confianza en el perfil.
@@ -423,7 +425,7 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 	if c.ContactosConfianza != nil {
 		lista := []Contacto{}
 		for _, x := range *c.ContactosConfianza {
-			x.Nombre, x.Contacto = strings.TrimSpace(x.Nombre), strings.TrimSpace(x.Contacto)
+			x.Nombre, x.Contacto, x.Avisa = strings.TrimSpace(x.Nombre), strings.TrimSpace(x.Contacto), ""
 			if x.Contacto == "" {
 				continue
 			}

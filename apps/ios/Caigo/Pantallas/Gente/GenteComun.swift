@@ -66,7 +66,10 @@ struct GenteHojaInvitar: View {
                 if let ps = mios {
                     if ps.isEmpty {
                         T("Todavía no organizás nada. Armá un plan y después invitás.", 15, 400, C.texto2, alto: 1.5)
-                        Cta(texto: "Armá un plan", alto: 56, tam: 16) { cerrar(); ir.crear() }
+                        Cta(texto: "Armá un plan", alto: 56, tam: 16) {
+                            cerrar()
+                            if c.conDni(ir, "crear") { ir.crear() }
+                        }
                     } else {
                         ScrollView {
                             VStack(spacing: 10) { ForEach(ps) { p in fila(p) } }.padding(.vertical, 4)

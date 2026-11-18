@@ -247,23 +247,29 @@ public enum Moderacion {
     public static func sacar(_ m: String, mio: Bool) -> Bool { m == "oculto" && !mio }
 }
 
-/// La línea de confianza de la tarjeta y el detalle: «Todos verificados · Organiza Martín (9/10) · Van 2 chicas».
-/// Cada parte lleva espacios duros y el «·» va pegado a la anterior: el renglón sólo corta después de un «·».
-public func lineaConfianza(_ p: Plan) -> String? {
+/// La asistencia, igual en todas las pantallas: «fue a 9 de 10» (sin porcentaje: no es un puntaje).
+public func asistenciaTexto(_ a: Asist) -> String? {
+    a.de > 0 ? "fue a \(a.fue) de \(a.de)" : nil
+}
+
+/// La línea de confianza, sólo con lo que distingue a un plan (si no hay nada, ninguna). En la tarjeta:
+/// «Martín fue a 9 de 10 · Anfitrión · Plan de chicas»; de un lugar aliado, «Organiza La Fonda». En el detalle
+/// (`detalle`), quien organiza ya tiene su fila: sólo «Todos verificados · Plan de chicas», que con el DNI
+/// obligatorio casi siempre es cierto y por eso no va en la tarjeta. Nunca cuántas chicas van. Cada parte
+/// lleva espacios duros y el «·» va pegado a la anterior: el renglón sólo corta después de un «·». Igual que
+/// lineaConfianza de plan.ts y Logica.kt.
+public func lineaConfianza(_ p: Plan, detalle: Bool = false) -> String? {
     var partes: [String] = []
-    if p.confianza.todosVerificados { partes.append("Todos verificados") }
-    // Un plan de lugar aliado lo organiza el lugar (como en el detalle), sin asistencia.
-    if let l = p.lugar, !l.nombre.isEmpty {
+    if detalle {
+        if p.confianza.todosVerificados { partes.append("Todos verificados") }
+    } else if let l = p.lugar, !l.nombre.isEmpty {
         partes.append("Organiza \(l.nombre)")
-    } else if let nombre = p.organizador.nombre.trimmingCharacters(in: .whitespaces).split(separator: " ").first.map(String.init) {
-        let a = p.organizador.asistencia
-        partes.append("Organiza \(nombre)" + (a.de > 0 ? " (\(a.fue)/\(a.de))" : ""))
+    } else {
+        let nombre = p.organizador.nombre.trimmingCharacters(in: .whitespaces).split(separator: " ").first.map(String.init) ?? ""
+        if !nombre.isEmpty, let a = asistenciaTexto(p.organizador.asistencia) { partes.append("\(nombre) \(a)") }
+        if p.organizador.anfitrion { partes.append("Anfitrión") }
     }
-    if let n = p.confianza.chicas, n >= 2 {
-        partes.append("Van \(n) chicas")
-    } else if p.confianza.soloChicas {
-        partes.append("Sólo chicas")
-    }
+    if p.confianza.soloChicas { partes.append("Plan de chicas") }
     if partes.isEmpty { return nil }
     return partes.map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }.joined(separator: "\u{00A0}· ")
 }
@@ -281,21 +287,36 @@ public enum Gestos {
         p.ingreso == "libre" && p.cobro == "gratis" && p.genero == "cualquiera" && p.miEstado == "ninguno" && p.faltan > 0
     }
 
-    /// Los planes de la lista que entran en «Decidí rápido»: sin pedido, con lugar y que no organizo.
+    /// Los planes de «Decidí rápido»: sólo los que se suman con un toque (directo). Los que piden aprobación,
+    /// entrada o confirmar algo («Solo mujeres») se deciden en el detalle, con su confirmación.
     public static func paraDecidir(_ planes: [Plan], yo: String) -> [Plan] {
-        planes.filter { $0.miEstado == "ninguno" && $0.faltan > 0 && (yo.isEmpty || $0.organizador.id != yo) }
+        planes.filter { directo($0) && (yo.isEmpty || $0.organizador.id != yo) }
     }
 }
 
 /// Lo que se muestra de los logros en un perfil.
 public enum TextoLogros {
-    /// «Habitué · 7 planes».
-    public static func cabecera(_ l: Logros) -> String { "\(l.nivel) · \(l.planes) \(l.planes == 1 ? "plan" : "planes")" }
+    /// «Habitué · 7 con check-in» (con 0, sólo el nivel). No dice «planes»: en el mismo perfil está la cifra de
+    /// planes a los que se anotó, que es otra cosa.
+    public static func cabecera(_ l: Logros) -> String {
+        l.planes > 0 ? "\(l.nivel) · \(l.planes)\u{00A0}con\u{00A0}check-in" : l.nivel
+    }
 
-    /// «Racha: 3 semanas · comodín libre» (sólo desde 2 semanas).
+    /// «Racha: 3 semanas» (sólo desde 2). El comodín se usa solo, sin anunciarlo.
     public static func racha(_ l: Logros) -> String? {
         guard let r = l.racha, r >= 2 else { return nil }
-        return "Racha: \(r) semanas" + (l.comodin == true ? " · comodín libre" : "")
+        return "Racha: \(r)\u{00A0}semanas"
+    }
+
+    /// Planes con check-in desde los que se es Habitué (logros.Habitue).
+    public static let habitue = 5
+
+    /// El beneficio por nivel de un lugar para quien mira: «Tenés: 10 % off» o «Con 3 planes más: 10 % off».
+    public static func beneficio(_ b: String, _ l: Logros?) -> String {
+        guard let l else { return "Habitué o más: \(b)" }
+        let falta = max(habitue - l.planes, 0)
+        if falta == 0 { return "Tenés: \(b)" }
+        return "Con \(falta == 1 ? "1 plan más" : "\(falta) planes más"): \(b)"
     }
 
     /// «Te faltan 3 para De fierro».
