@@ -192,13 +192,23 @@ fun Solicitudes(ir: Ir, planId: String) {
     }
 }
 
-/** «Ya van»: los aceptados, con «Sacar» (antes de que empiece el plan). */
+/**
+ * «Ya van»: los aceptados, con «Sacar» (antes de que empiece el plan). Cuando ya pasó, «Fueron», y quien organiza
+ * puede marcar que vino alguien que fue y no tocó «Llegué» (si el plan usó el check-in).
+ */
 @Composable
 private fun YaVan(pl: Plan, van: List<Solicitud>, sacar: (Solicitud) -> Unit, verPersona: (String) -> Unit) {
     val p = LocalPaleta.current
-    val empezo = Fecha.parse(pl.empiezaEn)?.let { java.time.ZonedDateTime.now(ZonaAR).isAfter(it) } ?: false
+    val c = ar.com.caigo.app.app.LocalApp.current
+    val avisos = ar.com.caigo.app.piezas.LocalAvisos.current
+    val alcance = androidx.compose.runtime.rememberCoroutineScope()
+    var marcados by remember { mutableStateOf(setOf<String>()) }
+    val ahora = java.time.ZonedDateTime.now(ZonaAR)
+    val empezo = Fecha.parse(pl.empiezaEn)?.let { ahora.isAfter(it) } ?: false
+    val termino = Fecha.parse(pl.empiezaEn)?.let { ahora.isAfter(it.plusMinutes(pl.duracionMin.toLong())) } ?: false
+    val conCheckin = pl.van.any { it.llego }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        MiosSeccion("Ya van · ${van.sumOf { it.cantidad }}", Modifier.padding(top = 10.dp))
+        MiosSeccion("${if (termino) "Fueron" else "Ya van"} · ${van.sumOf { it.cantidad }}", Modifier.padding(top = 10.dp))
         van.forEach { s ->
             val per = s.persona
             Row(
@@ -223,6 +233,21 @@ private fun YaVan(pl: Plan, van: List<Solicitud>, sacar: (Solicitud) -> Unit, ve
                             .semantics { contentDescription = "Sacar a ${miosPrimer(per.nombre)} del plan"; role = Role.Button }
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                     ) { T("Sacar", 14f, 700, C.coral2, unRenglon = true) }
+                } else if (termino && conCheckin && per.id !in marcados && pl.van.firstOrNull { it.id == per.id }?.llego == false) {
+                    Box(
+                        Modifier.tocable {
+                            alcance.launch {
+                                try {
+                                    c.api.marcarVino(pl.id, per.id)
+                                    marcados = marcados + per.id
+                                    avisos.ok("Listo, quedó que vino.")
+                                } catch (e: Throwable) {
+                                    if (e is kotlinx.coroutines.CancellationException) throw e
+                                    avisos.error(ar.com.caigo.app.nucleo.mensajeDe(e))
+                                }
+                            }
+                        }.semantics { role = Role.Button }.padding(horizontal = 12.dp, vertical = 12.dp),
+                    ) { T("Marcar que vino", 14f, 700, if (p.oscuro) C.lima else C.violetaTexto, unRenglon = true) }
                 }
             }
         }
@@ -274,7 +299,7 @@ private fun Tarjeta(s: Solicitud, completan: Boolean, ocupado: Boolean, aceptar:
                     if (per.verificada) MiosVerificado(15.dp)
                 }
                 T(if (per.enMiGente) miosAsistencia(per.asistencia, "está en tu gente") else miosAsistencia(per.asistencia), 12f, 400, p.texto2)
-                if (per.faltazos >= 2) T("Faltó a ${per.faltazos} planes este mes", 12f, 600, C.coral2)
+                if (per.faltazos >= 2) T("Faltó a ${per.faltazos} planes este mes", 12f, 600, p.texto2)
             }
             if (completan) {
                 Box(Modifier.gel(10.dp, Gels.limaChico).padding(horizontal = 9.dp, vertical = 5.dp)) { T("Completan", 11f, 800, C.carbon) }

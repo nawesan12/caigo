@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -89,6 +91,14 @@ fun MisPlanes(ir: Ir) {
 
     fun etiqueta(l: String, n: Int?) = if (n != null && n > 0) "$l · $n" else l
     val alcance = rememberCoroutineScope()
+    val avisos = LocalAvisos.current
+    // «Repetir» del historial: se confirma con la fecha antes de publicar.
+    var aRepetir by remember { mutableStateOf<Plan?>(null) }
+    // El plan de hoy (fijo arriba, con «Llegué» y «¿Todo bien?»), de lo que ya se trajo, y su hoja.
+    val hoyPlan = (organizo.dato.orEmpty() + meSume.dato.orEmpty())
+        .filter { (it.miEstado == "aceptada" || it.miEstado == "organizador") && ar.com.caigo.app.nucleo.Dia.enElDia(it) }
+        .minByOrNull { it.empiezaEn }
+    var hojaHoy by remember { mutableStateOf(false) }
     var refrescando by remember { mutableStateOf(false) }
     // .refreshable: recarga las tres pestañas (los datos viejos quedan si falla).
     fun refrescar() {
@@ -103,6 +113,7 @@ fun MisPlanes(ir: Ir) {
     }
 
     Pantalla { arriba, _ ->
+        Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(top = arriba + 8.dp)) {
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 T("Mis planes", 40f, 800, alto = 1f, espaciado = px(-1.4f, 40f), unRenglon = true)
@@ -132,10 +143,11 @@ fun MisPlanes(ir: Ir) {
                         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = altoTabBar()),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
+                        if (hoyPlan != null && tab != 2) item(key = "hoy") { ar.com.caigo.app.pantallas.planes.HoyTarjeta(hoyPlan, ir) { hojaHoy = true } }
                         grupos.forEach { (titulo, lista) ->
                             if (titulo.isNotEmpty()) item(key = "t-$titulo") { MiosOverline(titulo) }
                             items(lista, key = { "${cuales[tab]}-${it.id}" }) { plan ->
-                                TarjetaMio(plan, cuales[tab], ir)
+                                TarjetaMio(plan, cuales[tab], ir, repetir = { aRepetir = plan })
                             }
                         }
                     }
@@ -143,7 +155,33 @@ fun MisPlanes(ir: Ir) {
             }
             }
         }
+        aRepetir?.let { pl ->
+            ar.com.caigo.app.pantallas.planes.HojaConfirmar(
+                true, "¿Repetimos «${pl.titulo}»?", "${proximaFecha(pl)}. Se publica igual que la última vez.", "Publicar",
+                cerrar = { aRepetir = null },
+            ) {
+                c.api.repetimos(pl.id, true, emptyList(), null).nuevo?.let {
+                    aRepetir = null
+                    avisos.ok("Listo, se repite. Ya está publicado.")
+                    ir.plan(it.id)
+                }
+            }
+        }
+        hoyPlan?.let { h ->
+            ar.com.caigo.app.pantallas.planes.HojaTodoBien(
+                ir, h, hojaHoy, cerrar = { hojaHoy = false }, reportar = { ir.plan(h.id) }, recargar = { refrescar() },
+            )
+        }
+        }
     }
+}
+
+/** El mismo día y hora, la semana que viene (o la próxima que no pasó): «Jue 27/11 21:30». */
+private fun proximaFecha(pl: Plan): String {
+    var t = Fecha.parse(pl.empiezaEn) ?: return ""
+    val ahora = java.time.ZonedDateTime.now(ar.com.caigo.app.nucleo.ZonaAR)
+    do { t = t.plusWeeks(1) } while (!t.isAfter(ahora))
+    return Fecha.cuando(t.toOffsetDateTime().toString())
 }
 
 /** HOY / ESTA SEMANA / MÁS ADELANTE según la fecha del plan. */
@@ -179,32 +217,9 @@ internal fun miosSubtitulo(pl: Plan): String {
 internal fun miosLinkCompartir(pl: Plan): String = "${pl.titulo} · https://${linkPlan(pl.slug)}"
 
 @Composable
-private fun TarjetaMio(pl: Plan, cual: String, ir: Ir) {
+private fun TarjetaMio(pl: Plan, cual: String, ir: Ir, repetir: () -> Unit = {}) {
     val p = LocalPaleta.current
     val ctx = LocalContext.current
-    val c = LocalApp.current
-    val avisos = LocalAvisos.current
-    val alcance = rememberCoroutineScope()
-    var repitiendo by remember { mutableStateOf(false) }
-
-    /** POST /repetimos con repetir: publica el mismo plan la semana que viene y lo abre. */
-    fun repetir() {
-        if (repitiendo) return
-        repitiendo = true
-        alcance.launch {
-            try {
-                c.api.repetimos(pl.id, true, emptyList(), null).nuevo?.let {
-                    avisos.ok("Listo, se repite. Ya está publicado.")
-                    ir.plan(it.id)
-                }
-            } catch (e: Throwable) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                avisos.error(ar.com.caigo.app.nucleo.mensajeDe(e))
-            } finally {
-                repitiendo = false
-            }
-        }
-    }
     val franja = cual == "organizo" && pl.pendientes > 0
     val hoy = Fecha.parse(pl.empiezaEn)?.toLocalDate() == Fecha.hoy()
     Column(
@@ -230,14 +245,22 @@ private fun TarjetaMio(pl: Plan, cual: String, ir: Ir) {
                         }
                         "historial" -> {
                             val enlace = if (p.oscuro) C.lima else C.violetaTexto
-                            // «Repetir» en un toque (quien organizó): el mismo plan la semana que viene.
+                            // Un link chico con 48 dp de alto para el dedo (sin agrandar el renglón).
+                            val toque = Modifier.heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically).padding(horizontal = 4.dp)
+                            // «Repetir» (quien organizó, con confirmación), «¿Cómo estuvo?» / «Tu gente» y las fotos, siempre.
                             if (pl.esMio && !pl.cancelado && pl.lugar == null) {
-                                T(if (repitiendo) "Repitiendo…" else "Repetir", 12f, 700, enlace, Modifier.tocable { repetir() })
-                            } else {
-                                T(if (pl.mio?.carita != null) "Tu gente" else "¿Cómo estuvo?", 12f, 700, enlace, Modifier.tocable { ir.repetimos(pl.id) })
+                                T("Repetir", 12f, 700, enlace, Modifier.tocable(onClick = repetir).then(toque))
+                                T("·", 12f, 700, p.texto2)
                             }
-                            val n = pl.mio?.fotos ?: 0
-                            if (n > 0) T("Fotos · $n", 12f, 700, enlace, Modifier.tocable { ir.fotosPlan(pl.id) })
+                            if (!pl.cancelado) {
+                                T(
+                                    if (pl.esMio || pl.mio?.carita != null) "Tu gente" else "¿Cómo estuvo?", 12f, 700, enlace,
+                                    Modifier.tocable { ir.repetimos(pl.id) }.then(toque),
+                                )
+                                T("·", 12f, 700, p.texto2)
+                                val n = pl.mio?.fotos ?: 0
+                                T(if (n > 0) "Fotos · $n" else "Fotos", 12f, 700, enlace, Modifier.tocable { ir.fotosPlan(pl.id) }.then(toque))
+                            }
                         }
                         else -> {
                             BadgeMio(pl, urgente = hoy)

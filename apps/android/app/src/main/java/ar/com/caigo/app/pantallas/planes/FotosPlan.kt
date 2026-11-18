@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,6 +52,7 @@ import ar.com.caigo.app.piezas.LocalAvisos
 import ar.com.caigo.app.piezas.Pantalla
 import ar.com.caigo.app.piezas.Puntitos
 import ar.com.caigo.app.piezas.jpegDe
+import ar.com.caigo.app.piezas.jpegDeFoto
 import ar.com.caigo.app.piezas.tocable
 import ar.com.caigo.app.tema.C
 import ar.com.caigo.app.tema.LocalPaleta
@@ -76,18 +79,21 @@ fun FotosDelPlan(ir: Ir, planId: String) {
     var abierta by remember { mutableStateOf<FotoPlan?>(null) }
     var subiendo by remember { mutableStateOf(false) }
     var vuelta by remember { mutableIntStateOf(0) }
+    // Un error que no es «no fuiste»: no es «no hay fotos».
+    var error by remember { mutableStateOf<String?>(null) }
+    var confirmarBorrar by remember { mutableStateOf(false) }
 
     LaunchedEffect(vuelta) {
         plan = runCatching { c.api.plan(planId) }.getOrNull()
         try {
             fotos = c.api.fotosPlan(planId).fotos
             cerrado = null
+            error = null
         } catch (e: ErrorApi) {
-            if (e.estado == 404) cerrado = e.detalle else { avisos.error(e.detalle); fotos = emptyList() }
+            if (e.estado == 404) cerrado = e.detalle else if (fotos == null) error = e.detalle else avisos.error(e.detalle)
         } catch (e: Throwable) {
             if (e is kotlinx.coroutines.CancellationException) throw e
-            avisos.error(mensajeDe(e))
-            fotos = emptyList()
+            if (fotos == null) error = mensajeDe(e) else avisos.error(mensajeDe(e))
         }
     }
 
@@ -97,9 +103,8 @@ fun FotosDelPlan(ir: Ir, planId: String) {
         alcance.launch {
             try {
                 val jpeg = withContext(Dispatchers.IO) {
-                    val bm = runCatching { ctx.contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it) } }.getOrNull()
-                        ?: throw ErrorApi(0, Problema(detail = "No pudimos leer esa foto. Probá con otra."))
-                    jpegDe(bm, 0, 86, 1600)
+                    // Achicada al decodificar y derecha según el EXIF (jpegDeFoto, Camara.kt).
+                    jpegDeFoto(ctx, uri) ?: throw ErrorApi(0, Problema(detail = "No pudimos leer esa foto. Probá con otra."))
                 }
                 c.api.subirFotoPlan(planId, jpeg)
                 avisos.ok("Foto subida.")
@@ -113,16 +118,17 @@ fun FotosDelPlan(ir: Ir, planId: String) {
         }
     }
 
-    fun accion(f: FotoPlan) {
+    fun accion(f: FotoPlan, motivo: String = "inapropiada") {
         alcance.launch {
             try {
                 if (f.mia) {
                     c.api.borrarFotoPlan(planId, f.id)
                     avisos.ok("Foto borrada.")
                 } else {
-                    c.api.reportarFotoPlan(planId, f.id)
-                    avisos.ok("Gracias. La revisamos.")
+                    c.api.reportarFotoPlan(planId, f.id, motivo)
+                    avisos.ok("Listo, ya no se ve. La revisamos.")
                 }
+                confirmarBorrar = false
                 abierta = null
                 vuelta++
             } catch (e: Throwable) {
@@ -138,18 +144,22 @@ fun FotosDelPlan(ir: Ir, planId: String) {
             val lista = fotos
             when {
                 cerrado != null -> MiosVacio("Sólo para quienes fueron", cerrado!!, "Volver", { ir.atras() }, Modifier.padding(28.dp))
+                error != null && fotos == null -> MiosVacio("No pudimos traer las fotos", error!!, "Probar de nuevo", {
+                    error = null
+                    vuelta++
+                }, Modifier.padding(28.dp))
                 lista != null -> Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                         .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 18.dp + abajo),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    T("Sólo las ven quienes fueron. Se borran a los 6 meses.", 13f, 400, p.texto2)
+                    T("Sólo las ven quienes fueron. Subí las que estén bien para todos los que salen. Se borran a los 6\u00A0meses.", 13f, 400, p.texto2, alto = 1.4f)
                     if (lista.isEmpty()) T("Todavía no hay fotos. Subí la primera.", 15f, 600, p.texto2, Modifier.padding(vertical = 24.dp))
                     lista.chunked(3).forEach { fila ->
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             fila.forEach { f ->
-                                Foto(f.url, Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(14.dp)).tocable { abierta = f }
-                                    .semantics { contentDescription = "Foto de ${miosPrimer(f.autor.nombre)}" })
+                                Foto(f.url, Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(14.dp)).tocable { abierta = f; confirmarBorrar = false }
+                                    .semantics { contentDescription = "Foto de ${miosPrimer(f.autor.nombre)}"; role = Role.Button })
                             }
                             repeat(3 - fila.size) { Spacer(Modifier.weight(1f)) }
                         }
@@ -165,8 +175,33 @@ fun FotosDelPlan(ir: Ir, planId: String) {
         MiosHoja(f != null, { abierta = null }, f?.let { "De ${miosPrimer(it.autor.nombre)}" } ?: "Foto") {
             if (f != null) {
                 Foto(f.url, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(20.dp)))
-                T(if (f.mia) "Borrar mi foto" else "Reportar esta foto", 14f, 700, if (p.oscuro) C.lima else C.violetaTexto,
-                    Modifier.align(Alignment.CenterHorizontally).tocable { accion(f) })
+                val enlace = if (p.oscuro) C.lima else C.violetaTexto
+                if (f.mia) {
+                    if (confirmarBorrar) {
+                        T("¿Borrar tu foto?", 15f, 700, p.texto, Modifier.align(Alignment.CenterHorizontally))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Cta(
+                                "Ahora no", { confirmarBorrar = false }, Modifier.weight(1f), gel = ar.com.caigo.app.tema.Gels.blanco,
+                                alto = 50.dp, radio = 16.dp, tam = 15f, color = C.carbon,
+                            )
+                            Cta("Sí, borrarla", { accion(f) }, Modifier.weight(1f), alto = 50.dp, radio = 16.dp, tam = 15f, color = C.carbon)
+                        }
+                    } else {
+                        T("Borrar mi foto", 14f, 700, enlace, Modifier.align(Alignment.CenterHorizontally).tocable { confirmarBorrar = true }.padding(vertical = 12.dp))
+                    }
+                } else {
+                    // «Salgo yo» la oculta al instante; «No va» la manda a revisar (también se oculta).
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Cta(
+                            "Salgo yo y no quiero", { accion(f, "salgo_yo") }, Modifier.weight(1f), gel = ar.com.caigo.app.tema.Gels.blanco,
+                            alto = 50.dp, radio = 16.dp, tam = 14f, color = C.carbon,
+                        )
+                        Cta(
+                            "No va", { accion(f, "inapropiada") }, Modifier.weight(1f), gel = ar.com.caigo.app.tema.Gels.blanco,
+                            alto = 50.dp, radio = 16.dp, tam = 14f, color = C.carbon,
+                        )
+                    }
+                }
             }
         }
     }

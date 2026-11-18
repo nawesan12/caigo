@@ -47,6 +47,7 @@ object Fecha {
         return when (diasEntre(ahora, t)) {
             0 -> "Hoy ${hora(t)}"
             1 -> "Mañana ${hora(t)}"
+            -1 -> "Ayer ${hora(t)}"
             in 2..6 -> "${diaCorto(t)} ${hora(t)}"
             // Fuera de esta semana, con el día y el mes: "Mié 3/3 22:00".
             else -> t.withZoneSameInstant(ZonaAR).let { a -> "${diaCorto(t)} ${a.dayOfMonth}/${a.monthValue} ${hora(t)}" }
@@ -56,7 +57,8 @@ object Fecha {
     /** "Ahora · en 2 h", "Ahora · en 40 min" o null si falta más de 3 h. */
     fun enCuanto(iso: String, ahora: ZonedDateTime = ZonedDateTime.now(ZonaAR)): String? {
         val t = parse(iso) ?: return null
-        val min = ChronoUnit.SECONDS.between(ahora, t) / 60
+        // Para arriba, como la cuenta regresiva de «Hoy» (Dia.minutosHasta): las dos dicen lo mismo.
+        val min = Dia.minutosHasta(t, ahora)
         return when {
             min <= 0 -> "Ahora"
             min < 60 -> "Ahora · en $min min"

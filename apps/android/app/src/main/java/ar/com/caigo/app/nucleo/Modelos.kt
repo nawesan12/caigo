@@ -109,11 +109,11 @@ data class Plan(
 }
 
 /**
- * La línea de confianza de la tarjeta (`confianza` de planes.go). Caigo no guarda el género: `chicas`
- * sólo viene en planes «Solo mujeres» y desde 2.
+ * La línea de confianza de la tarjeta (`confianza` de planes.go). Caigo no guarda el género y nunca dice
+ * cuántas chicas van: sólo si el plan es «Solo mujeres».
  */
 @Serializable
-data class Confianza(val todosVerificados: Boolean = false, val soloChicas: Boolean = false, val chicas: Int? = null)
+data class Confianza(val todosVerificados: Boolean = false, val soloChicas: Boolean = false)
 
 @Serializable
 data class Planes(val planes: List<Plan> = emptyList())

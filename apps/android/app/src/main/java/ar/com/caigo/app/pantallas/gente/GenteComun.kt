@@ -131,7 +131,7 @@ internal fun GenteHojaInvitar(ir: Ir, personaId: String, nombre: String, cerrar:
                     ps == null -> Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) { Puntitos() }
                     ps.isEmpty() -> {
                         T("Todavía no organizás nada. Armá un plan y después invitás.", 15f, 400, C.texto2, alto = 1.5f)
-                        Cta("Armá un plan", { cerrar(); ir.crear() }, Modifier.fillMaxWidth(), alto = 56.dp, tam = 16f)
+                        Cta("Armá un plan", { cerrar(); if (c.conDni(ir, "crear")) ir.crear() }, Modifier.fillMaxWidth(), alto = 56.dp, tam = 16f)
                     }
                     else -> LazyColumn(
                         Modifier.heightIn(max = (minOf(ps.size, 4) * 84).dp),

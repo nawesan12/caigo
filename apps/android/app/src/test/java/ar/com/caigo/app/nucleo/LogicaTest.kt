@@ -195,18 +195,43 @@ class VacioTest {
 }
 
 class ConfianzaTest {
+    private fun nb(x: String?) = x?.replace("\u00A0", " ")
+
     @Test fun linea() {
         val p = Plan(
-            organizador = PersonaCorta(nombre = "Martín Pérez", asistencia = Asist(9, 10)),
-            confianza = Confianza(todosVerificados = true, soloChicas = true, chicas = 2),
+            organizador = PersonaCorta(nombre = "Martín Pérez", asistencia = Asist(9, 10), anfitrion = true),
+            confianza = Confianza(todosVerificados = true, soloChicas = true),
         )
-        assertEquals("Todos\u00A0verificados\u00A0· Organiza\u00A0Martín\u00A0(9/10)\u00A0· Van\u00A02\u00A0chicas", lineaConfianza(p))
-        val q = Plan(organizador = PersonaCorta(nombre = "Lu"), confianza = Confianza(soloChicas = true, chicas = 1))
-        assertEquals("Organiza\u00A0Lu\u00A0· Sólo\u00A0chicas", lineaConfianza(q))
-        assertEquals("Organiza\u00A0Fede", lineaConfianza(Plan(organizador = PersonaCorta(nombre = "Fede"))))
+        // En la tarjeta: lo que distingue al plan, sin «Todos verificados» ni cuántas chicas.
+        assertEquals("Martín fue a 9 de 10 · Anfitrión · Plan de chicas", nb(lineaConfianza(p)))
+        // En el detalle, sin quien organiza (ya tiene su fila).
+        assertEquals("Todos verificados · Plan de chicas", nb(lineaConfianza(p, detalle = true)))
+        // Sin asistencia, no hay nada que decir de quien organiza.
+        assertNull(lineaConfianza(Plan(organizador = PersonaCorta(nombre = "Fede"))))
         assertNull(lineaConfianza(Plan()))
         val l = Plan(organizador = PersonaCorta(nombre = "Ana", asistencia = Asist(1, 2)), lugar = LugarCorto(nombre = "La Fonda"))
         assertEquals("Organiza\u00A0La\u00A0Fonda", lineaConfianza(l))
+        assertEquals("fue a 3 de 5", asistenciaTexto(Asist(3, 5)))
+        assertNull(asistenciaTexto(Asist()))
+    }
+
+    @Test fun diaDelPlan() {
+        for (t in listOf("0223 15 592-6772", "223 15 5926772", "2235926772", "0223 592-6772", "+54 9 223 592-6772")) {
+            assertEquals(t, "5492235926772", Dia.numeroWhatsapp(t))
+        }
+        assertEquals("5491144441290", Dia.numeroWhatsapp("011 15 4444-1290"))
+        assertEquals("59899123456", Dia.numeroWhatsapp("+598 99 123 456"))
+        assertEquals("Le escribimos a Mamá si no llegás", Contacto("Mamá", "mama@x.com", "contacto").filaTodoBien)
+        assertEquals("Te avisamos para que le escribas a Sofi", Contacto("Sofi", "223 555 0101").filaTodoBien)
+        val ahora = Fecha.parse("2026-11-18T20:00:00-03:00")!!
+        assertEquals("Es tuyo hasta las 20:40", Dia.lugarGuardado("2026-11-18T20:40:00-03:00", ahora))
+        assertNull(Dia.lugarGuardado("2026-11-18T19:40:00-03:00", ahora))
+        val p = Plan(empiezaEn = "2026-11-18T17:00:00-03:00", duracionMin = 120)
+        // Terminó a las 19: «Hoy» sigue para la vuelta, pero «¿Todo bien?» ya no se activa.
+        assertTrue(Dia.enElDia(p, ahora))
+        assertTrue(!Dia.puedeActivarTodoBien(p, ahora))
+        assertEquals("Ayer 19:08", Fecha.cuando("2026-11-17T19:08:00-03:00", ahora))
+        assertEquals("4,5 · 10+ opiniones", nb(Caras.texto(Caritas(4.5, 10))))
     }
 }
 
@@ -222,15 +247,20 @@ class GestosTest {
         assertTrue(!Gestos.directo(plan { it.copy(faltan = 0) }))
     }
 
-    @Test fun paraDecidirSacaLosMiosYLosCompletos() {
-        val ps = listOf(plan(), plan { it.copy(faltan = 0) }, plan { it.copy(miEstado = "pendiente") }, plan { it.copy(organizador = PersonaCorta(id = "yo")) })
+    @Test fun paraDecidirSoloLosQueSeSumanConUnToque() {
+        val ps = listOf(
+            plan(), plan { it.copy(faltan = 0) }, plan { it.copy(miEstado = "pendiente") }, plan { it.copy(organizador = PersonaCorta(id = "yo")) },
+            plan { it.copy(ingreso = "aprobacion") }, plan { it.copy(genero = "mujeres") },
+        )
         assertEquals(1, Gestos.paraDecidir(ps, "yo").size)
     }
 
     @Test fun textosDeLogros() {
         val l = Logros(nivel = "Habitué", planes = 7, siguiente = "De fierro", faltan = 8, racha = 3, comodin = true)
-        assertEquals("Habitué · 7 planes", TextoLogros.cabecera(l))
-        assertEquals("Racha: 3 semanas · comodín libre", TextoLogros.racha(l))
+        assertEquals("Habitué · 7\u00A0con\u00A0check-in", TextoLogros.cabecera(l))
+        assertEquals("Racha: 3\u00A0semanas", TextoLogros.racha(l))
+        assertEquals("Tenés: Postre", TextoLogros.beneficio("Postre", l))
+        assertEquals("Con 3 planes más: Postre", TextoLogros.beneficio("Postre", l.copy(planes = 2)))
         assertEquals("Te faltan 8 para De fierro", TextoLogros.siguiente(l))
         assertNull(TextoLogros.racha(l.copy(racha = 1)))
     }

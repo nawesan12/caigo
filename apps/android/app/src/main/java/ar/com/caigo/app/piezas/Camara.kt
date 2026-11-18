@@ -52,6 +52,45 @@ class Disparador {
     }
 }
 
+/**
+ * Una foto elegida (galería) como JPEG listo para subir: decodificada ya achicada (no la entera: una de 50 MP
+ * ocupa unos 200 MB) y derecha según la orientación del EXIF. Del JPEG que sale no queda ningún metadato (GPS,
+ * hora, teléfono). null si no se pudo leer. La usan Crear, Perfil y las fotos del plan.
+ */
+fun jpegDeFoto(ctx: android.content.Context, uri: android.net.Uri, ladoMax: Int = 1600, calidad: Int = 86): ByteArray? = runCatching {
+    val cr = ctx.contentResolver
+    if (android.os.Build.VERSION.SDK_INT >= 28) {
+        // ImageDecoder aplica la orientación del EXIF y decodifica con el tamaño pedido.
+        val bm = android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(cr, uri)) { d, info, _ ->
+            val lado = maxOf(info.size.width, info.size.height)
+            var muestra = 1
+            while (lado / (muestra * 2) >= ladoMax) muestra *= 2
+            d.setTargetSampleSize(muestra)
+            d.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+        }
+        jpegDe(bm, 0, calidad, ladoMax)
+    } else {
+        // API 26 y 27: primero el tamaño, después la foto con inSampleSize y la rotación del EXIF.
+        val tam = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        cr.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it, null, tam) }
+        val lado = maxOf(tam.outWidth, tam.outHeight)
+        var muestra = 1
+        while (lado / (muestra * 2) >= ladoMax) muestra *= 2
+        val bm = cr.openInputStream(uri)?.use {
+            android.graphics.BitmapFactory.decodeStream(it, null, android.graphics.BitmapFactory.Options().apply { inSampleSize = muestra })
+        } ?: return null
+        val rotacion = cr.openInputStream(uri)?.use {
+            when (android.media.ExifInterface(it).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, android.media.ExifInterface.ORIENTATION_NORMAL)) {
+                android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90
+                android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180
+                android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270
+                else -> 0
+            }
+        } ?: 0
+        jpegDe(bm, rotacion, calidad, ladoMax)
+    }
+}.getOrNull()
+
 fun jpegDe(b: Bitmap, rotacion: Int, calidad: Int = 88, ladoMax: Int = 1600): ByteArray {
     val k = minOf(1f, ladoMax.toFloat() / maxOf(b.width, b.height))
     val m = Matrix().apply { postRotate(rotacion.toFloat()); postScale(k, k) }

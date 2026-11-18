@@ -24,6 +24,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
@@ -156,7 +157,8 @@ fun CaigoNav(c: Contenedor) {
             is Destino.VueltaClerk -> Unit
             is Destino.Seccion -> ir.principal(d.pestana)
             is Destino.Ruta -> when (d.pantalla) {
-                "crear" -> ir.crear()
+                // «Armá un plan» desde un link: sin DNI, primero el pedido con su título («Para armar tu plan…»).
+                "crear" -> if (c.conDni(ir, "crear")) ir.crear()
                 "verificacion" -> ir.verificacion()
                 "privados" -> ir.privados()
                 "privado" -> d.id?.let { ir.privado(it, "") }
@@ -182,8 +184,11 @@ fun CaigoNav(c: Contenedor) {
     CompositionLocalProvider(LocalApp provides c, LocalAvisos provides avisos) {
         CaigoTema(tema) {
             Box(Modifier.fillMaxSize()) {
+                // Con el festejo encima, lo de abajo no existe para TalkBack (el festejo es modal).
+                val conFestejo = c.festejo.collectAsState().value != null
                 NavHost(
                     nav, startDestination = "arranque",
+                    modifier = if (conFestejo) Modifier.clearAndSetSemantics {} else Modifier,
                     enterTransition = entrar, exitTransition = salir,
                     popEnterTransition = volverEntrar, popExitTransition = volverSalir,
                 ) {

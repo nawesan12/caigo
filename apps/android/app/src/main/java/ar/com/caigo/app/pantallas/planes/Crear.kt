@@ -119,6 +119,7 @@ import ar.com.caigo.app.piezas.Segmentado
 import ar.com.caigo.app.piezas.Sistema
 import ar.com.caigo.app.piezas.fondoCaigo
 import ar.com.caigo.app.piezas.jpegDe
+import ar.com.caigo.app.piezas.jpegDeFoto
 import ar.com.caigo.app.piezas.tocable
 import ar.com.caigo.app.piezas.toque
 import ar.com.caigo.app.tema.C
@@ -432,9 +433,8 @@ fun Crear(ir: Ir, editar: String? = null) {
         alcance.launch {
             try {
                 val jpeg = withContext(Dispatchers.IO) {
-                    val bm = runCatching { ctx.contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it) } }.getOrNull()
-                        ?: throw ErrorApi(0, Problema(detail = "No pudimos leer esa foto. Probá con otra."))
-                    jpegDe(bm, 0, 86, 1600)
+                    // Achicada al decodificar y derecha según el EXIF (jpegDeFoto, Camara.kt).
+                    jpegDeFoto(ctx, uri) ?: throw ErrorApi(0, Problema(detail = "No pudimos leer esa foto. Probá con otra."))
                 }
                 b.foto = c.api.subir("foto", jpeg).url
             } catch (e: Throwable) {

@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -85,8 +86,11 @@ fun Festejo(ir: Ir, f: PlanFestejado, cerrar: () -> Unit) {
     val plan = f.plan
     val somos = minOf(plan.total, plan.somos + f.cantidad)
 
+    // Una capa encima de todo: TalkBack la anuncia como un panel nuevo (y la navegación de abajo queda sin
+    // semántica mientras está, en Navegacion.kt).
     Box(
         Modifier.fillMaxSize()
+            .semantics { paneTitle = "¡Estás adentro!" }
             .gel(0.dp, Gels.lima.fondo, grano = true)
             .clickable(remember { MutableInteractionSource() }, indication = null, onClick = cerrar),
     ) {

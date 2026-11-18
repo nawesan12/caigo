@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,6 +24,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ar.com.caigo.app.app.Contenedor
@@ -37,6 +43,7 @@ import ar.com.caigo.app.nucleo.Plan
 import ar.com.caigo.app.nucleo.TodoBien
 import ar.com.caigo.app.nucleo.ZonaAR
 import ar.com.caigo.app.nucleo.mensajeDe
+import ar.com.caigo.app.pantallas.mios.MiosCampo
 import ar.com.caigo.app.pantallas.mios.MiosFila
 import ar.com.caigo.app.pantallas.mios.MiosGrupo
 import ar.com.caigo.app.pantallas.mios.MiosHoja
@@ -91,7 +98,9 @@ internal fun DiaTarjeta(ir: Ir, p: Plan, todoBien: () -> Unit) {
     Column(Modifier.fillMaxWidth().gel(24.dp, miosOscura).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                T(Dia.cuentaRegresiva(p.empiezaEn, ahora), 34f, 800, C.lima, alto = 1f, espaciado = px(-1.2f, 34f), unRenglon = true)
+                // El dato principal no se corta con letra grande: crece hasta un tope (como iOS con accessibility2).
+                val tope = minOf(LocalDensity.current.fontScale, 1.6f) / LocalDensity.current.fontScale
+                T(Dia.cuentaRegresiva(p.empiezaEn, ahora), 34f * tope, 800, C.lima, alto = 1f, espaciado = px(-1.2f, 34f), unRenglon = true)
                 T(
                     if (llegaron.isEmpty()) Cupo.somos(p.somos, p.total)
                     else "${miosNombres(llegaron.map { miosPrimer(it.nombre) })} ya ${if (llegaron.size == 1) "llegó" else "llegaron"}",
@@ -152,6 +161,64 @@ internal fun DiaTarjeta(ir: Ir, p: Plan, todoBien: () -> Unit) {
 }
 
 /** «¿Seguís yendo?» la víspera: Voy confirma; Me bajo libera el lugar (con la confirmación de siempre). */
+/**
+ * El plan de hoy, fijo arriba de Ahora y de Mis planes (6.8 del informe): la cuenta regresiva y las dos cosas del
+ * día, «Llegué» y «¿Todo bien?», a un toque. El contador oscuro de [DiaTarjeta] en chico; tocar arriba abre el plan.
+ * Igual que HoyTarjeta en DiaDelPlan.swift y TarjetaHoy.svelte.
+ */
+@Composable
+internal fun HoyTarjeta(p: Plan, ir: Ir, todoBien: () -> Unit) {
+    var ahora by remember { mutableStateOf(ZonedDateTime.now(ZonaAR)) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000)
+            ahora = ZonedDateTime.now(ZonaAR)
+        }
+    }
+    val falta = Dia.cuentaRegresiva(p.empiezaEn, ahora)
+    val tope = minOf(LocalDensity.current.fontScale, 1.6f) / LocalDensity.current.fontScale
+    Column(Modifier.fillMaxWidth().gel(24.dp, miosOscura).padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            Modifier.fillMaxWidth().tocable { ir.plan(p.id) }.semantics(mergeDescendants = true) { contentDescription = "Hoy: ${p.titulo}, $falta" },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                T("HOY", 12f, 800, C.lima, espaciado = px(.6f, 12f), unRenglon = true)
+                T(p.titulo, 16f, 700, C.blancoCalido, unRenglon = true)
+            }
+            T(falta, 22f * tope, 800, C.lima, espaciado = px(-.6f, 22f), unRenglon = true)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (p.mio?.llegue == true) {
+                Row(
+                    Modifier.weight(1f).heightIn(min = 48.dp).background(C.lima, RoundedCornerShape(16.dp)),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                ) {
+                    Icono(I.check, 18.dp, C.carbon, 3.4f)
+                    T("Llegaste", 15f, 800, C.carbon)
+                }
+            } else {
+                Cta(
+                    "Llegué", { ir.checkin(p.id) }, Modifier.weight(1f), alto = 48.dp, radio = 16.dp, tam = 15f, color = C.carbon,
+                    icono = I.check, iconoTrazo = 3.4f, iconoTam = 18.dp,
+                )
+            }
+            Cta(
+                if (p.mio?.todoBien == true) "¿Todo bien? · Activo" else "¿Todo bien?", todoBien, Modifier.weight(1f), gel = Gels.blanco,
+                alto = 48.dp, radio = 16.dp, tam = 15f, color = C.carbon, icono = I.escudo, iconoTrazo = 2.2f, iconoTam = 18.dp,
+            )
+        }
+    }
+}
+
+/** El plan de hoy de quien mira (el próximo en el que está adentro y «en el día»), para [HoyTarjeta]. */
+internal suspend fun planDeHoy(c: Contenedor): Plan? {
+    val o = runCatching { c.api.mios("organizo").planes }.getOrNull().orEmpty()
+    val m = runCatching { c.api.mios("me_sume").planes }.getOrNull().orEmpty()
+    return (o + m).filter { (it.miEstado == "aceptada" || it.miEstado == "organizador") && Dia.enElDia(it) }.minByOrNull { it.empiezaEn }
+}
+
 @Composable
 internal fun VisperaTarjeta(p: Plan, bajarme: () -> Unit, recargar: () -> Unit) {
     val c = LocalApp.current
@@ -213,7 +280,7 @@ internal suspend fun esperaAnotar(c: Contenedor, avisos: Avisos, p: Plan): Boole
 
 /** La lista de espera, abajo del detalle: anotarse en un plan completo, el lugar en la fila o «Se liberó un lugar». */
 @Composable
-internal fun EsperaAbajo(p: Plan, entrar: () -> Unit, recargar: () -> Unit, enviandoEntrar: Boolean) {
+internal fun EsperaAbajo(ir: Ir, p: Plan, entrar: () -> Unit, recargar: () -> Unit, enviandoEntrar: Boolean) {
     val c = LocalApp.current
     val pal = LocalPaleta.current
     val avisos = LocalAvisos.current
@@ -222,10 +289,24 @@ internal fun EsperaAbajo(p: Plan, entrar: () -> Unit, recargar: () -> Unit, envi
     val e = p.mio?.espera
     if (e != null) {
         if (e.estado == "avisado") {
-            Box(Modifier.fillMaxWidth().background(C.lima, RoundedCornerShape(14.dp)).padding(10.dp), contentAlignment = Alignment.Center) {
-                T("Se liberó un lugar. Es tuyo por 15 min.", 14f, 700, C.carbon, alinear = TextAlign.Center)
+            // Con la hora de verdad (venceEn), refrescada: si venció, no se ofrece más «Entrar».
+            var ahora by remember { mutableStateOf(ZonedDateTime.now(ZonaAR)) }
+            LaunchedEffect(Unit) {
+                while (true) {
+                    delay(30_000)
+                    ahora = ZonedDateTime.now(ZonaAR)
+                }
             }
-            Cta("Entrar al plan", entrar, Modifier.fillMaxWidth(), alto = 58.dp, color = C.carbon, cargando = enviandoEntrar)
+            val guardado = Dia.lugarGuardado(e.venceEn, ahora)
+            if (guardado != null) {
+                Box(Modifier.fillMaxWidth().background(C.lima, RoundedCornerShape(14.dp)).padding(10.dp), contentAlignment = Alignment.Center) {
+                    T("Se liberó un lugar. ${guardado.replace(" ", "\u00A0")}.", 14f, 700, C.carbon, alinear = TextAlign.Center)
+                }
+                Cta("Entrar al plan", entrar, Modifier.fillMaxWidth(), alto = 58.dp, color = C.carbon, cargando = enviandoEntrar)
+            } else {
+                LaunchedEffect(e.venceEn) { recargar() }
+                T("Se venció tu lugar. Si se libera otro, te avisamos.", 14f, 700, pal.texto2, Modifier.fillMaxWidth().padding(10.dp), alinear = TextAlign.Center)
+            }
         } else {
             Box(
                 Modifier.fillMaxWidth().height(58.dp).gel(20.dp, vertical(C.tinte1, C.tinte1), listOf(interna(3f, 6f, rgba(116, 86, 241, .2f)))),
@@ -246,7 +327,8 @@ internal fun EsperaAbajo(p: Plan, entrar: () -> Unit, recargar: () -> Unit, envi
     } else {
         Box(Modifier.fillMaxWidth().height(50.dp).gel(20.dp, Gels.limaBadge), contentAlignment = Alignment.Center) { T("Completo", 17f, 800, C.carbon) }
         CtaVioleta("Anotame en la lista", {
-            if (!enviando) {
+            // Sin DNI se mira: anotarse pide verificarse, con el pedido de «sumarte» (no el genérico).
+            if (!enviando && c.conDni(ir, "sumarte", p.id)) {
                 enviando = true
                 alcance.launch {
                     if (esperaAnotar(c, avisos, p)) recargar()
@@ -259,7 +341,8 @@ internal fun EsperaAbajo(p: Plan, entrar: () -> Unit, recargar: () -> Unit, envi
 
 /**
  * «¿Todo bien?»: avisarle a un contacto si no hay check-in, compartir la ubicación, «Me quiero ir», 911,
- * Línea 144 y reportar.
+ * Línea 144 y reportar. Dice a quién le llega el aviso sin prometer de más: con un mail le escribimos al contacto;
+ * con un teléfono (no hay SMS), te avisamos a vos para que le escribas.
  */
 @Composable
 internal fun BoxScope.HojaTodoBien(ir: Ir, p: Plan, abierta: Boolean, cerrar: () -> Unit, reportar: () -> Unit, recargar: () -> Unit) {
@@ -268,8 +351,27 @@ internal fun BoxScope.HojaTodoBien(ir: Ir, p: Plan, abierta: Boolean, cerrar: ()
     val pal = LocalPaleta.current
     val avisos = LocalAvisos.current
     val alcance = rememberCoroutineScope()
+    val yo by c.yo.collectAsState()
     var estado by remember { mutableStateOf<TodoBien?>(null) }
-    LaunchedEffect(abierta) { if (abierta) estado = runCatching { c.api.todoBien(p.id) }.getOrNull() }
+    var cargando by remember { mutableStateOf(false) }
+    var fallo by remember { mutableStateOf(false) }
+    var nombreNuevo by remember { mutableStateOf("") }
+    var contactoNuevo by remember { mutableStateOf("") }
+    var guardando by remember { mutableStateOf(false) }
+    suspend fun cargar() {
+        cargando = true
+        fallo = false
+        try {
+            estado = c.api.todoBien(p.id)
+        } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            fallo = true
+        }
+        cargando = false
+    }
+    LaunchedEffect(abierta) { if (abierta) cargar() }
+    // Mientras carga (o si falló), los contactos del perfil: nadie con contactos ve «no tenés a quién avisar».
+    val contactos = estado?.contactos ?: yo?.contactosConfianza.orEmpty()
 
     fun hacer(ok: String, f: suspend () -> Unit) {
         alcance.launch {
@@ -298,34 +400,87 @@ internal fun BoxScope.HojaTodoBien(ir: Ir, p: Plan, abierta: Boolean, cerrar: ()
         }
     }
 
+    /** Sin contactos: lo suma al perfil (al final, sin tocar los demás) y activa «¿Todo bien?» con él. */
+    fun sumarYActivar() {
+        if (guardando) return
+        guardando = true
+        alcance.launch {
+            try {
+                val lista = (yo?.contactosConfianza.orEmpty() + Contacto(nombreNuevo.trim(), contactoNuevo.trim())).take(3)
+                c.api.actualizarYo(ar.com.caigo.app.nucleo.CambiosPerfil(contactosConfianza = lista))
+                c.recargarYo()
+                val t = c.api.activarTodoBien(p.id, lista.size - 1)
+                estado = t
+                avisos.ok(t.contacto?.activado ?: "Listo.")
+                cerrar()
+                recargar()
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                avisos.error(mensajeDe(e))
+            }
+            guardando = false
+        }
+    }
+
     MiosHoja(abierta, cerrar, "¿Todo bien?") {
         val t = estado
-        val contacto = t?.contacto ?: t?.contactos?.firstOrNull()
+        val contacto = t?.contacto ?: contactos.firstOrNull()
         MiosGrupo {
             val activo = t?.contacto
             if (t != null && t.activo && activo != null) {
-                MiosFila(I.escudo, "Avisamos a ${activo.mostrar}", "Si a las ${Fecha.hora(t.avisaEn)} no hiciste check-in. Tocá para apagarlo.") {
+                MiosFila(
+                    I.escudo,
+                    if (activo.leEscribimos) "Le escribimos a ${activo.mostrar}" else "Te avisamos para que le escribas a ${activo.mostrar}",
+                    if (t.avisado) "Ya avisamos." else "Si a las ${Fecha.hora(t.avisaEn)} no hiciste check-in. Antes te preguntamos. Tocá para apagarlo.",
+                ) {
                     hacer("Listo, lo apagamos.") { c.api.apagarTodoBien(p.id) }
                 }
-            } else if (t != null && t.contactos.isNotEmpty()) {
-                t.contactos.forEachIndexed { i, k ->
-                    MiosFila(I.escudo, "Avisale a ${k.mostrar} si no llego", "A la media hora, si no hice check-in") {
-                        hacer("Si no llegás, le avisamos a ${k.mostrar}.") { estado = c.api.activarTodoBien(p.id, i) }
+            } else if (!Dia.puedeActivarTodoBien(p)) {
+                // Después del final ya no se activa: queda compartir la ubicación y volver.
+            } else if (fallo && t == null && contactos.isEmpty()) {
+                MiosFila(I.escudo, "No pudimos cargar «¿Todo bien?»", "Probar de nuevo") { alcance.launch { cargar() } }
+            } else if (contactos.isNotEmpty()) {
+                contactos.forEachIndexed { i, k ->
+                    MiosFila(
+                        I.escudo, k.filaTodoBien,
+                        if (k.leEscribimos) "A la media hora, si no hice check-in" else "No mandamos SMS: con un mail, le escribimos nosotros",
+                    ) {
+                        alcance.launch {
+                            try {
+                                val r = c.api.activarTodoBien(p.id, i)
+                                estado = r
+                                avisos.ok(r.contacto?.activado ?: "Listo.")
+                                cerrar()
+                                recargar()
+                            } catch (e: Throwable) {
+                                if (e is kotlinx.coroutines.CancellationException) throw e
+                                avisos.error(mensajeDe(e))
+                            }
+                        }
                     }
                 }
-            } else {
-                MiosFila(I.usuario, "Sumá un contacto de confianza", "Le avisamos si no llegás") {
-                    cerrar()
-                    ir.verificacion()
+            } else if (!cargando) {
+                // Sin contactos: se carga acá mismo y queda activo, sin ir a otra pantalla.
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    T("¿A quién avisamos si no llegás?", 15f, 700, pal.texto)
+                    MiosCampo(nombreNuevo, { nombreNuevo = it }, placeholder = "Nombre (Mamá, Sofi…)", maximo = 40)
+                    MiosCampo(
+                        contactoNuevo, { contactoNuevo = it }, placeholder = "Mail (le escribimos) o teléfono", maximo = 80,
+                        teclado = KeyboardType.Email,
+                    )
+                    Cta(
+                        "Activar", { sumarYActivar() }, Modifier.fillMaxWidth(), alto = 52.dp, radio = 18.dp, tam = 16f, color = C.carbon,
+                        habilitado = contactoNuevo.isNotBlank(), cargando = guardando,
+                    )
                 }
             }
             MiosFila(I.ubicacion, "Compartir mi ubicación", "Sale de tu teléfono; no la guardamos") { compartirUbicacion(contacto) }
             if (contacto != null && contacto.esTelefono) {
-                MiosFila(I.usuario, "Me quiero ir", "Llamar a ${contacto.mostrar}") {
+                MiosFila(I.telefono, "Me quiero ir", "Llamar a ${contacto.mostrar}") {
                     Sistema.abrir(ctx, "tel:" + contacto.contacto.filter { it.isDigit() || it == '+' })
                 }
             }
-            MiosFila(I.adelante, "Pedir un auto", "Para volver ya", ultima = true) { Sistema.abrir(ctx, Dia.PEDIR_AUTO) }
+            MiosFila(I.auto, "Pedir un auto", "Para volver ya", ultima = true) { Sistema.abrir(ctx, Dia.PEDIR_AUTO) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Cta("Llamar al 911", { Sistema.abrir(ctx, "tel:911") }, Modifier.weight(1f), gel = Gels.coralBadge, alto = 54.dp, radio = 18.dp, tam = 16f, color = C.carbon)

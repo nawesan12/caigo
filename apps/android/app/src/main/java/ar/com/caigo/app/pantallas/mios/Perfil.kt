@@ -32,7 +32,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -330,7 +331,8 @@ fun Perfil(ir: Ir) {
                 }
 
                 // Con logros: cabecera sobria (nivel y planes que cuentan, asistencia, racha, insignias y lo que falta).
-                val logros = y.logros
+                // Sin DNI, lo que falta va primero (la tarjeta de verificación) y lo de ir a planes, después de verificarse.
+                val logros = y.logros?.takeIf { y.verificada }
                 if (logros != null) CabeceraLogros(y, logros)
                 // Asistencia real y planes (las dos del mismo alto).
                 else Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -347,14 +349,18 @@ fun Perfil(ir: Ir) {
                     }
                 }
 
-                MiosGrupo {
+                if (y.verificada) MiosGrupo {
                     MiosFila(I.gente, "Traé a alguien", ultima = logros == null) { codigo = ""; trayendo = true }
+                    // Toda la fila es el interruptor (y se lee como uno, con su nombre).
                     if (logros != null) Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        Modifier.fillMaxWidth()
+                            .toggleable(value = logros.ocultas, role = Role.Switch, onValueChange = { ocultarInsignias(it) })
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        Icono(I.ojoTachado, 20.dp, if (p.oscuro) C.lima else C.violeta, 2f)
                         T("Ocultar mis insignias", 14f, 800, modifier = Modifier.weight(1f))
-                        ar.com.caigo.app.piezas.Interruptor(logros.ocultas, { ocultarInsignias(it) })
+                        ar.com.caigo.app.piezas.Interruptor(logros.ocultas, { ocultarInsignias(it) }, Modifier.clearAndSetSemantics {})
                     }
                 }
 
@@ -611,9 +617,9 @@ fun EditarPerfil(ir: Ir, completar: Boolean = false, apilado: Boolean = false) {
         alcance.launch {
             try {
                 val jpeg = withContext(Dispatchers.IO) {
-                    val b = runCatching { ctx.contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it) } }.getOrNull()
+                    // Achicada al decodificar y derecha según el EXIF (jpegDeFoto, Camara.kt).
+                    ar.com.caigo.app.piezas.jpegDeFoto(ctx, uri)
                         ?: throw ar.com.caigo.app.nucleo.ErrorApi(0, ar.com.caigo.app.nucleo.Problema(detail = "No pudimos leer esa foto. Probá con otra."))
-                    jpegDe(b, 0, 86, 1600)
                 }
                 fotos.add(c.api.subir("foto", jpeg).url)
             } catch (e: Throwable) {
@@ -786,12 +792,16 @@ private fun CabeceraLogros(y: ar.com.caigo.app.nucleo.Perfil, l: ar.com.caigo.ap
         }
         ar.com.caigo.app.nucleo.TextoLogros.racha(l)?.let { T(it, 12f, 600, C.apagado2) }
         if (l.insignias.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Cada insignia con su chip propio y el detalle a la vista (no escondido para el lector de pantalla).
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 l.insignias.forEach { i ->
-                    ar.com.caigo.app.pantallas.planes.ChipFoto(
-                        i.nombre, oscuro = true, modifier = Modifier.semantics { stateDescription = i.detalle },
-                        fondo = Gels.chipOscuro, color = C.blancoCalido,
-                    )
+                    Row(
+                        Modifier.semantics(mergeDescendants = true) {},
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        ar.com.caigo.app.pantallas.planes.ChipInsignia(i.nombre, sobreOscuro = true)
+                        T(i.detalle, 12f, 400, C.apagado2, unRenglon = true)
+                    }
                 }
             }
         }

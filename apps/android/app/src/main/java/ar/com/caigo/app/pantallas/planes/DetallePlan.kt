@@ -1,7 +1,6 @@
 package ar.com.caigo.app.pantallas.planes
 
 import ar.com.caigo.app.piezas.colorDeCategoria
-import ar.com.caigo.app.piezas.asistencia
 import ar.com.caigo.app.piezas.Verificado
 import ar.com.caigo.app.piezas.HojaReporte
 import ar.com.caigo.app.piezas.HojaOpciones
@@ -60,6 +59,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.app.LocalApp
+import androidx.compose.runtime.collectAsState
 import ar.com.caigo.app.nucleo.Cupo
 import ar.com.caigo.app.nucleo.ErrorApi
 import ar.com.caigo.app.nucleo.Moderacion
@@ -283,19 +283,25 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                     T(p.titulo, 30f, 700, pal.texto, alto = 1.05f, espaciado = px(-.8f, 30f))
                     // El día del plan, la víspera y después (informe del 18/11).
                     if (p.adentro && !deLugar && ar.com.caigo.app.nucleo.Dia.enElDia(p)) DiaTarjeta(ir, p) { todoBien = true }
-                    if (p.miEstado == "aceptada" && !p.cancelado && ar.com.caigo.app.nucleo.Dia.esVispera(p) && p.mio?.confirme != true) {
+                    // Sólo planes gratis: con entrada paga no se libera el lugar con un toque (se cancela la entrada).
+                    if (p.miEstado == "aceptada" && !p.cancelado && p.cobro == "gratis" && ar.com.caigo.app.nucleo.Dia.esVispera(p) && p.mio?.confirme != true) {
                         VisperaTarjeta(p, bajarme = { bajandome = true }, recargar = recargar)
                     }
                     if (p.adentro && !p.cancelado && yaPaso(p)) DespuesTarjeta(ir, p)
                     PlanesContador(p)
                     Organizador(ir, p)
-                    LineaConfianza(p, 13f)
+                    // Quien organiza ya tiene su fila: acá sólo «Todos verificados · Plan de chicas».
+                    LineaConfianza(p, 13f, detalle = true)
                     Info(p)
                     if (p.descripcion.isNotEmpty()) T(p.descripcion, 15f, 400, pal.texto2, alto = 1.5f)
                     if (p.lugar != null) TarjetaEntrada(p)
                     if (p.beneficio.isNotEmpty()) PlanesBeneficio(p.beneficio, desbloqueado = false)
                     val beneficioNivel = p.lugar?.beneficioNivel.orEmpty()
-                    if (beneficioNivel.isNotEmpty()) T("Habitué o más: $beneficioNivel", 13f, 600, pal.texto2, alto = 1.4f)
+                    // Según quien mira: «Tenés: …» o «Con 3 planes más: …».
+                    if (beneficioNivel.isNotEmpty()) {
+                        val yoLogros = LocalApp.current.yo.collectAsState().value?.logros
+                        T(ar.com.caigo.app.nucleo.TextoLogros.beneficio(beneficioNivel, yoLogros), 13f, 600, pal.texto2, alto = 1.4f)
+                    }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         T("Requisitos", 13f, 700, pal.texto2, modifier = Modifier.padding(vertical = 6.dp))
                         requisitos(p).forEach {
@@ -458,7 +464,7 @@ private fun EstadoAbajo(
         }
         // Lista de espera: «Anotame», el lugar en la fila o «Se liberó un lugar» (15 min para entrar).
         p.mio?.espera != null || (Cupo.completo(p.faltan) && !deLugar && !cerroParaSumarse(p)) ->
-            EsperaAbajo(p, entrar = alSumarme, recargar = recargar, enviandoEntrar = enviando)
+            EsperaAbajo(ir, p, entrar = alSumarme, recargar = recargar, enviandoEntrar = enviando)
         Cupo.completo(p.faltan) -> Box(Modifier.fillMaxWidth().height(58.dp).gel(20.dp, Gels.limaBadge), contentAlignment = Alignment.Center) {
             T("Completo", 17f, 800, C.carbon)
         }
@@ -560,16 +566,13 @@ private fun Organizador(ir: Ir, p: Plan) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 T("Organiza $nombre", 15f, 700, pal.texto, Modifier.weight(1f, fill = false), unRenglon = true)
                 if (o.verificada) Verificado(16.dp, color = if (pal.oscuro) C.lima else C.violeta, tilde = if (pal.oscuro) C.carbon else C.blanco)
-                if (o.anfitrion && p.lugar == null) {
-                    ChipFoto("Anfitrión", oscuro = false, fondo = if (pal.oscuro) Gel(vertical(Color(0xFF2E2A3D), Color(0xFF2E2A3D)), emptyList()) else Gels.chipClaro, color = pal.texto)
-                }
+                if (o.anfitrion && p.lugar == null) ChipInsignia("Anfitrión")
             }
-            T(
-                if (p.lugar != null) "Lugar aliado · verificado por Caigo"
-                else if (o.asistencia.de > 0) "Fue a ${o.asistencia.fue} de ${o.asistencia.de} ${if (o.asistencia.de == 1) "plan" else "planes"} · ${asistencia(o.asistencia.fue, o.asistencia.de)}"
-                else "Nuevo en Caigo",
-                13f, 400, pal.texto2,
-            )
+            // «Fue a 9 de 10 · 4,5 · 10+ opiniones» (sin porcentaje; sin dato, nada: no inventamos un «Nuevo»).
+            val rep = if (p.lugar != null) "Lugar aliado · verificado por Caigo"
+            else listOfNotNull(ar.com.caigo.app.nucleo.asistenciaTexto(o.asistencia)?.let { "F" + it.drop(1) }, ar.com.caigo.app.nucleo.Caras.texto(o.caritas))
+                .joinToString("\u00A0· ")
+            if (rep.isNotEmpty()) T(rep, 13f, 400, pal.texto2)
         }
     }
 }

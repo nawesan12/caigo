@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import ar.com.caigo.app.nucleo.Asist
+import ar.com.caigo.app.nucleo.asistenciaTexto
 import ar.com.caigo.app.piezas.Cta
 import ar.com.caigo.app.piezas.tocable
 import ar.com.caigo.app.tema.C
@@ -118,8 +119,9 @@ internal val miosVioletaChico = Gel(
 
 /** "94% asistencia · 11 planes", o "Nuevo en Caigo · todavía sin planes". */
 internal fun miosAsistencia(a: Asist, extra: String? = null): String {
-    val base = if (a.de <= 0) "Nuevo en Caigo · todavía sin planes" else "${a.fue * 100 / a.de}% asistencia · ${a.de} ${if (a.de == 1) "plan" else "planes"}"
-    return if (extra != null && a.de > 0) "${a.fue * 100 / a.de}% asistencia · $extra" else base
+    // El mismo formato en todas las pantallas (asistenciaTexto): «Fue a 3 de 5», sin porcentaje.
+    val base = asistenciaTexto(a)?.let { "F" + it.drop(1) } ?: "Todavía sin planes con check-in"
+    return listOfNotNull(base, extra).joinToString(" · ")
 }
 
 /** Badge de verificado: el sello violeta con el check blanco del mockup 11. */

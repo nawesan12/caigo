@@ -258,7 +258,12 @@ class Api(
     suspend fun subirFotoPlan(id: String, jpeg: ByteArray): FotoPlan =
         decodificar(crudo("POST", url("/v1/planes/$id/fotos"), jpeg.toRequestBody("image/jpeg".toMediaType())))
     suspend fun borrarFotoPlan(id: String, foto: String) = sinCuerpo("DELETE", "/v1/planes/$id/fotos/$foto")
-    suspend fun reportarFotoPlan(id: String, foto: String) = sinCuerpo("POST", "/v1/planes/$id/fotos/$foto/reportar")
+    /** motivo: "salgo_yo" (quien aparece y no quiere estar: se oculta al instante) o "inapropiada". */
+    suspend fun reportarFotoPlan(id: String, foto: String, motivo: String = "inapropiada") =
+        sinCuerpo("POST", "/v1/planes/$id/fotos/$foto/reportar?motivo=$motivo")
+
+    /** «Marcar que vino»: quien organiza corrige a alguien que fue y no tocó «Llegué». */
+    suspend fun marcarVino(id: String, persona: String) = sinCuerpo("POST", "/v1/planes/$id/personas/$persona/vino")
 
     suspend fun semana(): Semana = get("/v1/semana")
 

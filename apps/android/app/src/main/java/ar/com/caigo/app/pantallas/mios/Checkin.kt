@@ -22,8 +22,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -240,6 +243,10 @@ fun Repetimos(ir: Ir, planId: String) {
     var carita by remember { mutableStateOf<Int?>(null) }
     /** Con quiénes quedó mutuo al responder: ya pueden hablar por privado. */
     var mutuos by remember { mutableStateOf(listOf<ar.com.caigo.app.nucleo.PersonaCorta>()) }
+    var planNuevo by remember { mutableStateOf<String?>(null) }
+    val desplazamiento = rememberScrollState()
+    // Con «¡Es mutuo!», arriba de todo (si había bajado para marcar «¿Volverías…?», no lo veía).
+    LaunchedEffect(mutuos.isEmpty()) { if (mutuos.isNotEmpty()) desplazamiento.animateScrollTo(0) }
 
     fun responder(repetir: Boolean) {
         mandando = repetir
@@ -247,8 +254,10 @@ fun Repetimos(ir: Ir, planId: String) {
             try {
                 val r = c.api.repetimos(planId, repetir, volveria.filterValues { it }.map { Opinion(it.key, true) }, carita)
                 val nuevo = r.nuevo
-                if (r.mutuos.isNotEmpty() && nuevo == null) {
-                    // Mutuo: se queda para que escriba ya («¡Es mutuo con…! Ya pueden hablar»).
+                if (r.mutuos.isNotEmpty()) {
+                    // Mutuo: se queda para que escriba ya («¡Es mutuo con…! Ya pueden hablar»). Con un plan repetido,
+                    // primero los mutuos y «Ver el plan nuevo».
+                    planNuevo = nuevo?.id
                     mutuos = r.mutuos
                     return@launch
                 }
@@ -298,10 +307,11 @@ fun Repetimos(ir: Ir, planId: String) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Cta(
                         t?.let { "Sí, el ${Fecha.diaLargo(it).lowercase()}" } ?: "Sí", { responder(true) }, Modifier.weight(1.4f),
-                        alto = 54.dp, radio = 18.dp, tam = 16f, color = C.carbon, cargando = mandando == true, habilitado = mandando == null || mandando == true,
+                        alto = 54.dp, radio = 18.dp, tam = 16f, color = C.carbon, cargando = mandando == true,
+                        habilitado = mutuos.isEmpty() && (mandando == null || mandando == true),
                     )
                     Box(
-                        Modifier.weight(1f).height(54.dp).toque(mandando == null) { responder(false) }
+                        Modifier.weight(1f).height(54.dp).toque(mandando == null && mutuos.isEmpty()) { responder(false) }
                             .border(2.dp, Color(0xFFA897F7), RoundedCornerShape(18.dp)),
                         contentAlignment = Alignment.Center,
                     ) { if (mandando == false) Puntitos(C.blanco) else T("Esta vez no", 16f, 700, C.blanco, unRenglon = true) }
@@ -309,7 +319,7 @@ fun Repetimos(ir: Ir, planId: String) {
             }
             Column(
                 Modifier.weight(1f).fillMaxWidth().background(p.fondo, RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                    .verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = abajo + 14.dp),
+                    .verticalScroll(desplazamiento).padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = abajo + 14.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 mutuos.forEach { m ->
@@ -328,28 +338,35 @@ fun Repetimos(ir: Ir, planId: String) {
                     }
                 }
                 if (mutuos.isNotEmpty()) {
-                    T("Listo", 14f, 700, if (p.oscuro) C.lima else C.violetaTexto, Modifier.align(Alignment.CenterHorizontally).tocable { ir.atras() })
-                }
+                    // Ya se mandó: «¡Es mutuo!» reemplaza el formulario (no se puede mandar de nuevo).
+                    planNuevo?.let { id ->
+                        Cta("Ver el plan nuevo", { ir.atras(); ir.plan(id) }, Modifier.fillMaxWidth(), alto = 52.dp, radio = 18.dp, tam = 16f, color = C.carbon)
+                    }
+                    T("Listo", 14f, 700, if (p.oscuro) C.lima else C.violetaTexto, Modifier.align(Alignment.CenterHorizontally).tocable { ir.atras() }.padding(vertical = 12.dp))
+                } else {
                 if (!pl.esMio) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         T("¿Cómo estuvo?", 22f, 700)
                         T("Nadie ve tu carita: suma al promedio de quien organizó.", 13f, 400, p.texto2, alto = 1.45f)
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ar.com.caigo.app.nucleo.Caras.todas.forEach { k ->
                             val elegida = (carita ?: pl.mio?.carita) == k.valor
                             Box(
                                 Modifier.weight(1f).height(56.dp)
                                     .gel(18.dp, if (elegida) (if (p.oscuro) Gels.limaChico else Gels.oscuroSel) else (if (p.oscuro) Gels.chipOscuro else Gels.chipClaro))
-                                    .tocable { carita = k.valor }.semantics { contentDescription = k.texto },
+                                    .selectable(selected = elegida, role = Role.RadioButton, onClick = { carita = k.valor })
+                                    .semantics { contentDescription = k.texto },
                                 contentAlignment = Alignment.Center,
-                            ) { androidx.compose.material3.Text(k.cara, fontSize = 26.sp) }
+                            ) {
+                                Icono(I.carita(k.valor), 30.dp, if (elegida) (if (p.oscuro) C.carbon else C.blancoCalido) else p.texto2, 2f)
+                            }
                         }
                     }
                 }
                 MiosGrupo {
                     val n = pl.mio?.fotos ?: 0
-                    MiosFila(I.gente, if (n > 0) "Fotos del plan · $n" else "Fotos del plan",
+                    MiosFila(I.imagen, if (n > 0) "Fotos del plan · $n" else "Fotos del plan",
                         if (n > 0) "Sólo las ven quienes fueron" else "Subí la primera", ultima = true) { ir.fotosPlan(pl.id) }
                 }
                 val gente = (listOf(pl.organizador) + pl.van).distinctBy { it.id }.filter { it.id.isNotBlank() && it.id != c.sesion.usuarioId }
@@ -385,6 +402,7 @@ fun Repetimos(ir: Ir, planId: String) {
                             }
                         }
                     }
+                }
                 }
                 Row(Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp).tocable { reportar = true }) {
                     T("¿Pasó algo? ", 13f, 600, p.texto2)

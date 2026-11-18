@@ -256,24 +256,30 @@ object Moderacion {
     fun sacar(m: String, mio: Boolean): Boolean = m == "oculto" && !mio
 }
 
+/** La asistencia, igual en todas las pantallas: «fue a 9 de 10» (sin porcentaje: no es un puntaje). */
+fun asistenciaTexto(a: Asist): String? = if (a.de > 0) "fue a ${a.fue} de ${a.de}" else null
+
 /**
- * La línea de confianza de la tarjeta y el detalle: «Todos verificados · Organiza Martín (9/10) · Van 2 chicas».
- * Cada parte lleva espacios duros y el «·» va pegado a la anterior: el renglón sólo corta después de un «·».
+ * La línea de confianza, sólo con lo que distingue a un plan (si no hay nada, ninguna). En la tarjeta:
+ * «Martín fue a 9 de 10 · Anfitrión · Plan de chicas»; de un lugar aliado, «Organiza La Fonda». En el detalle
+ * ([detalle]), quien organiza ya tiene su fila: sólo «Todos verificados · Plan de chicas», que con el DNI
+ * obligatorio casi siempre es cierto y por eso no va en la tarjeta. Nunca cuántas chicas van. Cada parte lleva
+ * espacios duros y el «·» va pegado a la anterior. Igual que Logica.swift y plan.ts.
  */
-fun lineaConfianza(p: Plan): String? {
+fun lineaConfianza(p: Plan, detalle: Boolean = false): String? {
     val partes = mutableListOf<String>()
-    if (p.confianza.todosVerificados) partes += "Todos verificados"
-    // Un plan de lugar aliado lo organiza el lugar (como en el detalle), sin asistencia.
-    val nombre = p.organizador.nombre.trim().split(" ").firstOrNull().orEmpty()
     val lugar = p.lugar?.nombre.orEmpty()
-    if (lugar.isNotEmpty()) {
+    if (detalle) {
+        if (p.confianza.todosVerificados) partes += "Todos verificados"
+    } else if (lugar.isNotEmpty()) {
         partes += "Organiza $lugar"
-    } else if (nombre.isNotEmpty()) {
-        val a = p.organizador.asistencia
-        partes += "Organiza $nombre" + (if (a.de > 0) " (${a.fue}/${a.de})" else "")
+    } else {
+        val nombre = p.organizador.nombre.trim().split(" ").firstOrNull().orEmpty()
+        val a = asistenciaTexto(p.organizador.asistencia)
+        if (nombre.isNotEmpty() && a != null) partes += "$nombre $a"
+        if (p.organizador.anfitrion) partes += "Anfitrión"
     }
-    val n = p.confianza.chicas
-    if (n != null && n >= 2) partes += "Van $n chicas" else if (p.confianza.soloChicas) partes += "Sólo chicas"
+    if (p.confianza.soloChicas) partes += "Plan de chicas"
     if (partes.isEmpty()) return null
     return partes.joinToString("\u00A0· ") { it.replace(" ", " ") }
 }
@@ -292,21 +298,38 @@ object Gestos {
     fun directo(p: Plan): Boolean =
         p.ingreso == "libre" && p.cobro == "gratis" && p.genero == "cualquiera" && p.miEstado == "ninguno" && p.faltan > 0
 
-    /** Los planes de la lista que entran en «Decidí rápido»: sin pedido, con lugar y que no organizo. */
+    /**
+     * Los planes de «Decidí rápido»: sólo los que se suman con un toque ([directo]). Los que piden aprobación,
+     * entrada o confirmar algo («Solo mujeres») se deciden en el detalle, con su confirmación.
+     */
     fun paraDecidir(planes: List<Plan>, yo: String): List<Plan> =
-        planes.filter { it.miEstado == "ninguno" && it.faltan > 0 && (yo.isEmpty() || it.organizador.id != yo) }
+        planes.filter { directo(it) && (yo.isEmpty() || it.organizador.id != yo) }
 }
 
 /** Lo que se muestra de los logros en un perfil. */
 object TextoLogros {
-    /** «Habitué · 7 planes». */
-    fun cabecera(l: Logros): String = "${l.nivel} · ${l.planes} ${if (l.planes == 1) "plan" else "planes"}"
+    /**
+     * «Habitué · 7 con check-in» (con 0, sólo el nivel). No dice «planes»: en el mismo perfil está la cifra de
+     * planes a los que se anotó, que es otra cosa.
+     */
+    fun cabecera(l: Logros): String = if (l.planes > 0) "${l.nivel} · ${l.planes}\u00A0con\u00A0check-in" else l.nivel
 
-    /** «Racha: 3 semanas · comodín libre» (sólo desde 2 semanas). */
+    /** «Racha: 3 semanas» (sólo desde 2). El comodín se usa solo, sin anunciarlo. */
     fun racha(l: Logros): String? {
         val r = l.racha ?: return null
         if (r < 2) return null
-        return "Racha: $r semanas" + if (l.comodin == true) " · comodín libre" else ""
+        return "Racha: $r\u00A0semanas"
+    }
+
+    /** Planes con check-in desde los que se es Habitué (logros.Habitue). */
+    const val HABITUE = 5
+
+    /** El beneficio por nivel de un lugar para quien mira: «Tenés: 10 % off» o «Con 3 planes más: 10 % off». */
+    fun beneficio(b: String, l: Logros?): String {
+        if (l == null) return "Habitué o más: $b"
+        val falta = maxOf(HABITUE - l.planes, 0)
+        if (falta == 0) return "Tenés: $b"
+        return "Con ${if (falta == 1) "1 plan más" else "$falta planes más"}: $b"
     }
 
     /** «Te faltan 3 para De fierro». */

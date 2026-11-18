@@ -191,8 +191,11 @@ private fun PerfilPersonaClaro(ir: Ir, id: String, desde: String) {
                         Box(Modifier.background(C.lima, RoundedCornerShape(13.dp)).padding(horizontal = 12.dp, vertical = 8.dp)) {
                             T(l.nivel, 13f, 800, C.carbon, unRenglon = true)
                         }
+                        // Las insignias con su chip propio (no como un gusto), con el detalle para el lector de pantalla.
                         l.insignias.take(3).forEach { i ->
-                            Box(Modifier.gel(14.dp, Gels.off).padding(horizontal = 13.dp, vertical = 8.dp)) { T(i.nombre, 13f, 700, C.carbon, unRenglon = true) }
+                            ar.com.caigo.app.pantallas.planes.ChipInsignia(
+                                i.nombre, Modifier.align(Alignment.CenterVertically).semantics { contentDescription = "${i.nombre}. ${i.detalle}" },
+                            )
                         }
                     }
                 }

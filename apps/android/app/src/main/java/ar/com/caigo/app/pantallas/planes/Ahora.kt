@@ -2,6 +2,8 @@ package ar.com.caigo.app.pantallas.planes
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -129,7 +131,12 @@ fun Ahora(ir: Ir, modoInicial: String?) {
     // «No me interesa» y su «Deshacer».
     val ocultos = remember { PlanesOcultos() }
     // «Decidí rápido» abierto: los planes del mazo (los de la lista al abrirlo).
-    var decidiendo by remember { mutableStateOf<List<Plan>?>(null) }
+    // Los ids del mazo (rememberSaveable): «Ver más» navega a otra entrada y, al volver, el mazo sigue abierto y
+    // se arma de nuevo con los planes que sigan en la lista.
+    var decidiendoIds by rememberSaveable { mutableStateOf<List<String>?>(null) }
+    // El plan de hoy (fijo arriba, con «Llegué» y «¿Todo bien?») y su hoja.
+    var hoy by remember { mutableStateOf<Plan?>(null) }
+    var hojaHoy by remember { mutableStateOf(false) }
     val (permiso, pedir) = rememberPermisoUbicacion()
 
     LaunchedEffect(Unit) { if (yo == null) c.recargarYo() }
@@ -143,6 +150,7 @@ fun Ahora(ir: Ir, modoInicial: String?) {
         if (u != null) { punto = u; sinUbicacion = false; c.mandarUbicacion() } else { sinUbicacion = true }
     }
     LaunchedEffect(Unit) { invitaciones = runCatching { c.api.invitaciones() }.getOrNull() }
+    LaunchedEffect(vuelta, yo?.verificada) { if (yo?.verificada == true) hoy = planDeHoy(c) }
     // «Esta semana en <ciudad>»: de lunes a miércoles, con 5 planes o más.
     var semana by remember { mutableStateOf<ar.com.caigo.app.nucleo.Semana?>(null) }
     LaunchedEffect(Unit) {
@@ -174,6 +182,10 @@ fun Ahora(ir: Ir, modoInicial: String?) {
         return
     }
 
+    val decidiendo = decidiendoIds?.let { ids ->
+        val por = planes.orEmpty().associateBy { it.id }
+        ids.mapNotNull { por[it] }.takeIf { it.isNotEmpty() || planes == null }
+    }
     val arriba = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(top = arriba + 6.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -182,11 +194,15 @@ fun Ahora(ir: Ir, modoInicial: String?) {
             Box(Modifier.weight(1f)) {
                 Lista(
                     ir, planes?.let { ocultos.visibles(it) }, cargando, error, invitaciones, semana, ocultos,
-                    alMapa = { mapa = true }, recargar = { vuelta++ }, alDecidir = { decidiendo = it },
+                    alMapa = { mapa = true }, recargar = { vuelta++ }, alDecidir = { decidiendoIds = it.map { p -> p.id } },
+                    hoy = hoy, alTodoBien = { hojaHoy = true },
                 )
             }
         }
         AvisoDeshacer(ocultos, altoTabBar())
+        hoy?.let { h ->
+            HojaTodoBien(ir, h, hojaHoy, cerrar = { hojaHoy = false }, reportar = { ir.plan(h.id) }, recargar = { vuelta++ })
+        }
         androidx.compose.animation.AnimatedVisibility(
             decidiendo != null, Modifier.fillMaxSize(),
             enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200)),
@@ -194,7 +210,7 @@ fun Ahora(ir: Ir, modoInicial: String?) {
         ) {
             val ultimo = remember { arrayOfNulls<List<Plan>>(1) }
             decidiendo?.let { ultimo[0] = it }
-            ultimo[0]?.let { d -> DecidiRapido(ir, d, ocultos) { decidiendo = null; vuelta++ } }
+            ultimo[0]?.let { d -> DecidiRapido(ir, d, ocultos) { decidiendoIds = null; vuelta++ } }
         }
         ar.com.caigo.app.app.OcultarTabBar(decidiendo != null)
     }
@@ -253,16 +269,11 @@ private fun Chips(categoria: String?, alElegir: (String?) -> Unit, chicas: Boole
                 colorOff = p.texto,
             )
         }
-        // Al final, un interruptor aparte de la categoría: se suma a la que esté elegida.
-        item(key = "chicas") {
-            Chip(
-                "Sólo chicas", chicas, { alChicas(!chicas) },
-                gelOn = if (p.oscuro) Gels.limaChico else Gels.oscuroSel,
-                gelOff = if (p.oscuro) Gels.chipOscuro else Gels.chipClaro,
-                colorOn = if (p.oscuro) C.carbon else C.blancoCalido,
-                colorOff = p.texto,
-            )
+        // Al final y separado: un interruptor (se suma a la categoría elegida), no otra categoría.
+        item(key = "divisor") {
+            Box(Modifier.padding(top = 9.dp).width(1.dp).height(22.dp).background(if (p.oscuro) Color(0xFF3A3550) else C.lavanda))
         }
+        item(key = "chicas") { InterruptorChicas(chicas) { alChicas(!chicas) } }
     }
 }
 
@@ -272,6 +283,7 @@ private fun Lista(
     ir: Ir, planes: List<Plan>?, cargando: Boolean, error: String?, inv: Invitaciones?,
     semana: ar.com.caigo.app.nucleo.Semana?, ocultos: PlanesOcultos,
     alMapa: () -> Unit, recargar: () -> Unit, alDecidir: (List<Plan>) -> Unit,
+    hoy: Plan? = null, alTodoBien: () -> Unit = {},
 ) {
     val p = LocalPaleta.current
     val c = LocalApp.current
@@ -292,6 +304,7 @@ private fun Lista(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (inv != null && inv.invitaciones.isNotEmpty()) item { BannerInvitaciones(ir, inv) }
+            if (hoy != null) item(key = "hoy") { HoyTarjeta(hoy, ir, alTodoBien) }
             if (semana != null) item { TarjetaSemana(semana, ir) }
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -318,6 +331,7 @@ private fun Lista(
                         24.dp,
                         alCaigo = { alcance.launch { if (planesCaigo(c, ir, avisos, pl) { Sistema.vibrar(vista) } != null) recargar() } },
                         alNoMeInteresa = { ocultos.ocultar(c, avisos, pl) },
+                        pista = pl.id == planes.firstOrNull()?.id,
                     ) { m -> TarjetaPlan(pl, ir, m, alCambiar = { recargar() }) }
                 }
                 error != null -> item {
@@ -379,5 +393,26 @@ internal fun PlanesVacioAhora(ir: Ir) {
             Cta("Armá un plan", { if (c.conDni(ir, "crear")) ir.crear() }, Modifier.fillMaxWidth(), alto = 58.dp, tam = 16f)
             T("Ver lo que hay mañana", 14f, 700, C.violetaTexto, modifier = Modifier.tocable { ir.principal(Pestana.Explorar) })
         }
+    }
+}
+
+/** «Sólo chicas» como interruptor (no como otra categoría): borde y escudo apagado, lima con tilde prendido. */
+@Composable
+internal fun InterruptorChicas(on: Boolean, alCambiar: () -> Unit) {
+    val p = LocalPaleta.current
+    val acento = if (p.oscuro) C.lima else C.violeta
+    Row(
+        Modifier
+            .then(
+                if (on) Modifier.background(C.lima, androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                else Modifier.border(1.5.dp, acento.copy(alpha = .4f), androidx.compose.foundation.shape.RoundedCornerShape(14.dp)),
+            )
+            .toggleable(value = on, role = Role.Switch, onValueChange = { alCambiar() })
+            .padding(horizontal = 13.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icono(if (on) I.check else I.escudo, 15.dp, if (on) C.carbon else acento, if (on) 3f else 2.2f)
+        T("Sólo chicas", 14f, if (on) 700 else 600, if (on) C.carbon else (if (p.oscuro) C.lima else C.violetaTexto), unRenglon = true)
     }
 }

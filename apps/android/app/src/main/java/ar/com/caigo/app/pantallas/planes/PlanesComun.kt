@@ -21,7 +21,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import ar.com.caigo.app.nucleo.Gestos
@@ -198,7 +202,10 @@ internal fun PlanesChipPlus(texto: String = "Plus") {
  * Genero.kt pregunta y se reintenta una vez), en vez del `pedirConfirmacion` de iOS.
  */
 internal suspend fun planesSumarse(
-    c: Contenedor, ir: Ir, avisos: Avisos, plan: Plan, cantidad: Int, mensaje: String = "", vibrar: () -> Unit = {},
+    c: Contenedor, ir: Ir, avisos: Avisos, plan: Plan, cantidad: Int, mensaje: String = "",
+    /** false en «Decidí rápido»: sin el festejo a pantalla completa (el mazo marca «Adentro»). */
+    festejar: Boolean = true,
+    vibrar: () -> Unit = {},
 ): String? = if (!c.conDni(ir, "sumarte", plan.id)) {
     // Sin DNI se mira; para sumarse, primero «verificamos que seas vos» (y de ahí vuelve al plan).
     null
@@ -206,7 +213,7 @@ internal suspend fun planesSumarse(
     val e = ar.com.caigo.app.pantallas.ingreso.conConfirmacion(c) { conf -> c.api.sumarme(plan.id, cantidad, mensaje, conf) }.estado
     if (e == "aceptada") {
         // Adentro: lo festeja la raíz a pantalla completa (Festejo.kt), en vez del aviso.
-        c.festejo.value = ar.com.caigo.app.app.PlanFestejado(plan, cantidad)
+        if (festejar) c.festejo.value = ar.com.caigo.app.app.PlanFestejado(plan, cantidad)
     } else {
         val quien = plan.organizador.nombre.ifEmpty { "quien organiza" }
         avisos.ok("Le pediste a $quien sumarte.")
@@ -234,12 +241,14 @@ internal suspend fun planesSumarse(
  * ([Gestos.directo]) se suma de a uno sin pasar por el detalle; si no, abre el detalle (ahí se confirma).
  * Devuelve el estado nuevo si se mandó el pedido.
  */
-internal suspend fun planesCaigo(c: Contenedor, ir: Ir, avisos: Avisos, plan: Plan, vibrar: () -> Unit = {}): String? {
+internal suspend fun planesCaigo(
+    c: Contenedor, ir: Ir, avisos: Avisos, plan: Plan, festejar: Boolean = true, vibrar: () -> Unit = {},
+): String? {
     if (!Gestos.directo(plan) || cerroParaSumarse(plan) || plan.organizador.id == c.sesion.usuarioId) {
         ir.plan(plan.id)
         return null
     }
-    return planesSumarse(c, ir, avisos, plan, 1, vibrar = vibrar)
+    return planesSumarse(c, ir, avisos, plan, 1, vibrar = vibrar, festejar = festejar)
 }
 
 /** El link público de un plan (el que comparte el detalle). */
@@ -320,7 +329,12 @@ internal fun AccionTarjeta(plan: Plan, ir: Ir, alCambiar: (String) -> Unit) {
  * derecha; título, lugar · distancia, avatares apilados, "Somos N de M" y el botón lima.
  */
 @Composable
-internal fun TarjetaPlan(plan: Plan, ir: Ir, modifier: Modifier = Modifier, altoFoto: Dp = 150.dp, alCambiar: (String) -> Unit = {}) {
+internal fun TarjetaPlan(
+    plan: Plan, ir: Ir, modifier: Modifier = Modifier, altoFoto: Dp = 150.dp,
+    /** false en «Decidí rápido»: el mazo tiene sus botones abajo (si no, había dos «Sumarme»). */
+    conAccion: Boolean = true,
+    alCambiar: (String) -> Unit = {},
+) {
     val p = LocalPaleta.current
     Column(
         modifier
@@ -335,8 +349,9 @@ internal fun TarjetaPlan(plan: Plan, ir: Ir, modifier: Modifier = Modifier, alto
             Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ChipFoto(Categorias.nombre(plan.categoria), oscuro = false)
                 ChipFoto(Fecha.cuando(plan.empiezaEn), oscuro = true)
+                // Sobre la foto, sólo qué, cuándo y si es de un lugar aliado (Prototipo): «Anfitrión» va en la línea
+                // de confianza, junto a quien organiza.
                 if (plan.lugar != null) ChipFoto("Lugar aliado", false, fondo = Gel(vertical(C.lima, C.lima), emptyList()), color = C.carbon)
-                else if (plan.organizador.anfitrion) ChipFoto("Anfitrión", oscuro = false)
             }
             if (plan.destacado) ChipDestacado(Modifier.align(Alignment.BottomStart).padding(12.dp))
             BadgeFalta(plan.faltan, Modifier.align(Alignment.BottomEnd).padding(12.dp))
@@ -347,12 +362,13 @@ internal fun TarjetaPlan(plan: Plan, ir: Ir, modifier: Modifier = Modifier, alto
                 T(lugarYDistancia(plan), 13f, 400, p.texto2, unRenglon = true)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                // Con "Adentro" / "Esperando…" el botón es más ancho: van sólo las cuentas.
-                val conAvatares = plan.van.isNotEmpty() && plan.miEstado == "ninguno"
-                if (conAvatares) Avatares(plan.van.map { it.nombre to it.foto }, total = plan.somos)
+                // Con "Adentro" / "Esperando…" el botón es más ancho: van sólo las cuentas. Con el botón al lado, dos
+                // caras y el resto en «+N»: el cupo no se corta a 360 dp.
+                val conAvatares = plan.van.isNotEmpty() && (plan.miEstado == "ninguno" || !conAccion)
+                if (conAvatares) Avatares(plan.van.map { it.nombre to it.foto }, total = plan.somos, max = if (conAccion) 2 else 3)
                 T(Cupo.somos(plan.somos, plan.total), 13f, 600, if (p.oscuro) C.apagado2 else C.texto2, Modifier.weight(1f), unRenglon = true)
-                Spacer(Modifier.width(4.dp))
-                AccionTarjeta(plan, ir, alCambiar)
+                Spacer(Modifier.width(12.dp))
+                if (conAccion) AccionTarjeta(plan, ir, alCambiar)
             }
             LineaConfianza(plan)
         }
@@ -360,27 +376,44 @@ internal fun TarjetaPlan(plan: Plan, ir: Ir, modifier: Modifier = Modifier, alto
 }
 
 /**
- * La línea de confianza (18/11), en la tarjeta y el detalle, no escondida en el perfil:
- * «Todos verificados · Organiza Martín (9/10) · Van 2 chicas». Con el escudo de «Verificación y seguridad».
+ * La línea de confianza (18/11), con lo que distingue al plan: en la tarjeta «Martín fue a 9 de 10 · Anfitrión»;
+ * en el detalle ([detalle]), con el escudo, «Todos verificados · Plan de chicas».
  */
 @Composable
-internal fun LineaConfianza(plan: Plan, tam: Float = 12f) {
+internal fun LineaConfianza(plan: Plan, tam: Float = 12f, detalle: Boolean = false) {
     val p = LocalPaleta.current
-    val t = lineaConfianza(plan) ?: return
+    val t = lineaConfianza(plan, detalle) ?: return
     Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Icono(I.escudoCheck, (tam + 3).dp, if (p.oscuro) C.lima else C.violeta, 2.2f)
+        if (detalle && plan.confianza.todosVerificados) Icono(I.escudoCheck, (tam + 3).dp, if (p.oscuro) C.lima else C.violeta, 2.2f)
         T(t, tam, 600, if (p.oscuro) C.apagado2 else C.texto2, Modifier.weight(1f), alto = 1.35f)
     }
 }
 
-// ——— Deslizar una tarjeta: «Caigo» y «No me interesa» ———
+/**
+ * Una insignia («Anfitrión», «De la mesa»…): el mismo chip en el detalle, el perfil y donde aparezca (grafito con
+ * texto lima), distinto de los gustos (lavanda). Igual que ChipInsignia de iOS y .insignia de la web.
+ */
+@Composable
+internal fun ChipInsignia(texto: String, modifier: Modifier = Modifier, sobreOscuro: Boolean = false) {
+    val p = LocalPaleta.current
+    val fondo = if (sobreOscuro || p.oscuro) Color(0xFF45405A) else C.grafito
+    Box(modifier.background(fondo, RoundedCornerShape(9.dp)).padding(horizontal = 9.dp, vertical = 3.dp)) {
+        T(texto, 12f, 800, C.lima, unRenglon = true)
+    }
+}
+
+// ——— Deslizar una tarjeta: «Sumarme» y «No me interesa» ———
 
 /**
- * Deslizar la tarjeta de un plan: a la derecha asoma «Caigo» sobre lima, a la izquierda «No me interesa» sobre
+ * Deslizar la tarjeta de un plan: a la derecha asoma «Sumarme» sobre lima, a la izquierda «No me interesa» sobre
  * grafito. Cuenta pasado el 35 % del ancho ([Gestos.umbral]), con un toque suave al cruzarlo; si no llega, vuelve a
  * su lugar. Sólo toma el arrastre horizontal: el vertical sigue siendo de la lista. Las mismas dos acciones van
  * como acciones de accesibilidad (en el modificador que recibe [contenido], el de la tarjeta). Con «reducir
  * movimiento», la tarjeta no vuela: desaparece.
+ *
+ * El dedo se sigue con [desplazamiento], sincrónico (cada evento suma lo suyo, sin esperar a una corrutina), y
+ * se dibuja con translationX; [dx] (Animatable) sólo anima la vuelta, la salida y la pista. Igual que iOS, que
+ * usa la traslación exacta.
  */
 @Composable
 internal fun DeslizarPlan(
@@ -388,19 +421,44 @@ internal fun DeslizarPlan(
     alCaigo: () -> Unit,
     alNoMeInteresa: () -> Unit,
     modifier: Modifier = Modifier,
+    /** La primera vez (una sola), la tarjeta se corre ~40 dp a cada lado y deja ver los dos fondos. */
+    pista: Boolean = false,
     contenido: @Composable (Modifier) -> Unit,
 ) {
     val vista = LocalView.current
+    val ctx = LocalContext.current
+    val densidad = LocalDensity.current
     val sinMovimiento = reducirMovimiento()
     val alcance = rememberCoroutineScope()
     val dx = remember { Animatable(0f) }
+    var desplazamiento by remember { mutableFloatStateOf(0f) }
+    var arrastrando by remember { mutableStateOf(false) }
     var ancho by remember { mutableFloatStateOf(1f) }
     var paso by remember { mutableStateOf(false) }
     val caigo by rememberUpdatedState(alCaigo)
     val noMeInteresa by rememberUpdatedState(alNoMeInteresa)
+    val actual = if (arrastrando) desplazamiento else dx.value
 
-    fun volver() {
-        alcance.launch { if (sinMovimiento) dx.snapTo(0f) else dx.animateTo(0f, tween(220, easing = FastOutSlowInEasing)) }
+    fun volver(desde: Float) {
+        alcance.launch {
+            dx.snapTo(desde)
+            arrastrando = false
+            if (sinMovimiento) dx.snapTo(0f) else dx.animateTo(0f, tween(220, easing = FastOutSlowInEasing))
+        }
+    }
+
+    LaunchedEffect(pista) {
+        if (!pista || sinMovimiento) return@LaunchedEffect
+        val prefs = ctx.getSharedPreferences("caigo", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("pista.gestos", false)) return@LaunchedEffect
+        prefs.edit().putBoolean("pista.gestos", true).apply()
+        val d = with(densidad) { 44.dp.toPx() }
+        delay(700)
+        dx.animateTo(d, tween(300, easing = FastOutSlowInEasing))
+        delay(250)
+        dx.animateTo(-d, tween(350, easing = FastOutSlowInEasing))
+        delay(250)
+        dx.animateTo(0f, tween(300, easing = FastOutSlowInEasing))
     }
 
     Box(
@@ -408,12 +466,18 @@ internal fun DeslizarPlan(
             .onSizeChanged { ancho = it.width.toFloat().coerceAtLeast(1f) }
             .pointerInput(sinMovimiento) {
                 detectHorizontalDragGestures(
+                    onDragStart = {
+                        desplazamiento = 0f
+                        arrastrando = true
+                    },
                     onDragEnd = {
-                        val w = dx.value
+                        val w = desplazamiento
                         paso = false
                         when {
-                            w >= ancho * Gestos.umbral -> { volver(); caigo() }
+                            w >= ancho * Gestos.umbral -> { volver(w); caigo() }
                             w <= -ancho * Gestos.umbral -> alcance.launch {
+                                dx.snapTo(w)
+                                arrastrando = false
                                 if (sinMovimiento) {
                                     dx.snapTo(0f)
                                     noMeInteresa()
@@ -423,14 +487,14 @@ internal fun DeslizarPlan(
                                     dx.snapTo(0f)
                                 }
                             }
-                            else -> volver()
+                            else -> volver(w)
                         }
                     },
-                    onDragCancel = { paso = false; volver() },
+                    onDragCancel = { paso = false; volver(desplazamiento) },
                 ) { cambio, d ->
                     cambio.consume()
-                    val nuevo = dx.value + d
-                    alcance.launch { dx.snapTo(nuevo) }
+                    desplazamiento += d
+                    val nuevo = desplazamiento
                     val pasa = kotlin.math.abs(nuevo) >= ancho * Gestos.umbral
                     if (pasa != paso) {
                         paso = pasa
@@ -439,14 +503,14 @@ internal fun DeslizarPlan(
                 }
             },
     ) {
-        val v = dx.value
+        val v = actual
         if (v > 0f) {
             Row(
                 Modifier.matchParentSize().gel(radio, Gels.lima.fondo).padding(start = 24.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icono(I.mas, 18.dp, C.carbon, 3.4f)
-                T("Caigo", 17f, 800, C.carbon, unRenglon = true)
+                T("Sumarme", 17f, 800, C.carbon, unRenglon = true)
             }
         } else if (v < 0f) {
             Row(
@@ -459,10 +523,10 @@ internal fun DeslizarPlan(
         }
         contenido(
             Modifier
-                .graphicsLayer { translationX = dx.value }
+                .graphicsLayer { translationX = if (arrastrando) desplazamiento else dx.value }
                 .semantics {
                     customActions = listOf(
-                        CustomAccessibilityAction("Caigo") { caigo(); true },
+                        CustomAccessibilityAction("Sumarme") { caigo(); true },
                         CustomAccessibilityAction("No me interesa") { noMeInteresa(); true },
                     )
                 },
@@ -522,7 +586,11 @@ internal fun BoxScope.AvisoDeshacer(ocultos: PlanesOcultos, abajo: Dp) {
     val avisos = LocalAvisos.current
     val sinMovimiento = reducirMovimiento()
     val a = ocultos.aviso
-    LaunchedEffect(a?.id) { if (a != null) { delay(5000); if (ocultos.aviso?.id == a.id) ocultos.aviso = null } }
+    // Con TalkBack se anuncia (liveRegion) y dura lo que recomienda el sistema para algo con controles: llegar a
+    // «Deshacer» lleva tiempo (WCAG 2.2.1).
+    val accesibilidad = LocalAccessibilityManager.current
+    val espera = accesibilidad?.calculateRecommendedTimeoutMillis(5000L, containsIcons = false, containsText = true, containsControls = true) ?: 5000L
+    LaunchedEffect(a?.id) { if (a != null) { delay(espera); if (ocultos.aviso?.id == a.id) ocultos.aviso = null } }
     val ultimo = remember { arrayOfNulls<PlanesOcultos.Oculto>(1) }
     if (a != null) ultimo[0] = a
     AnimatedVisibility(
@@ -534,6 +602,7 @@ internal fun BoxScope.AvisoDeshacer(ocultos: PlanesOcultos, abajo: Dp) {
         val v = a ?: ultimo[0] ?: return@AnimatedVisibility
         Row(
             Modifier.fillMaxWidth()
+                .semantics { liveRegion = LiveRegionMode.Polite }
                 .gel(20.dp, vertical(C.carbon, C.carbon), listOf(externa(18f, 30f, rgba(0, 0, 0, .5f), spread = -12f)))
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,

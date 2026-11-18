@@ -17,6 +17,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import ar.com.caigo.app.app.Ir
@@ -78,13 +80,14 @@ fun VistaSemana(ir: Ir) {
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Row(Modifier.fillMaxWidth().gel(24.dp, miosOscura).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Numero(s.total, "planes", Modifier.weight(1f))
-                        Numero(s.aliados, "en lugares aliados", Modifier.weight(1f))
-                        Numero(s.deTuGente, "de tu gente", Modifier.weight(1f))
+                        // Sólo las cifras que dicen algo (un cero grande hace parecer vacía la ciudad).
+                        s.cifras.forEach { (n, texto) -> Numero(n, texto, Modifier.weight(1f)) }
                     }
                     Dias(s)
                     if (s.planes.isEmpty()) {
-                        MiosVacio("Esta semana armá el tuyo", "Si publicás algo, sos lo primero que ven.", "Armá un plan", { ir.crear() })
+                        MiosVacio("Esta semana armá el tuyo", "Si publicás algo, sos lo primero que ven.", "Armá un plan", {
+                            if (c.conDni(ir, "crear")) ir.crear()
+                        })
                     } else {
                         T("Lo mejor de la semana", 20f, 700)
                         s.planes.forEach { TarjetaPlan(it, ir) }
@@ -112,8 +115,12 @@ private fun Dias(s: Semana) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         s.dias.forEach { d ->
             val fecha = Fecha.parse(d.dia + "T12:00:00-03:00")
+            // Cada día es un elemento: «lunes 17: 3 planes».
+            val etiqueta = "${fecha?.let { Fecha.diaLargo(it).lowercase() }.orEmpty()} ${fecha?.dayOfMonth ?: ""}: " +
+                if (d.cantidad == 1) "1 plan" else "${d.cantidad} planes"
             Column(
                 Modifier.weight(1f).alpha(if (d.cantidad == 0) .55f else 1f)
+                    .clearAndSetSemantics { contentDescription = etiqueta }
                     .gel(14.dp, if (p.oscuro) Gels.chipOscuro else Gels.chipClaro).padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
