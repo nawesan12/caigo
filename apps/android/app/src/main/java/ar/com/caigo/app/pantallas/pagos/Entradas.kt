@@ -163,13 +163,6 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
         }
     }
 
-    fun pagar(plan: Plan) {
-        // Antes del launch: un segundo toque no pide otra orden de Mercado Pago.
-        if (pagando) return
-        pagando = true
-        alcance.launch { pagarYa(plan) }
-    }
-
     suspend fun pagarYa(plan: Plan) {
         try {
             val m = if (plan.cobro == "sena" && plan.senaPct != null) modo else "entrada"
@@ -191,6 +184,13 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
         } finally {
             pagando = false
         }
+    }
+
+    fun pagar(plan: Plan) {
+        // Antes del launch: un segundo toque no pide otra orden de Mercado Pago.
+        if (pagando) return
+        pagando = true
+        alcance.launch { pagarYa(plan) }
     }
 
     CompositionLocalProvider(LocalPaleta provides PaletaClara) {
