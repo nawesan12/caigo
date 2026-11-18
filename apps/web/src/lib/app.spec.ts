@@ -42,9 +42,10 @@ describe('caigo desde la web', () => {
 		expect(terminado({ empiezaEn: '2026-10-28T15:00:00Z', duracionMin: 120 }, AHORA)).toBe(true);
 	});
 	it('reputación', () => {
-		expect(reputacion({ fue: 23, de: 24 })).toBe('Fue a 23 de 24 planes · 96% asistencia');
-		expect(reputacion({ fue: 0, de: 0 })).toBe('Nuevo en Caigo · todavía sin planes');
-		expect(reputacion({ fue: 1, de: 1 })).toBe('Fue a 1 de 1 plan · 100% asistencia');
+		expect(reputacion({ fue: 23, de: 24 })).toBe('Fue a 23 de 24 planes');
+		// Sin historial no se dice nada (no sabemos si es nuevo).
+		expect(reputacion({ fue: 0, de: 0 })).toBe('');
+		expect(reputacion({ fue: 1, de: 1 })).toBe('Fue a 1 de 1 plan');
 	});
 	it('agrupa Mis planes', () => {
 		const p = (empiezaEn: string) => ({ empiezaEn }) as Plan;

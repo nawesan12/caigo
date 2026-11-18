@@ -39,7 +39,14 @@ export const SIN_CUENTA = new Set([
  * detalle, los perfiles, Mis planes y el perfil propio. Sólo para mirar (GET): sumarse, crear o
  * chatear piden el DNI, y la API también lo exige (403 `falta_dni`).
  */
-const MIRAR = new Set([...SIN_CUENTA, '/app/persona/[id]', '/app/perfil', '/app/mis']);
+const MIRAR = new Set([
+	...SIN_CUENTA,
+	'/app/persona/[id]',
+	'/app/perfil',
+	'/app/mis',
+	// «Esta semana»: la tarjeta sale en Ahora también sin DNI (la API lo deja mirar, sin direcciones).
+	'/app/semana'
+]);
 
 export function soloMira(event: RequestEvent): boolean {
 	const m = event.request.method;
@@ -59,8 +66,13 @@ export function exentaDeVerificar(rutaId: string): boolean {
  * (sumarte, crear, chatear) para el título de la primera lámina.
  */
 export function aVerificar(event: RequestEvent): never {
+	// Si tocó «Sumarme» (?/sumarme del detalle), al volver se retoma: el plan abre con ?sumar=1 y,
+	// verificada y con el perfil listo, se suma sin otro toque.
+	const sumar = event.request.method === 'POST' && event.url.search.includes('/sumarme');
 	const volver =
-		event.request.method === 'GET' ? event.url.pathname + event.url.search : event.url.pathname;
+		event.request.method === 'GET'
+			? event.url.pathname + event.url.search
+			: event.url.pathname + (sumar ? '?sumar=1' : '');
 	const motivo = motivoDni(event.route.id ?? '');
 	redirect(
 		303,

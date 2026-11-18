@@ -4,7 +4,8 @@
 	import PlanTarjeta from '#lib/app-ui/PlanTarjeta.svelte';
 	import Deslizable from '#lib/app-ui/Deslizable.svelte';
 	import CapaGestos from '#lib/app-ui/CapaGestos.svelte';
-	import DecidiRapido from '#lib/app-ui/DecidiRapido.svelte';
+	import DecidiRapido, { leerMazo } from '#lib/app-ui/DecidiRapido.svelte';
+	import TarjetaHoy from '#lib/app-ui/TarjetaHoy.svelte';
 	import { GestosLista } from '#lib/app-ui/gestos-lista.svelte.ts';
 	import { paraDecidir, porDecidir } from '#lib/gestos.ts';
 	import type { Plan } from '#lib/tipos.ts';
@@ -30,12 +31,31 @@
 	let mazo = $state(false);
 	/** El mazo se arma al abrirlo: lo que se pasa o se suma no corre los índices. */
 	let mazoPlanes = $state<Plan[]>([]);
+	let mazoDesde = $state(0);
+	let mazoSumados = $state(0);
 	const yoCorto = $derived(
 		data.yo ? { id: data.yo.id, nombre: data.yo.nombre, foto: data.yo.fotos?.[0] } : null
 	);
 
 	onMount(() => {
 		if (!data.ubic) pedirUbicacion();
+		// Volviendo de «Ver más»: el mazo sigue donde estaba (con los planes que siguen en la lista).
+		const m = leerMazo();
+		if (m && !data.anonimo) {
+			const por = new Map(data.planes.map((p) => [p.id, p]));
+			const ps = m.ids.map((id) => por.get(id)).filter((p): p is Plan => !!p);
+			const actual = m.ids[m.i];
+			const desde = Math.max(
+				0,
+				ps.findIndex((p) => p.id === actual)
+			);
+			if (ps.length && desde < ps.length) {
+				mazoPlanes = ps;
+				mazoDesde = desde;
+				mazoSumados = m.sumados;
+				mazo = true;
+			}
+		}
 	});
 </script>
 
@@ -55,11 +75,28 @@
 			<h1>Ahora</h1>
 			<nav class="seg-app" aria-label="Vista">
 				<a href="/app{q(data.categoria)}" aria-current="page">Lista</a>
-				<a href="/app/mapa{q(data.categoria, false)}">Mapa</a>
+				<a href="/app/mapa{q(data.categoria)}">Mapa</a>
 			</nav>
 		</div>
 		<div class="filtros">
-			{#each FILTROS_AHORA as f, i (f.valor)}
+			<!-- «Sólo chicas» primero y aparte: es un interruptor (se suma a la categoría), no otra
+			     categoría. La seguridad a la vista, gratis. -->
+			<a
+				class="interruptor"
+				class:on={data.chicas}
+				href="/app{q(data.categoria, !data.chicas)}"
+				data-sveltekit-noscroll
+				role="switch"
+				aria-checked={data.chicas}
+				><Icono
+					nombre={data.chicas ? 'check' : 'escudo'}
+					tam={15}
+					trazo={data.chicas ? 3 : 2.2}
+					color="currentColor"
+				/>Sólo chicas</a
+			>
+			<span class="divisor" aria-hidden="true"></span>
+			{#each FILTROS_AHORA as f (f.valor)}
 				<a
 					class="filtro"
 					class:on={data.categoria === f.valor}
@@ -67,28 +104,20 @@
 					data-sveltekit-noscroll
 					aria-current={data.categoria === f.valor ? 'true' : undefined}>{f.etiqueta}</a
 				>
-				<!-- «Sólo chicas» al lado de «Todos»: la seguridad a la vista, gratis. -->
-				{#if i === 0}
-					<a
-						class="filtro"
-						class:on={data.chicas}
-						href="/app{q(data.categoria, !data.chicas)}"
-						data-sveltekit-noscroll
-						aria-current={data.chicas ? 'true' : undefined}>Sólo chicas</a
-					>
-				{/if}
 			{/each}
 		</div>
 	</div>
+
+	{#if data.hoy}<div class="hoy-esp"><TarjetaHoy plan={data.hoy} /></div>{/if}
 
 	{#if data.semana}
 		<a class="semana" href="/app/semana">
 			<span class="sem-t">Esta semana en {data.semana.ciudad}</span>
 			<span class="sem-s"
 				>{[
-					`${data.semana.total} planes`,
-					data.semana.aliados && `${data.semana.aliados} en lugares aliados`,
-					data.semana.deTuGente && `${data.semana.deTuGente} de tu gente`
+					`${data.semana.total}\u00a0planes`,
+					data.semana.aliados && `${data.semana.aliados}\u00a0en\u00a0lugares\u00a0aliados`,
+					data.semana.deTuGente && `${data.semana.deTuGente}\u00a0de\u00a0tu\u00a0gente`
 				]
 					.filter(Boolean)
 					.join(' · ')}</span
@@ -107,6 +136,8 @@
 						type="button"
 						onclick={() => {
 							mazoPlanes = decidir ?? [];
+							mazoDesde = 0;
+							mazoSumados = 0;
 							mazo = true;
 						}}>Decidí rápido · {decidir.length}</button
 					>
@@ -116,11 +147,12 @@
 					>
 				{/if}
 			</div>
-			{#each planes as p (p.id)}
+			{#each planes as p, i (p.id)}
 				<Deslizable
 					titulo={p.titulo}
 					onderecha={porDecidir(p) ? () => g.caigo(p) : null}
 					onizquierda={() => g.noMeInteresa(p)}
+					pista={i === 0}
 				>
 					<PlanTarjeta plan={p} />
 				</Deslizable>
@@ -144,7 +176,13 @@
 </div>
 
 <CapaGestos {g} yo={yoCorto} />
-{#if mazoPlanes.length}<DecidiRapido bind:abierto={mazo} planes={mazoPlanes} {g} />{/if}
+{#if mazoPlanes.length}<DecidiRapido
+		bind:abierto={mazo}
+		planes={mazoPlanes}
+		{g}
+		desde={mazoDesde}
+		yaSumados={mazoSumados}
+	/>{/if}
 
 <style>
 	.arriba {
@@ -220,6 +258,38 @@
 		box-shadow: var(--sh-chip-on);
 		color: var(--c-chip-on-texto);
 		font-weight: 700;
+	}
+	.interruptor {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 8px 13px;
+		border-radius: 14px;
+		border: 1.5px solid var(--c-linea-fuerte, rgba(116, 86, 241, 0.35));
+		font-size: 14px;
+		font-weight: 600;
+		color: var(--c-acento);
+		text-decoration: none;
+	}
+	.interruptor.on {
+		border-color: transparent;
+		background: var(--grad-lima);
+		color: var(--carbon);
+		font-weight: 700;
+	}
+	.divisor {
+		flex: none;
+		align-self: center;
+		width: 1px;
+		height: 22px;
+		background: var(--c-linea);
+	}
+	.hoy-esp {
+		margin-top: 14px;
+	}
+	.hoy-esp :global(.hoy) {
+		margin-bottom: 0;
 	}
 	.lista {
 		padding: 12px 20px var(--bajo-tabbar);

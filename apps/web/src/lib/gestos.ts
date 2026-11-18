@@ -21,22 +21,43 @@ export function sumaDirecto(p: Plan): boolean {
 	);
 }
 
-/** Los planes para «Decidí rápido»: los de la lista que quedan por decidir (null si son pocos). */
+/**
+ * Los planes para «Decidí rápido» (null si son pocos): sólo los que se suman con un toque. Los que
+ * piden aprobación, entrada, seña o confirmar algo («Solo mujeres») se deciden en el detalle, con su
+ * confirmación: en el mazo no hay dónde, y salir del mazo cortaba la racha de decisiones.
+ */
 export function paraDecidir(ps: Plan[]): Plan[] | null {
-	const d = ps.filter(porDecidir);
+	const d = ps.filter(sumaDirecto);
 	return d.length >= MIN_DECIDIR ? d : null;
 }
 
-/** La línea de la cabecera del perfil: «Habitué · 9 planes». */
+/**
+ * La línea de nivel del perfil: «Habitué · 9 con check-in». Con 0, sólo el nivel. «con check-in» y no
+ * «planes»: en el mismo perfil está la cifra de planes a los que se anotó, que es otra cosa.
+ */
 export function nivelTexto(l: Logros): string {
-	return `${l.nivel} · ${l.planes} ${l.planes === 1 ? 'plan' : 'planes'}`;
+	return l.planes > 0 ? `${l.nivel} · ${l.planes}\u00a0con\u00a0check-in` : l.nivel;
 }
 
-/** «Racha: 4 semanas · comodín libre», sólo desde 2 semanas (una sola no es racha). */
+/** «Racha: 4 semanas», sólo desde 2 (una sola no es racha). El comodín se usa solo, sin anunciarlo. */
 export function rachaTexto(l: Logros): string {
 	if (!l.racha || l.racha < 2) return '';
-	return `Racha: ${l.racha}\u00a0semanas${l.comodin ? ' · comodín\u00a0libre' : ''}`;
+	return `Racha: ${l.racha}\u00a0semanas`;
 }
+
+/**
+ * El beneficio por nivel de un lugar, para quien mira: «Tenés: 10 % off» si ya es Habitué o más, o
+ * «Con 3 planes más: 10 % off». Sin logros (sin sesión), el requisito.
+ */
+export function beneficioNivelTexto(beneficio: string, l?: Logros | null): string {
+	if (!l) return `Habitué o más: ${beneficio}`;
+	const falta = Math.max(HABITUE - l.planes, 0);
+	if (falta === 0) return `Tenés: ${beneficio}`;
+	return `Con ${falta === 1 ? '1 plan más' : `${falta} planes más`}: ${beneficio}`;
+}
+
+/** Planes con check-in desde los que se es Habitué (logros.Habitue). */
+export const HABITUE = 5;
 
 /** «Te faltan 6 para De fierro» (vacío en el último nivel). */
 export function siguienteTexto(l: Logros): string {

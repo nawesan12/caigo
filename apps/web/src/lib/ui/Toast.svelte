@@ -12,7 +12,8 @@
 	.zona {
 		position: fixed;
 		left: 50%;
-		bottom: 30px;
+		/* Encima de la barra fija del detalle (que define --alto-barra mientras está). */
+		bottom: calc(var(--alto-barra, 0px) + 30px);
 		z-index: 50;
 		transform: translateX(-50%);
 		width: max-content;

@@ -13,7 +13,8 @@ export type PersonaCorta = {
 	organizador?: boolean;
 	/** Ya hizo check-in en el plan. */
 	llego?: boolean;
-	/** Promedio de las caritas de sus planes (sólo de quien organiza, con 3 o más). */
+	/** Promedio de las caritas de sus planes (sólo de quien organiza, con 3 o más; a medio punto y la
+	 * cantidad en escalones: 3, 5, 10, 20, 50, 100). */
 	caritas?: { promedio: number; cantidad: number };
 	/** «Anfitrión»: sus planes se hacen (sólo en quien organiza). */
 	anfitrion?: boolean;
@@ -31,8 +32,11 @@ export type Mio = {
 	espera?: { estado: 'esperando' | 'avisado'; posicion: number; venceEn?: string };
 };
 
-/** Contacto de confianza (perfil): nombre y teléfono o mail. */
-export type Contacto = { nombre: string; contacto: string };
+/**
+ * Contacto de confianza (perfil): nombre y teléfono o mail. `avisa` (en «¿Todo bien?»): con un mail
+ * le escribimos al contacto; con un teléfono, te avisamos a vos para que le escribas.
+ */
+export type Contacto = { nombre: string; contacto: string; avisa?: 'contacto' | 'vos' };
 
 /** GET /v1/planes/{id}/todo-bien. */
 export type TodoBien = {
@@ -40,6 +44,8 @@ export type TodoBien = {
 	contacto?: Contacto;
 	avisaEn?: string;
 	avisado: boolean;
+	/** Ya te preguntamos «¿Llegaste?» (el aviso sale 10 min después). */
+	preguntado?: boolean;
 	contactos: Contacto[];
 };
 
@@ -146,8 +152,8 @@ export type Plan = {
 	mio?: Mio;
 };
 
-/** `confianza` de un plan (API, 18/11). `chicas` sólo en planes «Solo mujeres» y desde 2. */
-export type Confianza = { todosVerificados: boolean; soloChicas: boolean; chicas?: number };
+/** `confianza` de un plan (API, 18/11). Nunca dice cuántas chicas van. */
+export type Confianza = { todosVerificados: boolean; soloChicas: boolean };
 
 export type Lugar = {
 	id: string;

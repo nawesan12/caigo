@@ -5,10 +5,18 @@
 	import Avatar from './Avatar.svelte';
 	import Hoja from './Hoja.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
-	import { comoLlegar, cuentaRegresiva, esTelefono, linkUbicacion, whatsapp } from '#lib/dia.ts';
+	import {
+		avisaA,
+		comoLlegar,
+		cuentaRegresiva,
+		esTelefono,
+		linkUbicacion,
+		puedeActivarTodoBien,
+		whatsapp
+	} from '#lib/dia.ts';
 	import { partes } from '#lib/fechas.ts';
 	import { primerNombre } from '#lib/plan.ts';
-	import type { Plan, TodoBien } from '#lib/tipos.ts';
+	import type { Contacto, Plan, TodoBien } from '#lib/tipos.ts';
 
 	/*
 	 * El día del plan en una sola pantalla (informe del 18/11, 6.10): cuenta regresiva, «Cómo llegar»,
@@ -21,6 +29,7 @@
 		yoId = '',
 		parte = 'tarjeta',
 		hoja = $bindable(false),
+		llegarAlAbrir = false,
 		onReportar
 	}: {
 		plan: Plan;
@@ -29,8 +38,23 @@
 		/** La tarjeta va en el detalle; la hoja, al final de la página (para que tape la pantalla entera). */
 		parte?: 'tarjeta' | 'hoja';
 		hoja?: boolean;
+		/** Desde la tarjeta de «Hoy»: hace el «Llegué» apenas abre. */
+		llegarAlAbrir?: boolean;
 		onReportar?: () => void;
 	} = $props();
+
+	/** A quién le llega el aviso, dicho sin promesas falsas: con un teléfono, a vos. */
+	const nombreDe = (c: Contacto) => c.nombre || c.contacto;
+	const filaTitulo = (c: Contacto) =>
+		avisaA(c) === 'contacto'
+			? `Le escribimos a ${nombreDe(c)} si no llegás`
+			: `Te avisamos para que le escribas a ${nombreDe(c)}`;
+	const toastActivo = (c: Contacto) =>
+		avisaA(c) === 'contacto'
+			? `Si no llegás, le escribimos a ${nombreDe(c)}.`
+			: 'Si no hacés check-in, te avisamos.';
+	const activable = $derived(puedeActivarTodoBien(p));
+	let nuevoContacto = $state(false);
 
 	let ahora = $state(new Date());
 	onMount(() => {
@@ -97,6 +121,10 @@
 			{ enableHighAccuracy: true, timeout: 10_000 }
 		);
 	}
+
+	onMount(() => {
+		if (llegarAlAbrir && !llegue) llegar();
+	});
 
 	const hora = (f?: string) => (f ? partes(f).hora : '');
 	const despues =
@@ -192,8 +220,14 @@
 				<div class="fila">
 					<Icono nombre="escudo" tam={20} color="var(--c-acento)" trazo={2} />
 					<span class="ft"
-						><b>Avisamos a {todoBien.contacto.nombre || todoBien.contacto.contacto}</b><span
-							>Si a las {hora(todoBien.avisaEn)} no hiciste check-in.</span
+						><b
+							>{avisaA(todoBien.contacto) === 'contacto'
+								? `Le escribimos a ${nombreDe(todoBien.contacto)}`
+								: `Te avisamos para que le escribas a ${nombreDe(todoBien.contacto)}`}</b
+						><span
+							>{todoBien.avisado
+								? 'Ya avisamos.'
+								: `Si a las ${hora(todoBien.avisaEn)} no hiciste check-in. Antes te preguntamos.`}</span
 						></span
 					>
 					<form
@@ -204,19 +238,25 @@
 						<button class="chico">Apagar</button>
 					</form>
 				</div>
-			{:else if todoBien?.contactos.length}
+			{:else if !activable}
+				<!-- Después del final ya no se activa: queda compartir la ubicación y volver. -->
+			{:else if todoBien === null || todoBien === undefined}
+				<a class="fila" href="/app/plan/{p.id}?todobien=1" data-sveltekit-reload>
+					<Icono nombre="escudo" tam={20} color="var(--c-acento)" trazo={2} />
+					<span class="ft"><b>No pudimos cargar «¿Todo bien?»</b><span>Probar de nuevo</span></span>
+					<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
+				</a>
+			{:else if todoBien.contactos.length && !nuevoContacto}
 				{#each todoBien.contactos as c, i (i)}
-					<form
-						method="POST"
-						action="?/todoBien"
-						use:enhance={despues(`Si no llegás, le avisamos a ${c.nombre || c.contacto}.`)}
-					>
+					<form method="POST" action="?/todoBien" use:enhance={despues(toastActivo(c))}>
 						<input type="hidden" name="contacto" value={i} />
 						<button class="fila">
 							<Icono nombre="escudo" tam={20} color="var(--c-acento)" trazo={2} />
 							<span class="ft"
-								><b>Avisale a {c.nombre || c.contacto} si no llego</b><span
-									>A la media hora, si no hice check-in</span
+								><b>{filaTitulo(c)}</b><span
+									>{avisaA(c) === 'contacto'
+										? 'A la media hora, si no hice check-in'
+										: 'No mandamos SMS: con un mail, le escribimos nosotros'}</span
 								></span
 							>
 							<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
@@ -224,13 +264,32 @@
 					</form>
 				{/each}
 			{:else}
-				<a class="fila" href="/app/perfil/ajustes">
-					<Icono nombre="usuario" tam={20} color="var(--c-acento)" trazo={2} />
-					<span class="ft"
-						><b>Sumá un contacto de confianza</b><span>Le avisamos si no llegás</span></span
-					>
-					<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
-				</a>
+				<!-- Sin contactos: se carga acá mismo y queda activo, sin ir a Ajustes. -->
+				<form
+					class="nuevo"
+					method="POST"
+					action="?/contactoTodoBien"
+					use:enhance={despues('Listo. Si no llegás, te avisamos.')}
+				>
+					<span class="nuevo-t">¿A quién avisamos si no llegás?</span>
+					<input
+						name="nombre"
+						maxlength="40"
+						placeholder="Nombre (Mamá, Sofi…)"
+						autocomplete="off"
+						aria-label="Nombre"
+					/>
+					<input
+						name="contacto"
+						required
+						maxlength="80"
+						inputmode="email"
+						placeholder="Mail (le escribimos) o teléfono"
+						autocomplete="off"
+						aria-label="Mail o teléfono"
+					/>
+					<button class="gel gel-lima" disabled={enviando === 'contacto'}>Activar</button>
+				</form>
 			{/if}
 			<button class="fila" onclick={compartirUbicacion} disabled={ubicando}>
 				<Icono nombre="pin" tam={20} color="var(--c-acento)" trazo={2} />
@@ -241,7 +300,7 @@
 			</button>
 			{#if telefono}
 				<a class="fila" href="tel:{telefono.replace(/[^\d+]/g, '')}">
-					<Icono nombre="usuario" tam={20} color="var(--c-acento)" trazo={2} />
+					<Icono nombre="telefono" tam={20} color="var(--c-acento)" trazo={2} />
 					<span class="ft"
 						><b>Me quiero ir</b><span>Llamar a {contacto?.nombre || telefono}</span></span
 					>
@@ -254,7 +313,7 @@
 				target="_blank"
 				rel="noopener"
 			>
-				<Icono nombre="flecha" tam={20} color="var(--c-acento)" trazo={2} />
+				<Icono nombre="auto" tam={20} color="var(--c-acento)" trazo={2} />
 				<span class="ft"><b>Pedir un auto</b><span>Para volver ya</span></span>
 				<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
 			</a>
@@ -374,6 +433,31 @@
 		color: #24212d;
 		font-size: 11px;
 		font-weight: 800;
+	}
+	.nuevo {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		padding: 16px;
+	}
+	.nuevo-t {
+		font-size: 15px;
+		font-weight: 700;
+	}
+	.nuevo input {
+		height: 48px;
+		padding: 0 14px;
+		border-radius: 14px;
+		border: 1px solid var(--c-borde);
+		background: var(--c-campo, var(--c-tarjeta-lisa));
+		font: inherit;
+		font-size: 16px;
+		color: inherit;
+	}
+	.nuevo .gel {
+		height: 48px;
+		border-radius: 16px;
+		font-size: 16px;
 	}
 	.lista {
 		display: flex;

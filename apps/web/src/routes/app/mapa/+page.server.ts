@@ -10,8 +10,14 @@ export const load: PageServerLoad = async (event) => {
 	const categoria = FILTROS_AHORA.some((f) => f.valor === c) ? c : '';
 	const busqueda = (sp.get('q') ?? '').trim().slice(0, 60);
 	const q = busqueda.length >= 2 ? busqueda : '';
+	// «Sólo chicas» sigue al pasar de la lista al mapa.
+	const chicas = sp.get('chicas') === '1';
 	const { yo } = await event.parent();
-	const qs = conUbicacion(event, { categoria, radio: '30', q }, yo?.ciudad);
+	const qs = conUbicacion(
+		event,
+		{ categoria, radio: '30', q, chicas: chicas ? '1' : '' },
+		yo?.ciudad
+	);
 	const { planes: todos, aviso } = await planesQuizas(
 		event,
 		`/v1/planes/ahora?${qs}`,
@@ -25,5 +31,5 @@ export const load: PageServerLoad = async (event) => {
 			n([p.titulo, p.zona, p.lugarNombre, p.lugar?.nombre ?? ''].join(' ')).includes(n(q))
 		);
 	}
-	return { planes, aviso, categoria, q: busqueda, centro: ubicacion(event, yo?.ciudad) };
+	return { planes, aviso, categoria, chicas, q: busqueda, centro: ubicacion(event, yo?.ciudad) };
 };

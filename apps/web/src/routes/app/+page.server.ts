@@ -1,7 +1,7 @@
 import { conSesion, planesQuizas } from '#lib/server/api.ts';
 import { semanaVisible } from '#lib/dia.ts';
 import type { Semana } from '#lib/tipos.ts';
-import { conUbicacion } from '#lib/server/app.ts';
+import { conUbicacion, planDeHoy } from '#lib/server/app.ts';
 import { FILTROS_AHORA } from '#lib/app.ts';
 import type { PageServerLoad } from './$types';
 
@@ -22,5 +22,14 @@ export const load: PageServerLoad = async (event) => {
 	let semana: Semana | null = null;
 	if (event.locals.token && yo?.ciudad && semanaVisible())
 		semana = await conSesion<Semana>(event, 'GET', '/v1/semana').catch(() => null);
-	return { planes, aviso, categoria, chicas, semana: semana && semana.total >= 5 ? semana : null };
+	// El plan de hoy, fijo arriba (con DNI: sin DNI no está en ningún plan).
+	const hoy = yo?.verificada ? await planDeHoy(event) : null;
+	return {
+		planes,
+		aviso,
+		categoria,
+		chicas,
+		hoy,
+		semana: semana && semana.total >= 5 ? semana : null
+	};
 };

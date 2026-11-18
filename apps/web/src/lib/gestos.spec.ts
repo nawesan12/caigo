@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	beneficioNivelTexto,
 	ics,
 	MIN_DECIDIR,
 	nivelTexto,
@@ -74,9 +75,13 @@ describe('textos de logros', () => {
 		anfitrion: false
 	};
 	it('cabecera, racha y siguiente', () => {
-		expect(nivelTexto(l)).toBe('Habitué · 9 planes');
-		expect(nivelTexto({ ...l, planes: 1 })).toBe('Habitué · 1 plan');
-		expect(rachaTexto(l)).toBe('Racha: 4 semanas · comodín libre');
+		const sin = (x: string) => x.replace(/\u00a0/g, ' ');
+		expect(sin(nivelTexto(l))).toBe('Habitué · 9 con check-in');
+		expect(nivelTexto({ ...l, nivel: 'Nuevo', planes: 0 })).toBe('Nuevo');
+		expect(sin(rachaTexto(l))).toBe('Racha: 4 semanas');
+		expect(beneficioNivelTexto('10 % off', l)).toBe('Tenés: 10 % off');
+		expect(beneficioNivelTexto('10 % off', { ...l, planes: 2 })).toBe('Con 3 planes más: 10 % off');
+		expect(beneficioNivelTexto('10 % off', null)).toBe('Habitué o más: 10 % off');
 		expect(rachaTexto({ ...l, racha: 1 })).toBe('');
 		expect(rachaTexto({ ...l, comodin: false })).toBe('Racha: 4 semanas');
 		expect(siguienteTexto(l)).toBe('Te faltan 6 para De fierro');

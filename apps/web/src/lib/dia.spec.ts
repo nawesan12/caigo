@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+	avisaA,
+	caritasTexto,
 	cuentaRegresiva,
 	diaCorto,
 	enElDia,
 	esTelefono,
 	esVispera,
+	lugarGuardado,
+	numeroWhatsapp,
+	puedeActivarTodoBien,
 	semanaVisible,
 	whatsapp
 } from './dia.ts';
@@ -12,12 +17,43 @@ import {
 const ahora = new Date('2026-11-18T20:00:00-03:00'); // miércoles
 
 describe('el día del plan', () => {
-	it('«Hoy» va desde 3 h antes hasta el final', () => {
+	it('«Hoy» va desde 3 h antes hasta 2 h después del final (la vuelta)', () => {
 		const p = { empiezaEn: '2026-11-18T22:30:00-03:00', duracionMin: 120 };
 		expect(enElDia(p, ahora)).toBe(true);
 		expect(enElDia({ ...p, empiezaEn: '2026-11-19T00:00:00-03:00' }, ahora)).toBe(false);
-		expect(enElDia({ ...p, empiezaEn: '2026-11-18T17:00:00-03:00' }, ahora)).toBe(false);
+		// Terminó a las 19 y son las 20: sigue (la vuelta); terminó a las 17, no.
+		expect(enElDia({ ...p, empiezaEn: '2026-11-18T17:00:00-03:00' }, ahora)).toBe(true);
+		expect(enElDia({ ...p, empiezaEn: '2026-11-18T15:00:00-03:00' }, ahora)).toBe(false);
+		expect(puedeActivarTodoBien({ ...p, empiezaEn: '2026-11-18T17:00:00-03:00' }, ahora)).toBe(
+			false
+		);
 		expect(enElDia({ ...p, cancelado: true }, ahora)).toBe(false);
+	});
+	it('WhatsApp con el 15 de la característica', () => {
+		for (const t of [
+			'0223 15 592-6772',
+			'223 15 5926772',
+			'2235926772',
+			'0223 592-6772',
+			'+54 9 223 592-6772'
+		]) {
+			expect(numeroWhatsapp(t), t).toBe('5492235926772');
+		}
+		expect(numeroWhatsapp('011 15 4444-1290')).toBe('5491144441290');
+		expect(numeroWhatsapp('+598 99 123 456')).toBe('59899123456');
+	});
+	it('a quién avisa «¿Todo bien?»', () => {
+		expect(avisaA({ contacto: 'mama@x.com' })).toBe('contacto');
+		expect(avisaA({ contacto: '223 555 0101' })).toBe('vos');
+		expect(avisaA({ contacto: 'x', avisa: 'contacto' })).toBe('contacto');
+	});
+	it('caritas y lugar guardado', () => {
+		expect(caritasTexto({ promedio: 4.5, cantidad: 10 }).replace(/\u00a0/g, ' ')).toBe(
+			'4,5 · 10+ opiniones'
+		);
+		expect(caritasTexto(undefined)).toBe('');
+		expect(lugarGuardado('2026-11-18T20:40:00-03:00', ahora)).toBe('Es tuyo hasta las 20:40');
+		expect(lugarGuardado('2026-11-18T19:40:00-03:00', ahora)).toBe('');
 	});
 	it('cuenta regresiva', () => {
 		expect(cuentaRegresiva('2026-11-18T20:25:00-03:00', ahora)).toBe('en 25 min');

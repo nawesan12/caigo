@@ -6,6 +6,7 @@
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
 	import { primerNombre } from '#lib/plan.ts';
+	import { aJpeg } from '#lib/imagen.ts';
 	import type { FotoPlan } from '#lib/tipos.ts';
 
 	/*
@@ -18,6 +19,30 @@
 	let ver = $state(false);
 	let subiendo = $state(false);
 	let input = $state<HTMLInputElement>();
+	let confirmarBorrar = $state(false);
+
+	/**
+	 * La foto pasa por el canvas antes de subir (como el perfil): sale un JPEG sin metadatos (GPS, hora,
+	 * modelo del teléfono) y liviano. La API igual los saca, por si llega directo.
+	 */
+	async function elegir(e: Event) {
+		const el = e.currentTarget as HTMLInputElement;
+		const f = el.files?.[0];
+		if (!f) return;
+		subiendo = true;
+		try {
+			const jpeg = await aJpeg(f);
+			const dt = new DataTransfer();
+			dt.items.add(new File([jpeg], 'foto.jpg', { type: 'image/jpeg' }));
+			el.files = dt.files;
+		} catch {
+			subiendo = false;
+			el.value = '';
+			avisar('No pudimos leer esa foto. Probá con otra.');
+			return;
+		}
+		el.form?.requestSubmit();
+	}
 
 	const despues =
 		(texto: string) =>
@@ -31,6 +56,7 @@
 		}) => {
 			subiendo = false;
 			ver = false;
+			confirmarBorrar = false;
 			if (result.type === 'success') avisar(texto);
 			else if (result.type === 'failure') avisar(String(result.data?.error ?? 'No se pudo.'));
 			await update();
@@ -49,8 +75,17 @@
 		{#if data.cerrado}
 			<Vacio titulo="Sólo para quienes fueron" texto={data.cerrado} />
 		{:else}
-			<p class="nota">Sólo las ven quienes fueron. Se borran a los 6&nbsp;meses.</p>
-			{#if data.fotos.length}
+			<p class="nota">
+				Sólo las ven quienes fueron. Subí las que estén bien para todos los que salen. Se borran a
+				los 6&nbsp;meses.
+			</p>
+			{#if data.error}
+				<Vacio titulo="No pudimos traer las fotos" texto={data.error}>
+					<a class="gel gel-blanco" href="/app/plan/{p.id}/fotos" data-sveltekit-reload
+						>Probar de nuevo</a
+					>
+				</Vacio>
+			{:else if data.fotos.length}
 				<div class="grilla">
 					{#each data.fotos as f (f.id)}
 						<button
@@ -82,8 +117,8 @@
 					class="oculto"
 					type="file"
 					name="foto"
-					accept="image/jpeg,image/png,image/webp,image/heic"
-					onchange={(e) => (e.currentTarget as HTMLInputElement).form?.requestSubmit()}
+					accept="image/*"
+					onchange={elegir}
 				/>
 				<button
 					type="button"
@@ -99,18 +134,43 @@
 <Hoja bind:abierta={ver} titulo={abierta ? `De ${primerNombre(abierta.autor.nombre)}` : 'Foto'}>
 	{#if abierta}
 		<img class="grande" src={abierta.url} alt="" />
-		<form
-			method="POST"
-			action={abierta.mia ? '?/borrar' : '?/reportar'}
-			use:enhance={despues(abierta.mia ? 'Foto borrada.' : 'Gracias. La revisamos.')}
-		>
-			<input type="hidden" name="foto" value={abierta.id} />
-			<button class="accion">{abierta.mia ? 'Borrar mi foto' : 'Reportar esta foto'}</button>
-		</form>
+		{#if abierta.mia}
+			{#if confirmarBorrar}
+				<form method="POST" action="?/borrar" class="dos" use:enhance={despues('Foto borrada.')}>
+					<input type="hidden" name="foto" value={abierta.id} />
+					<button type="button" class="accion" onclick={() => (confirmarBorrar = false)}
+						>Ahora no</button
+					>
+					<button class="accion fuerte">Sí, borrarla</button>
+				</form>
+			{:else}
+				<button class="accion" onclick={() => (confirmarBorrar = true)}>Borrar mi foto</button>
+			{/if}
+		{:else}
+			<!-- «Salgo yo» la oculta al instante; «No va» la manda a revisar (también se oculta). -->
+			<form
+				method="POST"
+				action="?/reportar"
+				class="dos"
+				use:enhance={despues('Listo, ya no se ve. La revisamos.')}
+			>
+				<input type="hidden" name="foto" value={abierta.id} />
+				<button class="accion" name="motivo" value="salgo_yo">Salgo yo y no quiero</button>
+				<button class="accion" name="motivo" value="inapropiada">No va</button>
+			</form>
+		{/if}
 	{/if}
 </Hoja>
 
 <style>
+	.dos {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
+	}
+	.fuerte {
+		font-weight: 800;
+	}
 	.contenido {
 		padding: calc(20px + env(safe-area-inset-top)) 20px var(--bajo-tabbar, 40px);
 		display: flex;

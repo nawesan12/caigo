@@ -20,29 +20,33 @@ export class GestosLista {
 
 	visibles = (ps: Plan[]) => ps.filter((p) => !this.ocultos.has(p.id));
 
-	/** «Caigo». Devuelve true si quedó adentro (o pendiente) sin salir de la lista. */
-	async caigo(p: Plan): Promise<boolean> {
+	/**
+	 * «Sumarme» con el gesto. Devuelve el estado si quedó adentro (o pendiente) sin salir de la lista.
+	 * `festejar`: en la lista, el festejo a pantalla completa; en «Decidí rápido», no (el mazo marca
+	 * «Adentro» en la carta y resume al final: nada de un pop-up por plan).
+	 */
+	async caigo(p: Plan, festejar = true): Promise<'aceptada' | 'pendiente' | null> {
 		if (!sumaDirecto(p)) {
 			await goto(`/app/plan/${p.id}`);
-			return false;
+			return null;
 		}
 		const r = await gesto(p.id, 'caigo');
 		if (r.ir) {
 			await goto(r.ir);
-			return false;
+			return null;
 		}
 		if (r.error) {
 			avisar(r.error);
-			return false;
+			return null;
 		}
-		if (r.estado === 'aceptada') {
+		if (r.estado === 'aceptada' && festejar) {
 			this.festejo = p;
 			this.festejoAbierto = true;
 		} else if (r.estado === 'pendiente') {
 			avisar(`Le avisamos a ${primerNombre(p.organizador.nombre)}.`);
 		}
 		invalidateAll();
-		return true;
+		return r.estado === 'aceptada' || r.estado === 'pendiente' ? r.estado : null;
 	}
 
 	/** «No me interesa». */
@@ -52,6 +56,8 @@ export class GestosLista {
 		this.deshacer = { plan: p, texto: `Ocultaste ${p.titulo}` };
 		this.#t = setTimeout(() => (this.deshacer = null), 5000);
 		const r = await gesto(p.id, 'ocultar');
+		// Sin cuenta, «No me interesa» queda en esta pestaña (no hay dónde guardarlo).
+		if (r.local) return;
 		if (r.ir) {
 			this.ocultos.delete(p.id);
 			this.deshacer = null;

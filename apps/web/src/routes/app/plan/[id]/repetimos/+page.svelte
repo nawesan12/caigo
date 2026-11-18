@@ -39,6 +39,7 @@
 	let carita = $state(untrack(() => data.plan.mio?.carita ?? 0));
 	/** Con quiénes quedó mutuo al responder: ya pueden hablar por privado. */
 	let mutuos = $state<{ id: string; nombre: string; foto?: string }[]>([]);
+	let planNuevo = $state('');
 	const fotos = $derived(p.mio?.fotos ?? 0);
 
 	function alternar(id: string) {
@@ -61,8 +62,12 @@
 			if (result.type === 'success') {
 				const nuevo = result.data?.nuevo as { id: string } | null;
 				const m = (result.data?.mutuos as typeof mutuos) ?? [];
-				if (m.length && !nuevo) {
+				if (m.length) {
+					// «¡Es mutuo!» reemplaza el formulario (ya se mandó) y queda arriba, a la vista. Con un
+					// plan repetido, primero los mutuos y un link al plan nuevo.
 					mutuos = m;
+					planNuevo = nuevo?.id ?? '';
+					document.querySelector('.pantalla')?.scrollTo({ top: 0 });
 					return;
 				}
 				avisar(
@@ -89,10 +94,15 @@
 		<h1>{organizo ? '¿Repetimos?' : '¿Y, qué tal?'}</h1>
 		{#if organizo}
 			<div class="botones">
-				<button class="gel gel-lima si-btn" name="repetir" value="si" disabled={enviando}
-					>{otraVez}</button
+				<button
+					class="gel gel-lima si-btn"
+					name="repetir"
+					value="si"
+					disabled={enviando || mutuos.length > 0}>{otraVez}</button
 				>
-				<button class="no-btn" name="repetir" value="no" disabled={enviando}>Esta vez no</button>
+				<button class="no-btn" name="repetir" value="no" disabled={enviando || mutuos.length > 0}
+					>Esta vez no</button
+				>
 			</div>
 		{/if}
 	</div>
@@ -110,77 +120,91 @@
 						<a class="gel gel-lima escribir" href="/app/mensajes/{m.id}">Escribir</a>
 					</div>
 				{/each}
+				{#if planNuevo}<a class="gel gel-lima escribir" href="/app/plan/{planNuevo}"
+						>Ver el plan nuevo</a
+					>{/if}
 				<a class="link-volver" href="/app/mis?cual=historial">Listo</a>
 			</div>
-		{/if}
-		{#if !organizo}
-			<div class="cab">
-				<h2>¿Cómo estuvo?</h2>
-				<p>Nadie ve tu carita: suma al promedio de quien organizó.</p>
-			</div>
-			<div class="caritas" role="radiogroup" aria-label="¿Cómo estuvo?">
-				{#each CARITAS as c (c.valor)}
-					<button
-						type="button"
-						role="radio"
-						aria-checked={carita === c.valor}
-						aria-label={c.texto}
-						class:on={carita === c.valor}
-						onclick={() => (carita = c.valor)}><span>{c.cara}</span></button
-					>
-				{/each}
-			</div>
-		{/if}
-		<a class="fotos" href="/app/plan/{p.id}/fotos">
-			<Icono nombre="personas" tam={20} color="var(--c-acento)" trazo={2} />
-			<span class="pc"
-				><span class="n">Fotos del plan{fotos ? ` · ${fotos}` : ''}</span><span class="d"
-					>{fotos ? 'Sólo las ven quienes fueron' : 'Subí la primera'}</span
-				></span
-			>
-			<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
-		</a>
-		<div class="cab">
-			<h2>¿Volverías a salir con…?</h2>
-			<p>Los que sumes a tu gente ven primero tus próximos planes. Nadie ve tus respuestas.</p>
-		</div>
-		{#each gente as v (v.id)}
-			<div class="persona">
-				<Avatar nombre={v.nombre} foto={v.foto} tam={44} />
-				<div class="pc">
-					<span class="n">{primerNombre(v.nombre)}</span>
-					<span class="d">{detalle(v)}</span>
-				</div>
-				{#if si.has(v.id)}
-					<button type="button" class="tu-gente" aria-pressed="true" onclick={() => alternar(v.id)}
-						><Icono nombre="check" tam={14} color="#24212D" trazo={3} />Tu gente</button
-					>
-				{:else}
-					<button
-						type="button"
-						class="sumar"
-						aria-pressed="false"
-						aria-label="Sumar a {primerNombre(v.nombre)} a tu gente"
-						onclick={() => alternar(v.id)}
-						><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"
-							><path
-								d="M12 4v16M4 12h16"
-								stroke="#7456F1"
-								stroke-width="3.6"
-								stroke-linecap="round"
-							/></svg
-						></button
-					>
-				{/if}
-			</div>
 		{:else}
-			<p class="vacio">Esta vez no fue nadie más.</p>
-		{/each}
-		{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
-		{#if !organizo}
-			<button class="gel gel-lima listo" name="repetir" value="no" disabled={enviando}
-				>{enviando ? 'Guardando…' : 'Listo'}</button
-			>
+			{#if !organizo}
+				<div class="cab">
+					<h2>¿Cómo estuvo?</h2>
+					<p>Nadie ve tu carita: suma al promedio de quien organizó.</p>
+				</div>
+				<div class="caritas" role="radiogroup" aria-label="¿Cómo estuvo?">
+					{#each CARITAS as c (c.valor)}
+						<button
+							type="button"
+							role="radio"
+							aria-checked={carita === c.valor}
+							aria-label={c.texto}
+							class:on={carita === c.valor}
+							onclick={() => (carita = c.valor)}
+							><Icono
+								nombre={`carita${c.valor}` as 'carita1'}
+								tam={30}
+								trazo={2}
+								color={carita === c.valor ? '#24212D' : 'currentColor'}
+							/></button
+						>
+					{/each}
+				</div>
+			{/if}
+			<a class="fotos" href="/app/plan/{p.id}/fotos">
+				<Icono nombre="imagen" tam={20} color="var(--c-acento)" trazo={2} />
+				<span class="pc"
+					><span class="n">Fotos del plan{fotos ? ` · ${fotos}` : ''}</span><span class="d"
+						>{fotos ? 'Sólo las ven quienes fueron' : 'Subí la primera'}</span
+					></span
+				>
+				<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
+			</a>
+			<div class="cab">
+				<h2>¿Volverías a salir con…?</h2>
+				<p>Los que sumes a tu gente ven primero tus próximos planes. Nadie ve tus respuestas.</p>
+			</div>
+			{#each gente as v (v.id)}
+				<div class="persona">
+					<Avatar nombre={v.nombre} foto={v.foto} tam={44} />
+					<div class="pc">
+						<span class="n">{primerNombre(v.nombre)}</span>
+						<span class="d">{detalle(v)}</span>
+					</div>
+					{#if si.has(v.id)}
+						<button
+							type="button"
+							class="tu-gente"
+							aria-pressed="true"
+							onclick={() => alternar(v.id)}
+							><Icono nombre="check" tam={14} color="#24212D" trazo={3} />Tu gente</button
+						>
+					{:else}
+						<button
+							type="button"
+							class="sumar"
+							aria-pressed="false"
+							aria-label="Sumar a {primerNombre(v.nombre)} a tu gente"
+							onclick={() => alternar(v.id)}
+							><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"
+								><path
+									d="M12 4v16M4 12h16"
+									stroke="#7456F1"
+									stroke-width="3.6"
+									stroke-linecap="round"
+								/></svg
+							></button
+						>
+					{/if}
+				</div>
+			{:else}
+				<p class="vacio">Esta vez no fue nadie más.</p>
+			{/each}
+			{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
+			{#if !organizo}
+				<button class="gel gel-lima listo" name="repetir" value="no" disabled={enviando}
+					>{enviando ? 'Guardando…' : 'Listo'}</button
+				>
+			{/if}
 		{/if}
 		<span class="paso-algo"
 			>¿Pasó algo? <button type="button" onclick={() => (reportar = true)}>Reportar</button></span

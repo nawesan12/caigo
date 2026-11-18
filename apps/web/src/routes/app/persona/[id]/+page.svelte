@@ -86,11 +86,13 @@
 			<div class="bloque">
 				<span class="rot">{nivelTexto(p.logros)}</span>
 				{#if p.logros.insignias.length}
-					<div class="chips">
+					<ul class="insignias">
 						{#each p.logros.insignias as ins (ins.id)}
-							<span class="interes" title={ins.detalle}>{ins.nombre}</span>
+							<li>
+								<span class="insignia">{ins.nombre}</span><span class="sd">{ins.detalle}</span>
+							</li>
 						{/each}
-					</div>
+					</ul>
 				{/if}
 			</div>
 		{/if}
@@ -154,6 +156,19 @@
 />
 
 <style>
+	.insignias {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.insignias li {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
 	.fotos {
 		display: flex;
 		gap: 10px;

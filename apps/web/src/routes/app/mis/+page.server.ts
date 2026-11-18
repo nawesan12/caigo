@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
 import { uuid } from '#lib/server/panel.ts';
 import { sinLeer } from '#lib/server/privados.ts';
+import { planDeHoy } from '#lib/server/app.ts';
 import type { Plan } from '#lib/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -27,6 +28,7 @@ export const load: PageServerLoad = async (event) => {
 		/** Privados sin leer: el contador del acceso a Mensajes. */
 		mensajes,
 		planes: cual === 'organizo' ? organizo : cual === 'me_sume' ? meSume : historial,
+		hoy: await planDeHoy(event, [organizo, meSume]),
 		cancelado: event.url.searchParams.get('cancelado') === '1',
 		salio: event.url.searchParams.get('salio') === '1'
 	};

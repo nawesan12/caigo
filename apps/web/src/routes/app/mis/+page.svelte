@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
 	import { PUBLIC_SITIO } from '$app/env/public';
 	import Icono from '#lib/ui/Icono.svelte';
 	import Confirmar from '#lib/app-ui/Confirmar.svelte';
+	import TarjetaHoy from '#lib/app-ui/TarjetaHoy.svelte';
 	import Reportar from '#lib/app-ui/Reportar.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { agrupar, badgeMio, TINTES } from '#lib/app.ts';
@@ -23,6 +23,15 @@
 	let aCancelar = $state<Plan | null>(null);
 	let cancelarAbierta = $state(false);
 	let aReportar = $state('');
+	let aRepetir = $state<Plan | null>(null);
+	let repetirAbierta = $state(false);
+	/** La fecha del plan repetido: el mismo día y hora, la semana que viene (o la próxima que no pasó). */
+	const proxima = (p: Plan) => {
+		const sem = 7 * 86_400_000;
+		let t = new Date(p.empiezaEn).getTime() + sem;
+		while (t <= Date.now()) t += sem;
+		return cuandoCorto(new Date(t));
+	};
 	let reportarAbierta = $state(false);
 	const yaEmpezo = (p: Plan) => new Date(p.empiezaEn).getTime() <= Date.now();
 	const otrosDe = (p: Plan) => p.van.filter((v) => !v.organizador).length;
@@ -73,6 +82,7 @@
 					>{/if}
 			</a>
 		</div>
+		{#if data.hoy}<div class="hoy-esp"><TarjetaHoy plan={data.hoy} /></div>{/if}
 		<nav class="seg3" aria-label="Qué planes ver">
 			{#each TABS as t (t.k)}
 				<a href="/app/mis?cual={t.k}" aria-current={data.cual === t.k ? 'page' : undefined}>{t.l}</a
@@ -112,18 +122,26 @@
 					{#if data.cual === 'historial'}
 						<div class="acciones">
 							{#if p.miEstado === 'organizador' && !p.cancelado && !p.lugar}
-								<form method="POST" action="?/repetir" use:enhance>
-									<input type="hidden" name="id" value={p.id} />
-									<button>Repetir</button>
-								</form>
-							{:else}
-								<a href="/app/plan/{p.id}/repetimos"
-									>{p.mio?.carita ? 'Tu gente' : '¿Cómo estuvo?'}</a
+								<button
+									onclick={() => {
+										aRepetir = p;
+										repetirAbierta = true;
+									}}>Repetir</button
 								>
-							{/if}
-							{#if p.mio?.fotos}
 								<span aria-hidden="true">·</span>
-								<a href="/app/plan/{p.id}/fotos">Fotos · {p.mio.fotos}</a>
+							{/if}
+							{#if !p.cancelado}
+								<a href="/app/plan/{p.id}/repetimos"
+									>{p.miEstado === 'organizador'
+										? 'Tu gente'
+										: p.mio?.carita
+											? 'Tu gente'
+											: '¿Cómo estuvo?'}</a
+								>
+								<span aria-hidden="true">·</span>
+								<a href="/app/plan/{p.id}/fotos"
+									>{p.mio?.fotos ? `Fotos · ${p.mio.fotos}` : 'Fotos'}</a
+								>
 							{/if}
 							<span aria-hidden="true">·</span>
 							<button
@@ -220,7 +238,21 @@
 	/>
 {/if}
 
+{#if aRepetir}
+	<Confirmar
+		bind:abierta={repetirAbierta}
+		titulo="¿Repetimos «{aRepetir.titulo}»?"
+		texto="{proxima(aRepetir)}. Se publica igual que la última vez."
+		boton="Publicar"
+		accion="?/repetir"
+		campos={{ id: aRepetir.id }}
+	/>
+{/if}
+
 <style>
+	.hoy-esp :global(.hoy) {
+		margin: 0 0 16px;
+	}
 	.contenido {
 		padding: calc(20px + env(safe-area-inset-top)) 20px var(--bajo-tabbar);
 		display: flex;
@@ -397,14 +429,19 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 6px;
-		padding: 0 14px 14px 98px;
-		margin-top: -8px;
+		gap: 2px;
+		padding: 0 10px 2px 94px;
+		margin-top: -20px;
 		font-size: 12px;
 		color: var(--texto-2);
 	}
 	.acciones a,
 	.acciones button {
+		/* 44 px de alto para el dedo, sin que se note el renglón. */
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		padding: 0 4px;
 		font-size: 12px;
 		font-weight: 700;
 		color: var(--violeta-texto);

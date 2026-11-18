@@ -1,3 +1,4 @@
+import { asistenciaTexto } from './plan.ts';
 /**
  * Caigo desde la web (/app): textos y cuentas de las pantallas de Mockups v5.
  */
@@ -99,15 +100,20 @@ export function chipAhora(empieza: string, ahora: Date = new Date(), durMin = 60
 	const min = (new Date(empieza).getTime() - ahora.getTime()) / 60000;
 	if (min > 180) return null;
 	if (min <= 5) return 'Ahora';
-	if (min < 60) return `Ahora · en ${Math.round(min)} min`;
+	if (min < 60) return `Ahora · en ${minutosHasta(empieza, ahora)} min`;
 	return `Ahora · en ${Math.round(min / 60)} h`;
 }
 
-/** "Fue a 23 de 24 planes · 96% asistencia" o, sin historial, el texto de alguien nuevo. */
+/** Los minutos que faltan, redondeados para arriba: la misma cuenta en el chip y en «Hoy». */
+export function minutosHasta(empieza: string, ahora: Date = new Date()): number {
+	return Math.ceil((new Date(empieza).getTime() - ahora.getTime()) / 60_000);
+}
+
+/** «Fue a 23 de 24 planes» o, sin historial, nada (no se inventa un «Nuevo» que no sabemos). */
 export function reputacion(a: { fue: number; de: number } | undefined): string {
-	if (!a || a.de === 0) return 'Nuevo en Caigo · todavía sin planes';
-	const planes = a.de === 1 ? 'plan' : 'planes';
-	return `Fue a ${a.fue} de ${a.de} ${planes} · ${Math.round((a.fue / a.de) * 100)}% asistencia`;
+	const t = asistenciaTexto(a);
+	if (!t) return '';
+	return `F${t.slice(1)} ${a!.de === 1 ? 'plan' : 'planes'}`;
 }
 
 /** Grupos de "Mis planes": HOY, ESTA SEMANA y MÁS ADELANTE (o PASADOS en historial). */

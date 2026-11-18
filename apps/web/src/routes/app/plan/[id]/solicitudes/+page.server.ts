@@ -12,7 +12,12 @@ export const load: PageServerLoad = async (event) => {
 			conSesion<Plan>(event, 'GET', `/v1/planes/${id}`),
 			conSesion<{ solicitudes: Solicitud[] }>(event, 'GET', `/v1/planes/${id}/solicitudes`)
 		]);
-		return { plan, solicitudes: s.solicitudes.filter((x) => x.estado === 'pendiente') };
+		return {
+			plan,
+			solicitudes: s.solicitudes.filter((x) => x.estado === 'pendiente'),
+			// Los aceptados traen su asistencia (la lista del plan no): «Ya van» la muestra igual.
+			aceptadas: s.solicitudes.filter((x) => x.estado === 'aceptada')
+		};
 	} catch (e) {
 		if (e instanceof ErrorApi && (e.estado === 404 || e.estado === 403)) error(404, e.detalle);
 		throw e;
@@ -27,6 +32,18 @@ export const actions: Actions = {
 		try {
 			await conSesion(event, 'DELETE', `/v1/planes/${id}/personas/${quien}`);
 			return { ok: 'sacar' };
+		} catch (e) {
+			if (!(e instanceof ErrorApi)) throw e;
+			return fail(e.estado === 409 ? 409 : 400, { error: mensajeDe(e) });
+		}
+	},
+	/** «Marcar que vino»: alguien fue y no tocó «Llegué» (hasta 2 días después del plan). */
+	vino: async (event) => {
+		const id = uuid(event.params.id);
+		const quien = uuid(String((await event.request.formData()).get('usuario') ?? ''));
+		try {
+			await conSesion(event, 'POST', `/v1/planes/${id}/personas/${quien}/vino`);
+			return { ok: 'vino' };
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
 			return fail(e.estado === 409 ? 409 : 400, { error: mensajeDe(e) });

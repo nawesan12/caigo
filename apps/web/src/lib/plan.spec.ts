@@ -4,6 +4,7 @@ import {
 	faltanTexto,
 	fotoDelPlan,
 	iniciales,
+	asistenciaTexto,
 	lineaConfianza,
 	lista,
 	primerNombre
@@ -54,25 +55,35 @@ describe('fotoDelPlan', () => {
 describe('lineaConfianza', () => {
 	const sinCortes = (xs: string[]) => xs.map((x) => x.replace(/\u00a0/g, ' '));
 	const org = { nombre: 'Martín Gómez', asistencia: { fue: 9, de: 10 } };
-	it('todos verificados, quien organiza con su asistencia y cuántas chicas', () => {
+	it('en la tarjeta: lo que distingue al plan, sin «Todos verificados» ni cuántas chicas', () => {
 		const l = lineaConfianza({
-			organizador: org,
-			confianza: { todosVerificados: true, soloChicas: true, chicas: 2 }
+			organizador: { ...org, anfitrion: true },
+			confianza: { todosVerificados: true, soloChicas: true }
 		});
-		expect(sinCortes(l)).toEqual(['Todos verificados', 'Organiza Martín (9/10)', 'Van 2 chicas']);
+		expect(sinCortes(l)).toEqual(['Martín fue a 9 de 10', 'Anfitrión', 'Plan de chicas']);
 		// Cada parte sin espacios comunes: no se corta en el medio.
 		expect(l.every((x) => !x.includes(' '))).toBe(true);
 	});
-	it('sin asistencia todavía no muestra «(0/0)»; una sola chica no se cuenta', () => {
+	it('sin asistencia no hay nada que decir de quien organiza', () => {
 		const l = lineaConfianza({
 			organizador: { nombre: 'Lu', asistencia: { fue: 0, de: 0 } },
-			confianza: { todosVerificados: false, soloChicas: true }
+			confianza: { todosVerificados: true, soloChicas: false }
 		});
-		expect(sinCortes(l)).toEqual(['Organiza Lu', 'Sólo chicas']);
+		expect(l).toEqual([]);
 	});
-	it('una respuesta vieja sin confianza', () => {
-		expect(sinCortes(lineaConfianza({ organizador: { nombre: 'Nico' } }))).toEqual([
-			'Organiza Nico'
-		]);
+	it('un lugar aliado organiza él (sin asistencia)', () => {
+		const l = lineaConfianza({ organizador: org, lugar: { nombre: 'La Fonda' } });
+		expect(sinCortes(l)).toEqual(['Organiza La Fonda']);
+	});
+	it('en el detalle, sin quien organiza (ya tiene su fila)', () => {
+		const l = lineaConfianza(
+			{ organizador: org, confianza: { todosVerificados: true, soloChicas: true } },
+			{ detalle: true }
+		);
+		expect(sinCortes(l)).toEqual(['Todos verificados', 'Plan de chicas']);
+	});
+	it('asistencia igual en todos lados', () => {
+		expect(asistenciaTexto({ fue: 3, de: 5 })).toBe('fue a 3 de 5');
+		expect(asistenciaTexto({ fue: 0, de: 0 })).toBe('');
 	});
 });

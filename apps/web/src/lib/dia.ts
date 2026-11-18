@@ -2,11 +2,16 @@
  * El día del plan y después (informe del 18/11): cuándo se muestra «Hoy», la cuenta regresiva, la
  * víspera, las caritas y el ritual de los lunes. Todo en hora de Argentina.
  */
+import { minutosHasta } from './app.ts';
 import { diasHasta, partes } from './fechas.ts';
 
 const HORA = 3600_000;
 
-/** «Hoy» (cuenta regresiva, Llegué, ¿Todo bien?) va desde 3 h antes hasta el final del plan. */
+/**
+ * «Hoy» (cuenta regresiva, Llegué, ¿Todo bien?) va desde 3 h antes hasta 2 h después del final: la
+ * vuelta también es parte del plan («Me quiero ir», compartir la ubicación). Activar «¿Todo bien?»
+ * sigue hasta el final (puedeActivarTodoBien).
+ */
 export function enElDia(
 	p: { empiezaEn: string; duracionMin: number; cancelado?: boolean },
 	ahora: Date = new Date()
@@ -14,12 +19,21 @@ export function enElDia(
 	if (p.cancelado) return false;
 	const t = new Date(p.empiezaEn).getTime();
 	const n = ahora.getTime();
-	return n >= t - 3 * HORA && n < t + p.duracionMin * 60_000;
+	return n >= t - 3 * HORA && n < t + p.duracionMin * 60_000 + 2 * HORA;
+}
+
+/** «¿Todo bien?» se activa desde 3 h antes hasta el final del plan (como la API). */
+export function puedeActivarTodoBien(
+	p: { empiezaEn: string; duracionMin: number },
+	ahora: Date = new Date()
+): boolean {
+	const t = new Date(p.empiezaEn).getTime();
+	return ahora.getTime() < t + p.duracionMin * 60_000;
 }
 
 /** «en 25 min» · «en 2 h 10» · «Ya arrancó». */
 export function cuentaRegresiva(empieza: string, ahora: Date = new Date()): string {
-	const min = Math.ceil((new Date(empieza).getTime() - ahora.getTime()) / 60_000);
+	const min = minutosHasta(empieza, ahora);
 	if (min <= 0) return 'Ya arrancó';
 	if (min < 60) return `en ${min} min`;
 	const h = Math.floor(min / 60);
@@ -38,14 +52,33 @@ export function semanaVisible(ahora: Date = new Date()): boolean {
 	return s >= 1 && s <= 3;
 }
 
-/** Las caritas del 1 al 5 (como Timeleft): privadas, sólo suman al promedio de quien organiza. */
+/**
+ * Las caritas del 1 al 5 (como Timeleft): privadas, sólo suman al promedio de quien organiza. Se
+ * dibujan con el ícono `carita` (del mismo trazo que el resto), no con emojis del sistema.
+ */
 export const CARITAS = [
-	{ valor: 1, cara: '😣', texto: 'Mal' },
-	{ valor: 2, cara: '😕', texto: 'Flojo' },
-	{ valor: 3, cara: '🙂', texto: 'Bien' },
-	{ valor: 4, cara: '😄', texto: 'Muy bien' },
-	{ valor: 5, cara: '🤩', texto: 'Genial' }
+	{ valor: 1, texto: 'Mal' },
+	{ valor: 2, texto: 'Flojo' },
+	{ valor: 3, texto: 'Bien' },
+	{ valor: 4, texto: 'Muy bien' },
+	{ valor: 5, texto: 'Genial' }
 ] as const;
+
+/** «4,5 · 10+ opiniones» (el promedio viene a medio punto y la cantidad en escalones). */
+export function caritasTexto(c: { promedio: number; cantidad: number } | undefined): string {
+	if (!c || c.cantidad < 3) return '';
+	const prom = c.promedio.toLocaleString('es-AR', {
+		minimumFractionDigits: 1,
+		maximumFractionDigits: 1
+	});
+	return `${prom}\u00a0·\u00a0${c.cantidad}+\u00a0opiniones`;
+}
+
+/** «Es tuyo hasta las 21:40» (el lugar guardado de la lista de espera). Vacío si ya venció. */
+export function lugarGuardado(venceEn: string | undefined, ahora: Date = new Date()): string {
+	if (!venceEn || new Date(venceEn).getTime() <= ahora.getTime()) return '';
+	return `Es tuyo hasta las ${partes(venceEn).hora}`;
+}
 
 /** Link a «Cómo llegar» en el mapa del teléfono. */
 export function comoLlegar(lat: number, lng: number): string {
@@ -62,11 +95,38 @@ export function esTelefono(c: string): boolean {
 	return !c.includes('@') && c.replace(/\D/g, '').length >= 6;
 }
 
-/** wa.me con el número (Argentina por defecto) y el texto. */
+/** A quién le llega el aviso de «¿Todo bien?»: al contacto si es un mail; si es un teléfono, a vos. */
+export function avisaA(c: { contacto: string; avisa?: 'contacto' | 'vos' }): 'contacto' | 'vos' {
+	return c.avisa ?? (c.contacto.includes('@') ? 'contacto' : 'vos');
+}
+
+/**
+ * El número para WhatsApp. Con «+», tal cual (otro país). Si no, Argentina: sin el 0 de larga
+ * distancia y sin el 15 de celular que va después de la característica (2 a 4 dígitos), y con 549
+ * adelante. «0223 15 592-6772», «223 15 5926772» y «2235926772» dan 5492235926772. Si no quedan 10
+ * dígitos nacionales, el número como vino.
+ */
+export function numeroWhatsapp(tel: string): string {
+	const d = tel.replace(/\D/g, '');
+	if (tel.trim().startsWith('+')) return d;
+	let n = d.replace(/^0/, '');
+	if (n.startsWith('549') && n.length === 13) return n;
+	if (n.startsWith('54') && n.length === 12) return '549' + n.slice(2);
+	if (n.length === 12) {
+		for (const k of [2, 3, 4]) {
+			if (n.slice(k, k + 2) === '15') {
+				n = n.slice(0, k) + n.slice(k + 2);
+				break;
+			}
+		}
+	}
+	if (n.length === 10) return '549' + n;
+	return d;
+}
+
+/** wa.me con el número y el texto. */
 export function whatsapp(tel: string, texto: string): string {
-	let n = tel.replace(/\D/g, '');
-	if (!tel.trim().startsWith('+')) n = '549' + n.replace(/^0/, '').replace(/^15/, '');
-	return `https://wa.me/${n}?text=${encodeURIComponent(texto)}`;
+	return `https://wa.me/${numeroWhatsapp(tel)}?text=${encodeURIComponent(texto)}`;
 }
 
 /** «Lunes 24» para la tira de días de «Esta semana». */

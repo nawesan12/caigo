@@ -73,6 +73,7 @@ export function cuandoCorto(f: Date | string, ahora: Date = new Date()): string 
 	const n = diasEntre(ahora, f);
 	if (n === 0) return `Hoy ${p.hora}`;
 	if (n === 1) return `Mañana ${p.hora}`;
+	if (n === -1) return `Ayer ${p.hora}`;
 	const mes = lejos(n) ? ` ${MESES_CORTOS[p.mes]}` : '';
 	return `${DIAS[p.semana]} ${p.dia}${mes} · ${p.hora}`;
 }

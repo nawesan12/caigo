@@ -7,15 +7,20 @@ import type { RequestHandler } from './$types';
  * Los gestos de la tarjeta (Ahora y «Decidí rápido»), por fetch:
  * - `caigo`: POST /v1/planes/{id}/sumarme de a uno (sólo planes que se suman directo; ver sumaDirecto).
  * - `ocultar` / `mostrar`: «No me interesa» y «Deshacer» (POST / DELETE /v1/planes/{id}/ocultar).
- * Sin sesión, o si hay que verificarse, devuelve `ir` para que la página navegue.
+ * Sin sesión, `caigo` (o si hay que verificarse) devuelve `ir` para que la página navegue; ocultar
+ * y mostrar quedan sólo en la pestaña (`local`).
  */
 export const POST: RequestHandler = async (event) => {
 	if (event.request.headers.get('origin') !== event.url.origin) error(403, 'Origen no permitido.');
 	const id = uuid(event.params.id);
 	const b = (await event.request.json().catch(() => ({}))) as Record<string, unknown>;
 	const accion = String(b.accion ?? '');
-	if (!event.locals.token)
+	if (!event.locals.token) {
+		// Sin cuenta se puede mirar y descartar: ocultar y deshacer quedan en la pestaña. Sólo sumarse
+		// pide entrar.
+		if (accion === 'ocultar' || accion === 'mostrar') return json({ ok: true, local: true });
 		return json({ ir: `/ingresar?volver=${encodeURIComponent(`/app/plan/${id}`)}` });
+	}
 	try {
 		if (accion === 'caigo') {
 			const r = await conSesion<{ estado: string }>(event, 'POST', `/v1/planes/${id}/sumarme`, {

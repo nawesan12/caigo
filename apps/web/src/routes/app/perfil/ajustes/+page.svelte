@@ -144,14 +144,15 @@
 									name="contacto"
 									bind:value={c.contacto}
 									maxlength="80"
-									placeholder="Teléfono o mail"
+									placeholder="mama@mail.com o 223 592-6772"
 									aria-label="Teléfono o mail del contacto {i + 1}"
 								/>
 							</div>
 						{/each}
 						<p class="nota">
-							Sólo se usan si activás «¿Todo bien?» en un plan. Si es un mail, le escribimos
-							nosotros si no llegás.
+							Sólo se usan si activás «¿Todo bien?» en un plan. Con un mail le escribimos nosotros
+							si no llegás; con un teléfono, te avisamos a vos para que le escribas. Contale a quien
+							cargues.
 						</p>
 						<button class="gel gel-violeta guardar">Guardar</button>
 					</form>
@@ -213,7 +214,7 @@
 		>
 			<input type="hidden" name="ocultar" value={ocultas ? '0' : '1'} />
 			<button class="fila" role="switch" aria-checked={ocultas}>
-				<Icono nombre="escudo" tam={20} color="var(--c-acento)" trazo={2} />
+				<Icono nombre="ojoTachado" tam={20} color="var(--c-acento)" trazo={2} />
 				<span class="ft"
 					><b>Ocultar mis insignias</b><span
 						>Los demás ven tu nivel y tu asistencia,&nbsp;nada más</span

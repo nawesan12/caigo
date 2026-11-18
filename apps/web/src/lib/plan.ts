@@ -92,23 +92,39 @@ export function cobroTexto(p: {
 	return 'Gratis';
 }
 
+/** La asistencia, igual en todas las pantallas: «fue a 9 de 10» (sin porcentaje, no es un puntaje). */
+export function asistenciaTexto(a: { fue: number; de: number } | undefined): string {
+	if (!a || a.de <= 0) return '';
+	return `fue a ${a.fue} de ${a.de}`;
+}
+
 /**
- * La línea de confianza de la tarjeta y el detalle: «Todos verificados · Organiza Martín (9/10) · Van
- * 2 chicas», con lo que da la API (DNI de todos, asistencia real de quien organiza y, sólo en planes
- * «Solo mujeres», cuántas van desde 2). Cada parte va con espacios duros: el renglón sólo se corta
- * entre partes, nunca deja una palabra sola.
+ * La línea de confianza, sólo con lo que distingue a un plan (si no hay nada, ninguna). En la tarjeta:
+ * «Martín fue a 9 de 10 · Anfitrión · Plan de chicas»; de un lugar aliado, «Organiza La Fonda». En el
+ * detalle (`detalle`), quien organiza ya tiene su fila: sólo «Todos verificados · Plan de chicas», que
+ * con el DNI obligatorio casi siempre es cierto y por eso no va en la tarjeta. Cada parte con espacios
+ * duros: el renglón sólo se corta entre partes.
  */
-export function lineaConfianza(p: {
-	organizador: { nombre: string; asistencia?: { fue: number; de: number } };
-	confianza?: { todosVerificados: boolean; soloChicas: boolean; chicas?: number };
-}): string[] {
+export function lineaConfianza(
+	p: {
+		organizador: { nombre: string; asistencia?: { fue: number; de: number }; anfitrion?: boolean };
+		lugar?: { nombre: string } | null;
+		confianza?: { todosVerificados: boolean; soloChicas: boolean };
+	},
+	opciones: { detalle?: boolean } = {}
+): string[] {
 	const c = p.confianza;
 	const partes: string[] = [];
-	if (c?.todosVerificados) partes.push('Todos verificados');
-	const a = p.organizador.asistencia;
-	const nombre = primerNombre(p.organizador.nombre);
-	if (nombre) partes.push(`Organiza ${nombre}` + (a && a.de > 0 ? ` (${a.fue}/${a.de})` : ''));
-	if (c?.chicas && c.chicas >= 2) partes.push(`Van ${c.chicas} chicas`);
-	else if (c?.soloChicas) partes.push('Sólo chicas');
+	if (opciones.detalle) {
+		if (c?.todosVerificados) partes.push('Todos verificados');
+	} else if (p.lugar?.nombre) {
+		partes.push(`Organiza ${p.lugar.nombre}`);
+	} else {
+		const nombre = primerNombre(p.organizador.nombre);
+		const a = asistenciaTexto(p.organizador.asistencia);
+		if (nombre && a) partes.push(`${nombre} ${a}`);
+		if (p.organizador.anfitrion) partes.push('Anfitrión');
+	}
+	if (c?.soloChicas) partes.push('Plan de chicas');
 	return partes.map((x) => x.replace(/ /g, '\u00a0'));
 }

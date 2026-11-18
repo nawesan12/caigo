@@ -33,7 +33,23 @@
 		/** El avioncito de «Mensajes privados» (I.enviar de las apps). */
 		enviar: 'M3 11l18-8-8 18-2-8z',
 		/** Los tres puntos del menú (con trazo grueso, cada punto es un trazo de largo 0). */
-		puntos: 'M5 12h.01M12 12h.01M19 12h.01'
+		puntos: 'M5 12h.01M12 12h.01M19 12h.01',
+		/** «Pedir un auto». */
+		auto: 'M4 17v-4.5L6.2 7h11.6l2.2 5.5V17zM4 12.5h16M7.5 14.5h.01M16.5 14.5h.01M6 17v2.5M18 17v2.5',
+		/** «Me quiero ir» (llamar). */
+		telefono:
+			'M6 3.5h3l1.8 4.6-2.3 1.4a11 11 0 0 0 6 6l1.4-2.3 4.6 1.8v3a1.5 1.5 0 0 1-1.6 1.5C10.4 19 5 13.6 4.5 5.1A1.5 1.5 0 0 1 6 3.5z',
+		/** «Ocultar mis insignias». */
+		ojoTachado:
+			'M3 12s3.5-6 9-6c1.6 0 3 .4 4.3 1.1M21 12s-3.5 6-9 6c-1.6 0-3-.4-4.3-1.1M9.9 9.9a3 3 0 0 0 4.2 4.2M4 4l16 16',
+		/** Fotos del plan. */
+		imagen: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4' + c(15.5, 9, 1.4),
+		/** Las caritas de «¿Cómo estuvo?» (del 1 al 5), del mismo trazo que el resto. */
+		carita1: c(12, 12, 9) + 'M9 9.5h.01M15 9.5h.01M8.5 16.5c1-1.3 2.2-2 3.5-2s2.5.7 3.5 2',
+		carita2: c(12, 12, 9) + 'M9 9.5h.01M15 9.5h.01M9 16c1-.7 2-1 3-1s2 .3 3 1',
+		carita3: c(12, 12, 9) + 'M9 9.5h.01M15 9.5h.01M9 15h6',
+		carita4: c(12, 12, 9) + 'M9 9.5h.01M15 9.5h.01M8.5 14.5c1 1.3 2.2 2 3.5 2s2.5-.7 3.5-2',
+		carita5: c(12, 12, 9) + 'M9 9.5h.01M15 9.5h.01M8 13.5h8c-.6 2.5-2.1 3.8-4 3.8s-3.4-1.3-4-3.8z'
 	} as const;
 
 	export type NombreIcono = keyof typeof D;

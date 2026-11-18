@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import { escucharVivo } from '#lib/vivo.ts';
 	import { enhance } from '$app/forms';
 	import { PUBLIC_SITIO } from '$app/env/public';
@@ -10,7 +11,8 @@
 	import Confirmar from '#lib/app-ui/Confirmar.svelte';
 	import Reportar from '#lib/app-ui/Reportar.svelte';
 	import DiaDelPlan from '#lib/app-ui/DiaDelPlan.svelte';
-	import { enElDia, esVispera } from '#lib/dia.ts';
+	import { caritasTexto, enElDia, esVispera, lugarGuardado } from '#lib/dia.ts';
+	import { beneficioNivelTexto } from '#lib/gestos.ts';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { CATEGORIAS, faltanTexto, fotoDelPlan, lineaConfianza, primerNombre } from '#lib/plan.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
@@ -43,6 +45,36 @@
 			if (e.tipo === 'plan' && e.planId === p.id) invalidateAll();
 		})
 	);
+	// Desde la tarjeta de «Hoy» (Ahora, Mis planes): «Llegué» o «¿Todo bien?» ya en marcha. Y al volver
+	// de verificarse con ?sumar=1: el «Sumarme» que se había tocado se hace solo si no hay nada que
+	// elegir o confirmar (si no, el botón queda a mano).
+	let llegarAlAbrir = $state(false);
+	let formSumar = $state<HTMLFormElement>();
+	onMount(() => {
+		const q = page.url.searchParams;
+		if (!q.has('todobien') && !q.has('llegue') && !q.has('sumar')) return;
+		if (q.has('todobien')) todoBien = true;
+		if (q.has('llegue')) llegarAlAbrir = true;
+		const sumar = q.has('sumar') && (estado ?? 'ninguno') === 'ninguno' && !!data.yo?.verificada;
+		replaceState(page.url.pathname, {});
+		if (!sumar || !formSumar) return;
+		if (!confirmar && !conCobro && p.faltan > 0) formSumar.requestSubmit();
+		else formSumar.querySelector<HTMLButtonElement>('.cta')?.focus();
+	});
+	// La barra fija avisa su alto: el toast va encima, sin tapar «Adentro» ni «Ir al chat».
+	let barra = $state<HTMLElement>();
+	$effect(() => {
+		if (!barra) return;
+		const raiz = document.documentElement;
+		const ro = new ResizeObserver(() =>
+			raiz.style.setProperty('--alto-barra', `${barra!.offsetHeight}px`)
+		);
+		ro.observe(barra);
+		return () => {
+			ro.disconnect();
+			raiz.style.removeProperty('--alto-barra');
+		};
+	});
 	// Lo que vuelve el plan manda: si después de pedir (form: «pendiente») te aceptan, el plan se
 	// recarga en vivo con «aceptada». La respuesta del form sólo cubre lo que el plan no dice.
 	const estado = $derived(p.miEstado || (form && 'estado' in form ? form.estado : undefined));
@@ -69,19 +101,38 @@
 		].filter(Boolean) as string[]
 	);
 	const organiza = $derived(p.lugar ? p.lugar.nombre : primerNombre(p.organizador.nombre));
-	/** La línea de confianza sin «Organiza…» (ya está arriba): «Todos verificados · Van 2 chicas». */
-	const seguro = $derived(lineaConfianza(p).filter((x) => !x.startsWith('Organiza')));
+	/** La línea de confianza del detalle (quien organiza ya tiene su fila): «Todos verificados». */
+	const seguro = $derived(lineaConfianza(p, { detalle: true }));
+	const caritas = $derived(p.lugar ? '' : caritasTexto(p.organizador.caritas));
+	const rep = $derived(p.lugar ? 'Lugar aliado de Caigo' : reputacion(p.organizador.asistencia));
 	const adentro = $derived(estado === 'aceptada' || estado === 'organizador');
 	/** Hoy: cuenta regresiva, Llegué y «¿Todo bien?» (desde 3 h antes hasta el final). */
 	const hoy = $derived(!data.anonimo && adentro && enElDia(p));
-	/** La víspera: «¿Seguís yendo?» (no a quien organiza ni a quien ya confirmó). */
+	/**
+	 * La víspera: «¿Seguís yendo?» (no a quien organiza ni a quien ya confirmó). Sólo en planes gratis:
+	 * con una entrada paga no se libera el lugar con un toque (se cancela la entrada, con su reembolso).
+	 */
 	const vispera = $derived(
-		!data.anonimo && estado === 'aceptada' && !p.cancelado && esVispera(p) && !p.mio?.confirme
+		!data.anonimo &&
+			estado === 'aceptada' &&
+			!p.cancelado &&
+			(p.cobro ?? 'gratis') === 'gratis' &&
+			esVispera(p) &&
+			!p.mio?.confirme
 	);
 	/** Después: caritas, fotos y su gente. */
 	const despues = $derived(!data.anonimo && adentro && yaPaso && !p.cancelado);
 	/** Lista de espera: el plan está completo (o se llenó al tocar «Sumarme»). */
 	const espera = $derived(p.mio?.espera);
+	/** «Es tuyo hasta las 21:40»; vacío si el aviso ya venció. */
+	let reloj = $state(new Date());
+	onMount(() => {
+		const t = setInterval(() => (reloj = new Date()), 30_000);
+		return () => clearInterval(t);
+	});
+	const guardado = $derived(
+		espera?.estado === 'avisado' ? lugarGuardado(espera.venceEn, reloj) : ''
+	);
 	const completo = $derived(p.faltan <= 0 || form?.codigo === 'completo');
 
 	let grupo = $state(false);
@@ -191,8 +242,10 @@
 		{/if}
 		<div class="chips">
 			<span class="chip-off">{CATEGORIAS[p.categoria] ?? p.categoria}</span>
-			{#if ahoraChip}
+			{#if ahoraChip && ahoraChip !== 'Ya pasó' && !hoy}
 				<span class="chip-coral">{ahoraChip}</span>
+			{:else if ahoraChip === 'Ya pasó'}
+				<span class="chip-off">Ya pasó</span>
 			{:else}
 				<span class="chip-off">{cuandoCorto(p.empiezaEn)}</span>
 			{/if}
@@ -202,7 +255,13 @@
 		<h1>{p.titulo}</h1>
 
 		{#if hoy}
-			<DiaDelPlan plan={p} todoBien={data.todoBien} yoId={data.yo?.id} bind:hoja={todoBien} />
+			<DiaDelPlan
+				plan={p}
+				todoBien={data.todoBien}
+				yoId={data.yo?.id}
+				bind:hoja={todoBien}
+				{llegarAlAbrir}
+			/>
 		{/if}
 		{#if vispera}
 			<div class="vispera">
@@ -226,7 +285,12 @@
 		{#if despues}
 			<div class="despues">
 				<a class="fila-d" href="/app/plan/{p.id}/repetimos">
-					<span class="cara" aria-hidden="true">{p.mio?.carita ? '✓' : '🙂'}</span>
+					<Icono
+						nombre={p.mio?.carita ? 'check' : 'carita4'}
+						tam={20}
+						color="var(--c-acento)"
+						trazo={p.mio?.carita ? 3 : 2}
+					/>
 					<span class="ft"
 						><b>{estado === 'organizador' ? '¿Repetimos?' : '¿Cómo estuvo?'}</b><span
 							>{p.mio?.carita ? 'Ya nos contaste. Gracias.' : 'Una carita y tu gente'}</span
@@ -235,7 +299,7 @@
 					<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
 				</a>
 				<a class="fila-d" href="/app/plan/{p.id}/fotos">
-					<Icono nombre="personas" tam={20} color="var(--c-acento)" trazo={2} />
+					<Icono nombre="imagen" tam={20} color="var(--c-acento)" trazo={2} />
 					<span class="ft"
 						><b>Fotos del plan{p.mio?.fotos ? ` · ${p.mio.fotos}` : ''}</b><span
 							>Sólo las ven quienes fueron</span
@@ -250,9 +314,13 @@
 			<div class="cont-fila">
 				<div class="cont-txt">
 					<span class="faltan" class:completo={p.faltan <= 0 || yaPaso || p.cancelado}
-						>{p.cancelado ? 'Se canceló' : yaPaso ? 'Ya pasó' : faltanTexto(p.faltan)}</span
+						>{p.cancelado
+							? 'Se canceló'
+							: yaPaso
+								? `Fueron ${p.somos}`
+								: faltanTexto(p.faltan)}</span
 					>
-					<span class="somos">Somos {p.somos} de {p.total}</span>
+					{#if !yaPaso && !p.cancelado}<span class="somos">Somos {p.somos} de {p.total}</span>{/if}
 				</div>
 				<div class="avs">
 					{#each vistos as v (v.id)}
@@ -261,24 +329,24 @@
 					{#if resto > 0}<span class="mas">+{resto}</span>{/if}
 				</div>
 			</div>
-			<div class="segs" style:grid-template-columns="repeat({segmentos.length}, 1fr)">
-				{#each segmentos as lleno, i (i)}<span class:lleno></span>{/each}
-			</div>
+			{#if !yaPaso && !p.cancelado}
+				<div class="segs" style:grid-template-columns="repeat({segmentos.length}, 1fr)">
+					{#each segmentos as lleno, i (i)}<span class:lleno></span>{/each}
+				</div>
+			{/if}
 		</div>
 
 		<div class="org">
 			<Avatar nombre={organiza} foto={p.lugar?.foto || p.organizador.foto} tam={44} />
 			<div class="org-txt">
 				<span class="org-nombre"
-					>Organiza {organiza}{#if p.organizador.verificada}<Verificado />{/if}</span
-				>
-				<span class="or"
-					>{p.lugar
-						? 'Lugar aliado de Caigo'
-						: reputacion(p.organizador.asistencia)}{#if !p.lugar && p.organizador.anfitrion}<span
-							class="anfitrion">Anfitrión</span
+					>Organiza {organiza}{#if p.organizador.verificada}<Verificado
+						/>{/if}{#if !p.lugar && p.organizador.anfitrion}<span class="insignia">Anfitrión</span
 						>{/if}</span
 				>
+				{#if rep || caritas}<span class="or"
+						>{[rep, caritas].filter(Boolean).join('\u00a0· ').replace(/ /g, '\u00a0')}</span
+					>{/if}
 			</div>
 		</div>
 		{#if seguro.length}
@@ -338,7 +406,9 @@
 			{#if p.lugar?.beneficioNivel}
 				<div class="fila">
 					<Icono nombre="regalo" tam={20} color="var(--c-acento)" trazo={2} />
-					<span class="ft">Habitué o más: {sinViuda(p.lugar.beneficioNivel)}</span>
+					<span class="ft"
+						>{sinViuda(beneficioNivelTexto(p.lugar.beneficioNivel, data.yo?.logros ?? null))}</span
+					>
 				</div>
 			{/if}
 		</div>
@@ -374,7 +444,7 @@
 	</div>
 </div>
 
-<div class="barra">
+<div class="barra" bind:this={barra}>
 	{#if form?.error}<p class="error" role="alert">
 			{form.error}
 		</p>{/if}
@@ -397,7 +467,19 @@
 	{/if}
 	{#if p.cancelado}
 		<span class="estado esperando">Este plan se canceló</span>
-	{:else if yaPaso && estado !== 'organizador' && estado !== 'aceptada'}
+	{:else if yaPaso && (estado === 'organizador' || estado === 'aceptada')}
+		<!-- Ya pasó: lo que queda es el cierre (¿Cómo estuvo? / ¿Repetimos?) y las fotos. -->
+		<div class="dos">
+			<a class="gel gel-lima grande" href="/app/plan/{p.id}/repetimos"
+				>{estado === 'organizador' ? '¿Repetimos?' : '¿Cómo estuvo?'}</a
+			>
+			{#if estado === 'organizador'}
+				<a class="gel gel-blanco grande" href="/app/plan/{p.id}/solicitudes">Quiénes fueron</a>
+			{:else}
+				<a class="gel gel-blanco grande" href="/app/plan/{p.id}/fotos">Fotos</a>
+			{/if}
+		</div>
+	{:else if yaPaso}
 		<span class="estado esperando">Ya pasó</span>
 	{:else if estado === 'organizador'}
 		<div class="dos">
@@ -430,8 +512,10 @@
 			<button disabled={enviando}>Cancelar el pedido</button>
 		</form>
 	{:else if espera}
-		{#if espera.estado === 'avisado'}
-			<p class="libre" role="status">Se liberó un lugar. Es tuyo por 15&nbsp;min.</p>
+		{#if espera.estado === 'avisado' && !guardado}
+			<p class="libre" role="status">Se venció tu lugar. Si se libera otro, te avisamos.</p>
+		{:else if espera.estado === 'avisado'}
+			<p class="libre" role="status">Se liberó un lugar. {guardado.replace(/ /g, '\u00a0')}.</p>
 			<form
 				method="POST"
 				action="?/sumarme"
@@ -489,6 +573,7 @@
 		<form
 			method="POST"
 			action="?/sumarme"
+			bind:this={formSumar}
 			use:enhance={() => {
 				enviando = true;
 				return async ({ update }) => {
@@ -773,6 +858,7 @@
 	}
 	.org-nombre {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: 6px;
 		font-size: 15px;
@@ -1062,15 +1148,6 @@
 		background: var(--c-esperando);
 		box-shadow: inset 0 2px 4px rgba(116, 86, 241, 0.18);
 	}
-	.anfitrion {
-		margin-left: 8px;
-		padding: 2px 8px;
-		border-radius: 8px;
-		background: var(--grad-lima);
-		color: #24212d;
-		font-size: 12px;
-		font-weight: 700;
-	}
 	.adentro {
 		color: #ffffff;
 		background: var(--c-adentro);
@@ -1162,11 +1239,6 @@
 		font-size: 12px;
 		font-weight: 400;
 		color: var(--texto-2);
-	}
-	.cara {
-		width: 20px;
-		text-align: center;
-		font-size: 18px;
 	}
 	.libre {
 		padding: 10px 12px;

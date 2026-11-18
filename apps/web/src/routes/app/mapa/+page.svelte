@@ -23,6 +23,7 @@
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const p = new URLSearchParams();
 		if (c) p.set('categoria', c);
+		if (data.chicas) p.set('chicas', '1');
 		if (b.trim().length >= 2) p.set('q', b.trim());
 		const s = p.toString();
 		return s ? `?${s}` : '';

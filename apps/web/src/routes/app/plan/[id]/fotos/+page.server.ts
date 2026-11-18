@@ -13,14 +13,17 @@ export const load: PageServerLoad = async (event) => {
 		const plan = await conSesion<Plan>(event, 'GET', `/v1/planes/${id}`);
 		let fotos: FotoPlan[] = [];
 		let cerrado = '';
+		// Un error que no es «no fuiste» no es «no hay fotos»: la pantalla ofrece probar de nuevo.
+		let falla = '';
 		try {
 			fotos = (await conSesion<{ fotos: FotoPlan[] }>(event, 'GET', `/v1/planes/${id}/fotos`))
 				.fotos;
 		} catch (e) {
-			if (!(e instanceof ErrorApi) || e.estado !== 404) throw e;
-			cerrado = mensajeDe(e);
+			if (!(e instanceof ErrorApi)) throw e;
+			if (e.estado === 404) cerrado = mensajeDe(e);
+			else falla = mensajeDe(e);
 		}
-		return { plan, fotos, cerrado };
+		return { plan, fotos, cerrado, error: falla };
 	} catch (e) {
 		if (e instanceof ErrorApi && e.estado === 404) error(404, e.detalle);
 		throw e;
@@ -63,5 +66,9 @@ export const actions: Actions = {
 		return { subida: true };
 	},
 	borrar: async (event) => sobreFoto(event, 'DELETE'),
-	reportar: async (event) => sobreFoto(event, 'POST', '/reportar')
+	reportar: async (event) => {
+		const f = await event.request.clone().formData();
+		const motivo = f.get('motivo') === 'salgo_yo' ? 'salgo_yo' : 'inapropiada';
+		return sobreFoto(event, 'POST', `/reportar?motivo=${motivo}`);
+	}
 };

@@ -4,7 +4,7 @@ import { conUbicacion } from '#lib/server/app.ts';
 import { uuid } from '#lib/server/panel.ts';
 import { leerPedido, sumarse } from '#lib/server/sumarse.ts';
 import { enElDia } from '#lib/dia.ts';
-import type { Plan, TodoBien } from '#lib/tipos.ts';
+import type { Plan, TodoBien, YoCompleto } from '#lib/tipos.ts';
 
 type MisPases = { entradas: { id: string; planId: string; estado: string }[] };
 import type { Actions, PageServerLoad } from './$types';
@@ -58,7 +58,7 @@ export const actions: Actions = {
 			if (e.codigo === 'falta_selfie' || e.codigo === 'falta_dni')
 				redirect(
 					303,
-					`/app/verificar?motivo=sumarte&volver=${encodeURIComponent(`/app/plan/${id}`)}`
+					`/app/verificar?motivo=sumarte&volver=${encodeURIComponent(`/app/plan/${id}?sumar=1`)}`
 				);
 			return fail(e.estado === 400 ? 400 : 409, { error: mensajeDe(e), codigo: e.codigo });
 		}
@@ -119,6 +119,33 @@ export const actions: Actions = {
 		});
 	},
 	apagarTodoBien: async (event) => accion(event, 'DELETE', 'todo-bien'),
+	/**
+	 * Sin contactos de confianza: se carga uno desde la hoja y queda activo en el mismo toque (el perfil
+	 * guarda la lista; se suma al final, sin tocar los demás).
+	 */
+	contactoTodoBien: async (event) => {
+		const f = await event.request.formData();
+		const nuevo = {
+			nombre: String(f.get('nombre') ?? '')
+				.trim()
+				.slice(0, 40),
+			contacto: String(f.get('contacto') ?? '')
+				.trim()
+				.slice(0, 80)
+		};
+		if (!nuevo.contacto) return fail(400, { error: 'Poné un mail o un teléfono.' });
+		let indice: number;
+		try {
+			const yo = await conSesion<YoCompleto>(event, 'GET', '/v1/yo');
+			const lista = [...(yo.contactosConfianza ?? []), nuevo].slice(0, 3);
+			indice = lista.length - 1;
+			await conSesion(event, 'PATCH', '/v1/yo', { cuerpo: { contactosConfianza: lista } });
+		} catch (e) {
+			if (!(e instanceof ErrorApi)) throw e;
+			return fail(400, { error: mensajeDe(e), codigo: e.codigo });
+		}
+		return accion(event, 'POST', 'todo-bien', { contacto: indice });
+	},
 	/** «Llegué» desde el navegador: check-in por ubicación (la API mira que estés a 150 m). */
 	llegue: async (event) => {
 		const f = await event.request.formData();

@@ -59,6 +59,15 @@
 			{#if donde}<span class="donde">{donde}</span>{/if}
 		</div>
 
+		{#if !yo.verificada}
+			<!-- Sin DNI, lo único que falta va primero (y lo de ir a planes, después). -->
+			<a class="verificar" href="/app/verificar?volver=/app/perfil">
+				<span class="v-t">Verificate para sumarte</span>
+				<span class="v-s">Con tu DNI, una sola vez. Mirar ya podés.</span>
+				<span class="gel gel-lima v-b">Verificarme</span>
+			</a>
+		{/if}
+
 		<div class="stats">
 			<div class="st oscura">
 				<span class="sv lima">{pct === null ? '—' : `${pct}%`}</span>
@@ -78,7 +87,7 @@
 			</div>
 		</div>
 
-		{#if logros}
+		{#if logros && yo.verificada}
 			<!-- Premios por ir: sobrio, sin puntos. Nivel, racha semanal, insignias y lo que falta. -->
 			<div class="caja logros">
 				<div class="l-arriba">
@@ -86,11 +95,13 @@
 					{#if rachaTexto(logros)}<span class="sd">{rachaTexto(logros)}</span>{/if}
 				</div>
 				{#if logros.insignias.length}
-					<div class="chips">
+					<ul class="insignias">
 						{#each logros.insignias as ins (ins.id)}
-							<span class="interes" title={ins.detalle}>{ins.nombre}</span>
+							<li>
+								<span class="insignia">{ins.nombre}</span><span class="sd">{ins.detalle}</span>
+							</li>
 						{/each}
-					</div>
+					</ul>
 				{/if}
 				{#if siguienteTexto(logros)}<span class="sd">{siguienteTexto(logros)}</span>{/if}
 			</div>
@@ -136,14 +147,15 @@
 			<Icono nombre="flecha" tam={20} trazo={2.2} />
 		</a>
 
-		<a class="gente" href="/app/perfil/invitar">
-			<div class="g-txt">
-				<span class="rot">Traé a alguien</span>
-				<span class="sd">Cuando vaya a su primer plan, los dos tienen una semana de&nbsp;Plus.</span
-				>
-			</div>
-			<Icono nombre="flecha" tam={20} trazo={2.2} />
-		</a>
+		{#if yo.verificada}<a class="gente" href="/app/perfil/invitar">
+				<div class="g-txt">
+					<span class="rot">Traé a alguien</span>
+					<span class="sd"
+						>Cuando vaya a su primer plan, los dos tienen una semana de&nbsp;Plus.</span
+					>
+				</div>
+				<Icono nombre="flecha" tam={20} trazo={2.2} />
+			</a>{/if}
 
 		{#if data.compartidos.length}
 			<div class="bloque">
@@ -165,6 +177,50 @@
 </div>
 
 <style>
+	.verificar {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		padding: 18px;
+		border-radius: 24px;
+		background: var(--c-contador);
+		outline: 1px solid var(--c-contador-borde);
+		outline-offset: -1px;
+		color: #faf9f6;
+		text-decoration: none;
+	}
+	.v-t {
+		font:
+			800 22px/1.15 'Geist',
+			sans-serif;
+		letter-spacing: -0.6px;
+		color: #c8f36b;
+	}
+	.v-s {
+		font-size: 14px;
+		font-weight: 600;
+		text-wrap: pretty;
+	}
+	.v-b {
+		align-self: flex-start;
+		margin-top: 10px;
+		padding: 12px 20px;
+		border-radius: 16px;
+		font-size: 16px;
+	}
+	.insignias {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.insignias li {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
 	.ajustes {
 		position: absolute;
 		top: calc(16px + env(safe-area-inset-top));

@@ -1,5 +1,12 @@
 /** Respuesta de /app/plan/{id}/gesto. */
-export type ResultadoGesto = { estado?: string; ok?: boolean; ir?: string; error?: string };
+export type ResultadoGesto = {
+	estado?: string;
+	ok?: boolean;
+	/** Sin sesión: ocultar y mostrar quedan en la pestaña. */
+	local?: boolean;
+	ir?: string;
+	error?: string;
+};
 
 /** «Caigo», «No me interesa» y «Deshacer» desde la lista (ver routes/app/plan/[id]/gesto). */
 export async function gesto(

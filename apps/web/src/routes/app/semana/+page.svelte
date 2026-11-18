@@ -11,6 +11,23 @@
 	let { data } = $props();
 	const s = $derived(data.semana);
 	const max = $derived(Math.max(1, ...s.dias.map((d) => d.cantidad)));
+	/** Sólo las cifras que dicen algo: un cero grande hace parecer vacía la ciudad. */
+	const numeros = $derived(
+		[
+			{ n: s.total, t: s.total === 1 ? 'plan' : 'planes' },
+			{ n: s.aliados, t: 'aliados' },
+			{ n: s.deTuGente, t: 'de tu gente' }
+		].filter((x, i) => i === 0 || x.n > 0)
+	);
+	const DIAS_LARGOS: Record<string, string> = {
+		Dom: 'domingo',
+		Lun: 'lunes',
+		Mar: 'martes',
+		Mié: 'miércoles',
+		Jue: 'jueves',
+		Vie: 'viernes',
+		Sáb: 'sábado'
+	};
 </script>
 
 <svelte:head><title>Esta semana · Caigo</title></svelte:head>
@@ -18,19 +35,28 @@
 <div class="scroll">
 	<div class="contenido">
 		<CabeceraVolver volver="/app" titulo="Esta semana" sub={s.ciudad} />
-		<div class="numeros">
-			<div class="num"><b>{s.total}</b><span>planes</span></div>
-			<div class="num"><b>{s.aliados}</b><span>en lugares aliados</span></div>
-			<div class="num"><b>{s.deTuGente}</b><span>de tu gente</span></div>
+		<div class="numeros" style:grid-template-columns="repeat({numeros.length}, 1fr)">
+			{#each numeros as x (x.t)}
+				<div class="num"><b>{x.n}</b><span>{x.t}</span></div>
+			{/each}
 		</div>
 		<div class="dias" style:grid-template-columns="repeat({s.dias.length}, 1fr)">
 			{#each s.dias as d (d.dia)}
 				{@const c = diaCorto(d.dia)}
-				<a class="dia" href="/app/explorar?fecha={d.dia}" class:vacio={!d.cantidad}>
-					<span class="dn">{c.nombre}</span>
-					<span class="dd">{c.numero}</span>
-					<span class="barra"><span style:height="{(d.cantidad / max) * 100}%"></span></span>
-					<span class="dc">{d.cantidad}</span>
+				<a
+					class="dia"
+					href="/app/explorar?fecha={d.dia}"
+					class:vacio={!d.cantidad}
+					aria-label="{DIAS_LARGOS[c.nombre] ?? c.nombre} {c.numero}: {d.cantidad === 1
+						? '1 plan'
+						: `${d.cantidad} planes`}"
+				>
+					<span class="dn" aria-hidden="true">{c.nombre}</span>
+					<span class="dd" aria-hidden="true">{c.numero}</span>
+					<span class="barra" aria-hidden="true"
+						><span style:height="{(d.cantidad / max) * 100}%"></span></span
+					>
+					<span class="dc" aria-hidden="true">{d.cantidad}</span>
 				</a>
 			{/each}
 		</div>

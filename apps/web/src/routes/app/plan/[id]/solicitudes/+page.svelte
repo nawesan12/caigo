@@ -10,7 +10,8 @@
 	import Verificado from '#lib/app-ui/Verificado.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
-	import { faltanTexto, primerNombre } from '#lib/plan.ts';
+	import { terminado } from '#lib/app.ts';
+	import { asistenciaTexto, faltanTexto, primerNombre } from '#lib/plan.ts';
 	import type { PersonaCorta } from '#lib/tipos.ts';
 
 	/* Solicitudes (Mockups v5, 07); sin pedidos, 13c "Nadie pidió sumarse todavía". */
@@ -24,6 +25,10 @@
 			if (e.tipo === 'plan' && e.planId === p.id) invalidateAll();
 		})
 	);
+	/** El plan ya pasó: «Fueron», y quien organiza corrige a quien fue y no marcó «Llegué». */
+	const paso = $derived(terminado(p));
+	/** Se usó el check-in (alguien llegó): sin eso no hay nada que corregir. */
+	const conCheckin = $derived(p.van.some((v) => v.llego));
 	/** Los que ya están adentro (sin quien organiza). */
 	const adentro = $derived(p.van.filter((v) => !v.organizador));
 	let aSacar = $state<PersonaCorta | null>(null);
@@ -31,13 +36,15 @@
 	let respondiendo = $state<string | null>(null);
 	let sacarAbierta = $state(false);
 	const sub = $derived(`${p.titulo} · ${cuandoCorto(p.empiezaEn)}`);
+	/** La asistencia de los aceptados viene de sus solicitudes (la lista del plan no la trae). */
+	const asistenciaDe = $derived(
+		new Map(data.aceptadas.map((x) => [x.persona.id, x.persona.asistencia]))
+	);
+	/** «Fue a 3 de 5 · está en tu gente». Sin dato, nada (no inventamos un «Nuevo»). */
 	const datoDe = (x: PersonaCorta) => {
-		const a = x.asistencia;
-		const rep =
-			a && a.de > 0
-				? `${Math.round((a.fue / a.de) * 100)}% asistencia · ${a.de} ${a.de === 1 ? 'plan' : 'planes'}`
-				: 'Nuevo en Caigo · todavía sin planes';
-		return x.enMiGente ? `${rep} · está en tu gente` : rep;
+		const a = asistenciaTexto(x.asistencia ?? asistenciaDe.get(x.id));
+		const partes = [a && `F${a.slice(1)}`, x.enMiGente && 'está en tu gente'].filter(Boolean);
+		return partes.join(' · ');
 	};
 	async function compartir() {
 		const link = `${PUBLIC_SITIO.replace(/\/+$/, '')}/p/${p.slug}`;
@@ -120,7 +127,7 @@
 										? `, ${s.persona.edad}`
 										: ''}{#if s.persona.verificada}<Verificado tam={15} />{/if}</span
 							>
-							<span class="d">{datoDe(s.persona)}</span>
+							{#if datoDe(s.persona)}<span class="d">{datoDe(s.persona)}</span>{/if}
 							{#if (s.persona.faltazos ?? 0) >= 2}<span class="d faltazos"
 									>Faltó a {s.persona.faltazos} planes este&nbsp;mes</span
 								>{/if}
@@ -163,7 +170,7 @@
 		{/if}
 
 		{#if adentro.length && !p.cancelado}
-			<span class="overline-app">YA VAN</span>
+			<span class="overline-app">{paso ? 'FUERON' : 'YA VAN'}</span>
 			{#each adentro as v (v.id)}
 				<div class="sol">
 					<div class="sol-cab">
@@ -174,15 +181,30 @@
 										tam={15}
 									/>{/if}</span
 							>
-							<span class="d">{datoDe(v)}</span>
+							{#if datoDe(v)}<span class="d">{datoDe(v)}</span>{/if}
 						</div>
-						<button
-							class="sacar"
-							onclick={() => {
-								aSacar = v;
-								sacarAbierta = true;
-							}}>Sacar</button
-						>
+						{#if !paso}
+							<button
+								class="sacar"
+								onclick={() => {
+									aSacar = v;
+									sacarAbierta = true;
+								}}>Sacar</button
+							>
+						{:else if conCheckin && !v.llego}
+							<form
+								method="POST"
+								action="?/vino"
+								use:enhance={() =>
+									async ({ result, update }) => {
+										if (result.type === 'success') avisar('Listo, quedó que vino.');
+										await update();
+									}}
+							>
+								<input type="hidden" name="usuario" value={v.id} />
+								<button class="sacar">Marcar que vino</button>
+							</form>
+						{/if}
 					</div>
 				</div>
 			{/each}
@@ -204,7 +226,6 @@
 
 <style>
 	.d.faltazos {
-		color: #c23a28;
 		font-weight: 600;
 	}
 	.contenido {

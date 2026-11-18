@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { PUBLIC_SITIO } from '$app/env/public';
 	import Avatar from './Avatar.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
@@ -46,15 +47,41 @@
 		}
 	}
 
+	// Es un diálogo modal: el foco entra (al título, que se anuncia), no sale con Tab y vuelve a donde
+	// estaba al cerrarse.
+	let caja = $state<HTMLElement>();
+	let titulo = $state<HTMLElement>();
+	$effect(() => {
+		if (!abierto) return;
+		const antes = document.activeElement as HTMLElement | null;
+		tick().then(() => titulo?.focus());
+		return () => antes?.focus?.();
+	});
+
 	function tecla(e: KeyboardEvent) {
-		if (abierto && e.key === 'Escape') abierto = false;
+		if (!abierto) return;
+		if (e.key === 'Escape') {
+			abierto = false;
+			return;
+		}
+		if (e.key !== 'Tab' || !caja) return;
+		const f = [...caja.querySelectorAll<HTMLElement>('a[href], button:not([tabindex="-1"])')];
+		if (!f.length) return;
+		const [primero, ultimo] = [f[0], f[f.length - 1]];
+		if (e.shiftKey && document.activeElement === primero) {
+			e.preventDefault();
+			ultimo.focus();
+		} else if (!e.shiftKey && document.activeElement === ultimo) {
+			e.preventDefault();
+			primero.focus();
+		}
 	}
 </script>
 
 <svelte:window onkeydown={tecla} />
 
 {#if abierto}
-	<div class="festejo" role="dialog" aria-modal="true" aria-labelledby="festejo-t">
+	<div class="festejo" role="dialog" aria-modal="true" aria-labelledby="festejo-t" bind:this={caja}>
 		<button class="cerrar" type="button" aria-label="Cerrar" onclick={() => (abierto = false)}
 			><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"
 				><path
@@ -73,7 +100,7 @@
 			onclick={() => (abierto = false)}
 		></button>
 		<div class="centro">
-			<h2 id="festejo-t">¡Estás adentro!</h2>
+			<h2 id="festejo-t" tabindex="-1" bind:this={titulo}>¡Estás adentro!</h2>
 			<p class="plan">{plan.titulo}</p>
 			<div class="caras">
 				{#each otros as v, i (v.id || i)}
@@ -97,6 +124,9 @@
 {/if}
 
 <style>
+	h2:focus {
+		outline: none;
+	}
 	.festejo {
 		position: absolute;
 		inset: 0;

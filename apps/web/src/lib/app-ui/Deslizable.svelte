@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 
 	/**
 	 * La tarjeta de la lista con gestos de un pulgar (A1 del informe del 18/11): a la derecha «Caigo»
@@ -11,14 +11,37 @@
 		children,
 		titulo,
 		onderecha,
-		onizquierda
+		onizquierda,
+		pista = false
 	}: {
 		children: Snippet;
 		titulo: string;
 		/** null: el plan no admite «Caigo» (ya estás, está completo). */
 		onderecha: (() => void) | null;
 		onizquierda: () => void;
+		/**
+		 * La primera vez (una sola, en este navegador), la tarjeta se corre unos 40 px a cada lado y deja
+		 * ver los dos fondos: así se descubre el gesto sin un tour ni texto.
+		 */
+		pista?: boolean;
 	} = $props();
+
+	const PISTA = 'caigo-pista-gestos';
+	onMount(() => {
+		if (!pista || quieto()) return;
+		try {
+			if (localStorage.getItem(PISTA)) return;
+			localStorage.setItem(PISTA, '1');
+		} catch {
+			return;
+		}
+		const ts = [
+			setTimeout(() => (dx = onderecha ? 44 : -44), 700),
+			setTimeout(() => (dx = -44), 1300),
+			setTimeout(() => (dx = 0), 1900)
+		];
+		return () => ts.forEach(clearTimeout);
+	});
 
 	let dx = $state(0);
 	let arrastrando = $state(false);
@@ -103,7 +126,7 @@
 		<span class="caigo" class:listo={dx >= umbral()}>
 			<svg width="18" height="18" viewBox="0 0 24 24"
 				><path d="M12 4v16M4 12h16" stroke="#24212D" stroke-width="4" stroke-linecap="round" /></svg
-			>Caigo
+			>Sumarme
 		</span>
 		<span class="no" class:listo={-dx >= umbral()}>No me interesa</span>
 	</div>
@@ -123,8 +146,8 @@
 		{@render children()}
 	</div>
 	<div class="acciones">
-		{#if onderecha}<button type="button" aria-label="Caigo a {titulo}" onclick={onderecha}
-				>Caigo</button
+		{#if onderecha}<button type="button" aria-label="Sumarme a {titulo}" onclick={onderecha}
+				>Sumarme</button
 			>{/if}
 		<button type="button" aria-label="No me interesa {titulo}" onclick={onizquierda}
 			>No me interesa</button

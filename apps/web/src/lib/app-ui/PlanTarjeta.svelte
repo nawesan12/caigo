@@ -40,6 +40,5 @@
 	href="/app/plan/{plan.id}"
 	{accion}
 	confianza={lineaConfianza(plan)}
-	verificados={!!plan.confianza?.todosVerificados}
-	anfitrion={!plan.lugar && !!plan.organizador?.anfitrion}
+	lugarAliado={!!plan.lugar}
 />

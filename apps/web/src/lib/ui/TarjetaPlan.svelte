@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Avatares, { type Avatar } from './Avatares.svelte';
-	import Verificado from '#lib/app-ui/Verificado.svelte';
 	import { faltanTexto } from '#lib/plan.ts';
 
 	/** La tarjeta de plan de "Ahora · lista" (Mockups v5, pantalla 02). */
@@ -19,8 +18,7 @@
 		enlace,
 		accion = 'Sumarme',
 		confianza = [],
-		verificados = false,
-		anfitrion = false,
+		lugarAliado = false,
 		alta = false
 	}: {
 		foto?: string;
@@ -38,12 +36,10 @@
 		/** Toda la tarjeta lleva acá (el detalle del plan). */
 		enlace?: string;
 		accion?: string;
-		/** La línea de confianza (lineaConfianza): «Todos verificados · Organiza Martín (9/10)». */
+		/** La línea de confianza (lineaConfianza): «Martín fue a 9 de 10 · Anfitrión». */
 		confianza?: string[];
-		/** Con el sello violeta adelante: todos los que van tienen el DNI. */
-		verificados?: boolean;
-		/** Quien organiza es «Anfitrión» (un chip chico más, sin puntos ni nada). */
-		anfitrion?: boolean;
+		/** Plan de un lugar aliado: el chip lima de la foto (Prototipo, p.isVenue). */
+		lugarAliado?: boolean;
 		/** Foto más alta («Decidí rápido»). */
 		alta?: boolean;
 	} = $props();
@@ -63,7 +59,7 @@
 		<div class="chips">
 			<span class="cat">{categoria}</span>
 			<span class="cuando">{cuando}</span>
-			{#if anfitrion}<span class="anfitrion">Anfitrión</span>{/if}
+			{#if lugarAliado}<span class="aliado">Lugar aliado</span>{/if}
 		</div>
 		<span class={faltan > 0 ? 'badge-coral badge' : 'badge-completo badge'}
 			>{faltanTexto(faltan)}</span
@@ -76,7 +72,8 @@
 		</div>
 		<div class="pie">
 			<div class="quienes">
-				<Avatares {personas} total={somos} />
+				<!-- Con el botón al lado, dos caras y el resto en «+N»: el cupo no se corta a 375 px. -->
+				<Avatares {personas} total={somos} max={href ? 2 : 3} />
 				<span class="sub">Somos {somos} de {total}</span>
 			</div>
 			{#if href}
@@ -97,9 +94,7 @@
 			{/if}
 		</div>
 		{#if confianza.length}
-			<p class="confianza">
-				{#if verificados}<Verificado tam={14} />{/if}<span>{confianza.join('\u00a0· ')}</span>
-			</p>
+			<p class="confianza">{confianza.join('\u00a0· ')}</p>
 		{/if}
 	</div>
 </article>
@@ -149,7 +144,7 @@
 		background: var(--c-cat);
 		color: var(--c-cat-texto);
 	}
-	.anfitrion {
+	.aliado {
 		background: var(--grad-lima);
 		color: #24212d;
 	}
@@ -193,13 +188,17 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		gap: 10px;
+		gap: 12px;
 	}
 	.quienes {
+		flex: 1 1 auto;
 		display: flex;
 		align-items: center;
 		gap: 10px;
 		min-width: 0;
+		overflow: hidden;
+		/* Aire contra el botón. */
+		margin-right: 2px;
 	}
 	.sub {
 		margin-left: 6px;
@@ -209,17 +208,11 @@
 		white-space: nowrap;
 	}
 	.confianza {
-		display: flex;
-		align-items: flex-start;
-		gap: 6px;
 		margin-top: -2px;
 		font-size: 12px;
 		font-weight: 600;
 		line-height: 1.35;
 		color: var(--texto-2);
-	}
-	.confianza :global(svg) {
-		margin-top: 1px;
 	}
 	.sumarme {
 		position: relative;
