@@ -318,6 +318,10 @@ struct Dni: View {
         } catch let e as ErrorApi {
             if e.codigo == "pendiente" {
                 paso = .enviado
+            } else if e.codigo == "ya_verificado" {
+                // Ya estaba aprobado (otro intento, o desde la web): se sigue como si recién se aprobara.
+                paso = .aprobado
+                await c.recargarYo()
             } else {
                 c.avisos.error(ingresoMensaje(e))
                 vida.reiniciar()

@@ -211,7 +211,11 @@ fun Dni(ir: Ir, planId: String?, alta: Boolean = false) {
                 c.recargarYo()
             } catch (e: ErrorApi) {
                 if (e.codigo == "pendiente") paso = PasoDni.ENVIADO
-                else {
+                else if (e.codigo == "ya_verificado") {
+                    // Ya estaba aprobado (otro intento, o desde la web): se sigue como si recién se aprobara.
+                    paso = PasoDni.APROBADO
+                    c.recargarYo()
+                } else {
                     avisos.error(ingresoMensaje(e))
                     vida.reiniciar(); selfie = null; frente = null; dorso = null; datos = null
                     paso = PasoDni.FRENTE
