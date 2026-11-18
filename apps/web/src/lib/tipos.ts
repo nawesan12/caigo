@@ -11,6 +11,53 @@ export type PersonaCorta = {
 	asistencia?: { fue: number; de: number };
 	enMiGente?: boolean;
 	organizador?: boolean;
+	/** Ya hizo check-in en el plan. */
+	llego?: boolean;
+	/** Promedio de las caritas de sus planes (sólo de quien organiza, con 3 o más). */
+	caritas?: { promedio: number; cantidad: number };
+};
+
+/** Lo de quien mira en un plan donde está (día del plan, después, lista de espera). */
+export type Mio = {
+	llegue: boolean;
+	confirme: boolean;
+	carita?: number;
+	todoBien: boolean;
+	fotos: number;
+	espera?: { estado: 'esperando' | 'avisado'; posicion: number; venceEn?: string };
+};
+
+/** Contacto de confianza (perfil): nombre y teléfono o mail. */
+export type Contacto = { nombre: string; contacto: string };
+
+/** GET /v1/planes/{id}/todo-bien. */
+export type TodoBien = {
+	activo: boolean;
+	contacto?: Contacto;
+	avisaEn?: string;
+	avisado: boolean;
+	contactos: Contacto[];
+};
+
+/** GET /v1/planes/{id}/fotos. */
+export type FotoPlan = {
+	id: string;
+	url: string;
+	autor: PersonaCorta;
+	mia: boolean;
+	creadaEn: string;
+};
+
+/** GET /v1/semana: «Esta semana en <ciudad>». */
+export type Semana = {
+	ciudad: string;
+	desde: string;
+	hasta: string;
+	total: number;
+	aliados: number;
+	deTuGente: number;
+	dias: { dia: string; cantidad: number }[];
+	planes: Plan[];
 };
 
 export type Plan = {
@@ -59,6 +106,8 @@ export type Plan = {
 	aceptaGrupos: boolean;
 	/** Sólo para quien organiza: el equipo lo revisa o lo ocultó. */
 	moderacion?: Moderacion;
+	/** Lo de quien mira, si está en el plan o en la lista de espera. */
+	mio?: Mio;
 };
 
 export type Lugar = {
@@ -354,7 +403,8 @@ export type YoCompleto = Yo & {
 	prompts: Prompt[];
 	telefono?: string;
 	contactoConfianza?: string;
-	avisos?: { planesCerca: boolean; tuGente: boolean };
+	contactosConfianza?: Contacto[];
+	avisos?: { planesCerca: boolean; tuGente: boolean; semana?: boolean };
 	origen?: string;
 };
 

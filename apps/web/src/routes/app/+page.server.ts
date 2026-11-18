@@ -1,4 +1,6 @@
-import { planesQuizas } from '#lib/server/api.ts';
+import { conSesion, planesQuizas } from '#lib/server/api.ts';
+import { semanaVisible } from '#lib/dia.ts';
+import type { Semana } from '#lib/tipos.ts';
 import { conUbicacion } from '#lib/server/app.ts';
 import { FILTROS_AHORA } from '#lib/app.ts';
 import type { PageServerLoad } from './$types';
@@ -14,5 +16,9 @@ export const load: PageServerLoad = async (event) => {
 		`/v1/planes/ahora?${q}`,
 		`/v1/publico/planes/ahora?${q}`
 	);
-	return { planes, aviso, categoria };
+	// «Esta semana en <ciudad>»: la tarjeta de los lunes (hasta el miércoles), si hay 5 planes o más.
+	let semana: Semana | null = null;
+	if (event.locals.token && yo?.ciudad && semanaVisible())
+		semana = await conSesion<Semana>(event, 'GET', '/v1/semana').catch(() => null);
+	return { planes, aviso, categoria, semana: semana && semana.total >= 5 ? semana : null };
 };

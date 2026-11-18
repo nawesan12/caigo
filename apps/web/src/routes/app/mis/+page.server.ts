@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
 import { uuid } from '#lib/server/panel.ts';
 import { sinLeer } from '#lib/server/privados.ts';
@@ -33,6 +33,27 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions: Actions = {
+	/** «Repetir» en un toque: el mismo plan la semana que viene (POST /repetimos con repetir). */
+	repetir: async (event) => {
+		const id = uuid(String((await event.request.formData()).get('id') ?? ''));
+		let nuevo: string | undefined;
+		try {
+			const r = await conSesion<{ nuevo?: Plan | null }>(
+				event,
+				'POST',
+				`/v1/planes/${id}/repetimos`,
+				{
+					cuerpo: { repetir: true, volveria: [] }
+				}
+			);
+			nuevo = r?.nuevo?.id;
+		} catch (e) {
+			if (!(e instanceof ErrorApi)) throw e;
+			return fail(400, { error: mensajeDe(e) });
+		}
+		if (nuevo) redirect(303, `/app/plan/${nuevo}?publicado=1`);
+		return { listo: true };
+	},
 	/** Cancelar un plan que organizo: la API avisa a los que van y devuelve lo pagado. */
 	cancelar: async (event) => {
 		const id = uuid(String((await event.request.formData()).get('id') ?? ''));

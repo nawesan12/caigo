@@ -5,7 +5,7 @@
 	import CabeceraVolver from '#lib/app-ui/CabeceraVolver.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { INTENCIONES } from '#lib/app.ts';
-	import type { YoCompleto } from '#lib/tipos.ts';
+	import type { Contacto, YoCompleto } from '#lib/tipos.ts';
 
 	/*
 	 * Ajustes del perfil. No hay pantalla en el handoff: se arma con la lista "Herramientas para
@@ -17,9 +17,26 @@
 
 	const yo = untrack(() => data.yo as YoCompleto);
 	let intenciones = $state<string[]>([...(yo.intenciones ?? [])]);
-	let contacto = $state(yo.contactoConfianza ?? '');
+	let contactos = $state<Contacto[]>(
+		yo.contactosConfianza?.length
+			? yo.contactosConfianza.map((c) => ({ ...c }))
+			: yo.contactoConfianza
+				? [{ nombre: '', contacto: yo.contactoConfianza }]
+				: []
+	);
+	/** Los renglones del formulario: los que hay y uno vacío para sumar (hasta 3). */
+	let borrador = $state<Contacto[]>([]);
 	let editandoContacto = $state(false);
-	let avisos = $state({ planesCerca: true, tuGente: true, ...(yo.avisos ?? {}) });
+	function editarContactos() {
+		editandoContacto = !editandoContacto;
+		borrador = [...contactos.map((c) => ({ ...c })), { nombre: '', contacto: '' }].slice(0, 3);
+	}
+	const resumenContactos = $derived(
+		contactos.length
+			? contactos.map((c) => c.nombre || c.contacto).join(' · ')
+			: 'Te cuidan el día del plan con «¿Todo bien?»'
+	);
+	let avisos = $state({ planesCerca: true, tuGente: true, semana: true, ...(yo.avisos ?? {}) });
 	let tema = $state(untrack(() => data.tema));
 
 	/** Envía sin recargar; si sale bien, `aplicar` deja la pantalla como quedó. */
@@ -96,38 +113,46 @@
 		<h2>Herramientas para salir tranqui</h2>
 		<div class="lista">
 			<div class="fila-col">
-				<button
-					class="fila"
-					onclick={() => (editandoContacto = !editandoContacto)}
-					aria-expanded={editandoContacto}
-				>
+				<button class="fila" onclick={editarContactos} aria-expanded={editandoContacto}>
 					<Icono nombre="usuario" tam={20} color="var(--c-acento)" trazo={2} />
-					<span class="ft"
-						><b>Contacto de confianza</b><span
-							>{contacto || 'Recibe tu plan en vivo cuando lo compartís'}</span
-						></span
-					>
+					<span class="ft"><b>Contactos de confianza</b><span>{resumenContactos}</span></span>
 					<Icono nombre="abajo" tam={18} color="#9A95AD" trazo={2.6} />
 				</button>
 				{#if editandoContacto}
 					<form
 						method="POST"
 						action="?/contacto"
-						class="contacto"
+						class="contactos"
 						use:enhance={enviar((d) => {
-							contacto = String(d.contactoConfianza ?? contacto);
+							contactos = (d.contactosConfianza as Contacto[]) ?? contactos;
 							editandoContacto = false;
-						}, 'Contacto guardado.')}
+						}, 'Contactos guardados.')}
 					>
-						<input
-							class="input"
-							name="contacto"
-							value={contacto}
-							maxlength="80"
-							placeholder="Ej: Mamá · +54 223 444 1290"
-							aria-label="Teléfono o mail de tu contacto de confianza"
-						/>
-						<button class="gel gel-violeta">Guardar</button>
+						{#each borrador as c, i (i)}
+							<div class="contacto">
+								<input
+									class="input nombre"
+									name="nombre"
+									bind:value={c.nombre}
+									maxlength="40"
+									placeholder="Mamá"
+									aria-label="Nombre del contacto {i + 1}"
+								/>
+								<input
+									class="input"
+									name="contacto"
+									bind:value={c.contacto}
+									maxlength="80"
+									placeholder="Teléfono o mail"
+									aria-label="Teléfono o mail del contacto {i + 1}"
+								/>
+							</div>
+						{/each}
+						<p class="nota">
+							Sólo se usan si activás «¿Todo bien?» en un plan. Si es un mail, le escribimos
+							nosotros si no llegás.
+						</p>
+						<button class="gel gel-violeta guardar">Guardar</button>
 					</form>
 				{/if}
 			</div>
@@ -153,6 +178,7 @@
 		>
 			<input type="hidden" name="pc" value={avisos.planesCerca ? '1' : '0'} />
 			<input type="hidden" name="tg" value={avisos.tuGente ? '1' : '0'} />
+			<input type="hidden" name="se" value={avisos.semana ? '1' : '0'} />
 			<button class="fila" name="cambia" value="pc" role="switch" aria-checked={avisos.planesCerca}>
 				<Icono nombre="pin" tam={20} color="var(--c-acento)" trazo={2} />
 				<span class="ft"
@@ -167,6 +193,13 @@
 					></span
 				>
 				<span class="toggle" class:on={avisos.tuGente}></span>
+			</button>
+			<button class="fila" name="cambia" value="se" role="switch" aria-checked={avisos.semana}>
+				<Icono nombre="calendario" tam={20} color="var(--c-acento)" trazo={2} />
+				<span class="ft"
+					><b>Esta semana en tu ciudad</b><span>Los lunes, lo mejor de la semana</span></span
+				>
+				<span class="toggle" class:on={avisos.semana}></span>
 			</button>
 		</form>
 
@@ -254,15 +287,28 @@
 		gap: 8px;
 		flex-wrap: wrap;
 	}
-	.contacto {
+	.contactos {
 		display: flex;
+		flex-direction: column;
 		gap: 8px;
 		padding: 0 16px 14px;
 	}
-	.contacto .gel {
-		flex: none;
+	.contacto {
+		display: grid;
+		grid-template-columns: 2fr 3fr;
+		gap: 8px;
+	}
+	.contacto .input {
+		min-width: 0;
+	}
+	.nota {
+		font-size: 12px;
+		line-height: 1.4;
+		color: var(--texto-2);
+		text-wrap: pretty;
+	}
+	.guardar {
 		height: 52px;
-		padding: 0 16px;
 		border-radius: 18px;
 		font-size: 15px;
 	}

@@ -51,6 +51,22 @@
 		</div>
 	</div>
 
+	{#if data.semana}
+		<a class="semana" href="/app/semana">
+			<span class="sem-t">Esta semana en {data.semana.ciudad}</span>
+			<span class="sem-s"
+				>{[
+					`${data.semana.total} planes`,
+					data.semana.aliados && `${data.semana.aliados} en lugares aliados`,
+					data.semana.deTuGente && `${data.semana.deTuGente} de tu gente`
+				]
+					.filter(Boolean)
+					.join(' · ')}</span
+			>
+			<span class="sem-f" aria-hidden="true">→</span>
+		</a>
+	{/if}
+
 	{#if data.planes.length}
 		<div class="lista">
 			<div class="resumen">
@@ -172,5 +188,44 @@
 	}
 	.vacio {
 		padding: 56px 28px var(--bajo-tabbar);
+	}
+	.semana {
+		position: relative;
+		margin: 14px 20px 0;
+		padding: 16px 44px 16px 16px;
+		border-radius: 24px;
+		background: var(--c-contador);
+		outline: 1px solid var(--c-contador-borde);
+		outline-offset: -1px;
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.08),
+			0 12px 26px -10px rgba(36, 33, 45, 0.55);
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		text-decoration: none;
+	}
+	.sem-t {
+		font:
+			800 22px/1.1 'Geist',
+			sans-serif;
+		letter-spacing: -0.6px;
+		color: #c8f36b;
+		text-wrap: balance;
+	}
+	.sem-s {
+		font-size: 14px;
+		font-weight: 600;
+		color: #faf9f6;
+		text-wrap: pretty;
+	}
+	.sem-f {
+		position: absolute;
+		right: 18px;
+		top: 50%;
+		transform: translateY(-50%);
+		font-size: 22px;
+		font-weight: 800;
+		color: #c8f36b;
 	}
 </style>
