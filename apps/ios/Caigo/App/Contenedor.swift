@@ -60,7 +60,7 @@ final class Contenedor {
     var tapPendiente: Destino?
     /// Token de APNs (hex) para registrarlo cuando haya sesión.
     var tokenPush: String?
-    /// Sube cada vez que la API responde 403 `falta_dni`: la raíz lleva a la verificación con DNI.
+    /// Sube cada vez que la API responde 403 `falta_dni`: la raíz apila PedirDni.
     var faltaDni = 0
     /// 01b · «Voy solo / Somos 2 / Somos 4»: con cuántos se suma por defecto (1, 2 o 4).
     var somos: Int {

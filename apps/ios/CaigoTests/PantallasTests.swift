@@ -109,8 +109,9 @@ final class PantallasTests: XCTestCase {
     // MARK: Planes
 
     func testAhora() { montar(Ahora(modoInicial: nil)) }
-    func testAhoraGente() { montar(Ahora(modoInicial: "gente")) }
-    func testAhoraCitas() { montar(Ahora(modoInicial: "citas")) }
+    // Gente y Citas salieron de la cabecera de Ahora (18/11): el mazo va apilado.
+    func testVistaMazoGente() { montar(VistaMazo(modo: "gente")) }
+    func testVistaMazoCitas() { montar(VistaMazo(modo: "citas")) }
     func testAhoraVacio() {
         ApiFalsa.respuestas["/v1/planes/ahora"] = "{\"planes\": []}"
         montar(Ahora(modoInicial: nil))
@@ -196,6 +197,7 @@ final class PantallasTests: XCTestCase {
         montar(Verificacion())
     }
     func testDni() { montar(Dni(plan: nil)) }
+    func testPedirDni() { montar(PedirDni(motivo: "sumarte", plan: "p1")) }
     func testDniAlta() {
         ApiFalsa.respuestas["/v1/verificacion"] = "{\"telefono\": \"+5492235550142\", \"selfie\": true, \"dni\": \"rechazada\", \"dniMotivo\": \"La foto no coincide con la del DNI.\"}"
         montar(Dni(plan: nil, alta: true))

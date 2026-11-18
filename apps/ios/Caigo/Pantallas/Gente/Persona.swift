@@ -54,7 +54,9 @@ struct PerfilPersona: View {
         }
     }
 
+    /// Sin DNI se mira el perfil; sumar, pasar, invitar o responder pide verificarse antes.
     private func accion(_ f: @escaping () async throws -> Void) {
+        guard c.conDni(ir, "gente") else { return }
         Task {
             do { try await f() } catch { c.avisos.error(error) }
         }
@@ -71,8 +73,6 @@ struct PerfilPersona: View {
     }
 
     private func reaccionarYAvisar(_ p: Perfil, _ accion: String) async throws {
-        // Sin DNI se mira el perfil; sumar o reaccionar pide verificarse antes.
-        guard c.conDni(ir, "gente") else { return }
         let r = try await c.api.reaccionar(p.id, modo: modo, accion: accion)
         c.plus = r.plus
         c.avisos.ok(genteMensaje(nombre: p.nombre, accion: accion, modo: modo, mutuo: r.mutuo))
