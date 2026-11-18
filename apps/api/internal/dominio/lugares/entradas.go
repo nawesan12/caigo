@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
 	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
@@ -119,6 +120,11 @@ func nulo[T comparable](v T) *T {
 func (s *Servicio) CrearPlan(ctx context.Context, usuarioID, lugarID string, p PlanLugar) (string, error) {
 	if err := p.validar(s.ahora()); err != nil {
 		return "", err
+	}
+	// Los lugares son comercios que aprobó el equipo: alcanza con el filtro propio (sin esperar a la IA),
+	// que frena lo grave; lo dudoso de un lugar (promos, links, precios) es lo normal.
+	if v := moderacion.Filtrar(moderacion.TextoPlan(p.Titulo, p.Descripcion)); v.Decision == moderacion.Bloquear {
+		return "", moderacion.Bloqueado(moderacion.TipoPlan, v.Motivo)
 	}
 	var id, slug string
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {

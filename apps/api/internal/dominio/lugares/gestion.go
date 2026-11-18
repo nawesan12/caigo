@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
@@ -68,6 +69,9 @@ func (s *Servicio) EditarPlan(ctx context.Context, usuarioID, lugarID, planID st
 		p.Recurrente = orig.Recurrente
 		if err := p.validar(ahora); err != nil {
 			return err
+		}
+		if v := moderacion.Filtrar(moderacion.TextoPlan(p.Titulo, p.Descripcion)); v.Decision == moderacion.Bloquear {
+			return moderacion.Bloqueado(moderacion.TipoPlan, v.Motivo)
 		}
 		if err := s.fotoDelLugar(ctx, lugarID, usuarioID, p.Foto, fotoAntes); err != nil {
 			return err
