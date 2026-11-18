@@ -146,12 +146,15 @@ func (s *Servicio) Mazo(ctx context.Context, usuarioID, modo string) ([]Tarjeta,
 	return out, err
 }
 
-// proximos: los planes públicos que vienen de una persona (organiza o va).
+// proximos: los planes públicos que vienen de una persona (organiza o va), los mismos que encuentra
+// en Explorar quien mira.
 func proximos(ctx context.Context, tx pgx.Tx, de, quienMira string) ([]ProximoPlan, error) {
 	rows, err := tx.Query(ctx, `
 		SELECT p.id, p.titulo, p.categoria, p.empieza_en, p.foto FROM planes p
 		JOIN solicitudes s ON s.plan_id = p.id AND s.usuario_id = $1 AND s.estado = 'aceptada'
 		WHERE p.cancelado_en IS NULL AND p.empieza_en > now() AND p.visibilidad = 'publico'
+			-- Ni un plan oculto por las normas ni uno de una cuenta suspendida o borrada (como en las listas).
+			AND `+planes.OrganizaActivo+`
 			AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $2 AND b.bloqueado_id = p.organizador_id)
 				OR (b.usuario_id = p.organizador_id AND b.bloqueado_id = $2))
 		ORDER BY p.empieza_en LIMIT 3`, de, quienMira)
