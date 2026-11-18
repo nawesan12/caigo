@@ -313,6 +313,8 @@ fun Crear(ir: Ir, editar: String? = null) {
 
     /** Manda sólo lo que cambió. La fecha viaja si se tocó el día o la hora. */
     fun guardar() {
+        // Antes del launch: un segundo toque no llega a mandar otro pedido (la moderación tarda hasta 5 s).
+        if (publicando) return
         val o = original ?: return
         val id = editar ?: return
         if (b.lugar.isEmpty() && b.direccion.isEmpty()) {
@@ -358,8 +360,8 @@ fun Crear(ir: Ir, editar: String? = null) {
             lat = if (movio) b.lat else null,
             lng = if (movio) b.lng else null,
         )
+        publicando = true
         alcance.launch {
-            publicando = true
             try {
                 c.api.editarPlan(id, k)
                 Sistema.vibrar(vista)
@@ -378,13 +380,15 @@ fun Crear(ir: Ir, editar: String? = null) {
     }
 
     fun publicar() {
+        // Antes del launch: un segundo toque no crea otro plan igual (la moderación tarda hasta 5 s).
+        if (publicando) return
         if (b.lugar.isEmpty() && b.direccion.isEmpty()) {
             avisos.error("Marcá dónde es el plan.")
             eligiendoLugar = true
             return
         }
+        publicando = true
         alcance.launch {
-            publicando = true
             val titulo = b.titulo.trim()
             val n = PlanNuevo(
                 titulo = titulo.ifEmpty { "${b.nombreCategoria} en ${b.dondeCorto}" },

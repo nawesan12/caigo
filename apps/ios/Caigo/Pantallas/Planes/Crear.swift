@@ -208,7 +208,8 @@ struct Crear: View {
 
     /// Manda sólo lo que cambió. La fecha viaja si se tocó el día o la hora.
     private func guardar() {
-        guard let o = original, let id = editar else { return }
+        // Antes del Task: un segundo toque no llega a mandar otro pedido (la moderación tarda hasta 5 s).
+        guard let o = original, let id = editar, !publicando else { return }
         if b.lugar.isEmpty && b.direccion.isEmpty {
             c.avisos.error("Marcá dónde es el plan.")
             withAnimation { eligiendoLugar = true }
@@ -245,8 +246,8 @@ struct Crear: View {
             || abs(b.lat - lat0) > 0.00001 || abs(b.lng - lng0) > 0.00001 {
             k.lugarNombre = lugar; k.direccion = dir; k.zona = zona; k.lat = b.lat; k.lng = b.lng
         }
+        publicando = true
         Task {
-            publicando = true
             defer { publicando = false }
             do {
                 _ = try await c.api.editarPlan(id, k)
@@ -278,13 +279,15 @@ struct Crear: View {
     }
 
     private func publicar() {
+        // Antes del Task: un segundo toque no crea otro plan igual (la moderación tarda hasta 5 s).
+        guard !publicando else { return }
         if b.lugar.isEmpty && b.direccion.isEmpty {
             c.avisos.error("Marcá dónde es el plan.")
             withAnimation { eligiendoLugar = true }
             return
         }
+        publicando = true
         Task {
-            publicando = true
             defer { publicando = false }
             var n = PlanNuevo(categoria: b.categoria, empiezaEn: Fecha.iso(b.empieza()), ciudad: b.ciudad, lat: b.lat, lng: b.lng,
                               somos: b.somos, faltan: b.faltan)
