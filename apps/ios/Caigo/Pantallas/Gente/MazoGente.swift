@@ -108,7 +108,16 @@ struct MazoGente: View {
     private func mazoVista(_ tam: CGSize) -> some View {
         if mazo == nil {
             ZStack {
-                if let error { T(error, 15, 500, p.texto2, alinear: .center).padding(24) } else { Puntitos() }
+                if let error {
+                    VStack(spacing: 18) {
+                        T(error, 15, 500, p.texto2, alinear: .center)
+                        Cta(texto: "Reintentar", gel: Gels.violeta, alto: 52, radio: 18, tam: 16, color: C.blanco) {
+                            Task { await cargar() }
+                        }
+                        .frame(width: 200)
+                    }
+                    .padding(24)
+                } else { Puntitos() }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let t = arriba {

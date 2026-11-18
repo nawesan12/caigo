@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
+import ar.com.caigo.app.piezas.Cta
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -217,7 +219,12 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
             val alto = maxHeight
             when {
                 mazo.dato == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    if (mazo.error != null) T(mazo.error!!, 15f, 500, LocalPaleta.current.texto2, Modifier.padding(24.dp), alinear = TextAlign.Center) else Puntitos()
+                    if (mazo.error != null) {
+                        Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                            T(mazo.error!!, 15f, 500, LocalPaleta.current.texto2, alinear = TextAlign.Center)
+                            Cta("Reintentar", { mazo.error = null; mazo.recargar() }, Modifier.width(200.dp), gel = Gels.violeta, alto = 52.dp, radio = 18.dp, tam = 16f, color = C.blanco)
+                        }
+                    } else Puntitos()
                 }
                 arriba == null -> MazoVacio(sumados) {
                     // Como `cargar()` de iOS: vuelve al principio, con el cargando, y trae otra vez todo.
