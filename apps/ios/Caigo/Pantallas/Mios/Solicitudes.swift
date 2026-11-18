@@ -96,6 +96,7 @@ struct VistaSolicitudes: View {
     }
 
     private func responder(_ s: Solicitud, _ aceptar: Bool) {
+        guard ocupado == nil else { return }
         ocupado = s.id
         Task {
             do {
@@ -108,6 +109,8 @@ struct VistaSolicitudes: View {
                 if let pl = try? await c.api.plan(planId) { plan = pl }
             } catch {
                 c.avisos.error(error)
+                // 409 (ya respondida, se fue, se llenó, se canceló): la lista quedó vieja, se trae de nuevo.
+                if let e = error as? ErrorApi, e.estado == 409 { await cargar() }
             }
             ocupado = nil
         }

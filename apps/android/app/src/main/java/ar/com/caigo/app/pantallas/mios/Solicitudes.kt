@@ -43,6 +43,7 @@ import ar.com.caigo.app.nucleo.ZonaAR
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import ar.com.caigo.app.app.LocalApp
+import ar.com.caigo.app.nucleo.ErrorApi
 import ar.com.caigo.app.nucleo.Plan
 import ar.com.caigo.app.nucleo.Solicitud
 import ar.com.caigo.app.nucleo.mensajeDe
@@ -116,6 +117,7 @@ fun Solicitudes(ir: Ir, planId: String) {
     }
 
     fun responder(s: Solicitud, aceptar: Boolean) {
+        if (ocupado != null) return
         ocupado = s.id
         alcance.launch {
             try {
@@ -127,6 +129,8 @@ fun Solicitudes(ir: Ir, planId: String) {
             } catch (e: Throwable) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 avisos.error(mensajeDe(e))
+                // 409 (ya respondida, se fue, se llenó, se canceló): la lista quedó vieja, se trae de nuevo.
+                if (e is ErrorApi && e.estado == 409) cargar()
             }
             ocupado = null
         }
