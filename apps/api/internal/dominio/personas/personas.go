@@ -212,14 +212,15 @@ func (s *Servicio) completarEmail(ctx context.Context, usuarioID, clerkID string
 	return u.Email
 }
 
-// Ver devuelve el perfil de otra persona (sin el flag de equipo). Si hay un bloqueo, no existe.
+// Ver devuelve el perfil de otra persona (sin el flag de equipo). Si hay un bloqueo o la cuenta está
+// suspendida, no existe.
 func (s *Servicio) Ver(ctx context.Context, usuarioID, otroID string) (Perfil, error) {
 	var p Perfil
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var err error
 		p, err = escanear(tx.QueryRow(ctx, `SELECT `+columnas+` FROM usuarios u
 			LEFT JOIN LATERAL app.asistencia(u.id) rep ON true
-			WHERE u.id::text = $2 AND u.baja_en IS NULL AND NOT EXISTS (SELECT 1 FROM bloqueos b
+			WHERE u.id::text = $2 AND u.baja_en IS NULL AND u.suspendido_en IS NULL AND NOT EXISTS (SELECT 1 FROM bloqueos b
 				WHERE (b.usuario_id = $1 AND b.bloqueado_id = u.id) OR (b.usuario_id = u.id AND b.bloqueado_id = $1))`,
 			usuarioID, otroID))
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -25,3 +25,23 @@ func TestEnVivoSoloMientrasSigaEnElPlan(t *testing.T) {
 	e.sistema(`UPDATE planes SET cancelado_en = now() WHERE id = $1`, planID)
 	e.pedir(persona{}, "GET", ruta, nil, http.StatusNotFound, nil)
 }
+
+// En el mazo sólo aparece gente con el DNI aprobado y sin suspender; un perfil suspendido no se ve.
+func TestMazoSoloConDNIYSinSuspender(t *testing.T) {
+	e := nuevoEntorno(t)
+	ciudad := ciudadUnica()
+	yo, con, sin, susp := e.persona("Yo"), e.persona("Con"), e.persona("Sin"), e.persona("Susp")
+	e.perfilCompleto(yo, ciudad, "gente")
+	for _, p := range []persona{con, sin, susp} {
+		e.perfilCompleto(p, ciudad, "gente")
+	}
+	e.sistema(`UPDATE usuarios SET dni_en = NULL WHERE id = $1`, sin.id)
+	e.sistema(`UPDATE usuarios SET suspendido_en = now() WHERE id = $1`, susp.id)
+	var mazo struct{ Personas []struct{ ID string } }
+	e.pedir(yo, "GET", "/v1/gente/mazo?modo=gente", nil, http.StatusOK, &mazo)
+	if len(mazo.Personas) != 1 || mazo.Personas[0].ID != con.id {
+		t.Fatalf("mazo: %+v", mazo)
+	}
+	e.pedir(yo, "GET", "/v1/personas/"+susp.id, nil, http.StatusNotFound, nil)
+	e.pedir(yo, "GET", "/v1/personas/"+con.id, nil, http.StatusOK, nil)
+}
