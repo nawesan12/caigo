@@ -83,9 +83,9 @@ struct VistaSolicitudes: View {
 
     private func cargar() async {
         do {
-            async let a = c.api.plan(planId)
-            async let b = c.api.solicitudes(planId)
-            let (pl, s) = try await (a, b)
+            // En secuencia, sin async let: en otra app de Grupo Vimo, async let en la carga cerró la app en Release.
+            let pl = try await c.api.plan(planId)
+            let s = try await c.api.solicitudes(planId)
             plan = pl
             sols = s.solicitudes.filter { $0.estado == "pendiente" }
             van = s.solicitudes.filter { $0.estado == "aceptada" }

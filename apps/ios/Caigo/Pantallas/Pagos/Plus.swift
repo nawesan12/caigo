@@ -212,10 +212,10 @@ struct VistaPlus: View {
     // MARK: - StoreKit 2
 
     private func cargar() async {
-        async let p = try? c.api.plus()
-        async let r = try? c.api.recibidos("gente")
-        async let prods = try? Product.products(for: PagosTienda.productos)
-        let (pl, rs, ps) = await (p, r, prods)
+        // En secuencia, sin async let: en otra app de Grupo Vimo, async let en la carga cerró la app en Release.
+        let pl = try? await c.api.plus()
+        let rs = try? await c.api.recibidos("gente")
+        let ps = try? await Product.products(for: PagosTienda.productos)
         plus = pl
         recibidos = rs
         cargando = false

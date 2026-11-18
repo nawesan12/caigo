@@ -117,12 +117,10 @@ struct MiPerfil: View {
 
     private func cargar() async {
         fallo = await c.recargarYo() == nil
-        async let g = try? c.api.miGente().gente
-        async let v = try? c.api.verificacion()
-        async let pl: EstadoPlus? = c.recargarPlus()
-        gente = await g ?? gente
-        verif = await v ?? verif
-        _ = await pl
+        // En secuencia, sin async let: en otra app de Grupo Vimo, async let en la carga cerró la app en Release.
+        gente = (try? await c.api.miGente().gente) ?? gente
+        verif = (try? await c.api.verificacion()) ?? verif
+        _ = await c.recargarPlus()
     }
 
     @ViewBuilder

@@ -50,12 +50,10 @@ struct MazoGente: View {
         dx = 0; dy = 0
         mazo = nil
         error = nil
-        async let m = c.api.mazo(modo)
-        async let r = try? c.api.recibidos(modo)
-        async let pl = c.recargarPlus()
-        do { mazo = try await m.personas } catch { self.error = mensajeDe(error) }
-        recibidos = await r
-        _ = await pl
+        // En secuencia, sin async let: en otra app de Grupo Vimo, async let en la carga cerró la app en Release.
+        do { mazo = try await c.api.mazo(modo).personas } catch { self.error = mensajeDe(error) }
+        recibidos = try? await c.api.recibidos(modo)
+        _ = await c.recargarPlus()
     }
 
     // MARK: Fila de arriba: quién te sumó y cuántas sumadas te quedan.

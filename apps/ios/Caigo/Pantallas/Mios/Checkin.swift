@@ -358,9 +358,9 @@ struct QrOrganizador: View {
             .padding(.horizontal, 22).padding(.top, 8).padding(.bottom, 36)
         }
         .task {
-            async let a = try? c.api.plan(planId)
+            // En secuencia, sin async let: en otra app de Grupo Vimo, async let en la carga cerró la app en Release.
             do { codigo = try await c.api.qr(planId).codigo } catch { self.error = mensajeDe(error) }
-            plan = await a
+            plan = try? await c.api.plan(planId)
         }
     }
 }

@@ -79,10 +79,9 @@ struct VistaRecibidos: View {
         .environment(\.paleta, .clara)
         .task {
             tab = pestana
-            async let r = try? c.api.recibidos(modo)
-            async let i = try? c.api.invitaciones()
-            recibidos = await r
-            invitaciones = await i
+            // En secuencia, sin async let: en otra app de Grupo Vimo, async let en la carga cerró la app en Release.
+            recibidos = try? await c.api.recibidos(modo)
+            invitaciones = try? await c.api.invitaciones()
             listo = true
         }
     }
