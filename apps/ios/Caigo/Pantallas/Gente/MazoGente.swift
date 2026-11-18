@@ -3,9 +3,12 @@ import Nucleo
 
 /// Modos Gente y Citas del prototipo: mazo de personas arrastrables. Derecha (más de 100) = me
 /// prendo / me interesa; izquierda = paso. Tocar arriba a los costados cambia de foto; tocar abajo
-/// abre el perfil. Va embebido en Ahora, debajo del encabezado.
+/// abre el perfil. Desde el 18/11 ya no está en la cabecera de Ahora: se abre apilado (VistaMazo) desde
+/// Perfil › Mi gente.
 struct MazoGente: View {
     var modo: String
+    /// Apilado debajo de su propio encabezado (sin la tab bar abajo).
+    var apilado = false
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var p
@@ -28,12 +31,12 @@ struct MazoGente: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                filaArriba.padding(.horizontal, 20).padding(.top, 54)
+                filaArriba.padding(.horizontal, 20).padding(.top, apilado ? 10 : 54)
                 GeometryReader { g in mazoVista(g.size) }
                     .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 6)
                 if arriba != nil { botones.frame(height: 76) } else { Color.clear.frame(height: 76) }
             }
-            .padding(.bottom, altoTabBar + 14)
+            .padding(.bottom, apilado ? 14 : altoTabBar + 14)
             if let t = invitando {
                 GenteHojaInvitar(personaId: t.id, nombre: t.nombre, cerrar: { invitando = nil }) { plan in
                     Task { await reaccionar("prendo", mensaje: "Invitaste a \(t.nombre) a \(plan.titulo). Le llega como solicitud.") }
@@ -400,5 +403,26 @@ private struct MazoVacio: View {
         .padding(30)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .gel(34, .vertical(Color(hex: 0xF3EFFF), Color(hex: 0xE9E2FF)))
+    }
+}
+
+/// Gente o Citas apilado (18/11): salió de la cabecera de Ahora; se abre desde Perfil › Mi gente.
+struct VistaMazo: View {
+    var modo: String
+    @Environment(Ir.self) private var ir
+    @Environment(\.paleta) private var p
+
+    var body: some View {
+        Pantalla {
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    BotonIcono(d: I.atras, iconoTam: 20, trazo: 2.6, gel: Gels.neutra) { ir.atras() }
+                    T(modo == "citas" ? "Citas" : "Gente", 28, 800, p.texto, alto: 1, espaciado: -0.8, unRenglon: true)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 20).padding(.top, 10)
+                MazoGente(modo: modo, apilado: true)
+            }
+        }
     }
 }

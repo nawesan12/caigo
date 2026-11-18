@@ -22,6 +22,8 @@ struct Explorar: View {
     @State private var dia = 0
     @State private var busqueda = ""
     @State private var verificados = false
+    /// «Sólo chicas» (planes «Solo mujeres»): seguridad, gratis siempre.
+    @State private var chicas = false
     @State private var faltan: Int?
     @State private var edad = 0
     @State private var gratis = false
@@ -37,11 +39,12 @@ struct Explorar: View {
 
     private var conPlus: Bool { c.plus?.activo == true }
 
-    /// Los filtros finos son de Caigo Plus: sin Plus no se mandan (la API respondería 403 `plus`).
+    /// Los de seguridad (verificados, sólo chicas) van siempre; los finos son de Caigo Plus: sin Plus no se
+    /// mandan (la API respondería 403 `plus`).
     private var finos: FiltrosFinos {
-        guard conPlus else { return FiltrosFinos() }
+        guard conPlus else { return FiltrosFinos(verificados: verificados, chicas: chicas) }
         let r = rangosEdad[edad]
-        return FiltrosFinos(verificados: verificados, faltan: faltan, edadDesde: r.1, edadHasta: r.2, gratis: gratis)
+        return FiltrosFinos(verificados: verificados, chicas: chicas, faltan: faltan, edadDesde: r.1, edadHasta: r.2, gratis: gratis)
     }
 
     private struct Clave: Equatable {
@@ -90,7 +93,7 @@ struct Explorar: View {
                     } else if delDia.isEmpty {
                         VStack(spacing: 12) {
                             T("Todavía no hay planes para este día. ¿Armás uno?", 15, 500, p.texto2, alinear: .center)
-                            Chip(texto: "Armá un plan", on: true) { ir.crear() }
+                            Chip(texto: "Armá un plan", on: true) { if c.conDni(ir, "crear") { ir.crear() } }
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 10)
                     } else {
@@ -203,7 +206,8 @@ struct Explorar: View {
         }
     }
 
-    /// Panel de filtros: ciudad para todos; los finos con el chip «Plus». Sin Plus, tocarlos abre el paywall.
+    /// Panel de filtros: ciudad y «Sólo chicas» para todos (la seguridad no se cobra); los finos con el chip
+    /// «Plus». Sin Plus, tocarlos abre el paywall.
     private var panelFiltros: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
@@ -232,6 +236,8 @@ struct Explorar: View {
                 .padding(.horizontal, 16).padding(.vertical, 12)
             }
             separador
+            filaInterruptor("Sólo chicas", $chicas, plus: false)
+            separador
             filaChips("Que falten al menos", ["Cualquiera", "1", "2", "3"], faltan ?? 0) { faltan = $0 > 0 ? $0 : nil }
             separador
             filaChips("Edad de quien organiza", rangosEdad.map(\.0), edad) { edad = $0 }
@@ -244,18 +250,20 @@ struct Explorar: View {
 
     private var separador: some View { Rectangle().fill(C.lavanda).frame(height: 1) }
 
-    private func titulo(_ t: String) -> some View {
+    private func titulo(_ t: String, plus: Bool = true) -> some View {
         HStack(spacing: 8) {
             T(t, 14, 700, C.carbon, unRenglon: true)
-            if !conPlus { PlanesChipPlus() }
+            if plus && !conPlus { PlanesChipPlus() }
         }
     }
 
-    private func filaInterruptor(_ t: String, _ valor: Binding<Bool>) -> some View {
-        HStack {
-            titulo(t)
+    /// `plus: false`: un filtro de seguridad, que anda sin Plus.
+    private func filaInterruptor(_ t: String, _ valor: Binding<Bool>, plus: Bool = true) -> some View {
+        let anda = conPlus || !plus
+        return HStack {
+            titulo(t, plus: plus)
             Spacer()
-            if conPlus {
+            if anda {
                 Interruptor(on: valor)
             } else {
                 Interruptor(on: .constant(false)).allowsHitTesting(false)
@@ -263,7 +271,7 @@ struct Explorar: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .contentShape(Rectangle())
-        .onTapGesture { if conPlus { valor.wrappedValue.toggle() } else { ir.plus(motivo: "filtros") } }
+        .onTapGesture { if anda { valor.wrappedValue.toggle() } else { ir.plus(motivo: "filtros") } }
     }
 
     private func filaChips(_ t: String, _ opciones: [String], _ elegida: Int, _ elegir: @escaping (Int) -> Void) -> some View {

@@ -30,6 +30,11 @@ enum Ruta: Hashable {
     case intenciones(editar: Bool)
     case verificacion
     case dni(plan: String?)
+    /// «Para sumarte, verificamos que seas vos»: antes del DNI, al primer «Caigo», crear, chatear o la gente.
+    /// motivo: sumarte | crear | chatear | gente.
+    case pedirDni(motivo: String, plan: String?)
+    /// El mazo de Gente o Citas (salió de la cabecera de Ahora; se abre desde Perfil › Mi gente).
+    case mazo(modo: String)
     case plan(String)
     case planSlug(String)
     case crear
@@ -52,6 +57,8 @@ enum Ruta: Hashable {
     case tap(plan: String?)
     case adentro
     case editarPerfil
+    /// «Completá tu perfil» apilado (después del DNI del primer «Caigo»).
+    case completarPerfil
     case gente
     /// El organizador edita su plan (PATCH /v1/planes/{id}).
     case editarPlan(String)
@@ -86,8 +93,15 @@ final class Ir {
 
     func principal(_ p: Pestana = .ahora, modo: String? = nil) {
         pestana = p
-        modoAhora = modo
         tabBarOculta = false
+        // Gente y Citas ya no son modos de Ahora: Ahora y, encima, el mazo.
+        if let m = modo, m == "gente" || m == "citas" {
+            modoAhora = nil
+            base = .principal(p, modo: nil)
+            camino = [.mazo(modo: m)]
+            return
+        }
+        modoAhora = modo
         base = .principal(p, modo: modo)
         camino = []
     }
@@ -125,6 +139,21 @@ final class Ir {
     func plus(motivo: String = "perfil") { ir(.plus(motivo: motivo)) }
     func verificacion() { ir(.verificacion) }
     func dni(plan: String? = nil) { ir(.dni(plan: plan)) }
+    func pedirDni(_ motivo: String, plan: String? = nil) {
+        if case .pedirDni = camino.last { return }
+        ir(.pedirDni(motivo: motivo, plan: plan))
+    }
+    /// De «Verificarme» al DNI: reemplaza la pantalla que lo pidió.
+    func aDni(plan: String?) {
+        if case .pedirDni = camino.last { camino.removeLast() }
+        camino.append(.dni(plan: plan))
+    }
+    /// Al terminar el DNI fuera del alta, si al perfil le falta algo: reemplaza el DNI por completarlo.
+    func completarPerfilDespuesDelDni() {
+        if case .dni = camino.last { camino.removeLast() }
+        camino.append(.completarPerfil)
+    }
+    func mazo(_ modo: String) { ir(.mazo(modo: modo)) }
     func checkout(_ planId: String, cantidad: Int) { ir(.checkout(planId, cantidad: cantidad)) }
     func entrada(_ entradaId: String, plan: String) { ir(.entrada(entradaId, plan: plan)) }
     func qrEntrada(_ entradaId: String) { ir(.qrEntrada(entradaId)) }

@@ -138,6 +138,7 @@ private struct ContenidoDetalle: View {
                         T(p.titulo, 30, 700, pal.texto, alto: 1.05, espaciado: -0.8)
                         PlanesContador(p: p)
                         organizador
+                        LineaConfianza(plan: p, tam: 13)
                         info
                         if !p.descripcion.isEmpty { T(p.descripcion, 15, 400, pal.texto2, alto: 1.5) }
                         if p.lugar != nil { tarjetaEntrada }
@@ -469,6 +470,7 @@ private struct ContenidoDetalle: View {
         Cta(texto: deLugar ? (n > 1 ? "Comprar \(n) entradas" : "Comprar entrada") : (n > 1 ? "Sumarnos" : "Sumarme"),
             alto: 58, color: C.carbon, icono: I.mas, iconoTrazo: 4, iconoTam: 18, cargando: enviando) {
             if deLugar {
+                guard c.conDni(ir, "sumarte", plan: p.id) else { return }
                 UserDefaults.standard.set(p.cobro == "sena" && sena ? "sena" : "entrada", forKey: claveModoCheckout(p.id))
                 ir.checkout(p.id, cantidad: n)
                 return
