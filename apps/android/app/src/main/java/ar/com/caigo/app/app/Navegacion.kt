@@ -109,11 +109,13 @@ fun CaigoNav(c: Contenedor) {
         if (listOf("arranque", "intro", "ingresar", "debug").none { nav.tiene(it) }) ir.alta("ingresar")
     }
 
-    // 403 `falta_dni`: sin el DNI aprobado no se usa la app; se va al paso del DNI.
+    // 403 `falta_dni` (red de seguridad: las pantallas lo chequean antes con `yo.verificada`): sin DNI se
+    // mira, pero para hacer algo con otra gente se pide, con la pantalla amable de antes del DNI.
     val faltaDni by c.faltaDni.collectAsState()
     LaunchedEffect(faltaDni) {
         if (faltaDni == 0 || c.sesion.token.value == null) return@LaunchedEffect
-        if (listOf("principal?tab={tab}&modo={modo}", "intenciones?editar={editar}", "completar").any { nav.tiene(it) }) ir.alta(ingresoRutaDni)
+        if (!nav.tiene("principal?tab={tab}&modo={modo}") || nav.currentDestination?.route == "dni?plan={plan}") return@LaunchedEffect
+        ir.pedirDni("gente")
     }
 
     val contexto = LocalContext.current
@@ -191,6 +193,8 @@ fun CaigoNav(c: Contenedor) {
                     composable("intenciones?editar={editar}") { Intenciones(ir, it.arg("editar") == "true") }
                     hoja("verificacion") { Verificacion(ir) }
                     hoja("dni?plan={plan}") { Dni(ir, it.arg("plan").ifBlank { null }) }
+                    hoja(RUTA_PEDIR_DNI) { PedirDni(ir, it.arg("motivo").ifBlank { "gente" }, it.arg("plan").ifBlank { null }) }
+                    composable("mazo?modo={modo}") { VistaMazo(ir, it.arg("modo").ifBlank { "gente" }) }
                     composable(ingresoRutaDni) { Dni(ir, null, alta = true) }
 
                     composable("principal?tab={tab}&modo={modo}", enterTransition = { fadeIn(tween(250)) }) {
@@ -222,6 +226,7 @@ fun CaigoNav(c: Contenedor) {
                     composable("adentro") { Adentro(ir) }
                     composable("editar") { EditarPerfil(ir) }
                     composable("completar") { EditarPerfil(ir, completar = true) }
+                    composable("completarapilado") { EditarPerfil(ir, completar = true, apilado = true) }
                     composable("gente") { MiGente(ir) }
                     composable("bloqueos") { VistaBloqueos(ir) }
                     composable("ajustesavisos") { AjustesDeAvisos(ir) }

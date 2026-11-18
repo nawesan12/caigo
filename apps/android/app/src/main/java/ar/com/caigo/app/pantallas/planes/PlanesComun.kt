@@ -41,6 +41,7 @@ import ar.com.caigo.app.app.LocalApp
 import ar.com.caigo.app.nucleo.Cupo
 import ar.com.caigo.app.nucleo.ErrorApi
 import ar.com.caigo.app.nucleo.Plan
+import ar.com.caigo.app.nucleo.lineaConfianza
 import ar.com.caigo.app.nucleo.Plata
 import ar.com.caigo.app.nucleo.mensajeDe
 import ar.com.caigo.app.piezas.Avatares
@@ -173,7 +174,10 @@ internal fun PlanesChipPlus(texto: String = "Plus") {
  */
 internal suspend fun planesSumarse(
     c: Contenedor, ir: Ir, avisos: Avisos, plan: Plan, cantidad: Int, mensaje: String = "", vibrar: () -> Unit = {},
-): String? = try {
+): String? = if (!c.conDni(ir, "sumarte", plan.id)) {
+    // Sin DNI se mira; para sumarse, primero «verificamos que seas vos» (y de ahí vuelve al plan).
+    null
+} else try {
     val e = ar.com.caigo.app.pantallas.ingreso.conConfirmacion(c) { conf -> c.api.sumarme(plan.id, cantidad, mensaje, conf) }.estado
     val quien = plan.organizador.nombre.ifEmpty { "quien organiza" }
     avisos.ok(if (e == "aceptada") "¡Estás adentro!" else "Le pediste a $quien sumarte.")
@@ -186,7 +190,7 @@ internal suspend fun planesSumarse(
     } else {
         avisos.error(e.detalle)
         if (e.codigo == "falta_selfie") ir.selfie(volver = true)
-        // falta_dni: lo resuelve la navegación (Contenedor.faltaDni lleva al DNI del alta).
+        // falta_dni: lo resuelve la navegación (Contenedor.faltaDni apila PedirDni).
         if (e.estado == 409) "" else null
     }
 } catch (e: Throwable) {
@@ -294,7 +298,22 @@ internal fun TarjetaPlan(plan: Plan, ir: Ir, modifier: Modifier = Modifier, alto
                 Spacer(Modifier.width(4.dp))
                 AccionTarjeta(plan, ir, alCambiar)
             }
+            LineaConfianza(plan)
         }
+    }
+}
+
+/**
+ * La línea de confianza (18/11), en la tarjeta y el detalle, no escondida en el perfil:
+ * «Todos verificados · Organiza Martín (9/10) · Van 2 chicas». Con el escudo de «Verificación y seguridad».
+ */
+@Composable
+internal fun LineaConfianza(plan: Plan, tam: Float = 12f) {
+    val p = LocalPaleta.current
+    val t = lineaConfianza(plan) ?: return
+    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Icono(I.escudoCheck, (tam + 3).dp, if (p.oscuro) C.lima else C.violeta, 2.2f)
+        T(t, tam, 600, if (p.oscuro) C.apagado2 else C.texto2, Modifier.weight(1f), alto = 1.35f)
     }
 }
 

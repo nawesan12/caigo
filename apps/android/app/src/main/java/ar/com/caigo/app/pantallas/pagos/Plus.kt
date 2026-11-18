@@ -275,6 +275,10 @@ private fun VistaPlus(ir: Ir, motivo: String) {
             }
             if (n > 0) TeaserRecibidos(fotosTeaser, n)
             TablaPlus()
+            T(
+                "Lo de seguridad es gratis siempre: todos con DNI verificado y el filtro «Sólo\u00A0chicas».",
+                12f, 600, textoSuave, Modifier.fillMaxWidth(), alto = 1.45f, alinear = TextAlign.Center,
+            )
             T("Elegí tu plan", 20f, 700, C.blanco, Modifier.padding(top = 4.dp))
             if (plus.cargando && planes.isEmpty()) {
                 Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) { Puntitos(C.lima) }
@@ -385,7 +389,8 @@ private val filasPlus = listOf(
     Triple("Ver quién te sumó", "—", "✓"),
     Triple("Me encanta en Citas", "1 por día", "5 por día"),
     Triple("Tu plan destacado", "—", "1 por semana"),
-    Triple("Filtros finos", "Básicos", "Todos"),
+    // Plus vende comodidad, nunca seguridad (18/11): los filtros de verificados y «Sólo chicas» son gratis.
+    Triple("Filtros de edad, cupo y precio", "—", "✓"),
 )
 
 @Composable

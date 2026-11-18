@@ -63,6 +63,7 @@ import ar.com.caigo.app.piezas.LocalAvisos
 import ar.com.caigo.app.piezas.Pantalla
 import ar.com.caigo.app.piezas.Puntitos
 import ar.com.caigo.app.piezas.rememberPermiso
+import ar.com.caigo.app.piezas.tocable
 import ar.com.caigo.app.tema.C
 import ar.com.caigo.app.tema.Gel
 import ar.com.caigo.app.tema.Gels
@@ -146,7 +147,7 @@ private fun iconoLatiendo() {
 /**
  * Verificación con DNI del prototipo: frente (con lectura del PDF417), dorso, selfie con prueba
  * de vida y el envío. Se aprueba al subirlo; si después el equipo lo rechaza, se ve el motivo.
- * Es un paso obligatorio del alta ([alta]): ahí no se puede salir sin hacerlo y al terminar sigue el alta.
+ * Desde el 18/11 se pide al primer «Caigo», crear o chatear (antes, [PedirDni]); [alta] queda para la ruta vieja.
  */
 @Composable
 fun Dni(ir: Ir, planId: String?, alta: Boolean = false) {
@@ -168,9 +169,13 @@ fun Dni(ir: Ir, planId: String?, alta: Boolean = false) {
     var siguiendo by remember { mutableStateOf(false) }
     val etiquetaFin = if (planId != null) "Seguir con el plan" else if (alta) "Seguir" else "Listo"
 
-    // Al terminar: en el alta, el paso que falte; si no, de vuelta a donde estaba.
+    // Al terminar: en el alta, el paso que falte; si no, de vuelta a donde estaba (el plan). Si al perfil le
+    // falta algo (personas.Faltantes), antes se completa: sigue siendo requisito, pero recién al primer «Caigo».
     val terminar: () -> Unit = fin@{
-        if (!alta) { ir.atras(); return@fin }
+        if (!alta) {
+            if (c.yo.value?.faltan?.isNotEmpty() == true) ir.completarPerfilDespuesDelDni() else ir.atras()
+            return@fin
+        }
         if (siguiendo) return@fin
         siguiendo = true
         alcance.launch {
@@ -266,7 +271,7 @@ fun Dni(ir: Ir, planId: String?, alta: Boolean = false) {
                 .padding(start = 20.dp, end = 20.dp, top = arriba + 8.dp, bottom = 40.dp + abajo),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            if (alta) ingresoBarraArriba(I.cruz, null, { T("Paso 3 de 3", 14f, 700, C.texto2) })
+            if (alta) ingresoBarraArriba(I.cruz, null, { ingresoEncriptado() })
             else ingresoBarraArriba(I.cruz, { ir.atras() }, { ingresoEncriptado() })
             // withAnimation(.easeOut(duration: 0.25)) al pasar de paso: el paso nuevo aparece. Sin
             // AnimatedContent: dos cámaras a la vez se pisan el ProcessCameraProvider.
@@ -362,7 +367,7 @@ fun Dni(ir: Ir, planId: String?, alta: Boolean = false) {
                         T("Revisando tus datos…", 26f, 700, C.carbon, alto = 1.1f, alinear = TextAlign.Center)
                         T(
                             if (paso == PasoDni.REVISANDO) "Comparamos tu selfie con la foto del DNI. Tarda unos segundos."
-                            else "Los revisa una persona del equipo, no un bot.",
+                            else "Lo revisamos y tus fotos se borran a los 30\u00A0días.",
                             14f, 400, C.texto2, alto = 1.5f, alinear = TextAlign.Center,
                         )
                         if (paso == PasoDni.ENVIADO) {
@@ -413,6 +418,57 @@ fun Dni(ir: Ir, planId: String?, alta: Boolean = false) {
                     }
                 }
             }
+            }
+        }
+    } }
+}
+
+/** El título de [PedirDni] según lo que quiso hacer (espacio duro antes de la última palabra: sin palabras solas). */
+internal fun tituloPedirDni(motivo: String): String = when (motivo) {
+    "sumarte" -> "Para sumarte, verificamos que seas\u00A0vos"
+    "crear" -> "Para armar tu plan, verificamos que seas\u00A0vos"
+    "chatear" -> "Para chatear, verificamos que seas\u00A0vos"
+    else -> "Antes, verificamos que seas\u00A0vos"
+}
+
+/**
+ * «Para sumarte, verificamos que seas vos» (18/11, «Mirar sin DNI»): se mira sin DNI y se pide recién al
+ * primer «Caigo», crear, chatear o la gente. Lleva al DNI (frente, dorso y selfie) y de ahí vuelve al plan.
+ * motivo: sumarte | crear | chatear | gente.
+ */
+@Composable
+fun PedirDni(ir: Ir, motivo: String, planId: String?) {
+    ingresoClaro { Pantalla(oscuro = false) { arriba, abajo ->
+        Column(Modifier.fillMaxSize().padding(top = arriba + 8.dp, bottom = abajo + 20.dp)) {
+            ingresoBarraArriba(I.cruz, { ir.atras() }, { ingresoEncriptado() }, Modifier.padding(horizontal = 20.dp))
+            Column(
+                Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                Image(
+                    painterResource(R.drawable.caigo_icon), null,
+                    Modifier.padding(top = 24.dp).size(120.dp).align(Alignment.CenterHorizontally),
+                )
+                ingresoTitulo(
+                    tituloPedirDni(motivo),
+                    "Todos en Caigo tienen el DNI verificado: así sabés con quién salís. Es un minuto y son tres\u00A0fotos.",
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Frente del DNI", "Dorso", "Selfie").forEach { t ->
+                        Box(Modifier.background(C.lavanda, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 8.dp)) {
+                            T(t, 13f, 700, C.carbon)
+                        }
+                    }
+                }
+            }
+            Column(
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                ingresoCtaGrande("Verificarme", { ir.aDni(planId) })
+                T("Ahora no", 14f, 700, C.violetaTexto, Modifier.tocable { ir.atras() })
+                T("Lo revisamos y tus fotos se borran a los 30\u00A0días.", 12f, 500, C.texto2, alto = 1.4f, alinear = TextAlign.Center)
             }
         }
     } }

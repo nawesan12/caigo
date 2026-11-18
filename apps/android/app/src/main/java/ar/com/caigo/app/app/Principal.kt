@@ -102,7 +102,7 @@ fun Principal(ir: Ir, inicial: Pestana, modo: String?) {
                 !oculta.value, Modifier.align(Alignment.BottomCenter),
                 enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing)),
                 exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing)),
-            ) { TabBar(tab, { ir.pestana = it }, { ir.crear() }) }
+            ) { TabBar(tab, { ir.pestana = it }, { if (c.conDni(ir, "crear")) ir.crear() }) }
         }
     }
 }

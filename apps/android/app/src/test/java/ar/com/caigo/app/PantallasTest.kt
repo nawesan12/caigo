@@ -116,7 +116,8 @@ private val rutas = listOf(
     "editarplan/{id}", "publicado/{id}", "persona/{id}?desde={desde}", "recibidos?modo={modo}&tab={tab}", "solicitudes/{id}",
     "chat/{id}", "privados", "privado/{id}?nombre={nombre}", "checkin/{id}", "repetimos/{id}", "qr/{id}", "escanear/{id}",
     "plus?motivo={motivo}", "checkout/{id}?cantidad={cantidad}", "entrada/{id}?plan={plan}", "qrentrada/{id}", "pases",
-    "tap?plan={plan}", "adentro", "editar", "gente",
+    "tap?plan={plan}", "adentro", "editar", "gente", "pedirdni?motivo={motivo}&plan={plan}", "mazo?modo={modo}",
+    "completarapilado",
 )
 
 /** Clon de CaigoTests/PantallasTests.swift: monta cada pantalla contra la API simulada, con la sesión de Martina (u1), a
@@ -222,8 +223,9 @@ class PantallasTest {
     // MARK: Planes
 
     @Test fun ahora() = montar("Ahora") { Ahora(it, null) }
-    @Test fun ahoraGente() = montar("AhoraGente") { Ahora(it, "gente") }
-    @Test fun ahoraCitas() = montar("AhoraCitas") { Ahora(it, "citas") }
+    // Gente y Citas salieron de la cabecera de Ahora (18/11): el mazo va apilado.
+    @Test fun vistaMazoGente() = montar("VistaMazoGente") { VistaMazo(it, "gente") }
+    @Test fun vistaMazoCitas() = montar("VistaMazoCitas") { VistaMazo(it, "citas") }
     @Test fun ahoraVacio() = montar("AhoraVacio", contenedor(mapOf("/v1/planes/ahora" to """{"planes": []}"""))) { Ahora(it, null) }
     @Ignore("Falta en Android: PlanesVacioAhora (va privada adentro de Ahora.kt)")
     @Test fun planesVacioAhora() {}
@@ -298,6 +300,7 @@ class PantallasTest {
     @Test fun verificacionPendiente() = montar("VerificacionPendiente",
         contenedor(mapOf("/v1/verificacion" to """{"telefono": "+5492235550142", "selfie": true, "dni": "ninguna"}"""))) { Verificacion(it) }
     @Test fun dni() = montar("Dni") { Dni(it, null) }
+    @Test fun pedirDni() = montar("PedirDni") { PedirDni(it, "sumarte", "p1") }
     @Test fun dniAlta() = montar("DniAlta",
         contenedor(mapOf("/v1/verificacion" to """{"telefono": "+5492235550142", "selfie": true, "dni": "rechazada", "dniMotivo": "La foto no coincide con la del DNI."}"""))) { Dni(it, null, alta = true) }
     // Suelta, como las demás piezas: con el margen de la pantalla (pegada al borde parecía rota).
