@@ -1,9 +1,10 @@
 import { error } from '@sveltejs/kit';
-import type { Handle } from '@sveltejs/kit/hooks';
+import type { Handle, HandleServerError } from '@sveltejs/kit/hooks';
 import { esDelPanel, sitioDe } from '#lib/hosts.ts';
 import { COOKIE, tokenValido } from '#lib/server/sesion.ts';
 import { guardarOrigen } from '#lib/server/origen.ts';
 import { guardApp } from '#lib/server/cuenta.ts';
+import { ErrorApi } from '#lib/server/api.ts';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.sitio = sitioDe(event.url.host);
@@ -33,4 +34,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 	if (!res.headers.has('X-Frame-Options')) res.headers.set('X-Frame-Options', 'DENY');
 	return res;
+};
+
+/**
+ * Un error inesperado se muestra en +error.svelte. Si es que la API no contestó, con su mensaje («No
+ * pudimos hablar con Caigo…») en vez del «Internal Error» genérico.
+ */
+export const handleError: HandleServerError = ({ kind, error }) => {
+	if (kind !== 'unknown') return;
+	if (error instanceof ErrorApi && error.estado >= 500)
+		return { status: 503, message: error.detalle };
+	console.error(error);
 };

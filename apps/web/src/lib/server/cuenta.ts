@@ -77,6 +77,13 @@ export async function guardApp(event: RequestEvent): Promise<Response | null> {
 	} catch (e) {
 		if (e instanceof ErrorApi && e.estado === 403)
 			return json({ error: e.detalle, code: 'suspendida' }, { status: 403 });
+		// La API no contesta (caída, reiniciando): un error acá salía como la página cruda «500 Internal
+		// Error» de SvelteKit (lo que falla en hooks no pasa por +error.svelte). Una página sigue y su
+		// layout, que vuelve a pedir la verificación, muestra el error de Caigo; el resto, un JSON.
+		if (e instanceof ErrorApi && e.estado >= 500) {
+			if (esDePagina(event)) return null;
+			return json({ error: e.detalle, code: 'sin_api' }, { status: 503 });
+		}
 		throw e;
 	}
 	const v = event.locals.verif;
