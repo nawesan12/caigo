@@ -11,6 +11,32 @@ export type PersonaCorta = {
 	asistencia?: { fue: number; de: number };
 	enMiGente?: boolean;
 	organizador?: boolean;
+	/** «Anfitrión»: sus planes se hacen (sólo en quien organiza). */
+	anfitrion?: boolean;
+	/** Faltazos en 30 días, si son 2 o más (sólo en las solicitudes pendientes). */
+	faltazos?: number;
+};
+
+/** Premios por ir (GET /v1/yo y /v1/personas/{id}). Racha y comodín, sólo en el propio. */
+export type Logros = {
+	nivel: string;
+	planes: number;
+	siguiente?: string;
+	faltan?: number;
+	racha?: number;
+	comodin?: boolean;
+	insignias: { id: string; nombre: string; detalle: string }[];
+	anfitrion: boolean;
+	ocultas?: boolean;
+};
+
+/** GET /v1/yo/invitar («Traé a alguien»). */
+export type Invitacion = {
+	codigo: string;
+	link: string;
+	invitados: number;
+	premiados: number;
+	puedeUsarCodigo: boolean;
 };
 
 export type Plan = {
@@ -48,7 +74,15 @@ export type Plan = {
 	van: PersonaCorta[];
 	miEstado?: string;
 	miCantidad?: number;
-	lugar?: { id: string; slug: string; nombre: string; zona: string; foto?: string };
+	lugar?: {
+		id: string;
+		slug: string;
+		nombre: string;
+		zona: string;
+		foto?: string;
+		/** Beneficio por nivel (Habitué o más). */
+		beneficioNivel?: string;
+	};
 	cobro: 'gratis' | 'entrada' | 'sena';
 	precioCentavos?: number;
 	senaPct?: number;
@@ -79,6 +113,8 @@ export type Lugar = {
 	socioActivo: boolean;
 	socioVisitas: number;
 	socioBeneficio: string;
+	/** Beneficio por nivel: para quien es Habitué o más, uno por día. */
+	beneficioNivel?: string;
 	rol?: string;
 	mpConectado: boolean;
 	mpDesde?: string;
@@ -122,6 +158,9 @@ export type Validacion = {
 	plan: string;
 	saldoCentavos: number;
 	beneficio?: string;
+	/** Beneficio por nivel que le toca hoy y su nivel (ya quedó canjeado). */
+	beneficioNivel?: string;
+	nivel?: string;
 	repetida: boolean;
 };
 
@@ -225,6 +264,7 @@ export type Yo = {
 	organizados: number;
 	miGente: number;
 	equipo?: boolean;
+	logros?: Logros;
 };
 
 /** GET /v1/verificacion. `dni`: ninguna | pendiente | aprobada | rechazada (con `dniMotivo`). */
@@ -424,6 +464,7 @@ export type PerfilPersona = {
 	organizados: number;
 	enMiGente?: boolean;
 	compartidos?: number;
+	logros?: Logros;
 	proximos?: { id: string; titulo: string; categoria: string; empiezaEn: string; foto?: string }[];
 };
 

@@ -12,7 +12,16 @@
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { CATEGORIAS, faltanTexto, fotoDelPlan, primerNombre } from '#lib/plan.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
-	import { chipAhora, distancia, horario, reputacion, terminado, TINTES } from '#lib/app.ts';
+	import {
+		chipAhora,
+		distancia,
+		horario,
+		reputacion,
+		sinViuda,
+		terminado,
+		TINTES
+	} from '#lib/app.ts';
+	import Festejo from '#lib/app-ui/Festejo.svelte';
 	import { desglose, pesos, pesosDeCentavos } from '#lib/precios.ts';
 	import { avisoPlan } from '#lib/moderacion.ts';
 
@@ -70,6 +79,11 @@
 	/** Los que se sumaron (sin el organizador ni su grupo). */
 	const otros = $derived(p.van.filter((v) => !v.organizador).length);
 	let cantidad = $state(2);
+	/** «¡Estás adentro!»: cuando el form de sumarse vuelve con «aceptada». */
+	let festejo = $state(false);
+	$effect(() => {
+		if (form && 'estado' in form && form.estado === 'aceptada') festejo = true;
+	});
 	let enviando = $state(false);
 	/**
 	 * Plan «Solo mujeres» / «Solo diversidades»: se confirma acá, sin premarcar, y no se guarda en
@@ -197,7 +211,11 @@
 					>Organiza {organiza}{#if p.organizador.verificada}<Verificado />{/if}</span
 				>
 				<span class="or"
-					>{p.lugar ? 'Lugar aliado de Caigo' : reputacion(p.organizador.asistencia)}</span
+					>{p.lugar
+						? 'Lugar aliado de Caigo'
+						: reputacion(p.organizador.asistencia)}{#if !p.lugar && p.organizador.anfitrion}<span
+							class="anfitrion">Anfitrión</span
+						>{/if}</span
 				>
 			</div>
 		</div>
@@ -246,6 +264,12 @@
 				<div class="fila">
 					<Icono nombre="regalo" tam={20} color="var(--c-acento)" trazo={2} />
 					<span class="ft">Con check-in: {p.beneficio}</span>
+				</div>
+			{/if}
+			{#if p.lugar?.beneficioNivel}
+				<div class="fila">
+					<Icono nombre="regalo" tam={20} color="var(--c-acento)" trazo={2} />
+					<span class="ft">Habitué o más: {sinViuda(p.lugar.beneficioNivel)}</span>
 				</div>
 			{/if}
 		</div>
@@ -427,6 +451,13 @@
 	{/if}
 </div>
 
+{#if !data.anonimo && data.yo}
+	<Festejo
+		bind:abierto={festejo}
+		plan={p}
+		yo={{ id: data.yo.id, nombre: data.yo.nombre, foto: data.yo.fotos?.[0] }}
+	/>
+{/if}
 {#if !data.anonimo}
 	<Reportar bind:abierta={reportar} planId={p.id} />
 	<Confirmar
@@ -885,6 +916,15 @@
 		color: var(--c-esperando-texto);
 		background: var(--c-esperando);
 		box-shadow: inset 0 2px 4px rgba(116, 86, 241, 0.18);
+	}
+	.anfitrion {
+		margin-left: 8px;
+		padding: 2px 8px;
+		border-radius: 8px;
+		background: var(--grad-lima);
+		color: #24212d;
+		font-size: 12px;
+		font-weight: 700;
 	}
 	.adentro {
 		color: #ffffff;

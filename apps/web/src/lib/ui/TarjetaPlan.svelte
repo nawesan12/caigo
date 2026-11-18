@@ -16,7 +16,9 @@
 		personas,
 		href,
 		enlace,
-		accion = 'Sumarme'
+		accion = 'Sumarme',
+		anfitrion = false,
+		alta = false
 	}: {
 		foto?: string;
 		tinte?: string;
@@ -33,12 +35,16 @@
 		/** Toda la tarjeta lleva acá (el detalle del plan). */
 		enlace?: string;
 		accion?: string;
+		/** Quien organiza es «Anfitrión» (un chip chico más, sin puntos ni nada). */
+		anfitrion?: boolean;
+		/** Foto más alta («Decidí rápido»). */
+		alta?: boolean;
 	} = $props();
 </script>
 
 <article class="tarjeta-plan">
 	{#if enlace}<a class="cubre" href={enlace} aria-label={titulo}></a>{/if}
-	<div class="foto" style:background-color={tinte}>
+	<div class="foto" class:alta style:background-color={tinte}>
 		{#if foto}<img
 				src={foto}
 				alt=""
@@ -50,6 +56,7 @@
 		<div class="chips">
 			<span class="cat">{categoria}</span>
 			<span class="cuando">{cuando}</span>
+			{#if anfitrion}<span class="anfitrion">Anfitrión</span>{/if}
 		</div>
 		<span class={faltan > 0 ? 'badge-coral badge' : 'badge-completo badge'}
 			>{faltanTexto(faltan)}</span
@@ -103,6 +110,9 @@
 		position: relative;
 		height: 150px;
 	}
+	.foto.alta {
+		height: min(340px, 42vh);
+	}
 	.foto img {
 		position: absolute;
 		inset: 0;
@@ -126,6 +136,10 @@
 	.cat {
 		background: var(--c-cat);
 		color: var(--c-cat-texto);
+	}
+	.anfitrion {
+		background: var(--grad-lima);
+		color: #24212d;
 	}
 	.cuando {
 		background: var(--c-cuando);

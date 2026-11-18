@@ -39,4 +39,5 @@
 	enlace="/app/plan/{plan.id}"
 	href="/app/plan/{plan.id}"
 	{accion}
+	anfitrion={!!plan.organizador?.anfitrion}
 />
