@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ar.com.caigo.app.app.LocalApp
 import ar.com.caigo.app.nucleo.Api
 import ar.com.caigo.app.nucleo.ErrorApi
@@ -235,13 +236,22 @@ fun Repetimos(ir: Ir, planId: String) {
     val volveria = remember { mutableStateMapOf<String, Boolean>() }
     var mandando by remember { mutableStateOf<Boolean?>(null) }
     var reportar by remember { mutableStateOf(false) }
+    /** La carita del plan (1 a 5): privada, sólo suma al promedio de quien organizó. */
+    var carita by remember { mutableStateOf<Int?>(null) }
+    /** Con quiénes quedó mutuo al responder: ya pueden hablar por privado. */
+    var mutuos by remember { mutableStateOf(listOf<ar.com.caigo.app.nucleo.PersonaCorta>()) }
 
     fun responder(repetir: Boolean) {
         mandando = repetir
         alcance.launch {
             try {
-                val r = c.api.repetimos(planId, repetir, volveria.filterValues { it }.map { Opinion(it.key, true) })
+                val r = c.api.repetimos(planId, repetir, volveria.filterValues { it }.map { Opinion(it.key, true) }, carita)
                 val nuevo = r.nuevo
+                if (r.mutuos.isNotEmpty() && nuevo == null) {
+                    // Mutuo: se queda para que escriba ya («¡Es mutuo con…! Ya pueden hablar»).
+                    mutuos = r.mutuos
+                    return@launch
+                }
                 if (repetir && nuevo != null) {
                     avisos.ok("Listo, ya está el plan de la semana que viene.")
                     ir.atras()
@@ -302,6 +312,46 @@ fun Repetimos(ir: Ir, planId: String) {
                     .verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = abajo + 14.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                mutuos.forEach { m ->
+                    Row(
+                        Modifier.fillMaxWidth().gel(20.dp, miosGelTarjeta()).padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Avatar(m.nombre, m.foto, 44.dp, borde = 0.dp, tamTexto = 17f)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                            T("¡Es mutuo con ${miosPrimer(m.nombre)}!", 15f, 700)
+                            T("Ya pueden hablar", 12f, 400, p.texto2)
+                        }
+                        Box(Modifier.height(40.dp).tocable { ir.privado(m.id, m.nombre) }.gel(14.dp, Gels.limaChico).padding(horizontal = 12.dp),
+                            contentAlignment = Alignment.Center) { T("Escribir", 13f, 800, C.carbon) }
+                    }
+                }
+                if (mutuos.isNotEmpty()) {
+                    T("Listo", 14f, 700, if (p.oscuro) C.lima else C.violetaTexto, Modifier.align(Alignment.CenterHorizontally).tocable { ir.atras() })
+                }
+                if (!pl.esMio) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        T("¿Cómo estuvo?", 22f, 700)
+                        T("Nadie ve tu carita: suma al promedio de quien organizó.", 13f, 400, p.texto2, alto = 1.45f)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ar.com.caigo.app.nucleo.Caras.todas.forEach { k ->
+                            val elegida = (carita ?: pl.mio?.carita) == k.valor
+                            Box(
+                                Modifier.weight(1f).height(56.dp)
+                                    .gel(18.dp, if (elegida) (if (p.oscuro) Gels.limaChico else Gels.oscuroSel) else (if (p.oscuro) Gels.chipOscuro else Gels.chipClaro))
+                                    .tocable { carita = k.valor }.semantics { contentDescription = k.texto },
+                                contentAlignment = Alignment.Center,
+                            ) { androidx.compose.material3.Text(k.cara, fontSize = 26.sp) }
+                        }
+                    }
+                }
+                MiosGrupo {
+                    val n = pl.mio?.fotos ?: 0
+                    MiosFila(I.gente, if (n > 0) "Fotos del plan · $n" else "Fotos del plan",
+                        if (n > 0) "Sólo las ven quienes fueron" else "Subí la primera", ultima = true) { ir.fotosPlan(pl.id) }
+                }
                 val gente = (listOf(pl.organizador) + pl.van).distinctBy { it.id }.filter { it.id.isNotBlank() && it.id != c.sesion.usuarioId }
                 if (gente.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

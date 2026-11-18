@@ -116,7 +116,7 @@ private val rutas = listOf(
     "editarplan/{id}", "publicado/{id}", "persona/{id}?desde={desde}", "recibidos?modo={modo}&tab={tab}", "solicitudes/{id}",
     "chat/{id}", "privados", "privado/{id}?nombre={nombre}", "checkin/{id}", "repetimos/{id}", "qr/{id}", "escanear/{id}",
     "plus?motivo={motivo}", "checkout/{id}?cantidad={cantidad}", "entrada/{id}?plan={plan}", "qrentrada/{id}", "pases",
-    "tap?plan={plan}", "adentro", "editar", "gente",
+    "tap?plan={plan}", "adentro", "editar", "gente", "semana", "fotos/{id}",
 )
 
 /** Clon de CaigoTests/PantallasTests.swift: monta cada pantalla contra la API simulada, con la sesión de Martina (u1), a

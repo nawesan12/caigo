@@ -136,6 +136,11 @@ fun Ahora(ir: Ir, modoInicial: String?) {
         if (u != null) { punto = u; sinUbicacion = false; c.mandarUbicacion() } else { sinUbicacion = true }
     }
     LaunchedEffect(Unit) { invitaciones = runCatching { c.api.invitaciones() }.getOrNull() }
+    // «Esta semana en <ciudad>»: de lunes a miércoles, con 5 planes o más.
+    var semana by remember { mutableStateOf<ar.com.caigo.app.nucleo.Semana?>(null) }
+    LaunchedEffect(Unit) {
+        if (ar.com.caigo.app.nucleo.Dia.semanaVisible()) semana = runCatching { c.api.semana() }.getOrNull()?.takeIf { it.total >= 5 }
+    }
     val q = if (mapa) Api.busqueda(busqueda) else null
     LaunchedEffect(ClaveAhora(punto?.first, punto?.second, sinUbicacion, categoria, q, vuelta)) {
         if (punto == null && !sinUbicacion) return@LaunchedEffect
@@ -172,7 +177,7 @@ fun Ahora(ir: Ir, modoInicial: String?) {
             Encabezado(ir, modoActual, conCitas, lugarActual, invitaciones) { modo = it }
             if (modoActual == "planes") Chips(categoria) { categoria = it }
             if (modoActual == "planes") Box(Modifier.weight(1f)) {
-                Lista(ir, planes, cargando, error, invitaciones, alMapa = { mapa = true }, recargar = { vuelta++ })
+                Lista(ir, planes, cargando, error, invitaciones, semana, alMapa = { mapa = true }, recargar = { vuelta++ })
             }
         }
     }
@@ -250,6 +255,7 @@ private fun Chips(categoria: String?, alElegir: (String?) -> Unit) {
 @Composable
 private fun Lista(
     ir: Ir, planes: List<Plan>?, cargando: Boolean, error: String?, inv: Invitaciones?,
+    semana: ar.com.caigo.app.nucleo.Semana?,
     alMapa: () -> Unit, recargar: () -> Unit,
 ) {
     val p = LocalPaleta.current
@@ -267,6 +273,7 @@ private fun Lista(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (inv != null && inv.invitaciones.isNotEmpty()) item { BannerInvitaciones(ir, inv) }
+            if (semana != null) item { TarjetaSemana(semana, ir) }
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {

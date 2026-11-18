@@ -42,6 +42,7 @@ import ar.com.caigo.app.nucleo.linkPlan
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import ar.com.caigo.app.app.LocalApp
+import ar.com.caigo.app.piezas.LocalAvisos
 import ar.com.caigo.app.nucleo.Plan
 import ar.com.caigo.app.pantallas.planes.ChipDestacado
 import ar.com.caigo.app.nucleo.Cupo
@@ -181,6 +182,29 @@ internal fun miosLinkCompartir(pl: Plan): String = "${pl.titulo} · https://${li
 private fun TarjetaMio(pl: Plan, cual: String, ir: Ir) {
     val p = LocalPaleta.current
     val ctx = LocalContext.current
+    val c = LocalApp.current
+    val avisos = LocalAvisos.current
+    val alcance = rememberCoroutineScope()
+    var repitiendo by remember { mutableStateOf(false) }
+
+    /** POST /repetimos con repetir: publica el mismo plan la semana que viene y lo abre. */
+    fun repetir() {
+        if (repitiendo) return
+        repitiendo = true
+        alcance.launch {
+            try {
+                c.api.repetimos(pl.id, true, emptyList(), null).nuevo?.let {
+                    avisos.ok("Listo, se repite. Ya está publicado.")
+                    ir.plan(it.id)
+                }
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                avisos.error(ar.com.caigo.app.nucleo.mensajeDe(e))
+            } finally {
+                repitiendo = false
+            }
+        }
+    }
     val franja = cual == "organizo" && pl.pendientes > 0
     val hoy = Fecha.parse(pl.empiezaEn)?.toLocalDate() == Fecha.hoy()
     Column(
@@ -204,7 +228,17 @@ private fun TarjetaMio(pl: Plan, cual: String, ir: Ir) {
                         } else {
                             MiosPill("Esperando", Brush.verticalGradient(listOf(C.tinte1, C.tinte1)), C.violetaTexto, tam = 15f)
                         }
-                        "historial" -> T("¿Repetimos?", 12f, 700, if (p.oscuro) C.lima else C.violetaTexto, Modifier.tocable { ir.repetimos(pl.id) })
+                        "historial" -> {
+                            val enlace = if (p.oscuro) C.lima else C.violetaTexto
+                            // «Repetir» en un toque (quien organizó): el mismo plan la semana que viene.
+                            if (pl.esMio && !pl.cancelado && pl.lugar == null) {
+                                T(if (repitiendo) "Repitiendo…" else "Repetir", 12f, 700, enlace, Modifier.tocable { repetir() })
+                            } else {
+                                T(if (pl.mio?.carita != null) "Tu gente" else "¿Cómo estuvo?", 12f, 700, enlace, Modifier.tocable { ir.repetimos(pl.id) })
+                            }
+                            val n = pl.mio?.fotos ?: 0
+                            if (n > 0) T("Fotos · $n", 12f, 700, enlace, Modifier.tocable { ir.fotosPlan(pl.id) })
+                        }
                         else -> {
                             BadgeMio(pl, urgente = hoy)
                             // Destacado con Plus: sólo la estrella del chip; la palabra no entra junto a «Compartir link».

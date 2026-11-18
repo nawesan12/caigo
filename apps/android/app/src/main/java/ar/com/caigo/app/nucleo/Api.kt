@@ -210,6 +210,43 @@ class Api(
     suspend fun repetimos(id: String, repetir: Boolean, volveria: List<Opinion>): Nuevo = enviar("POST", "/v1/planes/$id/repetimos", Repetir(repetir, volveria))
     suspend fun enVivo(id: String): Link = decodificar(crudo("POST", url("/v1/planes/$id/en-vivo")))
 
+    // ——— El día del plan (informe del 18/11) ———
+
+    /** «¿Seguís yendo?» → Voy. («Me bajo» es [salir].) */
+    suspend fun confirmo(id: String) = sinCuerpo("POST", "/v1/planes/$id/confirmo")
+
+    @kotlinx.serialization.Serializable
+    data class Espera(val cantidad: Int = 1, val mujer: Boolean = false, val diversidad: Boolean = false)
+
+    /** Plan completo: a la lista de espera (409 `hay_lugar` si hay lugar). */
+    suspend fun esperar(id: String, cantidad: Int = 1, confirma: Confirma = Confirma()): EsperaMia =
+        enviar("POST", "/v1/planes/$id/espera", Espera(cantidad, confirma.mujer, confirma.diversidad))
+    suspend fun dejarDeEsperar(id: String) = sinCuerpo("DELETE", "/v1/planes/$id/espera")
+
+    suspend fun todoBien(id: String): TodoBien = get("/v1/planes/$id/todo-bien")
+
+    @kotlinx.serialization.Serializable
+    data class ElegirContacto(val contacto: Int)
+
+    /** «Avisale a mi contacto si no hago check-in» (índice de los contactos del perfil). */
+    suspend fun activarTodoBien(id: String, contacto: Int): TodoBien = enviar("POST", "/v1/planes/$id/todo-bien", ElegirContacto(contacto))
+    suspend fun apagarTodoBien(id: String) = sinCuerpo("DELETE", "/v1/planes/$id/todo-bien")
+
+    @kotlinx.serialization.Serializable
+    data class Calificar(val repetir: Boolean, val volveria: List<Opinion>, val carita: Int? = null)
+
+    /** «¿Repetimos?» con la carita (1 a 5, privada). Devuelve el plan nuevo y con quiénes quedó mutuo. */
+    suspend fun repetimos(id: String, repetir: Boolean, volveria: List<Opinion>, carita: Int?): Nuevo =
+        enviar("POST", "/v1/planes/$id/repetimos", Calificar(repetir, volveria, carita))
+
+    suspend fun fotosPlan(id: String): FotosPlan = get("/v1/planes/$id/fotos")
+    suspend fun subirFotoPlan(id: String, jpeg: ByteArray): FotoPlan =
+        decodificar(crudo("POST", url("/v1/planes/$id/fotos"), jpeg.toRequestBody("image/jpeg".toMediaType())))
+    suspend fun borrarFotoPlan(id: String, foto: String) = sinCuerpo("DELETE", "/v1/planes/$id/fotos/$foto")
+    suspend fun reportarFotoPlan(id: String, foto: String) = sinCuerpo("POST", "/v1/planes/$id/fotos/$foto/reportar")
+
+    suspend fun semana(): Semana = get("/v1/semana")
+
     // ——— Gente, Citas, invitaciones ———
 
     suspend fun mazo(modo: String): Mazo = get("/v1/gente/mazo", "modo" to modo)

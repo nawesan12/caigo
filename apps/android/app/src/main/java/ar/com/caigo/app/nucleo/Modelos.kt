@@ -24,6 +24,8 @@ data class PersonaCorta(
     val organizador: Boolean = false,
     /** Ya hizo check-in (sólo en la lista de los que van). */
     val llego: Boolean = false,
+    /** Promedio de las caritas de sus planes (sólo de quien organiza, con 3 o más). */
+    val caritas: Caritas? = null,
 )
 
 @Serializable
@@ -83,6 +85,8 @@ data class Plan(
     val destacado: Boolean = false,
     /** Sólo para quien organiza: "" normal, "revision" (lo mira el equipo) u "oculto" (nadie más lo ve). */
     val moderacion: String = "",
+    /** Lo de quien mira si está en el plan o en la lista de espera (día del plan, después). */
+    val mio: Mio? = null,
 ) {
     /** Plan de un lugar aliado con entrada o seña: el botón es "Entrada" en vez de "Sumarme". */
     val conEntrada: Boolean get() = cobro == "entrada" || cobro == "sena"
@@ -170,7 +174,11 @@ data class Codigo(val codigo: String = "")
 data class Link(val link: String = "")
 
 @Serializable
-data class Nuevo(val nuevo: Plan? = null)
+data class Nuevo(
+    val nuevo: Plan? = null,
+    /** Con quiénes quedó mutuo al responder «¿Volverías?»: ya pueden hablar por privado. */
+    val mutuos: List<PersonaCorta> = emptyList(),
+)
 
 @Serializable
 data class Opinion(val usuarioId: String, val si: Boolean)
@@ -208,6 +216,8 @@ data class Perfil(
     val avisos: AjustesAvisos = AjustesAvisos(),
     /** Teléfono o mail del contacto de confianza. */
     val contactoConfianza: String = "",
+    /** Contactos de confianza (hasta 3): «¿Todo bien?» el día del plan. */
+    val contactosConfianza: List<Contacto> = emptyList(),
     /** Sus próximos planes que quien mira puede ver (GET /v1/personas/{id}). */
     val proximos: List<ProximoPlan> = emptyList(),
     /** Lo que le falta al perfil propio (GET /v1/yo): edad, ciudad, zona, bio, fotos, intereses. */
@@ -219,7 +229,12 @@ data class Perfil(
 
 /** Ajustes de avisos push (contrato §3). Por defecto, los dos prendidos. */
 @Serializable
-data class AjustesAvisos(val planesCerca: Boolean = true, val tuGente: Boolean = true)
+data class AjustesAvisos(
+    val planesCerca: Boolean = true,
+    val tuGente: Boolean = true,
+    /** «Esta semana en tu ciudad», los lunes. */
+    val semana: Boolean = true,
+)
 
 /**
  * Lo que la persona confirma, sólo para un pedido (sumarse, comprar entrada, aceptar una
@@ -265,6 +280,7 @@ data class CambiosPerfil(
     val fotos: List<String>? = null,
     val avisos: AjustesAvisos? = null,
     val contactoConfianza: String? = null,
+    val contactosConfianza: List<Contacto>? = null,
 )
 
 /** Mi gente: la API devuelve perfiles; las listas usan la vista corta. */
