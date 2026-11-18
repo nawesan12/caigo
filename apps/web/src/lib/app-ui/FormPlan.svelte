@@ -80,6 +80,13 @@
 	const NIVELES = ['Principiante', 'Nivel medio', 'Avanzado'];
 
 	let paso = $state(1);
+	/** Si ese día a esa hora ya pasó. */
+	const yaPaso = (dia: string, hora: string) =>
+		new Date(aRFC3339(dia, hora)).getTime() < Date.now();
+	/** Hoy a la noche, o la primera hora sugerida que todavía no pasó; si ya pasaron todas, mañana. */
+	const horaHoy =
+		HORAS.find((h) => h === '21:30' && !yaPaso(HOY[0].valor, h)) ??
+		HORAS.find((h) => !yaPaso(HOY[0].valor, h));
 	let f = $state(
 		ini.plan
 			? desdePlan(ini.plan)
@@ -87,9 +94,9 @@
 					titulo: '',
 					descripcion: '',
 					categoria: 'juego',
-					cuando: 'hoy' as 'ahora' | 'hoy' | 'otro',
+					cuando: (horaHoy ? 'hoy' : 'otro') as 'ahora' | 'hoy' | 'otro',
 					dia: HOY[1].valor,
-					hora: '21:30',
+					hora: horaHoy ?? '21:30',
 					otraHora: false,
 					dur: 120,
 					lugarNombre: '',
@@ -224,6 +231,10 @@
 	const link = $derived(publicado ? `${PUBLIC_SITIO.replace(/\/+$/, '')}/p/${publicado.slug}` : '');
 
 	function siguiente() {
+		// A las 23 «Hoy 21:30» ya pasó: mejor avisarlo acá que al publicar, tres pasos después.
+		if (paso === 1 && f.cuando !== 'ahora' && new Date(empiezaEn).getTime() < Date.now()) {
+			return avisar('Ese horario ya pasó. Elegí otra hora.');
+		}
 		if (paso === 1 && !f.lat && !f.lugarNombre.trim()) {
 			dondeAbierto = true;
 			return avisar('Decí dónde es el plan.');
@@ -332,6 +343,7 @@
 								<button
 									class="hora"
 									class:on={!f.otraHora && f.hora === h}
+									disabled={yaPaso(f.cuando === 'hoy' ? HOY[0].valor : f.dia, h)}
 									onclick={() => ((f.hora = h), (f.otraHora = false))}>{h}</button
 								>
 							{/each}
@@ -785,6 +797,10 @@
 		border: 1.5px solid var(--c-borde);
 		font-size: 14px;
 		font-weight: 600;
+	}
+	.hora:disabled {
+		opacity: 0.4;
+		text-decoration: line-through;
 	}
 	.hora.on {
 		border-color: transparent;
