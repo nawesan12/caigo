@@ -1,5 +1,32 @@
 # Estado
 
+## 18/11/2026: el día del plan, después del plan y el ritual semanal (rama `mejoras-dia-del-plan`, sin desplegar)
+
+Frente del informe `caigo-investigacion/mejoras-producto.md` (B1, B2, B3, B4, C2 y A8 con avisos). API, web, iOS y
+Android (sin compilar). **Migración 00029** (`00029_dia_del_plan.sql`): contactos de confianza y `avisos_semana` en
+`usuarios_privado`, `solicitudes.confirmada_en` y `carita`, tablas `todo_bien`, `espera`, `fotos_plan` y
+`avisos_semana`, archivos de tipo `plan` y dos tipos nuevos en `avisos_enviados`. Contrato en `docs/api.md` › «El día
+del plan…». Lo que hay:
+- **Hoy** (desde 3 h antes hasta el final): cuenta regresiva, Cómo llegar, «Llego en 10» (mensaje al chat), Llegué
+  (el check-in de siempre) y **«¿Todo bien?»**: avisarle a un contacto si a la media hora no hay check-in (mail si es
+  un mail; si es un teléfono no hay SMS y el push le pide a ella que avise), compartir la ubicación desde el teléfono
+  (no pasa por la API), «Me quiero ir» (llamar al contacto), pedir un auto, 911, Línea 144 y reportar. Se borra a las
+  24 h del final. Contactos de confianza (hasta 3) en Verificación (apps) y Ajustes (web).
+- **Víspera** «¿Seguís yendo?» desde las 19: Voy / Me bajo. **Lista de espera** en planes gratis completos: cuando
+  alguien se baja (o lo sacan), el primero tiene el lugar guardado 15 min («Se liberó un lugar»); si no entra, pasa al
+  siguiente (el worker).
+- **Después**: caritas 1 a 5 privadas (el organizador muestra el promedio con 3 o más), «¿Cómo estuvo?» a quienes
+  fueron, chat mutuo («¡Es mutuo con…!»; el privado por compartir un plan dura hasta un día después del final y
+  después sólo si es mutuo), fotos del plan sólo para quienes fueron (links firmados que vencen a la hora, reportar las
+  oculta, se borran a los 6 meses) y «Repetir» en un toque en el historial.
+- **Esta semana en <ciudad>**: push los lunes desde las 18 si hay 5 planes públicos o más (apagable en Ajustes), tarjeta
+  arriba de Ahora de lunes a miércoles y pantalla con los días y lo mejor de la semana.
+- Privacidad (`/privacidad`) actualizada con los plazos nuevos.
+- Quedó afuera: Live Activity / notificación persistente (no hay base en las apps; se cubre con los push del servidor),
+  Ruedas (esfuerzo grande en el informe) y moderación de imágenes con IA (no existe: las fotos se moderan por reporte).
+Para desplegar: pg_dump, `desplegar-api.sh --migrar` (00029; la 00028 y la 00030 son de las otras ramas y goose
+acepta el orden que sea), worker recreado (usa el SMTP para el mail de «¿Todo bien?»), web, y las apps en la próxima tanda.
+
 ## 18/11/2026: revisión con ojos de usuario (rama `revision-usuario`, sin desplegar)
 
 Stack local con 5 cuentas (sesiones `cs_` directas en la base) y flujos de punta a punta. API: con ingreso libre quien
