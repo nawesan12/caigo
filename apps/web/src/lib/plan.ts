@@ -21,6 +21,27 @@ export const CATEGORIAS: Record<string, string> = {
 	fiesta: 'Fiesta'
 };
 
+/** Sin foto propia ni del lugar, la de su categoría (las de los tiles de Explorar, como en las apps). */
+export const FOTOS_CATEGORIA: Record<string, string> = {
+	deporte: '/fotos/playa.jpg',
+	juego: '/fotos/truco.jpg',
+	previa: '/fotos/previa.jpg',
+	salida: '/fotos/grupo.jpg',
+	cita_doble: '/fotos/amigos.jpg',
+	gastronomia: '/fotos/lugar.jpg',
+	fiesta: '/fotos/previa.jpg',
+	musica: '/fotos/lugar.jpg'
+};
+
+/** La foto que se muestra de un plan: la suya, la del lugar o la de la categoría ('' si no hay). */
+export function fotoDelPlan(p: {
+	foto?: string | null;
+	categoria: string;
+	lugar?: { foto?: string } | null;
+}): string {
+	return p.foto || p.lugar?.foto || FOTOS_CATEGORIA[p.categoria] || '';
+}
+
 /** Las del panel de lugares, en el orden del handoff ("Juegos" es `juego`). */
 export const CATEGORIAS_LUGAR: { valor: string; etiqueta: string }[] = [
 	{ valor: 'taller', etiqueta: 'Taller' },

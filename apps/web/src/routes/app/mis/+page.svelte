@@ -8,6 +8,7 @@
 	import { agrupar, badgeMio, TINTES } from '#lib/app.ts';
 	import { partes, cuandoCorto } from '#lib/fechas.ts';
 	import { avisoPlan } from '#lib/moderacion.ts';
+	import { fotoDelPlan } from '#lib/plan.ts';
 	import type { Plan } from '#lib/tipos.ts';
 
 	/*
@@ -89,7 +90,7 @@
 				<div class="tarjeta">
 					<a class="cuerpo" href="/app/plan/{p.id}">
 						<span class="img" style:background-color={TINTES[p.categoria]}>
-							{#if p.foto}<img src={p.foto} alt="" loading="lazy" />{/if}
+							{#if fotoDelPlan(p)}<img src={fotoDelPlan(p)} alt="" loading="lazy" />{/if}
 						</span>
 						<div class="txt">
 							<span class="t">{p.titulo}</span>

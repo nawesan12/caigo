@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cobroTexto, faltanTexto, iniciales, lista, primerNombre } from './plan.ts';
+import { cobroTexto, faltanTexto, fotoDelPlan, iniciales, lista, primerNombre } from './plan.ts';
 
 describe('primerNombre', () => {
 	it('una cuenta purgada no firma «Cuenta»', () => {
@@ -29,5 +29,16 @@ describe('chip de cobro', () => {
 		);
 		expect(cobroTexto({ cobro: 'entrada', precioCentavos: 450000 })).toBe('Entrada $4.500');
 		expect(cobroTexto({ cobro: 'gratis' })).toBe('Gratis');
+	});
+});
+
+describe('fotoDelPlan', () => {
+	it('usa la del plan, después la del lugar y si no la de la categoría', () => {
+		expect(fotoDelPlan({ foto: 'https://api/x', categoria: 'juego' })).toBe('https://api/x');
+		expect(fotoDelPlan({ foto: '', categoria: 'musica', lugar: { foto: 'https://api/l' } })).toBe(
+			'https://api/l'
+		);
+		expect(fotoDelPlan({ foto: '', categoria: 'gastronomia' })).toBe('/fotos/lugar.jpg');
+		expect(fotoDelPlan({ categoria: 'cultura' })).toBe('');
 	});
 });

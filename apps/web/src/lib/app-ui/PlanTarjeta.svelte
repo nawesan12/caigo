@@ -1,6 +1,6 @@
 <script lang="ts">
 	import TarjetaPlan from '#lib/ui/TarjetaPlan.svelte';
-	import { CATEGORIAS } from '#lib/plan.ts';
+	import { CATEGORIAS, fotoDelPlan } from '#lib/plan.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
 	import { distancia, TINTES } from '#lib/app.ts';
 	import type { Plan } from '#lib/tipos.ts';
@@ -26,7 +26,7 @@
 </script>
 
 <TarjetaPlan
-	foto={plan.foto || undefined}
+	foto={fotoDelPlan(plan) || undefined}
 	tinte={TINTES[plan.categoria] ?? '#5B43C9'}
 	categoria={CATEGORIAS[plan.categoria] ?? plan.categoria}
 	cuando={cuandoCorto(plan.empiezaEn)}

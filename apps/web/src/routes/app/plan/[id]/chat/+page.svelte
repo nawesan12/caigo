@@ -8,7 +8,7 @@
 	import Reportar from '#lib/app-ui/Reportar.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
-	import { primerNombre } from '#lib/plan.ts';
+	import { fotoDelPlan, primerNombre } from '#lib/plan.ts';
 	import { TINTES } from '#lib/app.ts';
 	import { escucharVivo } from '#lib/vivo.ts';
 	import { aplicarModerado, lineaMensaje } from '#lib/moderacion.ts';
@@ -161,7 +161,7 @@
 
 	<a class="fijado" href="/app/plan/{p.id}">
 		<span class="fimg" style:background-color={TINTES[p.categoria]}>
-			{#if p.foto}<img src={p.foto} alt="" />{/if}
+			{#if fotoDelPlan(p)}<img src={fotoDelPlan(p)} alt="" />{/if}
 		</span>
 		<span class="fcol">
 			<b>{cuandoCorto(p.empiezaEn)}{p.lugarNombre ? ` · ${p.lugarNombre}` : ''}</b>

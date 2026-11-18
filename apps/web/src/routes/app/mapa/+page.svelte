@@ -2,7 +2,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import MapaPlanes from '#lib/app-ui/MapaPlanes.svelte';
-	import { CATEGORIAS, faltanTexto } from '#lib/plan.ts';
+	import { CATEGORIAS, faltanTexto, fotoDelPlan } from '#lib/plan.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
 	import { distancia, FILTROS_AHORA, sinViuda, TINTES } from '#lib/app.ts';
 	import { pedirUbicacion } from '#lib/app-ui/ubicacion.ts';
@@ -118,7 +118,7 @@
 {#if plan}
 	<a class="flotante" href="/app/plan/{plan.id}">
 		<span class="fimg" style:background-color={TINTES[plan.categoria]}>
-			{#if plan.foto}<img src={plan.foto} alt="" />{/if}
+			{#if fotoDelPlan(plan)}<img src={fotoDelPlan(plan)} alt="" />{/if}
 		</span>
 		<div class="ftxt">
 			<div class="fchips">

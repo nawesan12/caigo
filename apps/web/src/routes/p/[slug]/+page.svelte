@@ -6,7 +6,7 @@
 	import Seo from '#lib/ui/Seo.svelte';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { cuandoLargo } from '#lib/fechas.ts';
-	import { faltanTexto, lista, primerNombre } from '#lib/plan.ts';
+	import { faltanTexto, fotoDelPlan, lista, primerNombre } from '#lib/plan.ts';
 	import { desglose, pesos } from '#lib/precios.ts';
 	import { urlOgPlan } from '#lib/og.ts';
 	import { descripcionPlan, ldMigas, ldPlan } from '#lib/seo.ts';
@@ -107,7 +107,7 @@
 		{/if}
 
 		<div class="foto">
-			{#if plan.foto}<img src={plan.foto} alt="" />{/if}
+			{#if fotoDelPlan(plan)}<img src={fotoDelPlan(plan)} alt="" />{/if}
 			<!-- Un plan que ya pasó o se canceló no invita a sumarse: sin «Faltan N». -->
 			{#if plan.cancelado || terminado}
 				<span class="badge-completo contador">{plan.cancelado ? 'Se canceló' : 'Ya pasó'}</span>

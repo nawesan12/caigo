@@ -2,24 +2,12 @@ import { fail } from '@sveltejs/kit';
 import { api, ErrorApi, ipDe, mensajeDe } from '#lib/server/api.ts';
 import { CENTRO_MDP, distancia, TINTES } from '#lib/app.ts';
 import { cuandoCorto } from '#lib/fechas.ts';
-import { CATEGORIAS, primerNombre } from '#lib/plan.ts';
+import { CATEGORIAS, fotoDelPlan, primerNombre } from '#lib/plan.ts';
 import type { Plan } from '#lib/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 /** Las ciudades de la lista de espera (las dos de Caigo y "otra"). */
 const CIUDADES = ['Mar del Plata', 'Villa Gesell', 'Otra ciudad'];
-
-/** Sin foto del plan, la de ejemplo de su categoría (las mismas fotos CC0 de la landing). */
-const FOTOS: Record<string, string> = {
-	deporte: '/fotos/playa.jpg',
-	juego: '/fotos/truco.jpg',
-	previa: '/fotos/previa.jpg',
-	salida: '/fotos/previa.jpg',
-	fiesta: '/fotos/previa.jpg',
-	cita_doble: '/fotos/amigos.jpg',
-	gastronomia: '/fotos/lugar.jpg',
-	musica: '/fotos/lugar.jpg'
-};
 
 /**
  * "¿Quién se prende?" con los planes que están pasando (GET /v1/publico/planes/ahora, cerca del
@@ -44,7 +32,7 @@ export const load: PageServerLoad = async (event) => {
 		.slice(0, 3)
 		.map((p) => ({
 			id: p.id,
-			foto: p.foto || FOTOS[p.categoria] || '/fotos/grupo.jpg',
+			foto: fotoDelPlan(p) || '/fotos/grupo.jpg',
 			tinte: TINTES[p.categoria] ?? '#5B43C9',
 			categoria: CATEGORIAS[p.categoria] ?? p.categoria,
 			cuando: cuandoCorto(p.empiezaEn),

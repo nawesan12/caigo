@@ -10,7 +10,7 @@
 	import Confirmar from '#lib/app-ui/Confirmar.svelte';
 	import Reportar from '#lib/app-ui/Reportar.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
-	import { CATEGORIAS, faltanTexto, primerNombre } from '#lib/plan.ts';
+	import { CATEGORIAS, faltanTexto, fotoDelPlan, primerNombre } from '#lib/plan.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
 	import { chipAhora, distancia, horario, reputacion, terminado, TINTES } from '#lib/app.ts';
 	import { desglose, pesos, pesosDeCentavos } from '#lib/precios.ts';
@@ -116,7 +116,7 @@
 
 <div class="scroll">
 	<div class="hero" style:background-color={TINTES[p.categoria] ?? '#5B43C9'}>
-		{#if p.foto}<img src={p.foto} alt="" />{/if}
+		{#if fotoDelPlan(p)}<img src={fotoDelPlan(p)} alt="" />{/if}
 		<div class="botones">
 			<a class="btn" href="/app" aria-label="Volver"><Icono nombre="atras" tam={22} /></a>
 			<button class="btn" onclick={compartir} aria-label="Compartir el plan"

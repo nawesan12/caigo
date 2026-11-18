@@ -7,7 +7,7 @@
 	import Vacio from '#lib/ui/Vacio.svelte';
 	import { ldMigas } from '#lib/seo.ts';
 	import { OG_FIJAS, urlOgFija } from '#lib/og.ts';
-	import { CATEGORIAS, faltanTexto } from '#lib/plan.ts';
+	import { CATEGORIAS, faltanTexto, fotoDelPlan } from '#lib/plan.ts';
 	import { diasParaElegir, partes } from '#lib/fechas.ts';
 	import { FECHAS_EXPLORAR, sinViuda, TINTES } from '#lib/app.ts';
 	import type { Plan } from '#lib/tipos.ts';
@@ -266,7 +266,7 @@
 				href="/app/plan/{recurrente.id}"
 				style:background-color={TINTES[recurrente.categoria]}
 			>
-				{#if recurrente.foto}<img src={recurrente.foto} alt="" />{/if}
+				{#if fotoDelPlan(recurrente)}<img src={fotoDelPlan(recurrente)} alt="" />{/if}
 				<div class="velo"></div>
 				<div class="rec-in">
 					<span class="frec">{repite(recurrente)}</span>
@@ -295,7 +295,7 @@
 				{@const x = partes(g.empiezaEn)}
 				<a class="fila" href="/app/plan/{g.id}">
 					<span class="fimg" style:background-color={TINTES[g.categoria]}>
-						{#if g.foto}<img src={g.foto} alt="" loading="lazy" />{/if}
+						{#if fotoDelPlan(g)}<img src={fotoDelPlan(g)} alt="" loading="lazy" />{/if}
 					</span>
 					<div class="ftxt">
 						<span class="fh">{x.hora} · {(CATEGORIAS[g.categoria] ?? '').toUpperCase()}</span>
