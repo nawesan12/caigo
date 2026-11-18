@@ -27,7 +27,7 @@ func TestCosto(t *testing.T) {
 }
 
 // base abre la base de desarrollo (sin ella, se saltea) y usa un día propio para no pisar otras corridas.
-func base(t *testing.T) *db.Pool {
+func base(t *testing.T) (app, migrador *db.Pool) {
 	t.Helper()
 	t.Setenv("CAIGO_ENTORNO", "desarrollo")
 	cfg, err := config.Leer()
@@ -38,24 +38,32 @@ func base(t *testing.T) *db.Pool {
 	if err := db.Migrar(ctx, cfg.BaseMigrador, cfg.ClaveVerificacion); err != nil {
 		t.Skipf("sin base de desarrollo: %v", err)
 	}
-	app, err := db.Abrir(ctx, cfg.BaseApp)
+	app, err = db.Abrir(ctx, cfg.BaseApp)
 	if err != nil {
 		t.Skipf("sin base de desarrollo: %v", err)
 	}
 	t.Cleanup(app.Close)
-	return app
+	// La app no puede borrar de ia_uso (sólo suma): la limpieza va con el dueño del esquema.
+	mig, err := db.Abrir(ctx, cfg.BaseMigrador)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(mig.Close)
+	return app, mig
 }
 
 func TestMedicionYTopes(t *testing.T) {
-	app := base(t)
+	app, mig := base(t)
 	ctx := context.Background()
 	// Un día lejano y al azar por corrida: la tabla es de toda la base.
 	dia := time.Date(2090, time.Month(1+time.Now().Nanosecond()%12), 1+time.Now().Nanosecond()%27, 15, 0, 0, 0, time.UTC)
 	limpiar := func() {
-		_ = app.EnSistema(ctx, func(tx pgx.Tx) error {
-			_, err := tx.Exec(ctx, `DELETE FROM ia_uso WHERE date_trunc('month', dia) = date_trunc('month', $1::date)`, dia)
+		if err := mig.EnSistema(ctx, func(tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, `DELETE FROM ia_uso WHERE dia >= '2090-01-01'`)
 			return err
-		})
+		}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	limpiar()
 	t.Cleanup(limpiar)

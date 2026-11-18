@@ -271,7 +271,7 @@ func (c *Cliente) DelMes(ctx context.Context) ([]Fila, error) {
 	err := c.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `SELECT ruta, sum(pedidos)::integer, sum(fallidos)::integer, sum(entrada)::bigint,
 				sum(cache_leido)::bigint, sum(cache_escrito)::bigint, sum(salida)::bigint, sum(costo_micro)::bigint
-			FROM ia_uso WHERE dia >= $1 GROUP BY ruta ORDER BY ruta`, time.Date(hoy.Year(), hoy.Month(), 1, 0, 0, 0, 0, time.UTC))
+			FROM ia_uso WHERE dia >= $1 AND dia <= $2 GROUP BY ruta ORDER BY ruta`, time.Date(hoy.Year(), hoy.Month(), 1, 0, 0, 0, 0, time.UTC), hoy)
 		if err != nil {
 			return err
 		}
