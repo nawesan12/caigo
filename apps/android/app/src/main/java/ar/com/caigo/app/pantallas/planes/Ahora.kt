@@ -260,6 +260,12 @@ private fun Chips(categoria: String?, alElegir: (String?) -> Unit, chicas: Boole
         Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 2.dp, bottom = 6.dp),
     ) {
+        // Primero y separado: un interruptor (se suma a la categoría elegida), no otra categoría. La seguridad a la
+        // vista, gratis (igual que la web).
+        item(key = "chicas") { InterruptorChicas(chicas) { alChicas(!chicas) } }
+        item(key = "divisor") {
+            Box(Modifier.padding(top = 9.dp).width(1.dp).height(22.dp).background(if (p.oscuro) Color(0xFF3A3550) else C.lavanda))
+        }
         items(filtrosAhora, key = { it.second }) { (k, l) ->
             Chip(
                 l, k == categoria, { alElegir(k) },
@@ -269,11 +275,6 @@ private fun Chips(categoria: String?, alElegir: (String?) -> Unit, chicas: Boole
                 colorOff = p.texto,
             )
         }
-        // Al final y separado: un interruptor (se suma a la categoría elegida), no otra categoría.
-        item(key = "divisor") {
-            Box(Modifier.padding(top = 9.dp).width(1.dp).height(22.dp).background(if (p.oscuro) Color(0xFF3A3550) else C.lavanda))
-        }
-        item(key = "chicas") { InterruptorChicas(chicas) { alChicas(!chicas) } }
     }
 }
 

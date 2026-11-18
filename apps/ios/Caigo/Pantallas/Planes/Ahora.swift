@@ -178,6 +178,10 @@ struct Ahora: View {
     private var chips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
+                // Primero y separado: un interruptor (se suma a la categoría elegida), no otra categoría. La
+                // seguridad a la vista, gratis (igual que la web).
+                InterruptorChicas(on: $chicas)
+                Rectangle().fill(p.oscuro ? Color(hex: 0x3A3550) : C.lavanda).frame(width: 1, height: 22)
                 ForEach(filtrosAhora, id: \.1) { k, l in
                     Chip(texto: l, on: k == categoria,
                          gelOn: p.oscuro ? Gels.limaChico : Gels.oscuroSel,
@@ -185,9 +189,6 @@ struct Ahora: View {
                          colorOn: p.oscuro ? C.carbon : C.blancoCalido,
                          colorOff: p.texto) { categoria = k }
                 }
-                // Al final y separado: un interruptor (se suma a la categoría elegida), no otra categoría.
-                Rectangle().fill(p.oscuro ? Color(hex: 0x3A3550) : C.lavanda).frame(width: 1, height: 22)
-                InterruptorChicas(on: $chicas)
             }
             .padding(.horizontal, 20).padding(.top, 2).padding(.bottom, 6)
         }
