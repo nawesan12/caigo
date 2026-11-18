@@ -11,7 +11,7 @@ struct VistaRecibidos: View {
     @State private var tab = 0
     @State private var recibidos: Recibidos?
     @State private var invitaciones: Invitaciones?
-    @State private var listo = false
+    @State private var error: String?
 
     private var esCitas: Bool { modo == "citas" }
     private var nR: Int { recibidos?.personas.count ?? 0 }
@@ -79,11 +79,16 @@ struct VistaRecibidos: View {
         .environment(\.paleta, .clara)
         .task {
             tab = pestana
-            // En secuencia, sin async let: en otra app de Grupo Vimo, async let en la carga cerró la app en Release.
-            recibidos = try? await c.api.recibidos(modo)
-            invitaciones = try? await c.api.invitaciones()
-            listo = true
+            await cargar()
         }
+    }
+
+    /// En secuencia, sin async let: en otra app de Grupo Vimo, async let en la carga cerró la app en Release.
+    /// Si falla, la pestaña muestra el error con «Reintentar» (antes quedaban los puntitos para siempre).
+    private func cargar() async {
+        error = nil
+        do { recibidos = try await c.api.recibidos(modo) } catch { self.error = mensajeDe(error) }
+        do { invitaciones = try await c.api.invitaciones() } catch { self.error = mensajeDe(error) }
     }
 
     private var explicacion: String {
@@ -114,6 +119,16 @@ struct VistaRecibidos: View {
                     .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 160)
                 }
             }
+        } else if let error {
+            VStack(spacing: 18) {
+                MensajeCentro(titulo: "Uy, algo falló", cuerpo: error)
+                Cta(texto: "Reintentar", gel: Gels.violeta, alto: 52, radio: 18, tam: 16, color: C.blanco) {
+                    Task { await cargar() }
+                }
+                .frame(width: 200)
+            }
+            .padding(32)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             Puntitos().frame(maxWidth: .infinity, maxHeight: .infinity)
         }

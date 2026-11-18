@@ -38,7 +38,7 @@ import ar.com.caigo.app.piezas.BotonIcono
 import ar.com.caigo.app.piezas.Cta
 import ar.com.caigo.app.nucleo.Fecha
 import ar.com.caigo.app.piezas.Pantalla
-import ar.com.caigo.app.piezas.Puntitos
+import ar.com.caigo.app.piezas.EstadoCarga
 import ar.com.caigo.app.piezas.Segmentado
 import ar.com.caigo.app.piezas.rememberCarga
 import ar.com.caigo.app.piezas.toque
@@ -105,7 +105,8 @@ fun Recibidos(ir: Ir, modo: String, pestana: Int) {
                 if (v.titulo.isEmpty()) null else v.titulo.substringBefore(" en ") + " · " + Fecha.cuando(v.empiezaEn)
             }.orEmpty()
             when {
-                tarjetas == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Puntitos() }
+                // Si falla, el error con «Reintentar» (antes quedaban los puntitos para siempre).
+                tarjetas == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { EstadoCarga(if (tab == 0) recibidos else invitaciones) }
                 tarjetas.isEmpty() -> Column(
                     Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 50.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp),
