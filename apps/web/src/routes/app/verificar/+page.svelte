@@ -321,6 +321,8 @@
 					};
 				}}
 			>
+				<!-- El action "?/…" pisa la query: `volver` viaja en el formulario. -->
+				<input type="hidden" name="volver" value={data.volver} />
 				<div class="tel">
 					<span class="prefijo">AR +54</span>
 					<input
@@ -453,6 +455,8 @@
 					};
 				}}
 			>
+				<!-- El action "?/…" pisa la query: `volver` viaja en el formulario. -->
+				<input type="hidden" name="volver" value={data.volver} />
 				<div class="lados">
 					{#each ['frente', 'dorso'] as const as lado (lado)}
 						{@const f = fotos[lado]}

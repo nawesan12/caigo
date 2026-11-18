@@ -3,7 +3,7 @@ import { volverSeguro } from '#lib/hosts.ts';
 import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
 import { telefonoAR } from '#lib/app.ts';
 import { COOKIE_SELFIE } from '#lib/server/cuenta.ts';
-import { pasoDe } from '#lib/verificacion.ts';
+import { edad, fechaValida, pasoDe } from '#lib/verificacion.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -27,12 +27,13 @@ export const load: PageServerLoad = async (event) => {
 	};
 };
 
-/** Años cumplidos a `hoy` de alguien nacido en `nac` (YYYY-MM-DD). */
-function edad(nac: string, hoy = new Date()): number {
-	const [a, m, d] = nac.split('-').map(Number);
-	let e = hoy.getFullYear() - a;
-	if (hoy.getMonth() + 1 < m || (hoy.getMonth() + 1 === m && hoy.getDate() < d)) e--;
-	return e;
+/**
+ * Adónde volver al terminar. Las forms mandan `?/accion`, que reemplaza la query de la página: el
+ * `volver` llega en un campo oculto (y, por las dudas, en la URL).
+ */
+function volverDe(event: { url: URL }, f: FormData): string {
+	const v = f.get('volver');
+	return volverSeguro(typeof v === 'string' ? v : event.url.searchParams.get('volver'), '/app');
 }
 
 export const actions: Actions = {
@@ -74,10 +75,7 @@ export const actions: Actions = {
 			if (!(e instanceof ErrorApi)) throw e;
 			return fail(400, { error: mensajeDe(e), enviado: true, telefono });
 		}
-		redirect(
-			303,
-			`/app/verificar?volver=${encodeURIComponent(volverSeguro(event.url.searchParams.get('volver'), '/app'))}`
-		);
+		redirect(303, `/app/verificar?volver=${encodeURIComponent(volverDe(event, f))}`);
 	},
 	/** El DNI: las fotos ya subidas (/app/verificar/foto), la selfie de la cookie, número y fecha. */
 	dni: async (event) => {
@@ -92,9 +90,10 @@ export const actions: Actions = {
 			return fail(400, { error: 'Sacale una foto al frente y otra al dorso del DNI.', ...datos });
 		if (!/^\d{7,9}$/.test(numero))
 			return fail(400, { error: 'Poné tu número de DNI, sin puntos.', ...datos });
-		if (!/^\d{4}-\d{2}-\d{2}$/.test(nacimiento) || edad(nacimiento) > 110)
+		const nac = fechaValida(nacimiento);
+		if (!nac || edad(nac) > 110)
 			return fail(400, { error: 'Poné tu fecha de nacimiento.', ...datos });
-		if (edad(nacimiento) < 18)
+		if (edad(nac) < 18)
 			return fail(400, { error: 'Caigo es solo para mayores de 18.', ...datos });
 		if (!selfieId)
 			return fail(400, { error: 'Sacate la selfie de nuevo.', selfie: true, ...datos });
@@ -113,6 +112,6 @@ export const actions: Actions = {
 			}
 		}
 		event.cookies.delete(COOKIE_SELFIE, { path: '/app/verificar' });
-		redirect(303, volverSeguro(event.url.searchParams.get('volver'), '/app'));
+		redirect(303, volverDe(event, f));
 	}
 };
