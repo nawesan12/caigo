@@ -120,7 +120,8 @@
 
 		<div class="titulos">
 			<span class="invita"
-				>{anfitrion} {terminado && !plan.cancelado ? 'organizó' : 'te invita a'}</span
+				>{anfitrion}
+				{plan.cancelado ? 'canceló' : terminado ? 'organizó' : 'te invita a'}</span
 			>
 			<h1>{plan.titulo}</h1>
 		</div>
