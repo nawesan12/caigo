@@ -24,7 +24,10 @@
 	type Props = {
 		yo: Yo;
 		centro: { lat: number; lng: number; real?: boolean };
-		form: { error?: string; publicado?: { id: string; slug: string; titulo: string } } | null;
+		form: {
+			error?: string;
+			publicado?: { id: string; slug: string; titulo: string; empiezaEn?: string };
+		} | null;
 		plan?: Plan | null;
 	};
 	let { yo, centro, form, plan = null }: Props = $props();
@@ -228,6 +231,8 @@
 		}
 	}
 	const publicado = $derived(form && 'publicado' in form ? form.publicado : null);
+	/** Ahora lista lo de las próximas 3 horas: un plan de mañana se encuentra en Explorar. */
+	const enAhora = (iso?: string) => !iso || new Date(iso).getTime() - Date.now() < 3 * 3600_000;
 	const link = $derived(publicado ? `${PUBLIC_SITIO.replace(/\/+$/, '')}/p/${publicado.slug}` : '');
 
 	function siguiente() {
@@ -257,7 +262,10 @@
 	<div class="publicado">
 		<img src="/caigo-icon.png" alt="" width="190" height="190" />
 		<h1>Plan publicado</h1>
-		<p>«{publicado.titulo}» ya aparece en Ahora. Te avisamos cuando alguien se&nbsp;prenda.</p>
+		<p>
+			«{publicado.titulo}» ya aparece en {enAhora(publicado.empiezaEn) ? 'Ahora' : 'Explorar'}. Te
+			avisamos cuando alguien se&nbsp;prenda.
+		</p>
 		<div class="pub-acc">
 			<a
 				class="gel gel-lima pub-wa"

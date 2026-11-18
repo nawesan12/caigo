@@ -903,7 +903,9 @@ struct Publicado: View {
                 Spacer()
                 Image("CaigoIcono").resizable().frame(width: 200, height: 200).pop()
                 T("Plan publicado", 36, 800, C.blanco, alto: 1, espaciado: -1, alinear: .center)
-                T("«\(plan?.titulo ?? "")» ya aparece en Ahora. Te avisamos cuando alguien se prenda.", 15, 500,
+                // Ahora lista lo de las próximas 3 horas: un plan de mañana se encuentra en Explorar.
+                let enAhora = plan.flatMap { Fecha.parse($0.empiezaEn) }.map { $0.timeIntervalSinceNow < 3 * 3600 } ?? true
+                T("«\(plan?.titulo ?? "")» ya aparece en \(enAhora ? "Ahora" : "Explorar"). Te avisamos cuando alguien se prenda.", 15, 500,
                   rgba(255, 255, 255, 0.9), alto: 1.5, alinear: .center)
                 Color.clear.frame(height: 4)
                 if let p = plan {

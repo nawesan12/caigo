@@ -19,7 +19,7 @@ export const actions: Actions = {
 		}
 		try {
 			const p = await conSesion<Plan>(event, 'POST', '/v1/planes', { cuerpo: datos });
-			return { publicado: { id: p.id, slug: p.slug, titulo: p.titulo } };
+			return { publicado: { id: p.id, slug: p.slug, titulo: p.titulo, empiezaEn: p.empiezaEn } };
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
 			// 422 contenido_bloqueado: el detail dice qué corregir; el formulario queda como estaba.

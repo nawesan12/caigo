@@ -1021,7 +1021,9 @@ fun Publicado(ir: Ir, id: String) {
             Image(painterResource(R.drawable.caigo_icon), null, Modifier.size(200.dp).scale(escala.value).rotate(giro.value))
             T("Plan publicado", 36f, 800, C.blanco, alto = 1f, espaciado = px(-1f, 36f), alinear = TextAlign.Center)
             val p = plan
-            T("«${p?.titulo.orEmpty()}» ya aparece en Ahora. Te avisamos cuando alguien se prenda.", 15f, 500, rgba(255, 255, 255, .9f), alto = 1.5f, alinear = TextAlign.Center)
+            // Ahora lista lo de las próximas 3 horas: un plan de mañana se encuentra en Explorar.
+            val enAhora = p?.let { Fecha.parse(it.empiezaEn) }?.let { java.time.Duration.between(java.time.ZonedDateTime.now(), it).toHours() < 3 } ?: true
+            T("«${p?.titulo.orEmpty()}» ya aparece en ${if (enAhora) "Ahora" else "Explorar"}. Te avisamos cuando alguien se prenda.", 15f, 500, rgba(255, 255, 255, .9f), alto = 1.5f, alinear = TextAlign.Center)
             Box(Modifier.height(4.dp))
             if (p != null) {
                 val link = "https://caigo.com.ar/p/${p.slug}"
