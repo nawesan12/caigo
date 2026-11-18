@@ -1,12 +1,13 @@
 # Estado
 
-## 18/11/2026: revisión de bugs (API desplegada, 81c404f; la web no se desplegó)
+## 18/11/2026: revisión de bugs (API 81c404f y web fd602cd desplegadas)
 
 Link «en vivo» sólo para quien sigue aceptada; mazo con DNI aprobado; bloqueos en solicitudes y chat grupal;
 con entradas pagas no se mueve la fecha ni se endurece la cancelación (409 con_entradas: confirmar con
 Nahuel); cobros de MP sólo de la cuenta del lugar; clave de reembolso con el monto; invitación no pisa la
 cantidad; planes de suspendidas fuera de los links; «¿Repetimos?» con bloqueos y cancelados; apps: 409
-ya_verificado y sin `async let` en iOS. Falta desplegar la web (sólo cambió un texto del panel).
+ya_verificado y sin `async let` en iOS. Web (2.ª ronda): verificación vuelve al plan, 401 JSON en el chat,
+4xx sin 500 en las listas, suspendidas a /ingresar, IP validada, fotos a 8 MB, barra de pestañas y edad en Argentina.
 Pendiente: la mayoría de edad del DNI depende de lo que manda la app (sin OCR).
 
 ## Cómo retomar (actualizado 31/10/2026, cierre del día)
