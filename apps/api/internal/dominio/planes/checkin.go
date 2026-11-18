@@ -110,8 +110,18 @@ func (s *Servicio) Checkin(ctx context.Context, usuarioID, planID string, l Lleg
 		default:
 			return problema.Invalido("Elegí cómo hacés el check-in.")
 		}
-		_, err = tx.Exec(ctx, `UPDATE solicitudes SET checkin_en = now(), checkin_metodo = $3
-			WHERE plan_id::text = $1 AND usuario_id = $2`, planID, usuarioID, l.Metodo)
+		if _, err = tx.Exec(ctx, `UPDATE solicitudes SET checkin_en = now(), checkin_metodo = $3
+			WHERE plan_id::text = $1 AND usuario_id = $2`, planID, usuarioID, l.Metodo); err != nil {
+			return err
+		}
+		if l.Metodo == "geo" {
+			return nil
+		}
+		// El QR lo muestra quien organiza en el lugar: si alguien lo escaneó, quien organiza estaba. Si no,
+		// su propio plan le contaba como una falta («Fue a 0 de 1 plan») aunque lo haya armado y ido.
+		_, err = tx.Exec(ctx, `UPDATE solicitudes s SET checkin_en = now(), checkin_metodo = 'qr'
+			FROM planes p WHERE p.id = s.plan_id AND s.usuario_id = p.organizador_id AND s.plan_id::text = $1
+				AND s.checkin_en IS NULL`, planID)
 		return err
 	})
 }
