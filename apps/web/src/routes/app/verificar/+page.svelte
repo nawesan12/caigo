@@ -5,6 +5,7 @@
 	import Icono from '#lib/ui/Icono.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { APP_STORE, PLAY_STORE } from '#lib/abrir-app.ts';
+	import { TITULO_DNI } from '#lib/verificacion.ts';
 	import { aJpeg } from '#lib/imagen.ts';
 	import {
 		cargarDetector,
@@ -26,16 +27,20 @@
 	 */
 	let { data, form } = $props();
 
+	/** La primera lámina («Para sumarte, verificamos que seas vos») hasta tocar «Verificarme». */
+	let empezo = $state(false);
+
 	/** Qué se muestra: el paso que falta; para el DNI hace falta la selfie de la prueba de vida. */
 	const vista = $derived.by(() => {
 		if (data.paso === 1) return 'telefono';
+		if (data.paso === 2 && !empezo && !form) return 'intro';
 		if (data.paso === 2) return 'selfie';
 		if (data.dni === 'rechazada') return 'rechazada';
 		if (data.dni === 'pendiente') return 'pendiente';
 		if (!data.conSelfie || (form && 'selfie' in form && form.selfie)) return 'selfie';
 		return 'dni';
 	});
-	const numeroPaso = $derived(vista === 'telefono' ? 1 : vista === 'selfie' ? 2 : 3);
+	const numeroPaso = $derived(vista === 'selfie' ? 1 : 2);
 
 	// ——— Paso 1 ———
 	let telefono = $state('');
@@ -284,17 +289,50 @@
 <div class="scroll">
 	<div class="pantalla">
 		<div class="arriba">
-			{#if vista === 'telefono'}
-				<a class="icono-btn" href="/" aria-label="Volver a Caigo"
+			{#if vista === 'telefono' || vista === 'intro'}
+				<a class="icono-btn" href={data.volver} aria-label="Volver"
 					><Icono nombre="atras" tam={22} /></a
 				>
 			{:else}
 				<span></span>
 			{/if}
-			{#if vista !== 'rechazada' && vista !== 'pendiente'}
-				<span class="paso">Paso {numeroPaso} de 3</span>
+			{#if vista === 'selfie' || vista === 'dni'}
+				<span class="paso">Paso {numeroPaso} de 2</span>
 			{/if}
 		</div>
+
+		{#if vista === 'intro'}
+			<div class="txt">
+				<h1>{TITULO_DNI[data.para]}</h1>
+				<p>
+					Todos en Caigo tienen el DNI verificado: así sabés con quién salís. Es un minuto y son
+					tres&nbsp;fotos.
+				</p>
+			</div>
+			<!-- La tarjeta grafito de pasos de «Tu confianza en Caigo» (Prototipo, verify 0). -->
+			<div class="pasos">
+				<div class="paso-v">
+					<span class="num">1</span>
+					<div class="paso-t">
+						<b>Selfie con prueba de vida</b><span>Confirma que sos una persona real</span>
+					</div>
+				</div>
+				<div class="paso-v">
+					<span class="num">2</span>
+					<div class="paso-t">
+						<b>DNI · badge Verificado</b><span>Frente y dorso, sin reflejos</span>
+					</div>
+				</div>
+			</div>
+			<div class="pie">
+				<span class="nota"
+					><Icono nombre="escudo" tam={16} color="var(--c-acento)" trazo={2} />Lo revisamos y tus
+					fotos se borran a los 30&nbsp;días</span
+				>
+				<button class="gel gel-lima cta" onclick={() => (empezo = true)}>Verificarme</button>
+				<a class="ahora-no" href={data.volver}>Ahora no</a>
+			</div>
+		{/if}
 
 		{#if vista === 'telefono'}
 			<div class="txt">
@@ -538,7 +576,7 @@
 		{:else}
 			<div class="txt">
 				<h1>Ya estamos revisando tu&nbsp;DNI</h1>
-				<p>Lo revisa una persona del equipo, no un bot. Te avisamos por mail.</p>
+				<p>Lo revisamos y tus fotos se borran a los 30&nbsp;días. Te avisamos por&nbsp;mail.</p>
 			</div>
 			<div class="pie">
 				<button class="gel gel-blanco cta" onclick={() => invalidateAll()}>Ver si ya está</button>
@@ -571,6 +609,57 @@
 		color: var(--carbon);
 		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
+	}
+	.pasos {
+		padding: 6px;
+		border-radius: 26px;
+		background: var(--grad-oscuro);
+		box-shadow: 0 16px 28px -14px rgba(36, 33, 45, 0.6);
+		display: flex;
+		flex-direction: column;
+	}
+	.paso-v {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 12px;
+	}
+	.paso-v + .paso-v {
+		border-top: 1px solid #3a3550;
+	}
+	.num {
+		flex: none;
+		width: 36px;
+		height: 36px;
+		border-radius: 12px;
+		border: 2px dashed #ff7868;
+		display: grid;
+		place-items: center;
+		color: #ff7868;
+		font:
+			800 16px 'Geist',
+			sans-serif;
+	}
+	.paso-t {
+		display: flex;
+		flex-direction: column;
+	}
+	.paso-t b {
+		font-size: 15px;
+		font-weight: 800;
+		color: #faf9f6;
+	}
+	.paso-t span {
+		font-size: 12px;
+		color: #c9c4da;
+	}
+	.ahora-no {
+		align-self: center;
+		padding: 8px 12px;
+		font-size: 15px;
+		font-weight: 600;
+		color: var(--texto-2);
+		text-decoration: none;
 	}
 	.paso {
 		font-size: 14px;

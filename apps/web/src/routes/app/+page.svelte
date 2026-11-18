@@ -12,7 +12,10 @@
 	const lugar = $derived(
 		[data.yo?.zona, data.yo?.ciudad].filter(Boolean).join(', ') || 'Mar del Plata'
 	);
-	const q = (c: string) => (c ? `?categoria=${c}` : '');
+	const q = (c: string, chicas = data.chicas) => {
+		const p = [c && `categoria=${c}`, chicas && 'chicas=1'].filter(Boolean).join('&');
+		return p ? `?${p}` : '';
+	};
 
 	onMount(() => {
 		if (!data.ubic) pedirUbicacion();
@@ -35,7 +38,7 @@
 			<h1>Ahora</h1>
 			<nav class="seg-app" aria-label="Vista">
 				<a href="/app{q(data.categoria)}" aria-current="page">Lista</a>
-				<a href="/app/mapa{q(data.categoria)}">Mapa</a>
+				<a href="/app/mapa{q(data.categoria, false)}">Mapa</a>
 			</nav>
 		</div>
 		<div class="filtros">
@@ -48,6 +51,13 @@
 					aria-current={data.categoria === f.valor ? 'true' : undefined}>{f.etiqueta}</a
 				>
 			{/each}
+			<a
+				class="filtro"
+				class:on={data.chicas}
+				href="/app{q(data.categoria, !data.chicas)}"
+				data-sveltekit-noscroll
+				aria-current={data.chicas ? 'true' : undefined}>Sólo chicas</a
+			>
 		</div>
 	</div>
 
@@ -66,7 +76,11 @@
 	{:else}
 		<div class="vacio">
 			<Vacio
-				titulo={data.aviso ? 'No pudimos traer los planes' : 'No hay planes cerca. ¿Armás uno?'}
+				titulo={data.aviso
+					? 'No pudimos traer los planes'
+					: data.chicas
+						? 'No hay planes de chicas cerca. ¿Armás uno?'
+						: 'No hay planes cerca. ¿Armás uno?'}
 				texto={data.aviso || 'Si publicás algo ahora, sos lo primero que ven.'}
 			>
 				<a class="gel gel-lima" href="/app/crear">Armá un plan</a>

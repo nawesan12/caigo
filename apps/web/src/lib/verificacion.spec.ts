@@ -1,21 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { edad, fechaValida, pasoDe, verificada } from './verificacion.ts';
+import { edad, fechaValida, motivoDni, pasoDe, verificada } from './verificacion.ts';
 
 describe('verificación de /app', () => {
-	it('pide teléfono, selfie y DNI aprobado', () => {
-		expect(verificada({ telefono: '+54223', selfie: true, dni: 'aprobada' })).toBe(true);
+	it('alcanza con el DNI aprobado (el teléfono es opcional)', () => {
+		expect(verificada({ selfie: true, dni: 'aprobada' })).toBe(true);
 		expect(verificada({ telefono: '+54223', selfie: true, dni: 'pendiente' })).toBe(false);
 		expect(verificada({ telefono: '+54223', selfie: true, dni: 'rechazada' })).toBe(false);
-		expect(verificada({ telefono: '+54223', selfie: false, dni: 'aprobada' })).toBe(false);
-		expect(verificada({ selfie: true, dni: 'aprobada' })).toBe(false);
 		expect(verificada(null)).toBe(false);
 	});
-	it('el paso que falta, en orden', () => {
-		expect(pasoDe({ selfie: false, dni: 'ninguna' })).toBe(1);
-		expect(pasoDe({ telefono: '1', selfie: false, dni: 'ninguna' })).toBe(2);
-		expect(pasoDe({ telefono: '1', selfie: true, dni: 'ninguna' })).toBe(3);
-		expect(pasoDe({ telefono: '1', selfie: true, dni: 'rechazada' })).toBe(3);
-		expect(pasoDe({ telefono: '1', selfie: true, dni: 'aprobada' })).toBe(0);
+	it('el paso que falta: selfie y DNI, sin teléfono', () => {
+		expect(pasoDe({ selfie: false, dni: 'ninguna' })).toBe(2);
+		expect(pasoDe({ selfie: true, dni: 'ninguna' })).toBe(3);
+		expect(pasoDe({ selfie: true, dni: 'rechazada' })).toBe(3);
+		expect(pasoDe({ selfie: true, dni: 'aprobada' })).toBe(0);
+	});
+	it('para qué se pide', () => {
+		expect(motivoDni('/app/plan/[id]')).toBe('sumarte');
+		expect(motivoDni('/app/crear')).toBe('crear');
+		expect(motivoDni('/app/plan/[id]/chat/mensajes')).toBe('chatear');
+		expect(motivoDni('/app/mensajes/[id]')).toBe('chatear');
+		expect(motivoDni('/app/mis')).toBe('');
 	});
 });
 

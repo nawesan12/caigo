@@ -3,22 +3,26 @@ import { volverSeguro } from '#lib/hosts.ts';
 import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
 import { telefonoAR } from '#lib/app.ts';
 import { COOKIE_SELFIE } from '#lib/server/cuenta.ts';
-import { edad, fechaValida, pasoDe } from '#lib/verificacion.ts';
+import { edad, fechaValida, pasoDe, TITULO_DNI, type MotivoDni } from '#lib/verificacion.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
- * Verificación, una sola vez: 01d teléfono, 01e selfie con prueba de vida y el DNI (frente, dorso,
- * número y fecha de nacimiento; se aprueba al subirlo y el equipo lo revisa después). Sin las tres,
- * /app no deja hacer nada (hooks.server.ts). Después vuelve adonde estaba.
+ * Verificación, una sola vez y recién al primer «Caigo» (18/11): una lámina que dice para qué, la
+ * selfie con prueba de vida y el DNI (frente, dorso, número y fecha de nacimiento; se aprueba al
+ * subirlo y el equipo lo revisa después). Sin DNI se mira, pero no se suma, crea ni chatea
+ * (hooks.server.ts). Después vuelve adonde estaba. El teléfono ya no se pide.
  */
 export const load: PageServerLoad = async (event) => {
 	const { verif } = await event.parent();
 	const volver = volverSeguro(event.url.searchParams.get('volver'), '/app');
 	const paso = pasoDe(verif);
 	if (paso === 0) redirect(303, volver);
+	const m = event.url.searchParams.get('motivo') ?? '';
+	const motivo: MotivoDni = Object.hasOwn(TITULO_DNI, m) ? (m as MotivoDni) : '';
 	return {
 		paso,
 		volver,
+		para: motivo,
 		dni: verif.dni,
 		motivo: verif.dniMotivo ?? '',
 		// Para el DNI hace falta la selfie de la prueba de vida; si no quedó (otro navegador, pasó un

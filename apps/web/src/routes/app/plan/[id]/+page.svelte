@@ -10,7 +10,7 @@
 	import Confirmar from '#lib/app-ui/Confirmar.svelte';
 	import Reportar from '#lib/app-ui/Reportar.svelte';
 	import { avisar } from '#lib/toast.svelte.ts';
-	import { CATEGORIAS, faltanTexto, fotoDelPlan, primerNombre } from '#lib/plan.ts';
+	import { CATEGORIAS, faltanTexto, fotoDelPlan, lineaConfianza, primerNombre } from '#lib/plan.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
 	import { chipAhora, distancia, horario, reputacion, terminado, TINTES } from '#lib/app.ts';
 	import { desglose, pesos, pesosDeCentavos } from '#lib/precios.ts';
@@ -58,6 +58,8 @@
 		].filter(Boolean) as string[]
 	);
 	const organiza = $derived(p.lugar ? p.lugar.nombre : primerNombre(p.organizador.nombre));
+	/** La línea de confianza sin «Organiza…» (ya está arriba): «Todos verificados · Van 2 chicas». */
+	const seguro = $derived(lineaConfianza(p).filter((x) => !x.startsWith('Organiza')));
 
 	let grupo = $state(false);
 	let reportar = $state(false);
@@ -201,6 +203,13 @@
 				>
 			</div>
 		</div>
+		{#if seguro.length}
+			<p class="seguro">
+				{#if p.confianza?.todosVerificados}<Verificado tam={14} />{/if}<span
+					>{seguro.join(' · ')}</span
+				>
+			</p>
+		{/if}
 
 		<div class="info">
 			<div class="fila">
@@ -618,6 +627,19 @@
 	.or {
 		font-size: 13px;
 		color: var(--texto-2);
+	}
+	.seguro {
+		display: flex;
+		align-items: flex-start;
+		gap: 6px;
+		margin-top: -6px;
+		font-size: 13px;
+		font-weight: 600;
+		line-height: 1.35;
+		color: var(--texto-2);
+	}
+	.seguro :global(svg) {
+		margin-top: 1px;
 	}
 	.info {
 		display: flex;

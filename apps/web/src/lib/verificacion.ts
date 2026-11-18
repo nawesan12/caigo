@@ -2,19 +2,37 @@ import { partes } from './fechas.ts';
 import type { Verificacion } from './tipos.ts';
 
 /**
- * Verificada = teléfono + selfie + DNI aprobado (desde el 16/11 el DNI es obligatorio para usar
- * Caigo; la API responde 403 `falta_dni` a todo lo demás).
+ * Verificada = DNI aprobado (frente, dorso y la selfie con prueba de vida, que queda como la de la
+ * cuenta). Sin DNI se mira Caigo; para sumarse, crear o chatear la API responde 403 `falta_dni`.
+ * El teléfono es opcional desde el 18/11.
  */
 export function verificada(v: Verificacion | null | undefined): boolean {
-	return !!v && !!v.telefono && !!v.selfie && v.dni === 'aprobada';
+	return !!v && v.dni === 'aprobada';
 }
 
-/** En qué paso de /app/verificar está: 1 teléfono, 2 selfie, 3 DNI, 0 si ya terminó. */
+/** En qué paso de /app/verificar está: 2 selfie, 3 DNI, 0 si ya terminó (el 1, el teléfono, ya no se pide). */
 export function pasoDe(v: Verificacion): 0 | 1 | 2 | 3 {
-	if (!v.telefono) return 1;
+	if (v.dni === 'aprobada') return 0;
 	if (!v.selfie) return 2;
-	if (v.dni !== 'aprobada') return 3;
-	return 0;
+	return 3;
+}
+
+/** Para qué se pide el DNI (el título de la primera lámina de /app/verificar). */
+export type MotivoDni = 'sumarte' | 'crear' | 'chatear' | '';
+
+export const TITULO_DNI: Record<MotivoDni, string> = {
+	sumarte: 'Para sumarte, verificamos que seas\u00a0vos',
+	crear: 'Para armar tu plan, verificamos que seas\u00a0vos',
+	chatear: 'Para chatear, verificamos que seas\u00a0vos',
+	'': 'Antes, verificamos que seas\u00a0vos'
+};
+
+/** El motivo según la ruta de /app que pidió la verificación. */
+export function motivoDni(rutaId: string): MotivoDni {
+	if (rutaId === '/app/crear' || rutaId.startsWith('/app/plan/[id]/editar')) return 'crear';
+	if (rutaId.includes('/chat') || rutaId.startsWith('/app/mensajes')) return 'chatear';
+	if (rutaId === '/app/plan/[id]' || rutaId.startsWith('/p/')) return 'sumarte';
+	return '';
 }
 
 /** La fecha YYYY-MM-DD si existe de verdad (2005-02-31 no); si no, null. */
