@@ -61,7 +61,7 @@ import kotlinx.coroutines.launch
  * donde estaba (como en iOS, donde Ahora es la raíz y conserva su estado).
  */
 @Composable
-fun DecidiRapido(ir: Ir, planes: List<Plan>, ocultos: PlanesOcultos, cerrar: () -> Unit) {
+internal fun DecidiRapido(ir: Ir, planes: List<Plan>, ocultos: PlanesOcultos, cerrar: () -> Unit) {
     val c = LocalApp.current
     val avisos = LocalAvisos.current
     val p = LocalPaleta.current

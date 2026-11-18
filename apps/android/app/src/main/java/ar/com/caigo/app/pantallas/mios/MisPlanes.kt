@@ -1,5 +1,7 @@
 package ar.com.caigo.app.pantallas.mios
 
+import ar.com.caigo.app.pantallas.planes.HojaTodoBien
+import ar.com.caigo.app.pantallas.planes.HojaConfirmar
 import ar.com.caigo.app.pantallas.planes.fotoDe
 import ar.com.caigo.app.piezas.colorDeCategoria
 import ar.com.caigo.app.pantallas.pagos.Adentro
@@ -156,7 +158,7 @@ fun MisPlanes(ir: Ir) {
             }
         }
         aRepetir?.let { pl ->
-            ar.com.caigo.app.pantallas.planes.HojaConfirmar(
+            HojaConfirmar(
                 true, "¿Repetimos «${pl.titulo}»?", "${proximaFecha(pl)}. Se publica igual que la última vez.", "Publicar",
                 cerrar = { aRepetir = null },
             ) {
@@ -168,7 +170,7 @@ fun MisPlanes(ir: Ir) {
             }
         }
         hoyPlan?.let { h ->
-            ar.com.caigo.app.pantallas.planes.HojaTodoBien(
+            HojaTodoBien(
                 ir, h, hojaHoy, cerrar = { hojaHoy = false }, reportar = { ir.plan(h.id) }, recargar = { refrescar() },
             )
         }
