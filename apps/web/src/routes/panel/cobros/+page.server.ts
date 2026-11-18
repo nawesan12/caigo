@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
-import { lugarAprobado, misLugares } from '#lib/server/panel.ts';
+import { errorMP, lugarAprobado, misLugares } from '#lib/server/panel.ts';
 import type { CobroPlan } from '#lib/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -15,7 +15,8 @@ export const load: PageServerLoad = async (event) => {
 	return {
 		cobros,
 		mp: mp === 'ok' || mp === 'error' ? mp : null,
-		mpError: event.url.searchParams.get('detalle') ?? ''
+		// Un código conocido, nunca el texto de la URL (si no, cualquiera arma un link con un aviso falso).
+		mpError: errorMP(event.url.searchParams.get('detalle'))
 	};
 };
 

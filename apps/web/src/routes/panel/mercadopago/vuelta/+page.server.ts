@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
+import { conSesion, ErrorApi } from '#lib/server/api.ts';
 import { elegirLugar } from '#lib/server/panel.ts';
 import type { PageServerLoad } from './$types';
 
@@ -20,7 +20,8 @@ export const load: PageServerLoad = async (event) => {
 		destino = '/cobros?mp=ok';
 	} catch (e) {
 		if (!(e instanceof ErrorApi)) throw e;
-		destino = `/cobros?mp=error&detalle=${encodeURIComponent(mensajeDe(e))}`;
+		// Sólo el código: /cobros muestra el texto fijo que le corresponde (ver errorMP).
+		destino = `/cobros?mp=error&detalle=${encodeURIComponent(e.codigo)}`;
 	}
 	redirect(303, destino);
 };

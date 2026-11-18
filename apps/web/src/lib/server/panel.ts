@@ -48,3 +48,17 @@ export function uuid(id: string): string {
 	if (!/^[0-9a-f-]{36}$/i.test(id)) error(404, 'No encontrado');
 	return id;
 }
+
+/**
+ * Por qué no se conectó Mercado Pago (la vuelta manda `/cobros?mp=error&detalle=<código>`). Sólo
+ * textos fijos: lo que viene en la URL lo arma cualquiera y no se muestra tal cual.
+ */
+const ERRORES_MP: Record<string, string> = {
+	estado: 'El link de conexión venció. Probá de nuevo.',
+	mp_en_uso: 'Esa cuenta de Mercado Pago ya está conectada a otro lugar de Caigo.',
+	sin_mp: 'Mercado Pago todavía no está disponible en Caigo.'
+};
+
+export function errorMP(codigo: string | null | undefined): string {
+	return codigo && Object.hasOwn(ERRORES_MP, codigo) ? ERRORES_MP[codigo] : '';
+}
