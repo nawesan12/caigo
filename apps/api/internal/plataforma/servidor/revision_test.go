@@ -1,9 +1,11 @@
 package servidor_test
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Revisión de código del 18/11: lo que se cerró, con su prueba.
@@ -97,5 +99,41 @@ func TestChatGrupalConBloqueo(t *testing.T) {
 	}
 	if got := strings.Join(textos(fede), "|"); got != "de Fede" {
 		t.Fatalf("fede: %s", got)
+	}
+}
+
+// Con entradas pagas el lugar no endurece la política ni mueve la fecha (sí puede aflojarla), y no
+// cancela un plan que ya terminó.
+func TestLugarConEntradasPagas(t *testing.T) {
+	e, mp, ls, duena, lugarID := lugarConMP(t)
+	ana := e.persona("Ana")
+	e.verificar(ana, true)
+	empieza := time.Now().Add(48 * time.Hour).Truncate(time.Second)
+	var c struct{ ID string }
+	e.pedir(duena, "POST", "/v1/lugares/"+lugarID+"/planes", map[string]any{"titulo": "Noche", "categoria": "musica",
+		"empiezaEn": empieza, "cupo": 20, "cobro": "entrada", "precioCentavos": 800000, "cancelacion": "mod"}, http.StatusCreated, &c)
+	ruta := "/v1/lugares/" + lugarID + "/planes/" + c.ID
+	// Sin entradas, se puede todo.
+	e.pedir(duena, "PATCH", ruta, map[string]any{"cancelacion": "strict"}, http.StatusOK, nil)
+	e.pedir(duena, "PATCH", ruta, map[string]any{"cancelacion": "mod"}, http.StatusOK, nil)
+	e.pedir(ana, "POST", "/v1/planes/"+c.ID+"/entradas", map[string]int{"cantidad": 1}, http.StatusOK, nil)
+	if err := ls.ConciliarOrden(context.Background(), mp.usuario, mp.ultimaOrden()); err != nil {
+		t.Fatal(err)
+	}
+	if c := codigo(t, e, duena, "PATCH", ruta, map[string]any{"cancelacion": "strict"}, http.StatusConflict); c != "con_entradas" {
+		t.Fatalf("endurecer: %s", c)
+	}
+	if c := codigo(t, e, duena, "PATCH", ruta, map[string]any{"empiezaEn": empieza.Add(-24 * time.Hour)}, http.StatusConflict); c != "con_entradas" {
+		t.Fatalf("mover la fecha: %s", c)
+	}
+	e.pedir(duena, "PATCH", ruta, map[string]any{"cancelacion": "flex", "titulo": "Noche larga"}, http.StatusOK, nil)
+
+	// Ya terminó: el lugar no lo cancela (no se devuelve lo que se usó).
+	e.sistema(`UPDATE planes SET empieza_en = now() - interval '1 day' WHERE id = $1`, c.ID)
+	if c := codigo(t, e, duena, "DELETE", ruta, nil, http.StatusConflict); c != "paso" {
+		t.Fatalf("cancelar uno pasado: %s", c)
+	}
+	if n := e.cuenta(`SELECT count(*) FROM entradas WHERE plan_id = $1 AND estado = 'pagada'`, c.ID); n != 1 {
+		t.Fatalf("entradas pagas: %d", n)
 	}
 }

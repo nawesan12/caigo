@@ -85,6 +85,16 @@ func (s *Servicio) EditarPlan(ctx context.Context, usuarioID, lugarID, planID st
 		if pagas > 0 && (p.Cobro != orig.Cobro || p.PrecioCentavos != orig.PrecioCentavos || p.SenaPct != orig.SenaPct) {
 			return problema.Conflicto("con_entradas", "Ya hay entradas pagas: no se puede cambiar el precio ni cómo se cobra.")
 		}
+		// El reembolso sale de la política y la fecha de hoy: quien compró con «flex» no puede quedarse
+		// sin devolución porque después se endureció o se movió el plan. Para cambiar la fecha, se
+		// cancela (devuelve todo) y se publica otro.
+		// Al minuto: el panel manda la hora sin segundos.
+		if pagas > 0 && !p.EmpiezaEn.Truncate(time.Minute).Equal(orig.EmpiezaEn.Truncate(time.Minute)) {
+			return problema.Conflicto("con_entradas", "Ya hay entradas pagas: no se puede cambiar la fecha. Cancelá el plan y publicá otro.")
+		}
+		if pagas > 0 && dureza[p.Cancelacion] > dureza[orig.Cancelacion] {
+			return problema.Conflicto("con_entradas", "Ya hay entradas pagas: la política de cancelación sólo puede ser más flexible.")
+		}
 		if p.Cobro != "gratis" && !mp {
 			return problema.NoProcesable("sin_mp", "Para cobrar entradas, conectá Mercado Pago en Cobros.")
 		}
@@ -121,19 +131,27 @@ func (s *Servicio) EditarPlan(ctx context.Context, usuarioID, lugarID, planID st
 	return ps[0], nil
 }
 
+// dureza de cada política de cancelación: cuanto más alta, menos se devuelve.
+var dureza = map[string]int{"flex": 0, "mod": 1, "strict": 2}
+
 // CancelarPlan cancela un plan del lugar: avisa y devuelve el 100 % de las entradas pagas.
 func (s *Servicio) CancelarPlan(ctx context.Context, usuarioID, lugarID, planID string) error {
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		if err := miembro(ctx, tx, lugarID, usuarioID, false); err != nil {
 			return err
 		}
-		var es bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM planes WHERE id::text = $1 AND lugar_id::text = $2)`,
-			planID, lugarID).Scan(&es); err != nil {
+		var fin time.Time
+		err := tx.QueryRow(ctx, `SELECT empieza_en + make_interval(mins => duracion_min) FROM planes
+			WHERE id::text = $1 AND lugar_id::text = $2 FOR UPDATE`, planID, lugarID).Scan(&fin)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return problema.NoEncontrado("Ese plan no es de tu lugar.")
+		}
+		if err != nil {
 			return err
 		}
-		if !es {
-			return problema.NoEncontrado("Ese plan no es de tu lugar.")
+		// Como planes.Cancelar: uno que ya terminó no se cancela (las entradas se usaron; no se devuelven).
+		if !fin.After(s.ahora()) {
+			return problema.Conflicto("paso", "Este plan ya terminó.")
 		}
 		ok, err := planes.CancelarTx(ctx, tx, planID, "")
 		if err == nil && !ok {

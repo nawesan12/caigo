@@ -61,10 +61,8 @@ export const actions: Actions = {
 			await conSesion(event, 'PATCH', `/v1/lugares/${lugar.id}/planes/${id}`, { cuerpo: datos });
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
-			if (e.codigo === 'con_entradas')
-				return fail(409, {
-					error: 'Ya hay entradas vendidas: el precio y el cobro no se pueden cambiar.'
-				});
+			// con_entradas: la API dice qué no se puede (precio, cobro, fecha o endurecer la cancelación).
+			if (e.codigo === 'con_entradas') return fail(409, { error: mensajeDe(e) });
 			return fail(400, { error: mensajeDe(e) });
 		}
 		redirect(303, `/plan/${id}?editado=1`);
