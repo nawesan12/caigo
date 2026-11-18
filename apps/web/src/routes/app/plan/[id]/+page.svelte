@@ -206,7 +206,7 @@
 		{#if seguro.length}
 			<p class="seguro">
 				{#if p.confianza?.todosVerificados}<Verificado tam={14} />{/if}<span
-					>{seguro.join(' · ')}</span
+					>{seguro.join('\u00a0· ')}</span
 				>
 			</p>
 		{/if}

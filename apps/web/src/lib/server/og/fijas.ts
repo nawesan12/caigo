@@ -227,7 +227,7 @@ function plus(): Nodo {
 		['Sumadas en Gente', '3 por día', 'Sin límite'],
 		['Ver quién te sumó', '—', '✓'],
 		['Tu plan destacado', '—', '1 por semana'],
-		['Filtros de edad y cupo', '—', '✓']
+		['Edad y cupo', '—', '✓']
 	];
 	return h(
 		'div',
