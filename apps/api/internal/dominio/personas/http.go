@@ -44,6 +44,9 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 	mux.Handle("GET /v1/personas/{id}", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		otro, err := s.Ver(r.Context(), p.ID, r.PathValue("id"))
 		if err == nil {
+			if !p.DNI {
+				SinDNI(&otro)
+			}
 			respuesta.JSON(w, http.StatusOK, otro)
 		}
 		return err

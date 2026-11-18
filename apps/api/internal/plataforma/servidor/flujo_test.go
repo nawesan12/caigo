@@ -103,7 +103,7 @@ type persona struct {
 
 func (e *entorno) persona(nombre string) persona {
 	p := e.personaSinDNI(nombre)
-	// Sin el DNI aprobado sólo se puede usar el perfil y la verificación (sesion.Exenta).
+	// Sin el DNI aprobado se mira, pero no se suma ni se arma nada (sesion.Exenta).
 	e.sistemaSinT(`UPDATE usuarios SET dni_en = now() WHERE id = $1`, p.id)
 	return p
 }
@@ -227,7 +227,7 @@ func TestElCicloDelPlan(t *testing.T) {
 
 	// Lu no verificó la selfie: no se puede sumar.
 	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusUnprocessableEntity, nil)
-	// Sin DNI no llega ni a pedirlo: Caigo entero pide el DNI aprobado (falta_dni).
+	// Sin DNI no llega ni a pedirlo: sumarse pide el DNI aprobado (falta_dni).
 	e.verificar(lu, false)
 	if c := codigo(t, e, lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusForbidden); c != "falta_dni" {
 		t.Fatalf("sin DNI: %s", c)

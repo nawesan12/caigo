@@ -253,6 +253,12 @@ func (s *Servicio) Ver(ctx context.Context, usuarioID, otroID string) (Perfil, e
 	return p, err
 }
 
+// SinDNI recorta el perfil ajeno para quien mira sin el DNI verificado (se puede mirar, no ubicar a
+// nadie): sin barrio, sin trabajo y sin sus próximos planes (dónde va a estar y cuándo).
+func SinDNI(p *Perfil) {
+	p.Zona, p.Trabajo, p.Proximos, p.Compartidos = "", "", []Proximo{}, 0
+}
+
 // Cambios al perfil propio. nil: no se toca.
 type Cambios struct {
 	Nombre      *string   `json:"nombre"`
