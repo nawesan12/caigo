@@ -159,7 +159,7 @@ class FiltrosFinosTest {
         val f = ar.com.caigo.app.nucleo.FiltrosFinos(verificados = true, faltan = 2, edadDesde = 26, edadHasta = 35, gratis = true)
         assertTrue(f.activos)
         assertEquals(
-            listOf("verificados" to "1", "faltan" to "2", "edadDesde" to "26", "edadHasta" to "35", "gratis" to "1"),
+            listOf("verificados" to "1", "chicas" to null, "faltan" to "2", "edadDesde" to "26", "edadHasta" to "35", "gratis" to "1"),
             f.query().toList(),
         )
     }
