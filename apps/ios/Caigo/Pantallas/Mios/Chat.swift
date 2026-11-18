@@ -286,7 +286,7 @@ struct Chat: View {
         let desde = Fecha.parse(pl.empiezaEn).map { "check-in desde \(Fecha.hora($0.addingTimeInterval(-30 * 60)))" }
         let dir = pl.direccion?.texto.isEmpty == false ? pl.direccion?.texto : (pl.zona.isEmpty ? nil : pl.zona)
         return HStack(spacing: 12) {
-            Foto(url: pl.foto).frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            Foto(url: fotoDe(pl), tinte: colorDeCategoria(pl.categoria), categoria: pl.categoria).frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 T([Fecha.cuando(pl.empiezaEn), lugar].filter { !$0.isEmpty }.joined(separator: " · "), 14, 700, unRenglon: true)
                 T([dir, desde].compactMap { $0 }.joined(separator: " · "), 12, 400, p.texto2, unRenglon: true)

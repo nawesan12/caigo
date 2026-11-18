@@ -57,7 +57,7 @@ struct VistaPases: View {
         cargando = false
         // La foto sale del plan (la entrada no la trae).
         for e in pases?.entradas ?? [] where fotos[e.planId] == nil {
-            if let f = try? await c.api.plan(e.planId).foto { fotos[e.planId] = f }
+            if let pl = try? await c.api.plan(e.planId) { fotos[e.planId] = fotoDe(pl) }
         }
     }
 

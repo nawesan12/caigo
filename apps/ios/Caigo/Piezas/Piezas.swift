@@ -254,16 +254,40 @@ struct Avatares: View {
     }
 }
 
-/// Foto de red con un tinte de fondo mientras carga.
+/// Foto de red con un tinte de fondo mientras carga. Con `categoria` (la de un plan), si no hay foto o no
+/// carga se ve la foto local de la categoría (la que promete Crear: «Sin foto, usamos una de la categoría»).
 struct Foto: View {
     var url: String?
     var tinte: Color = C.oscuro2
+    var categoria: String?
     var body: some View {
+        let respaldo = categoria.flatMap(fotoCategoria)
         ZStack {
             tinte
-            if let url, !url.isEmpty { ImagenRed(url: url) }
+            if let url, !url.isEmpty {
+                ImagenRed(url: url, respaldo: respaldo)
+            } else if let respaldo {
+                GeometryReader { g in
+                    Image(respaldo).resizable().scaledToFill().frame(width: g.size.width, height: g.size.height).clipped()
+                }
+            }
         }
         .clipped()
+    }
+}
+
+/// La foto local (CC0) de cada categoría: los tiles de Explorar y el respaldo de un plan sin foto.
+func fotoCategoria(_ clave: String) -> String? {
+    switch clave {
+    case "deporte": return "ExplorarDeporte"
+    case "juego": return "ExplorarJuego"
+    case "previa": return "ExplorarPrevia"
+    case "salida": return "ExplorarSalida"
+    case "gastronomia": return "ExplorarGastronomia"
+    case "cita_doble": return "ExplorarCitaDoble"
+    case "cultura": return "ExplorarCultura"
+    case "otro": return "ExplorarOtro"
+    default: return nil
     }
 }
 

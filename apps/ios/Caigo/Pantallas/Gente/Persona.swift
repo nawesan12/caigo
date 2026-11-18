@@ -293,7 +293,7 @@ struct PerfilPersona: View {
     /// Fila de «Sus próximos planes» (Prototipo): foto 56, título, cuándo y categoría.
     private func proximo(_ pr: ProximoPlan) -> some View {
         HStack(spacing: 12) {
-            Foto(url: pr.foto, tinte: colorDeCategoria(pr.categoria))
+            Foto(url: pr.foto, tinte: colorDeCategoria(pr.categoria), categoria: pr.categoria)
                 .frame(width: 56, height: 56)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             VStack(alignment: .leading, spacing: 3) {

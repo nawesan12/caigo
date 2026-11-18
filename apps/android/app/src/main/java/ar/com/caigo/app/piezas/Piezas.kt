@@ -77,6 +77,9 @@ import ar.com.caigo.app.tema.radial
 import ar.com.caigo.app.tema.rgba
 import ar.com.caigo.app.tema.vertical
 import coil3.compose.AsyncImage
+import ar.com.caigo.app.R
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import kotlinx.coroutines.delay
 
 /** Fondo de pantalla del handoff: color + brillo lavanda (o violeta en oscuro) + grano. */
@@ -357,12 +360,33 @@ fun Avatares(
     }
 }
 
-/** Foto de red (Coil) con un tinte de fondo mientras carga. */
+/**
+ * Foto de red (Coil) con un tinte de fondo mientras carga. Con `categoria` (la de un plan), si no hay foto
+ * o no carga se ve la foto local de la categoría (la que promete Crear: «Sin foto, usamos una de la categoría»).
+ */
 @Composable
-fun Foto(url: String?, modifier: Modifier = Modifier, tinte: Color = C.oscuro2) {
+fun Foto(url: String?, modifier: Modifier = Modifier, tinte: Color = C.oscuro2, categoria: String? = null) {
+    val respaldo = categoria?.let { fotoCategoria(it) }?.let { painterResource(it) }
     Box(modifier.background(tinte)) {
-        if (!url.isNullOrBlank()) AsyncImage(url, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        if (!url.isNullOrBlank()) {
+            AsyncImage(url, null, Modifier.fillMaxSize(), error = respaldo, contentScale = ContentScale.Crop)
+        } else if (respaldo != null) {
+            Image(respaldo, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        }
     }
+}
+
+/** La foto local (CC0) de cada categoría: los tiles de Explorar y el respaldo de un plan sin foto. */
+fun fotoCategoria(clave: String): Int? = when (clave) {
+    "deporte" -> R.drawable.explorar_deporte
+    "juego" -> R.drawable.explorar_juego
+    "previa" -> R.drawable.explorar_previa
+    "salida" -> R.drawable.explorar_salida
+    "gastronomia" -> R.drawable.explorar_gastronomia
+    "cita_doble" -> R.drawable.explorar_cita_doble
+    "cultura" -> R.drawable.explorar_cultura
+    "otro" -> R.drawable.explorar_otro
+    else -> null
 }
 
 /** Interruptor del handoff: 50×30, violeta prendido, perilla blanca de 24. */

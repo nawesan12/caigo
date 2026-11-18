@@ -1,5 +1,6 @@
 package ar.com.caigo.app.pantallas.pagos
 
+import ar.com.caigo.app.pantallas.planes.fotoDe
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -170,7 +171,7 @@ fun Pases(ir: Ir) {
 private fun FilaEntrada(e: EntradaMia, conWallet: Boolean, bajando: Boolean, abrir: () -> Unit, agregar: () -> Unit) {
     val c = LocalApp.current
     // La foto sale del plan (la entrada no la trae).
-    val foto = rememberCarga(e.planId) { runCatching { c.api.plan(e.planId).foto }.getOrNull() }
+    val foto = rememberCarga(e.planId) { runCatching { fotoDe(c.api.plan(e.planId)) }.getOrNull() }
     Row(
         Modifier.fillMaxWidth().tocable(abrir).gel(22.dp, Gels.neutra).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,

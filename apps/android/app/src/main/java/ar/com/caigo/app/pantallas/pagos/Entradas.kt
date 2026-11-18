@@ -1,5 +1,7 @@
 package ar.com.caigo.app.pantallas.pagos
 
+import ar.com.caigo.app.pantallas.planes.fotoDe
+import ar.com.caigo.app.piezas.colorDeCategoria
 import ar.com.caigo.app.pantallas.mios.MiosGrupo
 import ar.com.caigo.app.pantallas.mios.MiosHoja
 
@@ -241,7 +243,7 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    Foto(plan.foto, Modifier.size(76.dp).clip(RoundedCornerShape(18.dp)))
+                    Foto(fotoDe(plan), Modifier.size(76.dp).clip(RoundedCornerShape(18.dp)), colorDeCategoria(plan.categoria), plan.categoria)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         T(plan.titulo, 17f, 700, C.carbon, alto = 1.15f)
                         T(pagosCuandoDonde(plan.empiezaEn, pagosLugarDe(plan)), 13f, 600, C.texto2)
@@ -391,7 +393,7 @@ fun Entrada(ir: Ir, entradaId: String, planId: String) {
                         T("Tenés tu entrada", 36f, 800, alto = 1f, espaciado = px(-1.2f, 36f), alinear = TextAlign.Center)
                     }
                     T("También la tenés siempre en Mis pases.", 15f, 600, p.texto2, alinear = TextAlign.Center)
-                    PagosPop { Ticket(entrada, plan.dato?.foto) { ir.qrEntrada(entrada.id) } }
+                    PagosPop { Ticket(entrada, plan.dato?.let { fotoDe(it) }) { ir.qrEntrada(entrada.id) } }
                     if (entrada.beneficio.isNotEmpty()) {
                         Row(
                             Modifier.fillMaxWidth().background(C.lavanda, RoundedCornerShape(22.dp)).padding(horizontal = 16.dp, vertical = 14.dp),

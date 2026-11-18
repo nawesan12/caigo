@@ -99,7 +99,7 @@ struct GenteHojaInvitar: View {
             }
         } label: {
             HStack(spacing: 12) {
-                Foto(url: p.foto, tinte: colorDeCategoria(p.categoria)).frame(width: 52, height: 52)
+                Foto(url: p.foto, tinte: colorDeCategoria(p.categoria), categoria: p.categoria).frame(width: 52, height: 52)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     T(p.titulo, 15, 700, C.carbon, unRenglon: true)

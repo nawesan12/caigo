@@ -263,7 +263,7 @@ internal fun TarjetaPlan(plan: Plan, ir: Ir, modifier: Modifier = Modifier, alto
             .clip(RoundedCornerShape(24.dp)),
     ) {
         Box(Modifier.fillMaxWidth().height(altoFoto)) {
-            Foto(fotoDe(plan), Modifier.fillMaxSize(), tinte = colorDeCategoria(plan.categoria))
+            Foto(fotoDe(plan), Modifier.fillMaxSize(), tinte = colorDeCategoria(plan.categoria), categoria = plan.categoria)
             Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ChipFoto(Categorias.nombre(plan.categoria), oscuro = false)
                 ChipFoto(Fecha.cuando(plan.empiezaEn), oscuro = true)

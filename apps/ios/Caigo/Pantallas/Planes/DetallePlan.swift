@@ -126,7 +126,7 @@ private struct ContenidoDetalle: View {
             ScrollView {
                 VStack(spacing: 0) {
                     ZStack {
-                        Foto(url: fotoDe(p), tinte: colorDeCategoria(p.categoria))
+                        Foto(url: fotoDe(p), tinte: colorDeCategoria(p.categoria), categoria: p.categoria)
                         LinearGradient(stops: Fondo.paradas((0, rgba(32, 29, 43, 0.45)), (0.35, rgba(32, 29, 43, 0))), startPoint: .top, endPoint: .bottom)
                     }
                     .frame(height: 300)

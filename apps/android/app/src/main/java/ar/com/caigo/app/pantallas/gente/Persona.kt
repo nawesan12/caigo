@@ -202,7 +202,7 @@ private fun PerfilPersonaClaro(ir: Ir, id: String, desde: String) {
                                 .padding(start = 10.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            Foto(pr.foto, Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)), colorDeCategoria(pr.categoria))
+                            Foto(pr.foto, Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)), colorDeCategoria(pr.categoria), pr.categoria)
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 T(pr.titulo, 15f, 800, C.carbon, unRenglon = true)
                                 T(listOf(Fecha.cuando(pr.empiezaEn), Categorias.nombre(pr.categoria)).filter { it.isNotEmpty() }.joinToString(" · "), 12f, 600, C.texto2, unRenglon = true)

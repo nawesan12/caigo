@@ -274,7 +274,7 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets.navigationBars))) {
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
                 Box(Modifier.fillMaxWidth().height(300.dp)) {
-                    Foto(fotoDe(p), Modifier.fillMaxSize(), colorDeCategoria(p.categoria))
+                    Foto(fotoDe(p), Modifier.fillMaxSize(), colorDeCategoria(p.categoria), p.categoria)
                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to rgba(32, 29, 43, .45f), .35f to rgba(32, 29, 43, 0f))))
                 }
                 // La hoja de contenido sube 30 sobre la foto (top:270 en el mockup). El offset no achica el

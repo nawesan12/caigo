@@ -4,21 +4,7 @@ import Nucleo
 /// Las categorías de Explorar: «Todos» y las 8 de un plan (06a), cada una con su foto local CC0
 /// (Recursos/Assets.xcassets/Explorar*, fuentes en apps/ios/FUENTES.md).
 private let tilesExplorar: [(String?, String, String?)] =
-    [(nil, "Todos", "ExplorarTodos")] + Categorias.paraCrear.map { ($0.0, $0.1, fotoTile($0.0)) }
-
-private func fotoTile(_ clave: String) -> String? {
-    switch clave {
-    case "deporte": return "ExplorarDeporte"
-    case "juego": return "ExplorarJuego"
-    case "previa": return "ExplorarPrevia"
-    case "salida": return "ExplorarSalida"
-    case "gastronomia": return "ExplorarGastronomia"
-    case "cita_doble": return "ExplorarCitaDoble"
-    case "cultura": return "ExplorarCultura"
-    case "otro": return "ExplorarOtro"
-    default: return nil
-    }
-}
+    [(nil, "Todos", "ExplorarTodos")] + Categorias.paraCrear.map { ($0.0, $0.1, fotoCategoria($0.0)) }
 
 /// Edad de quien organiza (filtro fino): etiqueta y rango para la API.
 private let rangosEdad: [(String, Int?, Int?)] = [("Todas", nil, nil), ("18–30", 18, 30), ("31–45", 31, 45), ("46+", 46, nil)]
@@ -306,7 +292,7 @@ private struct TarjetaRecurrente: View {
         let t = Fecha.parse(plan.empiezaEn)
         let etiqueta = t.map { "Todos los \(dias[Fecha.calendario.component(.weekday, from: $0) - 1]) · \(Fecha.hora($0))" } ?? "Todas las semanas"
         ZStack {
-            Foto(url: fotoDe(plan), tinte: colorDeCategoria(plan.categoria))
+            Foto(url: fotoDe(plan), tinte: colorDeCategoria(plan.categoria), categoria: plan.categoria)
             LinearGradient(stops: Fondo.paradas((0, rgba(32, 29, 43, 0.88)), (0.75, rgba(32, 29, 43, 0.2))), startPoint: .leading, endPoint: .trailing)
             VStack(alignment: .leading) {
                 HStack(spacing: 6) {
@@ -348,7 +334,7 @@ private struct FilaAgenda: View {
         let f = plan.faltan
         let acento = p.oscuro ? C.lima : C.violeta
         HStack(spacing: 14) {
-            Foto(url: fotoDe(plan), tinte: colorDeCategoria(plan.categoria))
+            Foto(url: fotoDe(plan), tinte: colorDeCategoria(plan.categoria), categoria: plan.categoria)
                 .frame(width: 64, height: 64)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             VStack(alignment: .leading, spacing: 4) {

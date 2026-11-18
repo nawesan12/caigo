@@ -314,7 +314,7 @@ private fun TarjetaFlotante(p: Plan, ir: Ir) {
             .padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
-        Foto(fotoDe(p), Modifier.size(96.dp, 120.dp).clip(RoundedCornerShape(18.dp)), colorDeCategoria(p.categoria))
+        Foto(fotoDe(p), Modifier.size(96.dp, 120.dp).clip(RoundedCornerShape(18.dp)), colorDeCategoria(p.categoria), p.categoria)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(Modifier.background(C.lavanda, RoundedCornerShape(9.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) { T(Categorias.nombre(p.categoria), 11f, 700, C.carbon, unRenglon = true) }

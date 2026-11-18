@@ -154,7 +154,7 @@ internal fun GenteHojaInvitar(ir: Ir, personaId: String, nombre: String, cerrar:
                                 }.gel(20.dp, Gels.neutra).padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                Foto(p.foto, Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)), colorDeCategoria(p.categoria))
+                                Foto(p.foto, Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)), colorDeCategoria(p.categoria), p.categoria)
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     T(p.titulo, 15f, 700, C.carbon, unRenglon = true)
                                     T(Fecha.cuando(p.empiezaEn) + " · " + Cupo.badge(p.faltan), 12f, 500, C.texto2, unRenglon = true)

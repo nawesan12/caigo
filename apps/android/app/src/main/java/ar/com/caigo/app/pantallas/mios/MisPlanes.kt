@@ -1,5 +1,7 @@
 package ar.com.caigo.app.pantallas.mios
 
+import ar.com.caigo.app.pantallas.planes.fotoDe
+import ar.com.caigo.app.piezas.colorDeCategoria
 import ar.com.caigo.app.pantallas.pagos.Adentro
 import ar.com.caigo.app.pantallas.pagos.Plus
 
@@ -188,7 +190,7 @@ private fun TarjetaMio(pl: Plan, cual: String, ir: Ir) {
             .tocable { ir.plan(pl.id) },
     ) {
         Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Foto(pl.foto, Modifier.size(72.dp).clip(RoundedCornerShape(18.dp)))
+            Foto(fotoDe(pl), Modifier.size(72.dp).clip(RoundedCornerShape(18.dp)), colorDeCategoria(pl.categoria), pl.categoria)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 T(pl.titulo, 18f, 700, alto = 1.15f)
                 T(miosSubtitulo(pl), 12f, 400, p.texto2, unRenglon = true)

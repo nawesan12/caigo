@@ -1,6 +1,8 @@
 package ar.com.caigo.app.pantallas.mios
 
 
+import ar.com.caigo.app.pantallas.planes.fotoDe
+import ar.com.caigo.app.piezas.colorDeCategoria
 import ar.com.caigo.app.piezas.HojaReporte
 import ar.com.caigo.app.piezas.HojaOpciones
 import ar.com.caigo.app.nucleo.Reporte
@@ -249,7 +251,7 @@ fun Chat(ir: Ir, planId: String) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Foto(pl.foto, Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)))
+                    Foto(fotoDe(pl), Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)), colorDeCategoria(pl.categoria), pl.categoria)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         val lugar = pl.lugar?.nombre ?: pl.lugarNombre.ifEmpty { pl.zona }
                         T(listOf(Fecha.cuando(pl.empiezaEn), lugar).filter { it.isNotEmpty() }.joinToString(" · "), 14f, 700, unRenglon = true)

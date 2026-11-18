@@ -137,7 +137,7 @@ struct Checkout: View {
                 VStack(spacing: 16) {
                     PagosEncabezado(titulo: "Tu entrada") { ir.atras() }
                     HStack(spacing: 14) {
-                        Foto(url: plan.foto).frame(width: 76, height: 76).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        Foto(url: fotoDe(plan), tinte: colorDeCategoria(plan.categoria), categoria: plan.categoria).frame(width: 76, height: 76).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         VStack(alignment: .leading, spacing: 4) {
                             T(plan.titulo, 17, 700, C.carbon, alto: 1.15)
                             T(pagosCuandoDonde(plan.empiezaEn, pagosLugarDe(plan)), 13, 600, C.texto2)
@@ -333,7 +333,7 @@ struct VistaEntrada: View {
             do { entrada = try await c.api.pases().entradas.first { $0.id == entradaId } } catch { self.error = mensajeDe(error) }
             cargando = false
             let id = planId.isEmpty ? (entrada?.planId ?? "") : planId
-            if !id.isEmpty, let pl = try? await c.api.plan(id) { foto = pl.foto; cancelacion = pl.cancelacion }
+            if !id.isEmpty, let pl = try? await c.api.plan(id) { foto = fotoDe(pl); cancelacion = pl.cancelacion }
         }
     }
 

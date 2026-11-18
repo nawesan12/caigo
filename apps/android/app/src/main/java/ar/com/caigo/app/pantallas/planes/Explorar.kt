@@ -57,6 +57,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ar.com.caigo.app.R
+import ar.com.caigo.app.piezas.fotoCategoria
 import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.app.LocalApp
 import ar.com.caigo.app.app.altoTabBar
@@ -97,19 +98,7 @@ import java.time.ZonedDateTime
  * (res/drawable-nodpi/explorar_*.jpg; fuentes en apps/android/FUENTES.md).
  */
 private val tilesExplorar: List<Triple<String?, String, Int?>> =
-    listOf(Triple<String?, String, Int?>(null, "Todos", R.drawable.explorar_todos)) + Categorias.paraCrear.map { (k, l) -> Triple(k, l, fotoTile(k)) }
-
-private fun fotoTile(clave: String): Int? = when (clave) {
-    "deporte" -> R.drawable.explorar_deporte
-    "juego" -> R.drawable.explorar_juego
-    "previa" -> R.drawable.explorar_previa
-    "salida" -> R.drawable.explorar_salida
-    "gastronomia" -> R.drawable.explorar_gastronomia
-    "cita_doble" -> R.drawable.explorar_cita_doble
-    "cultura" -> R.drawable.explorar_cultura
-    "otro" -> R.drawable.explorar_otro
-    else -> null
-}
+    listOf(Triple<String?, String, Int?>(null, "Todos", R.drawable.explorar_todos)) + Categorias.paraCrear.map { (k, l) -> Triple(k, l, fotoCategoria(k)) }
 
 /** Edad de quien organiza (filtro fino): etiqueta y rango para la API. */
 private val rangosEdad: List<Triple<String, Int?, Int?>> = listOf(
@@ -394,7 +383,7 @@ private fun TarjetaRecurrente(p: Plan, ir: Ir) {
         Modifier.fillMaxWidth().height(168.dp).semantics { role = Role.Button }.toque(alBajar = 0.dp) { ir.plan(p.id) }
             .gel(28.dp, null, listOf(externa(18f, 32f, rgba(36, 33, 45, .5f), spread = -14f))).clip(RoundedCornerShape(28.dp)),
     ) {
-        Foto(fotoDe(p), Modifier.fillMaxSize(), colorDeCategoria(p.categoria))
+        Foto(fotoDe(p), Modifier.fillMaxSize(), colorDeCategoria(p.categoria), p.categoria)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to rgba(32, 29, 43, .88f), .75f to rgba(32, 29, 43, .2f))))
         Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -429,7 +418,7 @@ private fun FilaAgenda(p: Plan, ir: Ir) {
             .gel(24.dp, if (pal.oscuro) Gels.tarjetaOscura else gelTarjetaFila).padding(start = 10.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Foto(fotoDe(p), Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)), colorDeCategoria(p.categoria))
+        Foto(fotoDe(p), Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)), colorDeCategoria(p.categoria), p.categoria)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 if (p.destacado) Icono(I.estrella, 12.dp, Color.Transparent, 0f, relleno = acento)

@@ -186,7 +186,7 @@ struct TarjetaPlan: View {
         let forma = RoundedRectangle(cornerRadius: 24, style: .continuous)
         VStack(alignment: .leading, spacing: 0) {
             ZStack {
-                Foto(url: fotoDe(plan), tinte: colorDeCategoria(plan.categoria))
+                Foto(url: fotoDe(plan), tinte: colorDeCategoria(plan.categoria), categoria: plan.categoria)
                 VStack {
                     HStack(spacing: 6) {
                         ChipFoto(texto: Categorias.nombre(plan.categoria), oscuro: false)

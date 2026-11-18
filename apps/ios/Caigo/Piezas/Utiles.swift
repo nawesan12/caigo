@@ -31,31 +31,53 @@ final class CacheImagenes: @unchecked Sendable {
 
     func enMemoria(_ url: String) -> ImagenNativa? { memoria.object(forKey: url as NSString) }
 
+    /// nil si no se pudo (sin red, 404, no es una imagen). Un error no queda en la caché: la próxima
+    /// vez que aparezca la foto se vuelve a pedir.
     func cargar(_ url: String) async -> ImagenNativa? {
         if let i = enMemoria(url) { return i }
-        guard let u = URL(string: url), let (d, _) = try? await sesion.data(from: u), let i = ImagenNativa(data: d) else { return nil }
-        memoria.setObject(i, forKey: url as NSString)
-        return i
+        guard let u = URL(string: url), u.scheme != nil else { return nil }
+        for intento in 0..<2 {
+            if intento > 0 { try? await Task.sleep(nanoseconds: 800_000_000) }
+            if Task.isCancelled { return nil }
+            guard let (d, r) = try? await sesion.data(from: u) else { continue }
+            if let h = r as? HTTPURLResponse, !(200..<300).contains(h.statusCode) {
+                // Un 4xx no cambia reintentando (la foto se borró); un 5xx, puede.
+                if h.statusCode < 500 { return nil }
+                continue
+            }
+            guard let i = ImagenNativa(data: d) else { return nil }
+            memoria.setObject(i, forKey: url as NSString)
+            return i
+        }
+        return nil
     }
 }
 
-/// Foto de red que llena su caja (recortada, como `object-fit: cover`).
+/// Foto de red que llena su caja (recortada, como `object-fit: cover`). Si no carga (sin red, borrada),
+/// muestra `respaldo` (una imagen local) si hay. La imagen se guarda junto con su URL: cuando la vista
+/// se reusa con otra URL (el mazo, las fotos de un perfil, una lista que se recicla) no queda la foto
+/// anterior.
 struct ImagenRed: View {
     var url: String
-    @State private var imagen: ImagenNativa?
+    var respaldo: String?
+    @State private var cargada: (url: String, imagen: ImagenNativa?)?
 
     var body: some View {
         GeometryReader { g in
-            if let i = imagen ?? CacheImagenes.compartido.enMemoria(url) {
+            let lista = cargada?.url == url
+            if let i = (lista ? cargada?.imagen : nil) ?? CacheImagenes.compartido.enMemoria(url) {
                 Image(nativa: i).resizable().scaledToFill().frame(width: g.size.width, height: g.size.height).clipped()
+                    .transition(.opacity)
+            } else if lista, let respaldo {
+                Image(respaldo).resizable().scaledToFill().frame(width: g.size.width, height: g.size.height).clipped()
                     .transition(.opacity)
             }
         }
         .task(id: url) {
-            if imagen == nil || CacheImagenes.compartido.enMemoria(url) == nil {
-                let i = await CacheImagenes.compartido.cargar(url)
-                withAnimation(.easeOut(duration: 0.2)) { imagen = i }
-            }
+            if let i = CacheImagenes.compartido.enMemoria(url) { cargada = (url, i); return }
+            let i = await CacheImagenes.compartido.cargar(url)
+            if Task.isCancelled { return }
+            withAnimation(.easeOut(duration: 0.2)) { cargada = (url, i) }
         }
     }
 }

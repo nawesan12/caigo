@@ -168,7 +168,7 @@ private struct TarjetaFlotante: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Foto(url: fotoDe(plan), tinte: colorDeCategoria(plan.categoria))
+            Foto(url: fotoDe(plan), tinte: colorDeCategoria(plan.categoria), categoria: plan.categoria)
                 .frame(width: 96, height: 120)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             VStack(alignment: .leading, spacing: 7) {

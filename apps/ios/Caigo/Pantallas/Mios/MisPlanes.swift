@@ -123,7 +123,7 @@ private struct TarjetaMio: View {
         let hoy = Fecha.parse(pl.empiezaEn).map { Fecha.diasEntre(Date(), $0) == 0 } ?? false
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
-                Foto(url: pl.foto).frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                Foto(url: fotoDe(pl), tinte: colorDeCategoria(pl.categoria), categoria: pl.categoria).frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 VStack(alignment: .leading, spacing: 4) {
                     T(pl.titulo, 18, 700, alto: 1.15)
                     T(miosSubtitulo(pl), 12, 400, p.texto2, unRenglon: true)
