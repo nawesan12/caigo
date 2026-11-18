@@ -81,6 +81,8 @@ data class Plan(
     val aceptaGrupos: Boolean = true,
     /** Destacado con Caigo Plus: va primero en Ahora y Explorar. */
     val destacado: Boolean = false,
+    /** Sólo para quien organiza: "" normal, "revision" (lo mira el equipo) u "oculto" (nadie más lo ve). */
+    val moderacion: String = "",
 ) {
     /** Plan de un lugar aliado con entrada o seña: el botón es "Entrada" en vez de "Sumarme". */
     val conEntrada: Boolean get() = cobro == "entrada" || cobro == "sena"
@@ -376,6 +378,8 @@ data class Mensaje(
     val autor: Autor? = null,
     val texto: String = "",
     val creadoEn: String = "",
+    /** Sólo en los propios: "revision" | "oculto" (ausente = normal). */
+    val moderacion: String = "",
 )
 
 @Serializable
@@ -389,6 +393,8 @@ data class Privado(
     val texto: String = "",
     val creadoEn: String = "",
     val leidoEn: String? = null,
+    /** Sólo en los propios: "revision" | "oculto" (ausente = normal). */
+    val moderacion: String = "",
 )
 
 @Serializable

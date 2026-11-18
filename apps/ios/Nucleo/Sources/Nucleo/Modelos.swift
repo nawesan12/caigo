@@ -105,6 +105,8 @@ public struct Plan: Codable, Hashable, Identifiable, Sendable {
     public var cancelacion = ""
     public var beneficio = ""
     public var aceptaGrupos = true
+    /// Sólo para quien organiza: "" normal, "revision" (lo mira el equipo) u "oculto" (nadie más lo ve).
+    public var moderacion = ""
 
     public init(id: String) { self.id = id }
 
@@ -124,7 +126,7 @@ public struct Plan: Codable, Hashable, Identifiable, Sendable {
         pendientes = c.v("pendientes", 0); lugar = c.o("lugar"); cobro = c.v("cobro", "gratis")
         precioCentavos = c.o("precioCentavos"); senaPct = c.o("senaPct"); cargoCentavos = c.v("cargoCentavos", 0)
         incluye = c.v("incluye", ""); cancelacion = c.v("cancelacion", ""); beneficio = c.v("beneficio", "")
-        aceptaGrupos = c.v("aceptaGrupos", true)
+        aceptaGrupos = c.v("aceptaGrupos", true); moderacion = c.v("moderacion", "")
     }
 
     /// Plan de un lugar aliado con entrada o seña: el botón es "Entrada" en vez de "Sumarme".
@@ -480,12 +482,15 @@ public struct Mensaje: Decodable, Hashable, Identifiable, Sendable {
     public var autor: Autor?
     public var texto = ""
     public var creadoEn = ""
-    public init(id: Int64, planId: String = "", autor: Autor? = nil, texto: String = "", creadoEn: String = "") {
-        self.id = id; self.planId = planId; self.autor = autor; self.texto = texto; self.creadoEn = creadoEn
+    /// Sólo en los propios: "revision" | "oculto" (ausente = normal).
+    public var moderacion = ""
+    public init(id: Int64, planId: String = "", autor: Autor? = nil, texto: String = "", creadoEn: String = "", moderacion: String = "") {
+        self.id = id; self.planId = planId; self.autor = autor; self.texto = texto; self.creadoEn = creadoEn; self.moderacion = moderacion
     }
     public init(from d: Decoder) throws {
         let c = try d.lector()
         id = c.v("id", Int64(0)); planId = c.v("planId", ""); autor = c.o("autor"); texto = c.v("texto", ""); creadoEn = c.v("creadoEn", "")
+        moderacion = c.v("moderacion", "")
     }
 }
 
@@ -498,11 +503,13 @@ public struct Privado: Decodable, Hashable, Identifiable, Sendable {
     public var id: Int64 = 0
     public var deId = "", aId = "", texto = "", creadoEn = ""
     public var leidoEn: String?
+    /// Sólo en los propios: "revision" | "oculto" (ausente = normal).
+    public var moderacion = ""
     public init(id: Int64 = 0) { self.id = id }
     public init(from d: Decoder) throws {
         let c = try d.lector()
         id = c.v("id", Int64(0)); deId = c.v("deId", ""); aId = c.v("aId", ""); texto = c.v("texto", "")
-        creadoEn = c.v("creadoEn", ""); leidoEn = c.o("leidoEn")
+        creadoEn = c.v("creadoEn", ""); leidoEn = c.o("leidoEn"); moderacion = c.v("moderacion", "")
     }
 }
 

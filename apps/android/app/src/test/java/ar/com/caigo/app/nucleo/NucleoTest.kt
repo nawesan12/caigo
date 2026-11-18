@@ -94,6 +94,32 @@ class ModelosTest {
         assertTrue(p.altaIncompleta)
     }
 
+    @Test fun moderacion() {
+        // Ausente = normal; sólo al autor (u organizador) le llega "revision" u "oculto".
+        assertEquals("", json.decodeFromString<Plan>("{}").moderacion)
+        val p = json.decodeFromString<Plan>("""{"id":"p1","miEstado":"organizador","moderacion":"oculto"}""")
+        assertEquals("oculto", p.moderacion)
+        val e = TiempoReal.leer("""{"tipo":"moderado","mensaje":{"id":5,"planId":"p1","autor":{"id":"u1"},"texto":"x","moderacion":"revision"}}""")!!
+        assertTrue(e.tipo == "moderado" && e.mensaje?.moderacion == "revision")
+        val v = TiempoReal.leer("""{"tipo":"moderado","privado":{"id":7,"deId":"a","aId":"b","moderacion":"oculto"}}""")!!
+        assertTrue(v.privado?.moderacion == "oculto" && v.privadoDe == "")
+        assertEquals("", json.decodeFromString<Mensaje>("""{"id":1,"moderacion":null}""").moderacion)
+    }
+
+    @Test fun avisosDeModeracion() {
+        assertNull(Moderacion.avisoPlan(Plan(id = "p1", moderacion = "revision"))) // no es el organizador
+        val p = Plan(id = "p1", miEstado = "organizador")
+        assertEquals("Tu plan está en revisión.", Moderacion.avisoPlan(p.copy(moderacion = "revision")))
+        assertEquals("Tu plan está oculto por las normas:\nnadie más lo ve.", Moderacion.avisoPlan(p.copy(moderacion = "oculto")))
+        assertNull(Moderacion.avisoPlan(p))
+        assertEquals("En revisión", Moderacion.etiqueta("revision"))
+        assertEquals("Oculto por las normas", Moderacion.etiqueta("oculto"))
+        assertNull(Moderacion.etiqueta(""))
+        assertTrue(Moderacion.sacar("oculto", mio = false))
+        assertFalse(Moderacion.sacar("oculto", mio = true))
+        assertFalse(Moderacion.sacar("revision", mio = false))
+    }
+
     @Test fun eventoEscribiendoPrivado() {
         val e = TiempoReal.leer("""{"tipo":"escribiendo","privado":"u9"}""")!!
         assertTrue(e.privadoDe == "u9" && e.privado == null)

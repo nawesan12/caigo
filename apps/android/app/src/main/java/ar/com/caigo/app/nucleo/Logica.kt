@@ -226,3 +226,32 @@ object VacioAhora {
         return "$frase Si publicás algo ahora, sos lo primero que ven."
     }
 }
+
+/**
+ * Moderación automática: lo que ve el autor de un mensaje o el organizador de un plan. La API manda
+ * `moderacion` sólo al autor, así que a nadie más le aparece.
+ */
+object Moderacion {
+    /** Línea chica debajo de un mensaje propio, o en la tarjeta del plan propio. */
+    fun etiqueta(m: String): String? = when (m) {
+        "revision" -> "En revisión"
+        "oculto" -> "Oculto por las normas"
+        else -> null
+    }
+
+    /**
+     * Aviso del detalle del plan, sólo para quien lo organiza. El corte de renglón es a propósito:
+     * así «ve.» no queda sola abajo.
+     */
+    fun avisoPlan(p: Plan): String? {
+        if (!p.esMio) return null
+        return when (p.moderacion) {
+            "revision" -> "Tu plan está en revisión."
+            "oculto" -> "Tu plan está oculto por las normas:\nnadie más lo ve."
+            else -> null
+        }
+    }
+
+    /** Evento `moderado` del WebSocket: un mensaje ajeno que quedó oculto se saca; uno propio se reemplaza. */
+    fun sacar(m: String, mio: Boolean): Boolean = m == "oculto" && !mio
+}

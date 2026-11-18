@@ -277,6 +277,36 @@ import Testing
         #expect(p.proximos.first?.titulo == "Truco")
     }
 
+    @Test func moderacion() throws {
+        // Ausente = normal; sólo al autor (u organizador) le llega "revision" u "oculto".
+        #expect(try JSON.leer(Plan.self, Data("{}".utf8)).moderacion == "")
+        let p = try JSON.leer(Plan.self, Data(#"{"id":"p1","miEstado":"organizador","moderacion":"oculto"}"#.utf8))
+        #expect(p.moderacion == "oculto")
+        let e = try JSON.leer(Evento.self, Data(#"{"tipo":"moderado","mensaje":{"id":5,"planId":"p1","autor":{"id":"u1"},"texto":"x","moderacion":"revision"}}"#.utf8))
+        #expect(e.tipo == "moderado" && e.mensaje?.moderacion == "revision")
+        let v = try JSON.leer(Evento.self, Data(#"{"tipo":"moderado","privado":{"id":7,"deId":"a","aId":"b","moderacion":"oculto"}}"#.utf8))
+        #expect(v.privado?.moderacion == "oculto" && v.privadoDe == "")
+        #expect(try JSON.leer(Mensaje.self, Data(#"{"id":1,"moderacion":null}"#.utf8)).moderacion == "")
+    }
+
+    @Test func avisosDeModeracion() {
+        var p = Plan(id: "p1")
+        p.moderacion = "revision"
+        #expect(Moderacion.avisoPlan(p) == nil) // no es el organizador
+        p.miEstado = "organizador"
+        #expect(Moderacion.avisoPlan(p) == "Tu plan está en revisión.")
+        p.moderacion = "oculto"
+        #expect(Moderacion.avisoPlan(p) == "Tu plan está oculto por las normas:\nnadie más lo ve.")
+        p.moderacion = ""
+        #expect(Moderacion.avisoPlan(p) == nil)
+        #expect(Moderacion.etiqueta("revision") == "En revisión")
+        #expect(Moderacion.etiqueta("oculto") == "Oculto por las normas")
+        #expect(Moderacion.etiqueta("") == nil)
+        #expect(Moderacion.sacar("oculto", mio: false))
+        #expect(!Moderacion.sacar("oculto", mio: true))
+        #expect(!Moderacion.sacar("revision", mio: false))
+    }
+
     @Test func eventoEscribiendoPrivado() throws {
         let e = try JSON.leer(Evento.self, Data(#"{"tipo":"escribiendo","privado":"u9"}"#.utf8))
         #expect(e.privadoDe == "u9" && e.privado == nil)

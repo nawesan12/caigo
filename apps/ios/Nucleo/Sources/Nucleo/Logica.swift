@@ -219,3 +219,30 @@ public enum VacioAhora {
         return frase + " Si publicás algo ahora, sos lo primero que ven."
     }
 }
+
+/// Moderación automática: lo que ve el autor de un mensaje o el organizador de un plan. La API manda
+/// `moderacion` sólo al autor, así que a nadie más le aparece.
+public enum Moderacion {
+    /// Línea chica debajo de un mensaje propio, o en la tarjeta del plan propio.
+    public static func etiqueta(_ m: String) -> String? {
+        switch m {
+        case "revision": return "En revisión"
+        case "oculto": return "Oculto por las normas"
+        default: return nil
+        }
+    }
+
+    /// Aviso del detalle del plan, sólo para quien lo organiza. El corte de renglón es a propósito:
+    /// así «ve.» no queda sola abajo.
+    public static func avisoPlan(_ p: Plan) -> String? {
+        guard p.esMio else { return nil }
+        switch p.moderacion {
+        case "revision": return "Tu plan está en revisión."
+        case "oculto": return "Tu plan está oculto por las normas:\nnadie más lo ve."
+        default: return nil
+        }
+    }
+
+    /// Evento `moderado` del WebSocket: un mensaje ajeno que quedó oculto se saca; uno propio se reemplaza.
+    public static func sacar(_ m: String, mio: Bool) -> Bool { m == "oculto" && !mio }
+}
