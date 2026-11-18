@@ -29,6 +29,13 @@ func textoIngreso(_ p: Plan) -> String {
     }
 }
 
+/// La API deja sumarse hasta media hora después de que empieza (`ahoraAtras` en planes.go); después
+/// responde 409 «Este plan ya arrancó». Las apps no ofrecen sumarse pasado ese punto.
+func cerroParaSumarse(_ p: Plan) -> Bool {
+    guard let t = Fecha.parse(p.empiezaEn) else { return false }
+    return Date() > t.addingTimeInterval(30 * 60)
+}
+
 /// Foto del plan (o la del lugar).
 func fotoDe(_ p: Plan) -> String { p.foto.isEmpty ? (p.lugar?.foto ?? "") : p.foto }
 
@@ -147,7 +154,7 @@ struct AccionTarjeta: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 11)
             .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(C.carbon))
-        } else if plan.miEstado != "rechazada" && !Cupo.completo(plan.faltan) {
+        } else if plan.miEstado != "rechazada" && !Cupo.completo(plan.faltan) && !cerroParaSumarse(plan) {
             Button {
                 if esDeLugar(plan) { ir.plan(plan.id); return }
                 guard !enviando else { return }

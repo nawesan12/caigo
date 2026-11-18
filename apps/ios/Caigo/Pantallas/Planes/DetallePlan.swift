@@ -422,6 +422,8 @@ private struct ContenidoDetalle: View {
             }
         } else if Cupo.completo(p.faltan) {
             T("Completo", 17, 800, C.carbon).frame(maxWidth: .infinity).frame(height: 58).gel(20, Gels.limaBadge)
+        } else if cerroParaSumarse(p) {
+            T("Este plan ya arrancó.", 15, 700, pal.texto2, alinear: .center)
         } else {
             // Se bajó (`cancelada`): puede volver a sumarse, pero se le recuerda.
             if p.miEstado == "cancelada" { T("Te bajaste de este plan.", 13, 600, pal.texto2, alinear: .center) }

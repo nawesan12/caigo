@@ -443,6 +443,7 @@ private fun EstadoAbajo(
         Cupo.completo(p.faltan) -> Box(Modifier.fillMaxWidth().height(58.dp).gel(20.dp, Gels.limaBadge), contentAlignment = Alignment.Center) {
             T("Completo", 17f, 800, C.carbon)
         }
+        cerroParaSumarse(p) -> T("Este plan ya arrancó.", 15f, 700, pal.texto2, alinear = TextAlign.Center)
         else -> {
             // Se bajó (`cancelada`): puede volver a sumarse, pero se le recuerda.
             if (p.miEstado == "cancelada") T("Te bajaste de este plan.", 13f, 600, pal.texto2, alinear = TextAlign.Center)

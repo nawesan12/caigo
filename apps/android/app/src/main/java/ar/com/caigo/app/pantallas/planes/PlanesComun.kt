@@ -98,6 +98,15 @@ internal fun textoIngreso(p: Plan): String {
 }
 
 /** Foto del plan (o la del lugar). */
+/**
+ * La API deja sumarse hasta media hora después de que empieza (`ahoraAtras` en planes.go); después
+ * responde 409 «Este plan ya arrancó». Las apps no ofrecen sumarse pasado ese punto.
+ */
+internal fun cerroParaSumarse(p: Plan): Boolean {
+    val t = Fecha.parse(p.empiezaEn) ?: return false
+    return java.time.ZonedDateTime.now(t.zone).isAfter(t.plusMinutes(30))
+}
+
 internal fun fotoDe(p: Plan): String = p.foto.ifEmpty { p.lugar?.foto.orEmpty() }
 
 /** El violeta con la base de 4 y la sombra difusa más corta (botones chicos del mockup). */
@@ -221,7 +230,7 @@ internal fun AccionTarjeta(plan: Plan, ir: Ir, alCambiar: (String) -> Unit) {
             Icono(I.check, 14.dp, C.lima, 3.4f)
             T(if (plan.esMio) "Tu plan" else "Adentro", 14f, 800, C.blanco, unRenglon = true)
         }
-        Cupo.completo(plan.faltan) || plan.miEstado == "rechazada" -> Unit
+        Cupo.completo(plan.faltan) || plan.miEstado == "rechazada" || cerroParaSumarse(plan) -> Unit
         else -> Row(
             Modifier
                 .toque(!enviando) {
