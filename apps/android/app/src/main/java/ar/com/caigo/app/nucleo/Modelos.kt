@@ -24,13 +24,25 @@ data class PersonaCorta(
     val organizador: Boolean = false,
     /** Ya hizo check-in (sólo en la lista de los que van). */
     val llego: Boolean = false,
+    /** «Anfitrión»: sus planes se hacen (sólo en quien organiza). */
+    val anfitrion: Boolean = false,
+    /** Faltazos en los últimos 30 días, si son 2 o más (sólo en las solicitudes pendientes). */
+    val faltazos: Int = 0,
 )
 
 @Serializable
 data class Direccion(val texto: String = "", val lat: Double = 0.0, val lng: Double = 0.0)
 
 @Serializable
-data class LugarCorto(val id: String = "", val slug: String = "", val nombre: String = "", val zona: String = "", val foto: String = "")
+data class LugarCorto(
+    val id: String = "",
+    val slug: String = "",
+    val nombre: String = "",
+    val zona: String = "",
+    val foto: String = "",
+    /** Beneficio del lugar para Habitué o más ("" si no tiene). */
+    val beneficioNivel: String = "",
+)
 
 @Serializable
 data class Plan(
@@ -212,6 +224,8 @@ data class Perfil(
     val proximos: List<ProximoPlan> = emptyList(),
     /** Lo que le falta al perfil propio (GET /v1/yo): edad, ciudad, zona, bio, fotos, intereses. */
     val faltan: List<String> = emptyList(),
+    /** Nivel, insignias y racha (racha y comodín, sólo en el propio). */
+    val logros: Logros? = null,
 ) {
     /** Le falta algo del alta (nombre, teléfono o selfie). */
     val altaIncompleta: Boolean get() = nombre.isEmpty() || telefono.isEmpty() || !selfie
@@ -265,6 +279,38 @@ data class CambiosPerfil(
     val fotos: List<String>? = null,
     val avisos: AjustesAvisos? = null,
     val contactoConfianza: String? = null,
+    val ocultarInsignias: Boolean? = null,
+)
+
+/** Una insignia («En cancha», «Local de X», «Anfitrión»…). */
+@Serializable
+data class Insignia(val id: String = "", val nombre: String = "", val detalle: String = "")
+
+/**
+ * Lo que se gana yendo (GET /v1/yo y /v1/personas/{id}): nivel (Nuevo, Habitué, De fierro, Leyenda), planes que
+ * cuentan, cuánto falta para el siguiente, racha semanal y comodín (sólo el propio) e insignias.
+ */
+@Serializable
+data class Logros(
+    val nivel: String = "",
+    val planes: Int = 0,
+    val siguiente: String? = null,
+    val faltan: Int? = null,
+    val racha: Int? = null,
+    val comodin: Boolean? = null,
+    val insignias: List<Insignia> = emptyList(),
+    val anfitrion: Boolean = false,
+    val ocultas: Boolean = false,
+)
+
+/** «Traé a alguien» (GET /v1/yo/invitar). */
+@Serializable
+data class Referidos(
+    val codigo: String = "",
+    val link: String = "",
+    val invitados: Int = 0,
+    val premiados: Int = 0,
+    val puedeUsarCodigo: Boolean = false,
 )
 
 /** Mi gente: la API devuelve perfiles; las listas usan la vista corta. */

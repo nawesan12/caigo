@@ -193,3 +193,29 @@ class VacioTest {
         assertEquals("No hay planes cerca. ¿Armás uno?", VacioAhora.titulo)
     }
 }
+
+class GestosTest {
+    private fun plan(f: (Plan) -> Plan = { it }) = f(Plan(id = "x", ingreso = "libre", faltan = 2, organizador = PersonaCorta(id = "org")))
+
+    @Test fun directoSoloSinNadaQueConfirmar() {
+        assertTrue(Gestos.directo(plan()))
+        assertTrue(!Gestos.directo(plan { it.copy(ingreso = "aprobacion") }))
+        assertTrue(!Gestos.directo(plan { it.copy(cobro = "entrada") }))
+        assertTrue(!Gestos.directo(plan { it.copy(genero = "mujeres") }))
+        assertTrue(!Gestos.directo(plan { it.copy(miEstado = "cancelada") }))
+        assertTrue(!Gestos.directo(plan { it.copy(faltan = 0) }))
+    }
+
+    @Test fun paraDecidirSacaLosMiosYLosCompletos() {
+        val ps = listOf(plan(), plan { it.copy(faltan = 0) }, plan { it.copy(miEstado = "pendiente") }, plan { it.copy(organizador = PersonaCorta(id = "yo")) })
+        assertEquals(1, Gestos.paraDecidir(ps, "yo").size)
+    }
+
+    @Test fun textosDeLogros() {
+        val l = Logros(nivel = "Habitué", planes = 7, siguiente = "De fierro", faltan = 8, racha = 3, comodin = true)
+        assertEquals("Habitué · 7 planes", TextoLogros.cabecera(l))
+        assertEquals("Racha: 3 semanas · comodín libre", TextoLogros.racha(l))
+        assertEquals("Te faltan 8 para De fierro", TextoLogros.siguiente(l))
+        assertNull(TextoLogros.racha(l.copy(racha = 1)))
+    }
+}

@@ -246,3 +246,40 @@ public enum Moderacion {
     /// Evento `moderado` del WebSocket: un mensaje ajeno que quedó oculto se saca; uno propio se reemplaza.
     public static func sacar(_ m: String, mio: Bool) -> Bool { m == "oculto" && !mio }
 }
+
+/// Los gestos sobre la tarjeta de un plan (Ahora y Explorar) y «Decidí rápido».
+public enum Gestos {
+    /// Cuánto del ancho de la tarjeta hay que deslizar para que cuente.
+    public static let umbral = 0.35
+    /// Desde cuántos planes para decidir aparece «Decidí rápido».
+    public static let minimoDecidir = 8
+
+    /// «Caigo» se suma sin pasar por el detalle sólo si no hay nada que confirmar: ingreso libre, gratis, para
+    /// cualquiera, sin pedido previo y con lugar. Si no, se abre el detalle (ahí se confirma).
+    public static func directo(_ p: Plan) -> Bool {
+        p.ingreso == "libre" && p.cobro == "gratis" && p.genero == "cualquiera" && p.miEstado == "ninguno" && p.faltan > 0
+    }
+
+    /// Los planes de la lista que entran en «Decidí rápido»: sin pedido, con lugar y que no organizo.
+    public static func paraDecidir(_ planes: [Plan], yo: String) -> [Plan] {
+        planes.filter { $0.miEstado == "ninguno" && $0.faltan > 0 && (yo.isEmpty || $0.organizador.id != yo) }
+    }
+}
+
+/// Lo que se muestra de los logros en un perfil.
+public enum TextoLogros {
+    /// «Habitué · 7 planes».
+    public static func cabecera(_ l: Logros) -> String { "\(l.nivel) · \(l.planes) \(l.planes == 1 ? "plan" : "planes")" }
+
+    /// «Racha: 3 semanas · comodín libre» (sólo desde 2 semanas).
+    public static func racha(_ l: Logros) -> String? {
+        guard let r = l.racha, r >= 2 else { return nil }
+        return "Racha: \(r) semanas" + (l.comodin == true ? " · comodín libre" : "")
+    }
+
+    /// «Te faltan 3 para De fierro».
+    public static func siguiente(_ l: Logros) -> String? {
+        guard let s = l.siguiente, !s.isEmpty, let f = l.faltan, f > 0 else { return nil }
+        return "Te faltan \(f) para \(s)"
+    }
+}

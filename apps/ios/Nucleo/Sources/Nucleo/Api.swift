@@ -128,6 +128,11 @@ public final class Api: @unchecked Sendable {
     public func ubicacion(lat: Double, lng: Double) async throws { try await mandar("PUT", "/v1/yo/ubicacion", Ubicacion(lat: lat, lng: lng)) }
     public func version() async throws -> Version { try await get("/v1/version") }
     public func reportar(_ r: Reporte) async throws { try await mandar("POST", "/v1/reportes", r) }
+    /// «Traé a alguien»: mi código, el link y cuántos invité.
+    public func referidos() async throws -> Referidos { try await get("/v1/yo/invitar") }
+    struct CodigoReferido: Encodable { var codigo: String }
+    /// El código de quien me invitó (204; 404 si no existe, 409 `propio` | `ya_invitado` | `tarde`).
+    public func usarCodigo(_ codigo: String) async throws { try await mandar("POST", "/v1/yo/invitado", CodigoReferido(codigo: codigo)) }
 
     // MARK: Planes
 
@@ -172,6 +177,10 @@ public final class Api: @unchecked Sendable {
     /// Organizador: saca a alguien aceptado (409 `con_entrada` si pagó entrada).
     public func sacarPersona(plan: String, usuario: String) async throws { try await sinCuerpo("DELETE", "/v1/planes/\(plan)/personas/\(usuario)") }
     public func destacar(_ id: String) async throws { try await sinCuerpo("POST", "/v1/planes/\(id)/destacar") }
+    /// «No me interesa»: el plan sale de Ahora y Explorar hasta el fin del día (204).
+    public func ocultarPlan(_ id: String) async throws { try await sinCuerpo("POST", "/v1/planes/\(id)/ocultar") }
+    /// «Deshacer» de «No me interesa» (204).
+    public func mostrarPlan(_ id: String) async throws { try await sinCuerpo("DELETE", "/v1/planes/\(id)/ocultar") }
 
     /// `confirma`: lo que confirma, sólo para este pedido, en un plan «Solo mujeres» / «Solo
     /// diversidades» (si falta, 422 `confirmar_mujer` / `confirmar_diversidad`). No se guarda.

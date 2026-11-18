@@ -24,11 +24,17 @@ public struct PersonaCorta: Codable, Hashable, Identifiable, Sendable {
     public var enMiGente = false
     public var organizador = false
     public var llego = false
+    /// «Anfitrión»: sus planes se hacen (sólo en quien organiza).
+    public var anfitrion = false
+    /// Faltazos en los últimos 30 días, si son 2 o más (sólo en las solicitudes pendientes).
+    public var faltazos = 0
 
     public init(id: String = "", nombre: String = "", foto: String = "", edad: Int? = nil, verificada: Bool = false,
-                asistencia: Asist = Asist(), enMiGente: Bool = false, organizador: Bool = false, llego: Bool = false) {
+                asistencia: Asist = Asist(), enMiGente: Bool = false, organizador: Bool = false, llego: Bool = false,
+                anfitrion: Bool = false, faltazos: Int = 0) {
         self.id = id; self.nombre = nombre; self.foto = foto; self.edad = edad; self.verificada = verificada
         self.asistencia = asistencia; self.enMiGente = enMiGente; self.organizador = organizador; self.llego = llego
+        self.anfitrion = anfitrion; self.faltazos = faltazos
     }
 
     public init(from d: Decoder) throws {
@@ -36,6 +42,7 @@ public struct PersonaCorta: Codable, Hashable, Identifiable, Sendable {
         id = c.v("id", ""); nombre = c.v("nombre", ""); foto = c.v("foto", ""); edad = c.o("edad")
         verificada = c.v("verificada", false); asistencia = c.v("asistencia", Asist())
         enMiGente = c.v("enMiGente", false); organizador = c.v("organizador", false); llego = c.v("llego", false)
+        anfitrion = c.v("anfitrion", false); faltazos = c.v("faltazos", 0)
     }
 }
 
@@ -49,12 +56,15 @@ public struct Direccion: Codable, Hashable, Sendable {
 
 public struct LugarCorto: Codable, Hashable, Sendable {
     public var id = "", slug = "", nombre = "", zona = "", foto = ""
-    public init(id: String = "", slug: String = "", nombre: String = "", zona: String = "", foto: String = "") {
-        self.id = id; self.slug = slug; self.nombre = nombre; self.zona = zona; self.foto = foto
+    /// Beneficio del lugar para Habitué o más ("" si no tiene).
+    public var beneficioNivel = ""
+    public init(id: String = "", slug: String = "", nombre: String = "", zona: String = "", foto: String = "", beneficioNivel: String = "") {
+        self.id = id; self.slug = slug; self.nombre = nombre; self.zona = zona; self.foto = foto; self.beneficioNivel = beneficioNivel
     }
     public init(from d: Decoder) throws {
         let c = try d.lector()
         id = c.v("id", ""); slug = c.v("slug", ""); nombre = c.v("nombre", ""); zona = c.v("zona", ""); foto = c.v("foto", "")
+        beneficioNivel = c.v("beneficioNivel", "")
     }
 }
 
@@ -259,6 +269,8 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
     public var proximos: [ProximoPlan] = []
     /// Lo que le falta al perfil propio (GET /v1/yo): edad, ciudad, zona, bio, fotos, intereses.
     public var faltan: [String] = []
+    /// Nivel, insignias y racha (racha y comodín, sólo en el propio).
+    public var logros: Logros?
 
     public init(id: String = "", nombre: String = "") { self.id = id; self.nombre = nombre }
 
@@ -272,6 +284,7 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
         equipo = c.v("equipo", false); telefono = c.v("telefono", ""); email = c.v("email", "")
         avisos = c.v("avisos", AjustesAvisos())
         contactoConfianza = c.v("contactoConfianza", ""); proximos = c.v("proximos", []); faltan = c.v("faltan", [])
+        logros = c.o("logros")
     }
 
     /// Le falta algo del alta (nombre, teléfono o selfie).
@@ -291,7 +304,55 @@ public struct CambiosPerfil: Encodable, Sendable {
     public var fotos: [String]?
     public var avisos: AjustesAvisos?
     public var contactoConfianza: String?
+    public var ocultarInsignias: Bool?
     public init() {}
+}
+
+/// Una insignia («En cancha», «Local de X», «Anfitrión»…).
+public struct Insignia: Codable, Hashable, Identifiable, Sendable {
+    public var id = "", nombre = "", detalle = ""
+    public init(id: String = "", nombre: String = "", detalle: String = "") { self.id = id; self.nombre = nombre; self.detalle = detalle }
+    public init(from d: Decoder) throws {
+        let c = try d.lector(); id = c.v("id", ""); nombre = c.v("nombre", ""); detalle = c.v("detalle", "")
+    }
+}
+
+/// Lo que se gana yendo (GET /v1/yo y /v1/personas/{id}): nivel (Nuevo, Habitué, De fierro, Leyenda), planes que
+/// cuentan, cuánto falta para el siguiente, racha semanal y comodín (sólo el propio) e insignias.
+public struct Logros: Codable, Hashable, Sendable {
+    public var nivel = ""
+    public var planes = 0
+    public var siguiente: String?
+    public var faltan: Int?
+    public var racha: Int?
+    public var comodin: Bool?
+    public var insignias: [Insignia] = []
+    public var anfitrion = false
+    public var ocultas = false
+    public init(nivel: String = "", planes: Int = 0, siguiente: String? = nil, faltan: Int? = nil, racha: Int? = nil, comodin: Bool? = nil,
+                insignias: [Insignia] = [], anfitrion: Bool = false, ocultas: Bool = false) {
+        self.nivel = nivel; self.planes = planes; self.siguiente = siguiente; self.faltan = faltan; self.racha = racha
+        self.comodin = comodin; self.insignias = insignias; self.anfitrion = anfitrion; self.ocultas = ocultas
+    }
+    public init(from d: Decoder) throws {
+        let c = try d.lector()
+        nivel = c.v("nivel", ""); planes = c.v("planes", 0); siguiente = c.o("siguiente"); faltan = c.o("faltan")
+        racha = c.o("racha"); comodin = c.o("comodin"); insignias = c.v("insignias", []); anfitrion = c.v("anfitrion", false)
+        ocultas = c.v("ocultas", false)
+    }
+}
+
+/// «Traé a alguien» (GET /v1/yo/invitar).
+public struct Referidos: Decodable, Sendable {
+    public var codigo = "", link = ""
+    public var invitados = 0, premiados = 0
+    public var puedeUsarCodigo = false
+    public init() {}
+    public init(from d: Decoder) throws {
+        let c = try d.lector()
+        codigo = c.v("codigo", ""); link = c.v("link", ""); invitados = c.v("invitados", 0); premiados = c.v("premiados", 0)
+        puedeUsarCodigo = c.v("puedeUsarCodigo", false)
+    }
 }
 
 /// Ajustes de avisos push (contrato §3). Por defecto, los dos prendidos.

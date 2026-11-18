@@ -145,6 +145,15 @@ class Api(
     suspend fun version(): Version = get("/v1/version")
     suspend fun reportar(r: Reporte) = mandar("POST", "/v1/reportes", r)
 
+    /** «Traé a alguien»: mi código, el link y cuántos invité. */
+    suspend fun referidos(): Referidos = get("/v1/yo/invitar")
+
+    @kotlinx.serialization.Serializable
+    data class CodigoReferido(val codigo: String)
+
+    /** El código de quien me invitó (204; 404 si no existe, 409 `propio` | `ya_invitado` | `tarde`). */
+    suspend fun usarCodigo(codigo: String) = mandar("POST", "/v1/yo/invitado", CodigoReferido(codigo))
+
     // ——— Planes ———
 
     /** `q` (≥ 2 letras) busca en título, zona y lugar; `ciudad` se usa cuando no hay ubicación. */
@@ -184,6 +193,12 @@ class Api(
 
     /** Con Plus, un plan propio por semana sale primero en Ahora y Explorar. */
     suspend fun destacar(id: String) = sinCuerpo("POST", "/v1/planes/$id/destacar")
+
+    /** «No me interesa»: el plan sale de Ahora y Explorar hasta el fin del día (204). */
+    suspend fun ocultarPlan(id: String) = sinCuerpo("POST", "/v1/planes/$id/ocultar")
+
+    /** «Deshacer» de «No me interesa» (204). */
+    suspend fun mostrarPlan(id: String) = sinCuerpo("DELETE", "/v1/planes/$id/ocultar")
 
     @kotlinx.serialization.Serializable
     data class Sumarse(val cantidad: Int, val mensaje: String = "", val mujer: Boolean = false, val diversidad: Boolean = false)
