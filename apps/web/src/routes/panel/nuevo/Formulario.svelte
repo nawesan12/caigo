@@ -390,8 +390,8 @@
 				{#if conEntradas}
 					<p class="aviso-lav">
 						Ya hay entradas vendidas: el cobro, el precio y la fecha quedan como están, y la
-						cancelación sólo puede ser más flexible. El resto lo podés cambiar y les avisamos a
-						los que&nbsp;vienen.
+						cancelación sólo puede ser más flexible. El resto lo podés cambiar y les avisamos a los
+						que&nbsp;vienen.
 					</p>
 				{/if}
 				<div class="campo">
