@@ -18,8 +18,19 @@
 	let {
 		plan: p,
 		todoBien,
+		yoId = '',
+		parte = 'tarjeta',
+		hoja = $bindable(false),
 		onReportar
-	}: { plan: Plan; todoBien?: TodoBien | null; onReportar?: () => void } = $props();
+	}: {
+		plan: Plan;
+		todoBien?: TodoBien | null;
+		yoId?: string;
+		/** La tarjeta va en el detalle; la hoja, al final de la página (para que tape la pantalla entera). */
+		parte?: 'tarjeta' | 'hoja';
+		hoja?: boolean;
+		onReportar?: () => void;
+	} = $props();
 
 	let ahora = $state(new Date());
 	onMount(() => {
@@ -27,13 +38,12 @@
 		return () => clearInterval(t);
 	});
 	const falta = $derived(cuentaRegresiva(p.empiezaEn, ahora));
-	const llegaron = $derived(p.van.filter((v) => v.llego));
+	const llegaron = $derived(p.van.filter((v) => v.llego && v.id !== yoId));
 	const llegue = $derived(!!p.mio?.llegue);
 	const destino = $derived(
 		p.direccion ?? (p.lat != null && p.lng != null ? { lat: p.lat, lng: p.lng } : null)
 	);
 
-	let hoja = $state(false);
 	let enviando = $state('');
 	let ubicando = $state(false);
 
@@ -100,161 +110,169 @@
 			update: (o?: { reset?: boolean }) => Promise<void>;
 		}) => {
 			enviando = '';
-			if (result.type === 'success') avisar(texto);
-			else if (result.type === 'failure') avisar(String(result.data?.error ?? 'No se pudo.'));
+			if (result.type === 'success') {
+				hoja = false;
+				avisar(texto);
+			} else if (result.type === 'failure') avisar(String(result.data?.error ?? 'No se pudo.'));
 			await update({ reset: false });
 		};
 </script>
 
-<section class="dia" aria-label="Hoy">
-	<div class="cab">
-		<div class="cuando">
-			<span class="falta">{falta}</span>
-			<span class="sub"
-				>{llegaron.length
-					? `${llegaron.map((v) => primerNombre(v.nombre)).join(', ')} ya ${llegaron.length === 1 ? 'llegó' : 'llegaron'}`
-					: `Somos ${p.somos} de ${p.total}`}</span
-			>
-		</div>
-		<div class="avs">
-			{#each p.van.slice(0, 4) as v (v.id)}
-				<span class="av" class:llego={v.llego}
-					><Avatar nombre={v.nombre} foto={v.foto} tam={30} borde="2px solid #24212D" /></span
+{#if parte === 'tarjeta'}<section class="dia" aria-label="Hoy">
+		<div class="cab">
+			<div class="cuando">
+				<span class="falta">{falta}</span>
+				<span class="sub"
+					>{llegaron.length
+						? `${llegaron.map((v) => primerNombre(v.nombre)).join(', ')} ya ${llegaron.length === 1 ? 'llegó' : 'llegaron'}`
+						: `Somos ${p.somos} de ${p.total}`}</span
 				>
-			{/each}
-		</div>
-	</div>
-	<div class="dos">
-		{#if destino}
-			<a
-				class="gel gel-blanco boton"
-				href={comoLlegar(destino.lat, destino.lng)}
-				target="_blank"
-				rel="noopener"><Icono nombre="pin" tam={18} trazo={2.2} />Cómo llegar</a
-			>
-		{/if}
-		<form
-			method="POST"
-			action="?/llegoEn"
-			use:enhance={() => {
-				enviando = 'llego';
-				return despues('Les avisamos en el chat.')();
-			}}
-		>
-			<button class="gel gel-blanco boton" disabled={enviando === 'llego'}
-				><Icono nombre="reloj" tam={18} trazo={2.2} />Llego en 10</button
-			>
-		</form>
-	</div>
-	{#if llegue}
-		<span class="llegaste"
-			><Icono nombre="check" tam={18} color="#24212D" trazo={3.4} />Llegaste</span
-		>
-	{:else}
-		<form
-			method="POST"
-			action="?/llegue"
-			bind:this={formLlegue}
-			use:enhance={despues('Listo, tu asistencia quedó registrada.')}
-		>
-			<input type="hidden" name="lat" />
-			<input type="hidden" name="lng" />
-			<button
-				type="button"
-				class="gel gel-lima llegue"
-				disabled={enviando === 'llegue'}
-				onclick={llegar}><Icono nombre="check" tam={20} color="#24212D" trazo={3.4} />Llegué</button
-			>
-		</form>
-	{/if}
-	<button class="todo-bien" onclick={() => (hoja = true)}>
-		<Icono nombre="escudo" tam={18} color="#C8F36B" trazo={2.2} />¿Todo bien?
-		{#if todoBien?.activo}<span class="on">Activo</span>{/if}
-	</button>
-</section>
-
-<Hoja bind:abierta={hoja} titulo="¿Todo bien?">
-	<div class="lista">
-		{#if todoBien?.activo && todoBien.contacto}
-			<div class="fila">
-				<Icono nombre="escudo" tam={20} color="var(--c-acento)" trazo={2} />
-				<span class="ft"
-					><b>Avisamos a {todoBien.contacto.nombre || todoBien.contacto.contacto}</b><span
-						>Si a las {hora(todoBien.avisaEn)} no hiciste check-in.</span
-					></span
-				>
-				<form method="POST" action="?/apagarTodoBien" use:enhance={despues('Listo, lo apagamos.')}>
-					<button class="chico">Apagar</button>
-				</form>
 			</div>
-		{:else if todoBien?.contactos.length}
-			{#each todoBien.contactos as c, i (i)}
-				<form
-					method="POST"
-					action="?/todoBien"
-					use:enhance={despues(`Si no llegás, le avisamos a ${c.nombre || c.contacto}.`)}
+			<div class="avs">
+				{#each p.van.slice(0, 4) as v (v.id)}
+					<span class="av" class:llego={v.llego}
+						><Avatar nombre={v.nombre} foto={v.foto} tam={30} borde="2px solid #24212D" /></span
+					>
+				{/each}
+			</div>
+		</div>
+		<div class="dos">
+			{#if destino}
+				<a
+					class="gel gel-blanco boton"
+					href={comoLlegar(destino.lat, destino.lng)}
+					target="_blank"
+					rel="noopener"><Icono nombre="pin" tam={18} trazo={2.2} />Cómo llegar</a
 				>
-					<input type="hidden" name="contacto" value={i} />
-					<button class="fila">
-						<Icono nombre="escudo" tam={20} color="var(--c-acento)" trazo={2} />
-						<span class="ft"
-							><b>Avisale a {c.nombre || c.contacto} si no llego</b><span
-								>A la media hora, si no hice check-in</span
-							></span
-						>
-						<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
-					</button>
-				</form>
-			{/each}
-		{:else}
-			<a class="fila" href="/app/perfil/ajustes">
-				<Icono nombre="usuario" tam={20} color="var(--c-acento)" trazo={2} />
-				<span class="ft"
-					><b>Sumá un contacto de confianza</b><span>Le avisamos si no llegás</span></span
-				>
-				<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
-			</a>
-		{/if}
-		<button class="fila" onclick={compartirUbicacion} disabled={ubicando}>
-			<Icono nombre="pin" tam={20} color="var(--c-acento)" trazo={2} />
-			<span class="ft"
-				><b>Compartir mi ubicación</b><span>Sale de tu teléfono; no la guardamos</span></span
+			{/if}
+			<form
+				method="POST"
+				action="?/llegoEn"
+				use:enhance={() => {
+					enviando = 'llego';
+					return despues('Les avisamos en el chat.')();
+				}}
 			>
-			<Icono nombre="enviar" tam={18} color="#9A95AD" trazo={2.2} />
-		</button>
-		{#if telefono}
-			<a class="fila" href="tel:{telefono.replace(/[^\d+]/g, '')}">
-				<Icono nombre="usuario" tam={20} color="var(--c-acento)" trazo={2} />
-				<span class="ft"
-					><b>Me quiero ir</b><span>Llamar a {contacto?.nombre || telefono}</span></span
+				<button class="gel gel-blanco boton" disabled={enviando === 'llego'}
+					><Icono nombre="reloj" tam={18} trazo={2.2} />Llego en 10</button
 				>
+			</form>
+		</div>
+		{#if llegue}
+			<span class="llegaste"
+				><Icono nombre="check" tam={18} color="#24212D" trazo={3.4} />Llegaste</span
+			>
+		{:else}
+			<form
+				method="POST"
+				action="?/llegue"
+				bind:this={formLlegue}
+				use:enhance={despues('Listo, tu asistencia quedó registrada.')}
+			>
+				<input type="hidden" name="lat" />
+				<input type="hidden" name="lng" />
+				<button
+					type="button"
+					class="gel gel-lima llegue"
+					disabled={enviando === 'llegue'}
+					onclick={llegar}
+					><Icono nombre="check" tam={20} color="#24212D" trazo={3.4} />Llegué</button
+				>
+			</form>
+		{/if}
+		<button class="todo-bien" onclick={() => (hoja = true)}>
+			<Icono nombre="escudo" tam={18} color="#C8F36B" trazo={2.2} />¿Todo bien?
+			{#if todoBien?.activo}<span class="on">Activo</span>{/if}
+		</button>
+	</section>
+{:else}
+	<Hoja bind:abierta={hoja} titulo="¿Todo bien?">
+		<div class="lista">
+			{#if todoBien?.activo && todoBien.contacto}
+				<div class="fila">
+					<Icono nombre="escudo" tam={20} color="var(--c-acento)" trazo={2} />
+					<span class="ft"
+						><b>Avisamos a {todoBien.contacto.nombre || todoBien.contacto.contacto}</b><span
+							>Si a las {hora(todoBien.avisaEn)} no hiciste check-in.</span
+						></span
+					>
+					<form
+						method="POST"
+						action="?/apagarTodoBien"
+						use:enhance={despues('Listo, lo apagamos.')}
+					>
+						<button class="chico">Apagar</button>
+					</form>
+				</div>
+			{:else if todoBien?.contactos.length}
+				{#each todoBien.contactos as c, i (i)}
+					<form
+						method="POST"
+						action="?/todoBien"
+						use:enhance={despues(`Si no llegás, le avisamos a ${c.nombre || c.contacto}.`)}
+					>
+						<input type="hidden" name="contacto" value={i} />
+						<button class="fila">
+							<Icono nombre="escudo" tam={20} color="var(--c-acento)" trazo={2} />
+							<span class="ft"
+								><b>Avisale a {c.nombre || c.contacto} si no llego</b><span
+									>A la media hora, si no hice check-in</span
+								></span
+							>
+							<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
+						</button>
+					</form>
+				{/each}
+			{:else}
+				<a class="fila" href="/app/perfil/ajustes">
+					<Icono nombre="usuario" tam={20} color="var(--c-acento)" trazo={2} />
+					<span class="ft"
+						><b>Sumá un contacto de confianza</b><span>Le avisamos si no llegás</span></span
+					>
+					<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
+				</a>
+			{/if}
+			<button class="fila" onclick={compartirUbicacion} disabled={ubicando}>
+				<Icono nombre="pin" tam={20} color="var(--c-acento)" trazo={2} />
+				<span class="ft"
+					><b>Compartir mi ubicación</b><span>Sale de tu teléfono; no la guardamos</span></span
+				>
+				<Icono nombre="enviar" tam={18} color="#9A95AD" trazo={2.2} />
+			</button>
+			{#if telefono}
+				<a class="fila" href="tel:{telefono.replace(/[^\d+]/g, '')}">
+					<Icono nombre="usuario" tam={20} color="var(--c-acento)" trazo={2} />
+					<span class="ft"
+						><b>Me quiero ir</b><span>Llamar a {contacto?.nombre || telefono}</span></span
+					>
+					<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
+				</a>
+			{/if}
+			<a
+				class="fila"
+				href="https://m.uber.com/ul/?action=setPickup&pickup=my_location"
+				target="_blank"
+				rel="noopener"
+			>
+				<Icono nombre="flecha" tam={20} color="var(--c-acento)" trazo={2} />
+				<span class="ft"><b>Pedir un auto</b><span>Para volver ya</span></span>
 				<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
 			</a>
-		{/if}
-		<a
-			class="fila"
-			href="https://m.uber.com/ul/?action=setPickup&pickup=my_location"
-			target="_blank"
-			rel="noopener"
+		</div>
+		<div class="urgencias">
+			<a class="gel urgente" href="tel:911">Llamar al 911</a>
+			<a class="gel gel-violeta" href="tel:144">Línea 144</a>
+		</div>
+		<p class="nota">La 144 atiende violencia de género, gratis y las 24&nbsp;h.</p>
+		<button
+			class="reportar"
+			onclick={() => {
+				hoja = false;
+				onReportar?.();
+			}}>Reportar algo del plan</button
 		>
-			<Icono nombre="flecha" tam={20} color="var(--c-acento)" trazo={2} />
-			<span class="ft"><b>Pedir un auto</b><span>Para volver ya</span></span>
-			<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
-		</a>
-	</div>
-	<div class="urgencias">
-		<a class="gel urgente" href="tel:911">Llamar al 911</a>
-		<a class="gel gel-violeta" href="tel:144">Línea 144</a>
-	</div>
-	<p class="nota">La 144 atiende violencia de género, gratis y las 24&nbsp;h.</p>
-	<button
-		class="reportar"
-		onclick={() => {
-			hoja = false;
-			onReportar?.();
-		}}>Reportar algo del plan</button
-	>
-</Hoja>
+	</Hoja>
+{/if}
 
 <style>
 	.dia {

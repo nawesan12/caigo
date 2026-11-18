@@ -75,6 +75,7 @@
 
 	let grupo = $state(false);
 	let reportar = $state(false);
+	let todoBien = $state(false);
 	let salir = $state(false);
 	let cancelar = $state(false);
 	/** Lo que el organizador todavía puede tocar: un plan propio que no empezó ni se canceló. */
@@ -185,7 +186,7 @@
 		<h1>{p.titulo}</h1>
 
 		{#if hoy}
-			<DiaDelPlan plan={p} todoBien={data.todoBien} onReportar={() => (reportar = true)} />
+			<DiaDelPlan plan={p} todoBien={data.todoBien} yoId={data.yo?.id} bind:hoja={todoBien} />
 		{/if}
 		{#if vispera}
 			<div class="vispera">
@@ -541,6 +542,15 @@
 </div>
 
 {#if !data.anonimo}
+	{#if hoy}
+		<DiaDelPlan
+			parte="hoja"
+			plan={p}
+			todoBien={data.todoBien}
+			bind:hoja={todoBien}
+			onReportar={() => (reportar = true)}
+		/>
+	{/if}
 	<Reportar bind:abierta={reportar} planId={p.id} />
 	<Confirmar
 		bind:abierta={salir}

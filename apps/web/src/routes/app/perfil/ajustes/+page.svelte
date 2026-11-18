@@ -135,7 +135,7 @@
 									name="nombre"
 									bind:value={c.nombre}
 									maxlength="40"
-									placeholder="Mamá"
+									placeholder="Nombre"
 									aria-label="Nombre del contacto {i + 1}"
 								/>
 								<input

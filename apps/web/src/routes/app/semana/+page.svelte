@@ -23,7 +23,7 @@
 			<div class="num"><b>{s.aliados}</b><span>en lugares aliados</span></div>
 			<div class="num"><b>{s.deTuGente}</b><span>de tu gente</span></div>
 		</div>
-		<div class="dias">
+		<div class="dias" style:grid-template-columns="repeat({s.dias.length}, 1fr)">
 			{#each s.dias as d (d.dia)}
 				{@const c = diaCorto(d.dia)}
 				<a class="dia" href="/app/explorar?fecha={d.dia}" class:vacio={!d.cantidad}>
@@ -84,7 +84,6 @@
 	}
 	.dias {
 		display: grid;
-		grid-template-columns: repeat(7, 1fr);
 		gap: 6px;
 	}
 	.dia {
