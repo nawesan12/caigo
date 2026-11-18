@@ -1,4 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { volverSeguro } from '#lib/hosts.ts';
 import { conSesion, ErrorApi, mensajeDe } from '#lib/server/api.ts';
 import type { Prompt, YoCompleto } from '#lib/tipos.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -58,11 +59,12 @@ export const actions: Actions = {
 			return fail(400, { error: mensajeDe(e) });
 		}
 		// Desde «Completá tu perfil» se sigue a donde iba.
-		const volver = event.url.searchParams.get('volver');
+		// volverSeguro primero: "/app%0Ax" empieza con /app pero en el Location hacía caer el servidor.
+		const volver = volverSeguro(event.url.searchParams.get('volver'), '/app');
 		redirect(
 			303,
 			event.url.searchParams.has('completar')
-				? volver?.startsWith('/app')
+				? volver.startsWith('/app')
 					? volver
 					: '/app'
 				: '/app/perfil'
