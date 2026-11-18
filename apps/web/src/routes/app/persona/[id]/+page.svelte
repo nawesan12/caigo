@@ -54,6 +54,15 @@
 			{/if}
 		</div>
 
+		<!-- Todas sus fotos (las apps las pasan tocando la cabecera); arriba sólo entra la primera. -->
+		{#if (p.fotos?.length ?? 0) > 1}
+			<div class="fotos" aria-label="Fotos de {n}">
+				{#each p.fotos as f, i (f)}
+					<img src={f} alt="Foto {i + 1} de {n}" loading="lazy" />
+				{/each}
+			</div>
+		{/if}
+
 		<div class="stats">
 			<div class="st oscura">
 				<span class="sv lima">{pct === null ? '—' : `${pct}%`}</span>
@@ -130,6 +139,27 @@
 />
 
 <style>
+	.fotos {
+		display: flex;
+		gap: 10px;
+		margin: 0 -20px;
+		padding: 2px 20px 6px;
+		overflow-x: auto;
+		scroll-snap-type: x mandatory;
+		scrollbar-width: none;
+	}
+	.fotos::-webkit-scrollbar {
+		display: none;
+	}
+	.fotos img {
+		flex: none;
+		width: 148px;
+		height: 196px;
+		border-radius: 22px;
+		object-fit: cover;
+		scroll-snap-align: start;
+		background: var(--lavanda);
+	}
 	.volver {
 		position: absolute;
 		top: calc(16px + env(safe-area-inset-top));
