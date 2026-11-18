@@ -27,10 +27,29 @@ func TestMirarSinDNI(t *testing.T) {
 	if len(lista.Planes) != 1 || lista.Planes[0].ID != p.ID {
 		t.Fatalf("explorar sin DNI: %+v", lista)
 	}
+	// Sin DNI, de la gente del plan sólo el primer nombre y la foto: sin id no se llega a su perfil ni a
+	// sus próximos planes (personas.SinDNI los esconde), ni a si ya llegó.
+	var crudo struct {
+		Planes []struct {
+			Organizador map[string]any
+			Van         []map[string]any
+		}
+	}
+	e.pedir(nueva, "GET", "/v1/planes/explorar?ciudad="+strings.ReplaceAll(ciudad, " ", "+"), nil, http.StatusOK, &crudo)
+	for _, x := range crudo.Planes {
+		if x.Organizador["id"] != nil || len(x.Van) != 2 {
+			t.Fatalf("explorar sin DNI muestra de más: %+v", x)
+		}
+		for _, v := range x.Van {
+			if v["id"] != nil || v["llego"] != nil {
+				t.Fatalf("explorar sin DNI con id o llegó: %+v", v)
+			}
+		}
+	}
 	e.pedir(nueva, "GET", "/v1/planes/ahora?ciudad="+strings.ReplaceAll(ciudad, " ", "+"), nil, http.StatusOK, nil)
 	var visto plan
 	e.pedir(nueva, "GET", "/v1/planes/"+p.ID, nil, http.StatusOK, &visto)
-	if visto.Direccion != nil || len(visto.Van) != 2 {
+	if visto.Direccion != nil || len(visto.Van) != 2 || visto.Van[0].ID != "" || visto.Van[1].ID != "" {
 		t.Fatalf("detalle sin DNI: %+v", visto)
 	}
 	// Con DNI, la misma dirección sí se ve (el plan no la oculta).
@@ -131,7 +150,9 @@ func TestConfianzaYSoloChicas(t *testing.T) {
 	e.verificar(beto, true)
 	ciudad := ciudadUnica()
 	chicas := e.planNuevo(org, map[string]any{"ciudad": ciudad, "genero": "mujeres", "somos": 1, "faltan": 3})
-	mixto := e.planNuevo(org, map[string]any{"ciudad": ciudad})
+	mixto := e.planNuevo(org, map[string]any{"ciudad": ciudad, "somos": 1, "faltan": 3})
+	// Con acompañantes sin cuenta («somos 3»), no son «todos verificados»: no tienen DNI.
+	grupo := e.planNuevo(org, map[string]any{"ciudad": ciudad, "somos": 3, "faltan": 2})
 	e.pedir(beto, "POST", "/v1/planes/"+mixto.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
 
 	type conConfianza struct {
@@ -142,7 +163,7 @@ func TestConfianzaYSoloChicas(t *testing.T) {
 		}
 		Confianza struct {
 			TodosVerificados, SoloChicas bool
-			Chicas                       int
+			Chicas                       *int
 		}
 	}
 	var lista struct{ Planes []conConfianza }
@@ -156,15 +177,18 @@ func TestConfianzaYSoloChicas(t *testing.T) {
 		return m
 	}
 	m := ver()
-	// Sola, una chica no se cuenta (no se señala a nadie).
-	if c := m[chicas.ID].Confianza; !c.TodosVerificados || !c.SoloChicas || c.Chicas != 0 {
+	if c := m[chicas.ID].Confianza; !c.TodosVerificados || !c.SoloChicas || c.Chicas != nil {
 		t.Fatalf("sólo chicas con una: %+v", c)
 	}
-	if c := m[mixto.ID].Confianza; !c.TodosVerificados || c.SoloChicas || c.Chicas != 0 {
+	if c := m[mixto.ID].Confianza; !c.TodosVerificados || c.SoloChicas {
 		t.Fatalf("mixto: %+v", c)
 	}
+	if c := m[grupo.ID].Confianza; c.TodosVerificados {
+		t.Fatalf("grupo con acompañantes sin cuenta: %+v", c)
+	}
+	// Nunca se dice cuántas chicas van (junto al lugar y la hora, el número sirve para buscarlas).
 	e.pedir(ana, "POST", "/v1/planes/"+chicas.ID+"/sumarme", map[string]any{"mujer": true}, http.StatusOK, nil)
-	if c := ver()[chicas.ID].Confianza; c.Chicas != 2 {
+	if c := ver()[chicas.ID].Confianza; c.Chicas != nil || !c.SoloChicas {
 		t.Fatalf("van 2 chicas: %+v", c)
 	}
 	// Alguien sin DNI en el plan (cuentas de antes del 16/11): ya no son todos verificados.

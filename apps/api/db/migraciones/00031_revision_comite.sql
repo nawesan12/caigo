@@ -76,7 +76,11 @@ ALTER TABLE avisos_enviados DROP CONSTRAINT avisos_enviados_tipo_check;
 ALTER TABLE avisos_enviados ADD CONSTRAINT avisos_enviados_tipo_check CHECK (tipo IN
 	('recordatorio', 'checkin', 'repetimos', 'tu_gente', 'cerca', 'vispera', 'como_estuvo', 'sin_llegue'));
 
+-- Plazos (confianza.Plazos) y la purga de una cuenta: los canjes del beneficio por nivel se borran.
+GRANT DELETE ON canjes_nivel TO caigo_app;
+
 -- +goose Down
+REVOKE DELETE ON canjes_nivel FROM caigo_app;
 DELETE FROM avisos_enviados WHERE tipo = 'sin_llegue';
 ALTER TABLE avisos_enviados DROP CONSTRAINT avisos_enviados_tipo_check;
 ALTER TABLE avisos_enviados ADD CONSTRAINT avisos_enviados_tipo_check CHECK (tipo IN

@@ -131,7 +131,7 @@ func TestInsignias(t *testing.T) {
 	for _, i := range got {
 		nombres = append(nombres, i.Nombre)
 	}
-	quiero := []string{"Anfitrión", "Local de La Fonda", "De la mesa", "De noche"}
+	quiero := []string{"Anfitrión", "De la mesa", "De noche", "Local de La Fonda"}
 	if len(nombres) != len(quiero) {
 		t.Fatalf("insignias %v; quería %v", nombres, quiero)
 	}
@@ -140,8 +140,8 @@ func TestInsignias(t *testing.T) {
 			t.Fatalf("insignias %v; quería %v", nombres, quiero)
 		}
 	}
-	if got[2].Detalle != "5 planes de juego" {
-		t.Errorf("detalle %q", got[2].Detalle)
+	if got[1].Detalle != "5 planes de juego" {
+		t.Errorf("detalle %q", got[1].Detalle)
 	}
 	if len(Insignias(nil, nil, false)) != 0 {
 		t.Error("sin planes no hay insignias")

@@ -82,6 +82,10 @@ type Estado struct {
 	LimiteEncantas int `json:"limiteEncantas"`
 	// Cuándo puede destacar otro plan (vacío: ya puede, si tiene Plus).
 	DestacarDesde *time.Time `json:"destacarDesde,omitempty"`
+	// Semanas de regalo de «Traé a alguien»: hasta cuándo corren las activas y cuántas quedan guardadas
+	// para cuando deje de renovar la suscripción paga.
+	RegaloHasta      *time.Time `json:"regaloHasta,omitempty"`
+	RegalosGuardados int        `json:"regalosGuardados,omitempty"`
 }
 
 // Leer devuelve el estado dentro de una transacción ya abierta (con la persona fijada).
@@ -91,11 +95,22 @@ func Leer(ctx context.Context, tx pgx.Tx, usuarioID string, ahora time.Time) (Es
 	var vence time.Time
 	err := tx.QueryRow(ctx, `SELECT plan, origen, vence_en, renueva FROM suscripciones
 		WHERE usuario_id = $1 AND estado IN ('activa', 'prueba', 'cancelada') AND vence_en > $2
-		ORDER BY vence_en DESC LIMIT 1`, usuarioID, ahora).Scan(&e.Plan, &e.Origen, &vence, &e.Renueva)
+		-- La suscripción de tienda va primero: es la que se renueva y la que se cancela en la tienda (la
+		-- semana de regalo se muestra aparte, en RegaloHasta).
+		ORDER BY origen = 'referido', vence_en DESC LIMIT 1`, usuarioID, ahora).Scan(&e.Plan, &e.Origen, &vence, &e.Renueva)
 	if err == nil {
 		e.Activo, e.Vence = true, &vence
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return e, err
+	}
+	if err := tx.QueryRow(ctx, `SELECT
+			(SELECT max(vence_en) FROM suscripciones WHERE usuario_id = $1 AND origen = 'referido' AND estado = 'activa' AND vence_en > $2),
+			(SELECT count(*)::integer FROM suscripciones WHERE usuario_id = $1 AND origen = 'referido' AND estado = 'pendiente')`,
+		usuarioID, ahora).Scan(&e.RegaloHasta, &e.RegalosGuardados); err != nil {
+		return e, err
+	}
+	if e.Origen == "referido" {
+		e.RegaloHasta = nil // ya es lo que se muestra como Plus
 	}
 	e.LimiteEncantas = EncantasGratis
 	if e.Activo {

@@ -327,3 +327,35 @@ func argentina() *time.Location {
 	}
 	return l
 }
+
+// Canje es un beneficio por nivel que alguien usó hoy en el lugar (lo ve el personal para verificarlo).
+type Canje struct {
+	Nombre    string    `json:"nombre"`
+	Foto      string    `json:"foto,omitempty"`
+	Nivel     string    `json:"nivel"`
+	Beneficio string    `json:"beneficio"`
+	Hora      time.Time `json:"hora"`
+}
+
+// Canjes de hoy (Argentina) del beneficio por nivel en el lugar, el último primero.
+func (s *Servicio) Canjes(ctx context.Context, usuarioID, lugarID string) ([]Canje, error) {
+	out := []Canje{}
+	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		if err := miembro(ctx, tx, lugarID, usuarioID, false); err != nil {
+			return err
+		}
+		rows, err := tx.Query(ctx, `SELECT split_part(u.nombre, ' ', 1), coalesce(u.fotos[1], ''), c.nivel, c.beneficio, c.creado_en
+			FROM canjes_nivel c JOIN usuarios u ON u.id = c.usuario_id
+			WHERE c.lugar_id::text = $1 AND c.dia = $2 ORDER BY c.creado_en DESC LIMIT 200`,
+			lugarID, s.ahora().In(argentina()).Format(time.DateOnly))
+		if err != nil {
+			return err
+		}
+		out, err = pgx.CollectRows(rows, pgx.RowToStructByPos[Canje])
+		if out == nil {
+			out = []Canje{}
+		}
+		return err
+	})
+	return out, err
+}

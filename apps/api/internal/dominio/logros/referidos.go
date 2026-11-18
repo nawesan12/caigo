@@ -129,6 +129,15 @@ func (s *Servicio) UsarCodigo(ctx context.Context, usuarioID, codigo string) err
 		if referente == usuarioID {
 			return problema.Conflicto("propio", "Ese es tu código: pasáselo a quien quieras invitar.")
 		}
+		// Dos cuentas no se invitan entre sí (cada una cobraría los dos premios).
+		var cruzado bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM referidos WHERE referido_id = $1 AND referente_id = $2)`,
+			referente, usuarioID).Scan(&cruzado); err != nil {
+			return err
+		}
+		if cruzado {
+			return problema.Conflicto("cruzado", "Vos invitaste a esa persona: su código no vale para vos.")
+		}
 		tag, err := tx.Exec(ctx, `INSERT INTO referidos (referido_id, referente_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, usuarioID, referente)
 		if err != nil {
 			return err
@@ -145,18 +154,28 @@ func (s *Servicio) UsarCodigo(ctx context.Context, usuarioID, codigo string) err
 func PremiarReferidos(ctx context.Context, app *db.Pool, ahora time.Time) (int, error) {
 	n := 0
 	err := app.EnSistema(ctx, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT r.referido_id::text, r.referente_id::text FROM referidos r
-			JOIN usuarios u ON u.id = r.referido_id
+		// Los que todavía no cumplen pasan al final de la fila (revisado_en): 200 que no cumplen no frenan a
+		// los demás. Y se miran sólo los que tienen un check-in en un plan donde llegó alguien más (lo mínimo
+		// para que el plan cuente), no cualquier check-in.
+		rows, err := tx.Query(ctx, `SELECT r.referido_id::text, r.referente_id::text,
+				ur.suspendido_en IS NULL AND ur.baja_en IS NULL
+			FROM referidos r JOIN usuarios u ON u.id = r.referido_id JOIN usuarios ur ON ur.id = r.referente_id
 			WHERE r.premiado_en IS NULL AND u.dni_en IS NOT NULL AND u.suspendido_en IS NULL AND u.baja_en IS NULL
-				AND EXISTS (SELECT 1 FROM solicitudes s WHERE s.usuario_id = r.referido_id AND s.checkin_en IS NOT NULL)
-			ORDER BY r.creado_en LIMIT 200 FOR UPDATE OF r SKIP LOCKED`)
+				AND (r.revisado_en IS NULL OR r.revisado_en < $1::timestamptz - interval '1 hour')
+				AND EXISTS (SELECT 1 FROM solicitudes s JOIN solicitudes o ON o.plan_id = s.plan_id AND o.usuario_id <> s.usuario_id
+					AND o.checkin_en IS NOT NULL
+					WHERE s.usuario_id = r.referido_id AND s.checkin_en IS NOT NULL)
+			ORDER BY coalesce(r.revisado_en, r.creado_en) LIMIT 200 FOR UPDATE OF r SKIP LOCKED`, ahora)
 		if err != nil {
 			return err
 		}
-		type par struct{ referido, referente string }
+		type par struct {
+			referido, referente string
+			activo              bool
+		}
 		pares, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (par, error) {
 			var p par
-			err := r.Scan(&p.referido, &p.referente)
+			err := r.Scan(&p.referido, &p.referente, &p.activo)
 			return p, err
 		})
 		if err != nil {
@@ -169,6 +188,9 @@ func PremiarReferidos(ctx context.Context, app *db.Pool, ahora time.Time) (int, 
 				return err
 			}
 			if cuentan == 0 {
+				if _, err := tx.Exec(ctx, `UPDATE referidos SET revisado_en = $2 WHERE referido_id = $1`, p.referido, ahora); err != nil {
+					return err
+				}
 				continue
 			}
 			var delMes int
@@ -176,7 +198,8 @@ func PremiarReferidos(ctx context.Context, app *db.Pool, ahora time.Time) (int, 
 				AND premiado_en >= $2 AND NOT sin_premio_referente`, p.referente, inicioMes).Scan(&delMes); err != nil {
 				return err
 			}
-			sinPremio := delMes >= PremiosPorMes
+			// Quien invitó y ya no está (suspendido o de baja) no recibe el premio; el referido sí.
+			sinPremio := delMes >= PremiosPorMes || !p.activo
 			if err := darSemana(ctx, tx, p.referido, "a-"+p.referido, ahora); err != nil {
 				return err
 			}
@@ -191,18 +214,56 @@ func PremiarReferidos(ctx context.Context, app *db.Pool, ahora time.Time) (int, 
 			}
 			n++
 		}
-		return nil
+		return activarRegalos(ctx, tx, ahora)
 	})
 	return n, err
 }
 
-// darSemana suma una semana de Plus: arranca cuando vence lo que ya tiene (o ahora).
+// pagaYRenueva (con $1 = la persona, $2 = ahora): tiene una suscripción de tienda vigente que se renueva.
+const pagaYRenueva = `EXISTS (SELECT 1 FROM suscripciones x WHERE x.usuario_id = $1 AND x.origen <> 'referido'
+	AND x.renueva AND x.estado IN ('activa', 'prueba') AND x.vence_en > $2)`
+
+// darSemana suma una semana de Plus: arranca cuando vence lo que ya tiene (o ahora). A quien paga una
+// suscripción que se renueva, la semana no le sirve encimada: queda guardada ('pendiente', sin
+// vencimiento) y arranca cuando deja de renovarse (activarRegalos).
 func darSemana(ctx context.Context, tx pgx.Tx, usuarioID, externo string, ahora time.Time) error {
 	_, err := tx.Exec(ctx, `INSERT INTO suscripciones (usuario_id, origen, externo, plan, estado, vence_en, renueva)
-		SELECT $1, 'referido', $2, 'semana', 'activa',
-			greatest($3::timestamptz, coalesce((SELECT max(vence_en) FROM suscripciones
-				WHERE usuario_id = $1 AND estado IN ('activa', 'prueba', 'cancelada')), $3::timestamptz)) + interval '7 days',
+		SELECT $1, 'referido', $3, 'semana',
+			CASE WHEN `+pagaYRenueva+` THEN 'pendiente' ELSE 'activa' END,
+			CASE WHEN `+pagaYRenueva+` THEN NULL ELSE greatest($2::timestamptz, coalesce((SELECT max(vence_en) FROM suscripciones
+				WHERE usuario_id = $1 AND estado IN ('activa', 'prueba', 'cancelada')), $2::timestamptz)) + interval '7 days' END,
 			false
-		ON CONFLICT (origen, externo) DO NOTHING`, usuarioID, externo, ahora)
+		ON CONFLICT (origen, externo) DO NOTHING`, usuarioID, ahora, externo)
 	return err
+}
+
+// activarRegalos: las semanas guardadas de quien dejó de renovar su suscripción arrancan cuando vence lo
+// que tiene (una por vez, en orden).
+func activarRegalos(ctx context.Context, tx pgx.Tx, ahora time.Time) error {
+	rows, err := tx.Query(ctx, `SELECT r.id::text, r.usuario_id::text FROM suscripciones r
+		WHERE r.origen = 'referido' AND r.estado = 'pendiente'
+			AND NOT EXISTS (SELECT 1 FROM suscripciones x WHERE x.usuario_id = r.usuario_id AND x.origen <> 'referido'
+				AND x.renueva AND x.estado IN ('activa', 'prueba') AND x.vence_en > $1)
+		ORDER BY r.creada_en LIMIT 200`, ahora)
+	if err != nil {
+		return err
+	}
+	type regalo struct{ id, usuario string }
+	rs, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (regalo, error) {
+		var x regalo
+		err := r.Scan(&x.id, &x.usuario)
+		return x, err
+	})
+	if err != nil {
+		return err
+	}
+	for _, r := range rs {
+		if _, err := tx.Exec(ctx, `UPDATE suscripciones SET estado = 'activa', actualizada_en = $3,
+			vence_en = greatest($3::timestamptz, coalesce((SELECT max(vence_en) FROM suscripciones
+				WHERE usuario_id = $2 AND estado IN ('activa', 'prueba', 'cancelada')), $3::timestamptz)) + interval '7 days'
+			WHERE id = $1`, r.id, r.usuario, ahora); err != nil {
+			return err
+		}
+	}
+	return nil
 }

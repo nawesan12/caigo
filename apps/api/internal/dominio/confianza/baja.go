@@ -204,6 +204,17 @@ func Purgar(ctx context.Context, app *db.Pool, disco archivos.Disco, veto *vetad
 					`DELETE FROM ubicaciones WHERE usuario_id = $1`,
 					`DELETE FROM avisos_enviados WHERE usuario_id = $1`,
 					`DELETE FROM mp_estados WHERE usuario_id = $1`,
+					// Lo del día del plan y los logros (las tablas con ON DELETE CASCADE no se disparan: la purga
+					// no borra la fila de usuarios).
+					`DELETE FROM canjes_nivel WHERE usuario_id = $1`,
+					`DELETE FROM planes_ocultos WHERE usuario_id = $1`,
+					`DELETE FROM avisos_semana WHERE usuario_id = $1`,
+					`DELETE FROM todo_bien WHERE usuario_id = $1`,
+					`DELETE FROM todo_bien_mails WHERE usuario_id = $1`,
+					`DELETE FROM espera WHERE usuario_id = $1`,
+					`DELETE FROM referidos WHERE referido_id = $1 OR referente_id = $1`,
+					`DELETE FROM caritas_organizador WHERE usuario_id = $1`,
+					`UPDATE solicitudes SET carita = NULL WHERE usuario_id = $1 AND carita IS NOT NULL`,
 					// Lo que la baja ya borró, por si quedó algo (un pedido en el mismo instante).
 					`DELETE FROM dispositivos WHERE usuario_id = $1`,
 					`DELETE FROM sesiones WHERE usuario_id = $1`,

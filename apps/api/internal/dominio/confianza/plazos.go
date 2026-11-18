@@ -36,4 +36,14 @@ var Plazos = []string{
 				OR EXISTS (SELECT 1 FROM privados x WHERE x.creado_en >= now() - interval '6 months'
 					AND least(x.de_id, x.a_id) = least(i.usuario_id, i.otro_id)
 					AND greatest(x.de_id, x.a_id) = greatest(i.usuario_id, i.otro_id))))`,
+	// Canjes del beneficio por nivel (qué persona estuvo en qué lugar y qué día): 90 días.
+	`DELETE FROM canjes_nivel WHERE creado_en < now() - interval '90 days'`,
+	// «No me interesa»: vale hasta el fin del día; al día siguiente ya no sirve.
+	`DELETE FROM planes_ocultos WHERE hasta < now() - interval '1 day'`,
+	// «Esta semana en tu ciudad» (a quién se le mandó cada lunes): 8 semanas.
+	`DELETE FROM avisos_semana WHERE semana < current_date - 56`,
+	// Los mails de «¿Todo bien?» (la huella de la dirección, para el tope): 7 días.
+	`DELETE FROM todo_bien_mails WHERE enviado_en < now() - interval '7 days'`,
+	// Referidos: al año (premiados o no; el código se usa en los primeros 14 días).
+	`DELETE FROM referidos WHERE creado_en < now() - interval '1 year'`,
 }

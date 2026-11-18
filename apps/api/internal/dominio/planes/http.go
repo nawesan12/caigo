@@ -45,6 +45,7 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 			mal(w, err)
 			return
 		}
+		sinDNI(p, ps)
 		respuesta.JSON(w, http.StatusOK, map[string]any{"planes": ps})
 	}))
 	mux.Handle("GET /v1/planes/explorar", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
@@ -58,6 +59,7 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 			mal(w, err)
 			return
 		}
+		sinDNI(p, ps)
 		respuesta.JSON(w, http.StatusOK, map[string]any{"planes": ps})
 	}))
 	mux.Handle("GET /v1/planes/mios", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
@@ -66,6 +68,7 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 			mal(w, err)
 			return
 		}
+		sinDNI(p, ps)
 		respuesta.JSON(w, http.StatusOK, map[string]any{"planes": ps})
 	}))
 	mux.Handle("POST /v1/planes/{id}/ocultar", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
@@ -123,6 +126,14 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 			return
 		}
 		respuesta.JSON(w, http.StatusOK, plan)
+	}))
+	// «Marcar que vino»: quien organiza corrige el check-in de alguien que fue.
+	mux.Handle("POST /v1/planes/{id}/personas/{usuarioId}/vino", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
+		if err := s.MarcarVino(r.Context(), p.ID, r.PathValue("id"), r.PathValue("usuarioId")); err != nil {
+			mal(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}))
 	mux.Handle("DELETE /v1/planes/{id}/personas/{usuarioId}", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
 		if err := s.SacarPersona(r.Context(), p.ID, r.PathValue("id"), r.PathValue("usuarioId")); err != nil {
@@ -365,4 +376,14 @@ func paginaBaja(hecho bool) string {
 main{max-width:420px;margin:15vh auto;padding:28px;background:#fff;border-radius:24px}h1{font-size:22px;margin:0 0 12px}
 p{font-size:16px;line-height:1.5;color:#5d5870}button{font:inherit;font-weight:800;border:0;border-radius:16px;padding:14px 22px;background:#C8F36B;color:#17141f}</style>
 </head><body><main><h1>Caigo<span style="color:#6B4EFF">.</span></h1>` + cuerpo + `</main></body></html>`
+}
+
+// sinDNI recorta una lista para quien mira sin el DNI verificado (ver SinDNI).
+func sinDNI(p sesion.Persona, ps []Plan) {
+	if p.DNI {
+		return
+	}
+	for i := range ps {
+		SinDNI(&ps[i])
+	}
 }

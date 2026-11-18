@@ -73,20 +73,47 @@ func (s *Servicio) Semana(ctx context.Context, usuarioID, ciudad string) (Semana
 	if err != nil || sem.Ciudad == "" {
 		return sem, err
 	}
-	ps, err := s.listar(ctx, usuarioID, Filtro{Ciudad: sem.Ciudad, Desde: ahora, Hasta: sem.Hasta, Limite: 100})
+	// Las cuentas salen de la base con los mismos filtros que el aviso de los lunes (ProgramadoSemana:
+	// planes públicos de la ciudad), así el número del push y el de la pantalla son el mismo, sin el tope
+	// de la lista. «De tu gente» suma también los que su gente comparte sólo con ella.
+	porDia := map[string]int{}
+	err = s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `
+			SELECT to_char(p.empieza_en AT TIME ZONE 'America/Argentina/Buenos_Aires', 'YYYY-MM-DD'),
+				count(*) FILTER (WHERE p.visibilidad = 'publico')::integer,
+				count(p.lugar_id) FILTER (WHERE p.visibilidad = 'publico')::integer,
+				count(*) FILTER (WHERE EXISTS (SELECT 1 FROM mi_gente g WHERE g.usuario_id = $1 AND g.otro_id = p.organizador_id)
+					AND (p.visibilidad = 'publico' OR (p.visibilidad = 'mi_gente' AND EXISTS (SELECT 1 FROM mi_gente g2
+						WHERE g2.usuario_id = p.organizador_id AND g2.otro_id = $1))))::integer
+			FROM planes p
+			WHERE p.cancelado_en IS NULL AND p.moderacion <> 'oculto' AND lower(p.ciudad) = lower($2)
+				AND p.empieza_en BETWEEN $3 AND $4 AND p.visibilidad IN ('publico', 'mi_gente')
+				AND EXISTS (SELECT 1 FROM usuarios o WHERE o.id = p.organizador_id AND o.suspendido_en IS NULL AND o.baja_en IS NULL)
+			GROUP BY 1`, usuarioID, sem.Ciudad, ahora, sem.Hasta)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var dia string
+			var total, aliados, gente int
+			if err := rows.Scan(&dia, &total, &aliados, &gente); err != nil {
+				return err
+			}
+			porDia[dia] = total
+			sem.Total += total
+			sem.Aliados += aliados
+			sem.DeTuGente += gente
+		}
+		return rows.Err()
+	})
 	if err != nil {
 		return sem, err
 	}
-	porDia := map[string]int{}
-	for _, p := range ps {
-		sem.Total++
-		if p.Lugar != nil {
-			sem.Aliados++
-		}
-		if gente[p.Organizador.ID] {
-			sem.DeTuGente++
-		}
-		porDia[plus.EnArgentina(p.EmpiezaEn).Format(time.DateOnly)]++
+	// La lista sólo elige los mejores (con lo que ve la persona: sin bloqueos ni lo que ocultó).
+	ps, err := s.listar(ctx, usuarioID, Filtro{Ciudad: sem.Ciudad, Desde: ahora, Hasta: sem.Hasta, Limite: 100})
+	if err != nil {
+		return sem, err
 	}
 	for d := ahora; d.Before(sem.Hasta); d = d.AddDate(0, 0, 1) {
 		k := plus.EnArgentina(d).Format(time.DateOnly)
@@ -119,12 +146,28 @@ func (s *Servicio) Semana(ctx context.Context, usuarioID, ciudad string) (Semana
 			candidatos = append(candidatos, p)
 		}
 	}
-	sort.SliceStable(candidatos, func(i, j int) bool { return puntos(candidatos[i]) > puntos(candidatos[j]) })
-	if len(candidatos) > 8 {
-		candidatos = candidatos[:8]
-	}
-	sem.Planes = candidatos
+	sem.Planes = mejores(candidatos, puntos, 8, 2)
 	return sem, nil
+}
+
+// mejores ordena por puntos (a igual puntaje, el que viene antes) y se queda con hasta n, con hasta
+// porDia del mismo día: «lo mejor de la semana» no puede ser todo de hoy.
+func mejores(ps []Plan, puntos func(Plan) int, n, porDia int) []Plan {
+	sort.SliceStable(ps, func(i, j int) bool { return puntos(ps[i]) > puntos(ps[j]) })
+	out := []Plan{}
+	dias := map[string]int{}
+	for _, p := range ps {
+		d := plus.EnArgentina(p.EmpiezaEn).Format(time.DateOnly)
+		if dias[d] >= porDia {
+			continue
+		}
+		dias[d]++
+		out = append(out, p)
+		if len(out) == n {
+			break
+		}
+	}
+	return out
 }
 
 // ProgramadoSemana es la consulta del worker para el aviso de los lunes ($1 = ahora): los lunes desde

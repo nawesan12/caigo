@@ -20,3 +20,16 @@ func TestFinDeSemana(t *testing.T) {
 		}
 	}
 }
+
+func TestMejoresDosPorDia(t *testing.T) {
+	hoy := time.Date(2026, 11, 18, 20, 0, 0, 0, time.FixedZone("ART", -3*3600))
+	var ps []Plan
+	for i := range 5 {
+		ps = append(ps, Plan{ID: "hoy" + string(rune('a'+i)), EmpiezaEn: hoy.Add(time.Duration(i) * time.Minute)})
+	}
+	ps = append(ps, Plan{ID: "jueves", EmpiezaEn: hoy.AddDate(0, 0, 1)})
+	got := mejores(ps, func(Plan) int { return 1 }, 8, 2)
+	if len(got) != 3 || got[0].ID != "hoya" || got[1].ID != "hoyb" || got[2].ID != "jueves" {
+		t.Fatalf("mejores: %+v", got)
+	}
+}

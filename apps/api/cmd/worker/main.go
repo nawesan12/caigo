@@ -174,6 +174,8 @@ func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string, veto *ve
 		`DELETE FROM accesos_verificacion WHERE visto_en < now() - interval '2 years'`,
 	}
 	consultas = append(consultas, confianza.Plazos...)
+	// El promedio de caritas de quien organiza, una vez por día (planes.CalcularCaritas).
+	consultas = append(consultas, planes.CalcularCaritas)
 	for {
 		// Cada una por separado: si una falla, las demás se hacen igual.
 		for _, q := range consultas {

@@ -189,6 +189,15 @@ func TestFaltazosLosVeQuienOrganiza(t *testing.T) {
 			t.Fatalf("faltazos de %s: %d", s.Persona.ID, s.Persona.Faltazos)
 		}
 	}
+	// Si reportó a quien organiza (se sintió insegura y no fue), esos planes no son faltazos.
+	e.pedir(falta, "POST", "/v1/reportes", map[string]any{"usuarioId": org.id, "motivo": "inseguro"}, http.StatusNoContent, nil)
+	r.Solicitudes = nil
+	e.pedir(org, "GET", "/v1/planes/"+p.ID+"/solicitudes", nil, http.StatusOK, &r)
+	for _, s := range r.Solicitudes {
+		if s.Persona.Faltazos != 0 {
+			t.Fatalf("faltazos después del reporte: %+v", s.Persona)
+		}
+	}
 }
 
 func TestTopeDePlanesAbiertos(t *testing.T) {

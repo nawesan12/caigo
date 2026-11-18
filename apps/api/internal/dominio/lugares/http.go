@@ -174,6 +174,14 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		}
 		return ok(w, http.StatusOK, map[string]string{"lugarId": id})
 	}))
+	// Los beneficios por nivel que se usaron hoy (para que el personal los verifique en la barra).
+	mux.Handle("GET /v1/lugares/{id}/canjes", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		cs, err := s.Canjes(r.Context(), p.ID, r.PathValue("id"))
+		if err != nil {
+			return err
+		}
+		return ok(w, http.StatusOK, map[string]any{"canjes": cs})
+	}))
 	mux.Handle("GET /v1/lugares/{id}/placas", h(persona, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
 		ps, err := s.Placas(r.Context(), p.ID, r.PathValue("id"))
 		if err != nil {

@@ -108,6 +108,9 @@ func (s *Servicio) Checkin(ctx context.Context, usuarioID, planID string, l Lleg
 			if errors.Is(err, firma.ErrToken) || id != planID {
 				return problema.Conflicto("codigo", "Ese código no es de este plan.")
 			}
+			// Con el código del QR se guarda siempre 'qr': 'nfc' es sólo de la placa del lugar (lugares/tap.go),
+			// que valida el lugar. Si no, una captura del QR valía como validado por el lugar en los logros.
+			l.Metodo = "qr"
 		default:
 			return problema.Invalido("Elegí cómo hacés el check-in.")
 		}
@@ -359,11 +362,56 @@ func (s *Servicio) VerEnVivo(ctx context.Context, token string) (EnVivo, error) 
 		if err != nil {
 			return err
 		}
-		v.Con, err = pgx.CollectRows(rows, pgx.RowTo[string])
+		// De los demás, sólo el primer nombre: el link lo abre alguien de afuera (y ahora sale solo por mail).
+		v.Con, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (string, error) {
+			var n string
+			err := r.Scan(&n)
+			n, _, _ = strings.Cut(strings.TrimSpace(n), " ")
+			return n, err
+		})
 		return err
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, problema.NoEncontrado("Este link ya no está activo.")
 	}
 	return v, err
+}
+
+// MarcarVino: quien organiza corrige que alguien fue y no tocó «Llegué» (hasta 2 días después del
+// final de un plan). Cuenta para la asistencia y deja de ser un faltazo.
+func (s *Servicio) MarcarVino(ctx context.Context, usuarioID, planID, otroID string) error {
+	if !esUUID(planID) || !esUUID(otroID) {
+		return problema.NoEncontrado("Esa persona no estaba en tu plan.")
+	}
+	ahora := s.ahora()
+	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		var empieza time.Time
+		var dur int16
+		err := tx.QueryRow(ctx, `SELECT p.empieza_en, p.duracion_min FROM planes p
+			WHERE p.id = $1 AND p.organizador_id = $2 AND p.cancelado_en IS NULL`, planID, usuarioID).Scan(&empieza, &dur)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return problema.NoEncontrado("Ese plan no es tuyo.")
+		}
+		if err != nil {
+			return err
+		}
+		fin := empieza.Add(time.Duration(dur) * time.Minute)
+		switch {
+		case ahora.Before(empieza):
+			return problema.Conflicto("temprano", "El plan todavía no empezó.")
+		case ahora.After(fin.Add(48 * time.Hour)):
+			return problema.Conflicto("tarde", "Ya pasaron dos días del plan.")
+		}
+		var estaba bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM solicitudes WHERE plan_id = $1 AND usuario_id = $2
+			AND estado = 'aceptada' AND usuario_id <> $3)`, planID, otroID, usuarioID).Scan(&estaba); err != nil {
+			return err
+		}
+		if !estaba {
+			return problema.NoEncontrado("Esa persona no estaba en tu plan.")
+		}
+		_, err = tx.Exec(ctx, `UPDATE solicitudes SET checkin_en = $3, checkin_metodo = 'organizador'
+			WHERE plan_id = $1 AND usuario_id = $2 AND checkin_en IS NULL`, planID, otroID, empieza)
+		return err
+	})
 }

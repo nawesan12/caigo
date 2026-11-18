@@ -232,6 +232,7 @@ func (e *Enviador) Manejadores() map[string]outbox.Manejador {
 		"plan.publicado":    e.planPublicado,
 		// El día del plan y después (informe del 18/11).
 		"plan.como_estuvo":            e.planComoEstuvo,
+		"plan.sin_llegue":             e.planSinLlegue,
 		planes.EventoLugarLibre:       e.lugarLibre,
 		planes.EventoTodoBien:         e.todoBien,
 		planes.EventoTodoBienPregunta: e.todoBienPregunta,

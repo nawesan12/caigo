@@ -8,12 +8,20 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// validan: los otros que llegaron al plan p y validan a $1 (cuenta con DNI, sin suspender y con la
-// antigüedad mínima el día del plan). Sirve para quien fue y, con count, para quien organiza.
+// validaba (con ux = usuarios, p = planes): la cuenta validaba el día del plan. Se mira el estado de ese
+// día y no el de hoy, para que el nivel no baje: una suspensión posterior no cuenta, y una cuenta que se
+// dio de baja después (la purga borra dni_en) validaba igual, porque para sumarse ya hacía falta el DNI.
+// Si el equipo le saca el DNI a alguien (era falso), lo que validó deja de contar: eso sí es correcto.
+const validaba = `(ux.dni_en IS NOT NULL OR ux.baja_en IS NOT NULL)
+	AND (ux.suspendido_en IS NULL OR ux.suspendido_en > p.empieza_en + make_interval(mins => p.duracion_min))
+	AND ux.creado_en <= p.empieza_en - interval '7 days'`
+
+// validan: los otros que llegaron al plan p y validan a $1 (ver validaba). Sirve para quien fue y, con
+// count, para quien organiza.
 const validan = `
 	SELECT x.usuario_id::text FROM solicitudes x JOIN usuarios ux ON ux.id = x.usuario_id
 	WHERE x.plan_id = p.id AND x.usuario_id <> $1 AND x.estado = 'aceptada' AND x.checkin_en IS NOT NULL
-		AND ux.dni_en IS NOT NULL AND ux.suspendido_en IS NULL AND ux.creado_en <= p.empieza_en - interval '7 days'`
+		AND ` + validaba
 
 // Asistidos lee los planes con check-in de la persona (los que no se cancelaron).
 func Asistidos(ctx context.Context, tx pgx.Tx, usuarioID string) ([]Asistido, error) {
@@ -42,8 +50,11 @@ func Locales(ctx context.Context, tx pgx.Tx, usuarioID string, ahora time.Time) 
 				count(DISTINCT (s.checkin_en AT TIME ZONE 'America/Argentina/Buenos_Aires')::date) AS dias
 			FROM solicitudes s JOIN planes p ON p.id = s.plan_id
 			WHERE p.lugar_id IS NOT NULL AND s.estado = 'aceptada' AND s.checkin_en > $2::timestamptz - interval '30 days'
+				-- La cota en empieza_en usa planes_lugar_id (checkin_en no tiene índice).
+				AND p.empieza_en > $2::timestamptz - interval '31 days'
 				AND p.lugar_id IN (SELECT p2.lugar_id FROM solicitudes s2 JOIN planes p2 ON p2.id = s2.plan_id
-					WHERE s2.usuario_id = $1 AND s2.checkin_en > $2::timestamptz - interval '30 days')
+					WHERE s2.usuario_id = $1 AND s2.checkin_en > $2::timestamptz - interval '30 days'
+						AND p2.empieza_en > $2::timestamptz - interval '31 days')
 			GROUP BY 1, 2)
 		SELECT l.id::text, l.nombre FROM v JOIN lugares l ON l.id = v.lugar_id
 		WHERE v.usuario_id = $1 AND v.dias >= $3 AND v.dias >= (SELECT max(w.dias) FROM v w WHERE w.lugar_id = v.lugar_id)
@@ -69,11 +80,11 @@ func Anfitriones(ctx context.Context, tx pgx.Tx, ids []string, ahora time.Time) 
 			EXISTS (SELECT 1 FROM solicitudes x WHERE x.plan_id = p.id AND x.checkin_en IS NOT NULL),
 			(SELECT count(*) FROM solicitudes x JOIN usuarios ux ON ux.id = x.usuario_id
 				WHERE x.plan_id = p.id AND x.usuario_id <> p.organizador_id AND x.estado = 'aceptada'
-					AND x.checkin_en IS NOT NULL AND ux.dni_en IS NOT NULL AND ux.suspendido_en IS NULL
-					AND ux.creado_en <= p.empieza_en - interval '7 days')::integer
+					AND x.checkin_en IS NOT NULL AND `+validaba+`)::integer
 		FROM planes p
-		WHERE p.organizador_id = ANY($1::uuid[])
-			AND (p.cancelado_en IS NOT NULL OR p.empieza_en + make_interval(mins => p.duracion_min) < $2)`, ids, ahora)
+		-- «Anfitrión» mira los últimos AnfitrionDias (usa planes_organizador): se calcula en cada lista.
+		WHERE p.organizador_id = ANY($1::uuid[]) AND p.empieza_en > $2::timestamptz - make_interval(days => $3)
+			AND (p.cancelado_en IS NOT NULL OR p.empieza_en + make_interval(mins => p.duracion_min) < $2)`, ids, ahora, AnfitrionDias)
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +124,10 @@ func Faltazos(ctx context.Context, tx pgx.Tx, ids []string, ahora time.Time) (ma
 			AND p.empieza_en + make_interval(mins => p.duracion_min) < $2
 			AND p.empieza_en > $2::timestamptz - interval '30 days'
 			AND EXISTS (SELECT 1 FROM solicitudes x WHERE x.plan_id = p.id AND x.checkin_en IS NOT NULL)
+			-- Quien no fue (o se fue sin marcar) porque se sintió insegura y lo reportó no suma un faltazo:
+			-- si no, reportar tenía costo. Se lee como sistema (los reportes son de quien los hizo).
+			AND NOT EXISTS (SELECT 1 FROM reportes r WHERE r.usuario_id = s.usuario_id
+				AND (r.sobre_plan_id = p.id OR r.sobre_usuario_id = p.organizador_id))
 		GROUP BY 1 HAVING count(*) >= $3`, ids, ahora, FaltazosAviso)
 	if err != nil {
 		return nil, err
@@ -165,9 +180,12 @@ func Calcular(ctx context.Context, tx pgx.Tx, usuarioID string, ahora time.Time,
 	if err := tx.QueryRow(ctx, `SELECT ocultar_insignias FROM usuarios WHERE id = $1`, usuarioID).Scan(&ocultas); err != nil {
 		return l, err
 	}
-	locales, err := Locales(ctx, tx, usuarioID, ahora)
-	if err != nil {
-		return l, err
+	// «Local de…» dice a qué lugar va seguido: sólo la ve la persona (no se calcula para los demás).
+	var locales []LocalDe
+	if propio {
+		if locales, err = Locales(ctx, tx, usuarioID, ahora); err != nil {
+			return l, err
+		}
 	}
 	l.Insignias = Insignias(cuentan, locales, l.Anfitrion)
 	if propio {

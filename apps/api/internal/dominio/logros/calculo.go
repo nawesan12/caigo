@@ -41,9 +41,12 @@ const (
 	FaltazosAviso = 2
 	// Insignias que ven los demás.
 	InsigniasAjenas = 3
+	// «Anfitrión» mira los planes de los últimos AnfitrionDias.
+	AnfitrionDias = 180
 )
 
-// Nivel por planes que cuentan. Nunca baja (la asistencia sí).
+// Nivel por planes que cuentan. No baja: la validación de cada plan se mira con el estado del día del plan
+// (ver validaba en base.go); la asistencia sí puede bajar.
 type nivel struct {
 	nombre string
 	desde  int
@@ -214,9 +217,6 @@ func Insignias(cuentan []Asistido, locales []LocalDe, anfitrion bool) []Insignia
 	if anfitrion {
 		out = append(out, Insignia{ID: "anfitrion", Nombre: "Anfitrión", Detalle: "Sus planes se hacen"})
 	}
-	for _, l := range locales {
-		out = append(out, Insignia{ID: "local-" + l.LugarID, Nombre: "Local de " + l.Nombre, Detalle: "El que más fue este mes"})
-	}
 	por := map[string]int{}
 	for _, a := range cuentan {
 		por[a.Categoria]++
@@ -229,6 +229,10 @@ func Insignias(cuentan []Asistido, locales []LocalDe, anfitrion bool) []Insignia
 		if n >= PlanesInsignia {
 			out = append(out, Insignia{ID: f.id, Nombre: f.nombre, Detalle: strconv.Itoa(n) + " " + f.detalle})
 		}
+	}
+	// «Local de…» al final: es la única que dice dónde suele estar alguien (sólo la ve la persona).
+	for _, l := range locales {
+		out = append(out, Insignia{ID: "local-" + l.LugarID, Nombre: "Local de " + l.Nombre, Detalle: "Quien más fue este mes"})
 	}
 	return out
 }

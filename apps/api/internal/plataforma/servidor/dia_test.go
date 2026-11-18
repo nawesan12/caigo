@@ -1,8 +1,12 @@
 package servidor_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"image"
+	imagejpeg "image/jpeg"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -187,6 +191,59 @@ func TestListaDeEspera(t *testing.T) {
 	e.pedir(ana, "DELETE", "/v1/planes/"+p.ID+"/espera", nil, http.StatusNotFound, nil)
 }
 
+// Con aprobación, el lugar guardado para la lista es de esa persona: el organizador no se lo da a otra, y
+// si sube el cupo, la fila se entera antes que quien llega después.
+func TestListaDeEsperaConAprobacionYCupo(t *testing.T) {
+	e := nuevoEntorno(t)
+	org, lu, fede, ana, beto := e.persona("Org"), e.persona("Lu"), e.persona("Fede"), e.persona("Ana"), e.persona("Beto")
+	for _, x := range []persona{lu, fede, ana, beto} {
+		e.verificar(x, true)
+	}
+	env := &avisos.Enviador{App: e.app}
+	p := e.planNuevo(org, map[string]any{"somos": 1, "faltan": 1, "ingreso": "aprobacion"})
+	var sol struct {
+		Solicitudes []struct {
+			ID, Estado string
+			Persona    struct{ ID string }
+		}
+	}
+	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	e.pedir(org, "GET", "/v1/planes/"+p.ID+"/solicitudes", nil, http.StatusOK, &sol)
+	e.pedir(org, "POST", "/v1/solicitudes/"+sol.Solicitudes[0].ID+"/aceptar", nil, http.StatusNoContent, nil)
+	e.pedir(fede, "POST", "/v1/planes/"+p.ID+"/espera", map[string]any{}, http.StatusOK, nil)
+	// Beto pide entrar (queda pendiente) y Lu se baja: el lugar es de Fede, que pide entrar.
+	e.pedir(beto, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	e.pedir(lu, "DELETE", "/v1/planes/"+p.ID+"/sumarme", nil, http.StatusNoContent, nil)
+	e.correrEventos(env, "solicitud.salio", p.ID)
+	e.pedir(fede, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	e.pedir(org, "GET", "/v1/planes/"+p.ID+"/solicitudes", nil, http.StatusOK, &sol)
+	idDe := func(quien persona) string {
+		for _, x := range sol.Solicitudes {
+			if x.Persona.ID == quien.id && x.Estado == "pendiente" {
+				return x.ID
+			}
+		}
+		t.Fatalf("sin solicitud pendiente de %s: %+v", quien.id, sol)
+		return ""
+	}
+	beto1, fede1 := idDe(beto), idDe(fede)
+	// Fede pidió entrar con su lugar guardado: aceptar antes a Beto no se lo lleva; a Fede, sí.
+	if c := codigo(t, e, org, "POST", "/v1/solicitudes/"+beto1+"/aceptar", nil, http.StatusConflict); c != "completo" {
+		t.Fatalf("aceptar a Beto en el lugar guardado para Fede: %q", c)
+	}
+	e.pedir(org, "POST", "/v1/solicitudes/"+fede1+"/aceptar", nil, http.StatusNoContent, nil)
+
+	// Sube el cupo: la fila recibe el aviso (plan.cupo) y quien llega después no se cuela.
+	q := e.planNuevo(org, map[string]any{"somos": 1, "faltan": 1})
+	e.pedir(lu, "POST", "/v1/planes/"+q.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	e.pedir(ana, "POST", "/v1/planes/"+q.ID+"/espera", map[string]any{}, http.StatusOK, nil)
+	e.pedir(org, "PATCH", "/v1/planes/"+q.ID, map[string]any{"total": 3}, http.StatusOK, nil)
+	e.correrEventos(env, planes.EventoCupo, q.ID)
+	if v := e.verPlan(ana, q.ID); v.Mio == nil || v.Mio.Espera == nil || v.Mio.Espera.Estado != "avisado" {
+		t.Fatalf("Ana avisada al subir el cupo: %+v", v.Mio)
+	}
+}
+
 // Después del plan: carita privada (promedio para quien organiza con 3 o más) y chat que se abre
 // sólo si los dos dijeron que sí.
 func TestCaritasYMutuo(t *testing.T) {
@@ -237,6 +294,12 @@ func TestCaritasYMutuo(t *testing.T) {
 		t.Fatalf("caritas con 2: %+v", v.Organizador.Caritas)
 	}
 	e.pedir(ana, "POST", "/v1/planes/"+p.ID+"/repetimos", map[string]any{"carita": 3}, http.StatusOK, nil)
+	// El promedio se rehace una vez por día (no en cada pedido): sin la pasada, no cambia.
+	if v := e.verPlan(ana, p.ID); v.Organizador.Caritas != nil {
+		t.Fatalf("caritas al momento: %+v", v.Organizador.Caritas)
+	}
+	e.sistema(`UPDATE caritas_organizador SET calculado_en = now() - interval '1 day'`)
+	e.sistema(planes.CalcularCaritas)
 	v := e.verPlan(ana, p.ID)
 	if v.Organizador.Caritas == nil || v.Organizador.Caritas.Cantidad != 3 || v.Organizador.Caritas.Promedio != 4 {
 		t.Fatalf("caritas: %+v", v.Organizador.Caritas)
@@ -263,14 +326,14 @@ func TestFotosDelPlan(t *testing.T) {
 	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
 	e.pedir(fede, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
 	// Antes de que empiece, no.
-	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/fotos", jpeg, http.StatusConflict, nil)
+	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/fotos", jpegReal, http.StatusConflict, nil)
 	e.sistema(`UPDATE planes SET empieza_en = now() - interval '3 hours' WHERE id = $1`, p.ID)
 	// Lu hizo check-in; Fede no: en este plan se usó el check-in, así que Fede no «fue».
 	e.sistema(`UPDATE solicitudes SET checkin_en = now() - interval '2 hours', checkin_metodo = 'geo' WHERE plan_id = $1 AND usuario_id = $2`, p.ID, lu.id)
 
 	var f struct{ ID, URL string }
-	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/fotos", jpeg, http.StatusCreated, &f)
-	e.pedir(fede, "POST", "/v1/planes/"+p.ID+"/fotos", jpeg, http.StatusNotFound, nil)
+	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/fotos", jpegReal, http.StatusCreated, &f)
+	e.pedir(fede, "POST", "/v1/planes/"+p.ID+"/fotos", jpegReal, http.StatusNotFound, nil)
 	e.pedir(fede, "GET", "/v1/planes/"+p.ID+"/fotos", nil, http.StatusNotFound, nil)
 	e.pedir(otro, "GET", "/v1/planes/"+p.ID+"/fotos", nil, http.StatusNotFound, nil)
 	// Una foto que no es una imagen, no.
@@ -352,6 +415,8 @@ func TestTodoBien(t *testing.T) {
 	e := nuevoEntorno(t)
 	org, lu := e.persona("Org"), e.persona("Lu")
 	e.verificar(lu, true)
+	// Una dirección por corrida: la base de desarrollo es compartida y la baja la deja afuera para siempre.
+	mama := fmt.Sprintf("mama-%d@caigo.test", time.Now().UnixNano())
 	inicio := time.Now().Add(time.Hour)
 	p := e.planNuevo(org, map[string]any{"titulo": "Truco en La Fonda", "empiezaEn": inicio})
 	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
@@ -366,8 +431,8 @@ func TestTodoBien(t *testing.T) {
 		Avisos             struct{ Semana bool }
 	}
 	e.pedir(lu, "PATCH", "/v1/yo", map[string]any{"contactosConfianza": []map[string]string{
-		{"nombre": "Mamá", "contacto": "mama@caigo.test"}, {"nombre": "Sofi", "contacto": "+54 9 223 555-0101"}}}, http.StatusOK, &yo)
-	if len(yo.ContactosConfianza) != 2 || yo.ContactoConfianza != "mama@caigo.test" || !yo.Avisos.Semana {
+		{"nombre": "Mamá", "contacto": mama}, {"nombre": "Sofi", "contacto": "+54 9 223 555-0101"}}}, http.StatusOK, &yo)
+	if len(yo.ContactosConfianza) != 2 || yo.ContactoConfianza != mama || !yo.Avisos.Semana {
 		t.Fatalf("contactos: %+v", yo)
 	}
 	// Más de 3, no.
@@ -389,54 +454,95 @@ func TestTodoBien(t *testing.T) {
 	fede := e.persona("Fede")
 	e.pedir(fede, "GET", "/v1/planes/"+p.ID+"/todo-bien", nil, http.StatusNotFound, nil)
 
-	// A los 20 minutos del inicio, nada; a los 31, el aviso (una vez).
+	// A los 20 minutos del inicio, nada; a los 31, primero la pregunta a Lu («¿Llegaste?»); el aviso al
+	// contacto, recién 10 minutos después (si sigue sin check-in ni «Estoy bien»).
 	e.pasar(inicio.Add(20 * time.Minute))
-	if n := len(e.eventos(planes.EventoTodoBien, p.ID)); n != 0 {
+	if n := len(e.eventos(planes.EventoTodoBienPregunta, p.ID)); n != 0 {
 		t.Fatalf("todo bien temprano: %d", n)
 	}
 	e.pasar(inicio.Add(31 * time.Minute))
-	if n := len(e.eventos(planes.EventoTodoBien, p.ID)); n != 1 {
-		t.Fatalf("todo bien: %d", n)
+	if n, m := len(e.eventos(planes.EventoTodoBienPregunta, p.ID)), len(e.eventos(planes.EventoTodoBien, p.ID)); n != 1 || m != 0 {
+		t.Fatalf("pregunta: %d, aviso: %d", n, m)
 	}
 	push := nuevoPushFalso(t)
 	tel := e.telefono(lu)
 	mails := &correo.Memoria{}
 	env := &avisos.Enviador{App: e.app, FCM: push.cliente, Correo: mails,
-		Planes: &planes.Servicio{App: e.app, Firma: firma.Firmador{Clave: []byte("secreto-de-prueba")}, Sitio: "https://caigo.test"}}
+		Planes: &planes.Servicio{App: e.app, Firma: firma.Firmador{Clave: []byte("secreto-de-prueba")}, Sitio: "https://caigo.test",
+			APIPublica: "https://api.caigo.test"}}
+	e.correrEventos(env, planes.EventoTodoBienPregunta, p.ID)
+	if got := push.a(tel); len(got) != 1 || !strings.Contains(got[0].Cuerpo, "le escribimos a Mamá") {
+		t.Fatalf("pregunta a Lu: %+v", got)
+	}
+	e.sistema(`UPDATE todo_bien SET preguntado_en = preguntado_en - interval '11 minutes' WHERE plan_id = $1`, p.ID)
+	e.pasar(inicio.Add(31 * time.Minute))
+	if n := len(e.eventos(planes.EventoTodoBien, p.ID)); n != 1 {
+		t.Fatalf("todo bien: %d", n)
+	}
 	e.correrEventos(env, planes.EventoTodoBien, p.ID)
-	m := mails.Para("mama@caigo.test")
+	m := mails.Para(mama)
 	if len(m) != 1 || !strings.Contains(m[0].Asunto, "¿Todo bien con Lu?") || !strings.Contains(m[0].Texto, "https://caigo.test/vivo/") ||
-		!strings.Contains(m[0].Texto, "Truco en La Fonda") {
+		!strings.Contains(m[0].Texto, "Truco en La Fonda") || !strings.HasPrefix(m[0].Baja, "https://api.caigo.test/v1/publico/todo-bien/baja/") ||
+		strings.Contains(m[0].HTML, "Hola, Mamá") {
 		t.Fatalf("mail al contacto: %+v", m)
 	}
-	if got := push.a(tel); len(got) != 1 || !strings.Contains(got[0].Cuerpo, "Le escribimos a Mamá") {
+	if got := push.a(tel); len(got) == 0 || !strings.Contains(got[len(got)-1].Cuerpo, "Le escribimos a Mamá") {
 		t.Fatalf("push a Lu: %+v", got)
 	}
+	// Un aviso por plan: reactivarlo no vuelve a mandar otro mail.
+	if c := codigo(t, e, lu, "POST", "/v1/planes/"+p.ID+"/todo-bien", map[string]any{"contacto": 0}, http.StatusConflict); c != "ya_avisamos" {
+		t.Fatalf("reactivar después del aviso: %q", c)
+	}
+	// La baja: el link del mail deja la dirección afuera (también para otras cuentas y planes).
+	baja := strings.TrimPrefix(m[0].Baja, "https://api.caigo.test")
+	e.pedir(fede, "POST", baja, nil, http.StatusOK, nil)
+	var suprimida int
+	e.valor(`SELECT count(*) FROM correo_supresion`, &suprimida)
+	if suprimida == 0 {
+		t.Fatal("la baja no anotó la dirección")
+	}
 
-	// Con un teléfono no hay SMS: el push le pide a ella que avise.
-	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/todo-bien", map[string]any{"contacto": 1}, http.StatusOK, nil)
-	e.sistema(`UPDATE todo_bien SET avisa_en = now() - interval '1 minute' WHERE plan_id = $1`, p.ID)
+	// Otro plan, con el teléfono: no hay SMS, el push le pide a ella que avise.
+	p2 := e.planNuevo(org, map[string]any{"titulo": "Pádel", "empiezaEn": inicio})
+	e.pedir(lu, "POST", "/v1/planes/"+p2.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	var tb2 struct {
+		Contacto *struct{ Avisa string }
+	}
+	e.pedir(lu, "POST", "/v1/planes/"+p2.ID+"/todo-bien", map[string]any{"contacto": 1}, http.StatusOK, &tb2)
+	if tb2.Contacto == nil || tb2.Contacto.Avisa != "vos" {
+		t.Fatalf("con teléfono avisa a: %+v", tb2.Contacto)
+	}
+	// Si el plan se mueve, el aviso se mueve con él.
+	nuevo := inicio.Add(2 * time.Hour)
+	e.pedir(org, "PATCH", "/v1/planes/"+p2.ID, map[string]any{"empiezaEn": nuevo}, http.StatusOK, nil)
+	var avisa time.Time
+	e.valor(`SELECT avisa_en FROM todo_bien WHERE plan_id = $1`, &avisa, p2.ID)
+	if avisa.Sub(nuevo) != 30*time.Minute {
+		t.Fatalf("avisa_en después de mover el plan: %v", avisa.Sub(nuevo))
+	}
+	e.sistema(`UPDATE todo_bien SET avisa_en = now() - interval '20 minutes', preguntado_en = now() - interval '15 minutes' WHERE plan_id = $1`, p2.ID)
 	e.pasar(time.Now())
-	e.correrEventos(env, planes.EventoTodoBien, p.ID)
+	e.correrEventos(env, planes.EventoTodoBien, p2.ID)
 	if got := push.a(tel); len(got) == 0 || !strings.Contains(got[len(got)-1].Cuerpo, "Avisale a Sofi") {
 		t.Fatalf("push con teléfono: %+v", got)
 	}
-	if len(mails.Para("mama@caigo.test")) != 1 {
+	if len(mails.Para(mama)) != 1 {
 		t.Fatal("volvió a escribirle a Mamá")
 	}
 
 	// Con el check-in se apaga y se borra.
-	e.sistema(`UPDATE planes SET empieza_en = now() - interval '10 minutes' WHERE id = $1`, p.ID)
-	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/todo-bien", map[string]any{"contacto": 0}, http.StatusOK, nil)
+	p3 := e.planNuevo(org, map[string]any{"titulo": "Truco", "empiezaEn": time.Now().Add(-10 * time.Minute)})
+	e.pedir(lu, "POST", "/v1/planes/"+p3.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	e.pedir(lu, "POST", "/v1/planes/"+p3.ID+"/todo-bien", map[string]any{"contacto": 0}, http.StatusOK, nil)
 	var qr struct{ Codigo string }
-	e.pedir(org, "GET", "/v1/planes/"+p.ID+"/qr", nil, http.StatusOK, &qr)
-	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/checkin", map[string]any{"metodo": "qr", "codigo": qr.Codigo}, http.StatusNoContent, nil)
+	e.pedir(org, "GET", "/v1/planes/"+p3.ID+"/qr", nil, http.StatusOK, &qr)
+	e.pedir(lu, "POST", "/v1/planes/"+p3.ID+"/checkin", map[string]any{"metodo": "qr", "codigo": qr.Codigo}, http.StatusNoContent, nil)
 	var filas int
-	e.valor(`SELECT count(*) FROM todo_bien WHERE plan_id = $1`, &filas, p.ID)
+	e.valor(`SELECT count(*) FROM todo_bien WHERE plan_id = $1`, &filas, p3.ID)
 	if filas != 0 {
 		t.Fatalf("todo bien después del check-in: %d", filas)
 	}
-	if c := codigo(t, e, lu, "POST", "/v1/planes/"+p.ID+"/todo-bien", map[string]any{"contacto": 0}, http.StatusConflict); c != "llegaste" {
+	if c := codigo(t, e, lu, "POST", "/v1/planes/"+p3.ID+"/todo-bien", map[string]any{"contacto": 0}, http.StatusConflict); c != "llegaste" {
 		t.Fatalf("activar después del check-in: %q", c)
 	}
 }
@@ -535,3 +641,10 @@ func TestContactoViejoNoBorraLosDemas(t *testing.T) {
 		t.Fatalf("contacto viejo vacío: %+v", yo)
 	}
 }
+
+// jpegReal: una foto que se puede leer de verdad (las fotos del plan se limpian de metadatos).
+var jpegReal = func() []byte {
+	var b bytes.Buffer
+	_ = imagejpeg.Encode(&b, image.NewRGBA(image.Rect(0, 0, 4, 4)), nil)
+	return b.Bytes()
+}()

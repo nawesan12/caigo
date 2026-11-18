@@ -159,32 +159,46 @@ type Confianza struct {
 	// Todos los que van (quien organiza incluido) tienen el DNI verificado.
 	TodosVerificados bool `json:"todosVerificados"`
 	// Un plan «Solo mujeres». Caigo no guarda el género de nadie (AAIP 1.2, 00022): lo único que se sabe
-	// de quiénes van es que, en un plan así, cada una lo confirmó al sumarse.
+	// de quiénes van es que, en un plan así, cada una lo confirmó al sumarse. No se dice cuántas van: junto
+	// al lugar y la hora, el número sirve más para buscarlas que para sumarse.
 	SoloChicas bool `json:"soloChicas"`
-	// Cuántas van, sólo en un plan «Solo mujeres» y desde 2 (para no señalar a una sola). 0: no se muestra.
-	Chicas int `json:"chicas,omitempty"`
 }
 
 // confianza arma la línea de confianza de un plan con los que van ya cargados (completar).
 func confianza(p *Plan) {
-	c := Confianza{TodosVerificados: len(p.Van) > 0 && p.Organizador.Verificada, SoloChicas: p.Genero == "mujeres"}
+	// Cada persona que va tiene que ser una cuenta con DNI: los acompañantes de un grupo («somos 3», +N)
+	// no tienen cuenta ni DNI, así que con ellos no son «todos».
+	c := Confianza{TodosVerificados: len(p.Van) > 0 && p.Organizador.Verificada && p.Somos == len(p.Van),
+		SoloChicas: p.Genero == "mujeres"}
 	for _, v := range p.Van {
 		if !v.Verificada {
 			c.TodosVerificados = false
 		}
 	}
-	if c.SoloChicas && p.Somos >= 2 {
-		c.Chicas = p.Somos
-	}
 	p.Confianza = c
 }
 
 // SinDNI recorta un plan para quien lo mira sin el DNI verificado (puede mirar, no sumarse): sin la
-// dirección exacta, que se ve recién al verificarse (y, si el plan la oculta, al entrar).
+// dirección exacta, que se ve recién al verificarse (y, si el plan la oculta, al entrar), y de quien
+// organiza y de los que van lo mismo que sin sesión: primer nombre y foto, sin id (no se llega a su
+// perfil ni a sus próximos planes) ni si llegaron.
 func SinDNI(p *Plan) {
-	if p.MiEstado != "organizador" && p.MiEstado != "aceptada" {
-		p.Direccion = nil
+	if p.MiEstado == "organizador" || p.MiEstado == "aceptada" {
+		return
 	}
+	p.Direccion = nil
+	p.Organizador = corto(p.Organizador)
+	for i := range p.Van {
+		p.Van[i] = corto(p.Van[i])
+	}
+}
+
+// corto es una persona de un plan para quien no puede ubicarla: primer nombre y foto. El badge de
+// verificada y la asistencia son la reputación que se ve en el plan: quedan.
+func corto(x Persona) Persona {
+	nombre, _, _ := strings.Cut(strings.TrimSpace(x.Nombre), " ")
+	return Persona{Nombre: nombre, Foto: x.Foto, Verificada: x.Verificada, Asistencia: x.Asistencia,
+		Organizador: x.Organizador, Anfitrion: x.Anfitrion, Caritas: x.Caritas}
 }
 
 // LugarCorto es el lugar aliado de un plan.
@@ -645,12 +659,6 @@ func (s *Servicio) Publico(ctx context.Context, slugPlan string) (Plan, error) {
 // sólo el primer nombre y la foto (ni id, ni edad, ni asistencia, ni si llegaron). El id y el slug del
 // plan quedan (la web arma los links con ellos).
 func anonimo(p *Plan) {
-	corto := func(x Persona) Persona {
-		nombre, _, _ := strings.Cut(strings.TrimSpace(x.Nombre), " ")
-		// El badge de verificada y la asistencia son la reputación que se ve en el plan: quedan.
-		return Persona{Nombre: nombre, Foto: x.Foto, Verificada: x.Verificada, Asistencia: x.Asistencia,
-			Organizador: x.Organizador, Anfitrion: x.Anfitrion}
-	}
 	p.Organizador = corto(p.Organizador)
 	for i := range p.Van {
 		p.Van[i] = corto(p.Van[i])

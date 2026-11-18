@@ -112,9 +112,10 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 			}
 			estado = "aceptada"
 		}
-		// Si estaba en la lista de espera, ya entró (o pidió entrar).
+		// Si estaba en la lista de espera, ya entró. Si sólo pidió entrar (con aprobación) y tenía el lugar
+		// guardado, lo sigue teniendo hasta que el organizador responda o se le venza el aviso.
 		if _, err := tx.Exec(ctx, `UPDATE espera SET estado = 'entro' WHERE plan_id = $1 AND usuario_id = $2
-			AND estado IN ('esperando', 'avisado')`, planID, usuarioID); err != nil {
+			AND (estado = 'esperando' OR (estado = 'avisado' AND $3 = 'aceptada'))`, planID, usuarioID, estado); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, `
@@ -215,24 +216,33 @@ func (s *Servicio) Solicitudes(ctx context.Context, usuarioID, planID string) ([
 		if err := rows.Err(); err != nil {
 			return err
 		}
-		// Quien acumuló faltazos lo ve quien organiza, para decidir (sólo en las pendientes).
-		var ids []string
-		for _, x := range out {
-			if x.Estado == "pendiente" {
-				ids = append(ids, x.Persona.ID)
-			}
-		}
-		f, err := logros.Faltazos(ctx, tx, ids, s.ahora())
-		if err != nil {
-			return err
-		}
-		for i := range out {
-			if out[i].Estado == "pendiente" {
-				out[i].Persona.Faltazos = f[out[i].Persona.ID]
-			}
-		}
 		return nil
 	})
+	if err != nil {
+		return out, err
+	}
+	// Quien acumuló faltazos lo ve quien organiza, para decidir (sólo en las pendientes). Como sistema:
+	// los faltazos no cuentan los planes que la persona reportó, y los reportes son sólo de quien los hizo.
+	var ids []string
+	for _, x := range out {
+		if x.Estado == "pendiente" {
+			ids = append(ids, x.Persona.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var f map[string]int
+	err = s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		var err error
+		f, err = logros.Faltazos(ctx, tx, ids, s.ahora())
+		return err
+	})
+	for i := range out {
+		if out[i].Estado == "pendiente" {
+			out[i].Persona.Faltazos = f[out[i].Persona.ID]
+		}
+	}
 	return out, err
 }
 
@@ -285,6 +295,13 @@ func (s *Servicio) Responder(ctx context.Context, usuarioID, solicitudID string,
 		}
 		if _, err = tx.Exec(ctx, `UPDATE solicitudes SET estado = $2, respondida_en = now() WHERE id = $1`, solicitudID, nuevo); err != nil {
 			return err
+		}
+		if aceptar {
+			// Si tenía un lugar guardado de la lista de espera, ya lo usó.
+			if _, err := tx.Exec(ctx, `UPDATE espera SET estado = 'entro' WHERE plan_id = $1 AND usuario_id = $2
+				AND estado IN ('esperando', 'avisado')`, planID, persona); err != nil {
+				return err
+			}
 		}
 		if !aceptar {
 			return outbox.Publicar(ctx, tx, "solicitud.rechazada", map[string]string{"planId": planID, "usuarioId": persona})

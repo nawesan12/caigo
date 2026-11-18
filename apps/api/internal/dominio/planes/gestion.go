@@ -37,6 +37,7 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, planID string, cuerpo 
 	if err != nil {
 		return Plan{}, err
 	}
+	var nuevoInicio *time.Time
 	err = s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var org string
 		var deLugar, cancelado bool
@@ -137,13 +138,8 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, planID string, cuerpo 
 			planID, e.Direccion, e.Lat, e.Lng); err != nil {
 			return err
 		}
-		// Si se movió el horario, «¿Todo bien?» avisa a la media hora del horario nuevo (y vuelve a empezar:
-		// si ya había preguntado por el horario viejo, no cuenta).
 		if !e.EmpiezaEn.Equal(orig.EmpiezaEn) {
-			if _, err := tx.Exec(ctx, `UPDATE todo_bien SET avisa_en = $2::timestamptz + interval '30 minutes',
-				preguntado_en = NULL WHERE plan_id = $1 AND avisado_en IS NULL`, planID, e.EmpiezaEn); err != nil {
-				return err
-			}
+			nuevoInicio = &e.EmpiezaEn
 		}
 		// Si subió el cupo o ahora se entra sin aprobación, la lista de espera se entera antes que nadie.
 		if e.Somos+e.Faltan > total || (e.Ingreso == "libre" && orig.Ingreso != "libre") {
@@ -160,6 +156,17 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, planID string, cuerpo 
 	})
 	if err != nil {
 		return Plan{}, err
+	}
+	// Si se movió el horario, «¿Todo bien?» de cada uno avisa a la media hora del horario nuevo (y vuelve a
+	// empezar: la pregunta por el horario viejo no cuenta). Como sistema: las filas son de cada persona.
+	if nuevoInicio != nil {
+		if err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, `UPDATE todo_bien SET avisa_en = $2::timestamptz + interval '30 minutes',
+				preguntado_en = NULL WHERE plan_id = $1 AND avisado_en IS NULL`, planID, *nuevoInicio)
+			return err
+		}); err != nil {
+			return Plan{}, err
+		}
 	}
 	return s.Ver(ctx, usuarioID, planID, nil)
 }

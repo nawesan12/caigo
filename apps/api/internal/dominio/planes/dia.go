@@ -41,11 +41,32 @@ type EsperaMia struct {
 }
 
 // Caritas: el promedio de las caritas que le pusieron a los planes que organizó (privadas una por una).
-// Sólo se muestra con 3 o más.
+// Sólo con 3 o más, redondeado a medio punto y recalculado una vez por día (CalcularCaritas): con el
+// promedio exacto al momento, quien organiza comparaba antes y después y sabía qué carita puso cada uno.
 type Caritas struct {
 	Promedio float64 `json:"promedio"`
-	Cantidad int     `json:"cantidad"`
+	// Cuántas opiniones, en escalones (3, 5, 10, 20, 50, 100): «10 o más». Nunca la cantidad exacta.
+	Cantidad int `json:"cantidad"`
 }
+
+// CalcularCaritas (como sistema, la limpieza de cada hora) rehace los promedios si pasaron 20 h de la
+// última vez.
+const CalcularCaritas = `
+	WITH hacer AS (SELECT NOT EXISTS (SELECT 1 FROM caritas_organizador WHERE calculado_en > now() - interval '20 hours') AS si),
+	nuevos AS (
+		SELECT p.organizador_id AS usuario_id, round(avg(s.carita) * 2) / 2 AS promedio, count(*) AS n
+		FROM solicitudes s JOIN planes p ON p.id = s.plan_id
+		WHERE s.usuario_id <> p.organizador_id AND s.carita IS NOT NULL
+		GROUP BY 1 HAVING count(*) >= 3),
+	viejos AS (
+		DELETE FROM caritas_organizador c WHERE (SELECT si FROM hacer)
+			AND NOT EXISTS (SELECT 1 FROM nuevos n WHERE n.usuario_id = c.usuario_id))
+	INSERT INTO caritas_organizador (usuario_id, promedio, opiniones, calculado_en)
+	SELECT usuario_id, promedio, CASE WHEN n >= 100 THEN 100 WHEN n >= 50 THEN 50 WHEN n >= 20 THEN 20
+		WHEN n >= 10 THEN 10 WHEN n >= 5 THEN 5 ELSE 3 END, now()
+	FROM nuevos WHERE (SELECT si FROM hacer)
+	ON CONFLICT (usuario_id) DO UPDATE SET promedio = excluded.promedio, opiniones = excluded.opiniones,
+		calculado_en = excluded.calculado_en`
 
 // MinCaritas es cuántas hacen falta para mostrar el promedio (con menos, se adivina quién puso cuál).
 const MinCaritas = 3
@@ -132,11 +153,8 @@ func completarMio(ctx context.Context, tx pgx.Tx, usuarioID string, ps []*Plan) 
 		return err
 	}
 	// Caritas de quien organiza: el promedio de lo que le pusieron los demás a sus planes.
-	rows, err = tx.Query(ctx, `
-		SELECT p.organizador_id, avg(s.carita)::float8, count(*)::integer
-		FROM solicitudes s JOIN planes p ON p.id = s.plan_id
-		WHERE p.organizador_id = ANY ($1::uuid[]) AND s.usuario_id <> p.organizador_id AND s.carita IS NOT NULL
-		GROUP BY p.organizador_id HAVING count(*) >= $2`, orgs, MinCaritas)
+	rows, err = tx.Query(ctx, `SELECT usuario_id, promedio::float8, opiniones FROM caritas_organizador
+		WHERE usuario_id = ANY ($1::uuid[]) AND opiniones >= $2`, orgs, MinCaritas)
 	if err != nil {
 		return err
 	}
@@ -148,7 +166,6 @@ func completarMio(ctx context.Context, tx pgx.Tx, usuarioID string, ps []*Plan) 
 			rows.Close()
 			return err
 		}
-		c.Promedio = float64(int(c.Promedio*10+0.5)) / 10
 		cs[org] = c
 	}
 	rows.Close()
@@ -310,9 +327,11 @@ func LiberarLugar(ctx context.Context, tx pgx.Tx, planID string, ahora time.Time
 		return nil, err
 	}
 	// Quien ya entró (por su cuenta o con el aviso) sale de la fila; los avisos sin usar vencen.
+	// (Quien pidió entrar con su lugar guardado lo sigue teniendo hasta que le respondan o se le venza.)
 	if _, err := tx.Exec(ctx, `UPDATE espera e SET estado = 'entro' FROM solicitudes s
 		WHERE e.plan_id = $1 AND s.plan_id = e.plan_id AND s.usuario_id = e.usuario_id
-			AND s.estado IN ('pendiente', 'aceptada') AND e.estado IN ('esperando', 'avisado')`, planID); err != nil {
+			AND (s.estado = 'aceptada' AND e.estado IN ('esperando', 'avisado')
+				OR s.estado = 'pendiente' AND e.estado = 'esperando')`, planID); err != nil {
 		return nil, err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE espera SET estado = 'vencido' WHERE plan_id = $1 AND estado = 'avisado' AND vence_en <= $2`,

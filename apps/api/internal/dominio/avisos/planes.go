@@ -204,6 +204,21 @@ func (e *Enviador) planComoEstuvo(ctx context.Context, ev outbox.Evento) error {
 		Cuerpo: "Contanos con una carita y mirá las fotos.", Datos: datosPlan(d.PlanID, "repetimos"), Colapso: "rep-" + d.PlanID})
 }
 
+// planSinLlegue: no marcó «Llegué» en un plan donde otros sí.
+func (e *Enviador) planSinLlegue(ctx context.Context, ev outbox.Evento) error {
+	var d struct{ PlanID, UsuarioID string }
+	if err := json.Unmarshal(ev.Datos, &d); err != nil {
+		return nil
+	}
+	p, err := e.plan(ctx, d.PlanID)
+	if err != nil {
+		return ignorarSiNoEsta(err)
+	}
+	return e.Mandar(ctx, d.UsuarioID, Aviso{Titulo: "No marcaste «Llegué» en " + p.Titulo,
+		Cuerpo: "Si fuiste, pedile a " + primerNombre(p.OrgNombre) + " que lo marque desde el plan.",
+		Datos:  datosPlan(d.PlanID, "detalle"), Colapso: "sin-llegue-" + d.PlanID})
+}
+
 // lugarLibre: al primero de la lista de espera, que se liberó un lugar (tiene 15 minutos).
 func (e *Enviador) lugarLibre(ctx context.Context, ev outbox.Evento) error {
 	var d struct{ PlanID, UsuarioID string }
@@ -396,6 +411,8 @@ func (p *Programados) Pasada(ctx context.Context) (int, error) {
 			INSERT INTO avisos_enviados (usuario_id, plan_id, tipo, enviado_en)
 			SELECT p.organizador_id, p.id, 'repetimos', $1 FROM planes p
 			WHERE p.cancelado_en IS NULL AND p.lugar_id IS NULL
+				-- Cotas que usan planes_empieza (la cuenta de abajo no puede).
+				AND p.empieza_en > $1::timestamptz - interval '3 days' AND p.empieza_en < $1
 				AND p.empieza_en + make_interval(mins => p.duracion_min) + interval '1 hour' <= $1
 				AND p.empieza_en + make_interval(mins => p.duracion_min) + interval '6 hours' > $1
 			ON CONFLICT DO NOTHING RETURNING usuario_id, plan_id)
@@ -408,7 +425,10 @@ func (p *Programados) Pasada(ctx context.Context) (int, error) {
 			SELECT s.usuario_id, p.id, 'vispera', $1 FROM planes p
 			JOIN solicitudes s ON s.plan_id = p.id AND s.estado = 'aceptada' AND s.usuario_id <> p.organizador_id
 				AND s.confirmada_en IS NULL
-			WHERE p.cancelado_en IS NULL
+			-- Sólo planes gratis: a quien pagó una entrada no se le pide que libere el lugar (se sale cancelando
+			-- la entrada, con su política de reembolso).
+			WHERE p.cancelado_en IS NULL AND p.cobro = 'gratis'
+				AND p.empieza_en BETWEEN $1 AND $1::timestamptz + interval '30 hours'
 				AND (p.empieza_en AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
 					= ($1::timestamptz AT TIME ZONE 'America/Argentina/Buenos_Aires')::date + 1
 				AND extract(hour FROM $1::timestamptz AT TIME ZONE 'America/Argentina/Buenos_Aires') >= 19
@@ -423,6 +443,7 @@ func (p *Programados) Pasada(ctx context.Context) (int, error) {
 			SELECT s.usuario_id, p.id, 'como_estuvo', $1 FROM planes p
 			JOIN solicitudes s ON s.plan_id = p.id AND s.estado = 'aceptada' AND s.usuario_id <> p.organizador_id
 			WHERE p.cancelado_en IS NULL
+				AND p.empieza_en > $1::timestamptz - interval '3 days' AND p.empieza_en < $1
 				AND p.empieza_en + make_interval(mins => p.duracion_min) + interval '1 hour' <= $1
 				AND p.empieza_en + make_interval(mins => p.duracion_min) + interval '48 hours' > $1
 				AND extract(hour FROM $1::timestamptz AT TIME ZONE 'America/Argentina/Buenos_Aires') BETWEEN 10 AND 21
@@ -430,6 +451,23 @@ func (p *Programados) Pasada(ctx context.Context) (int, error) {
 					OR NOT EXISTS (SELECT 1 FROM solicitudes c WHERE c.plan_id = p.id AND c.checkin_en IS NOT NULL))
 			ON CONFLICT DO NOTHING RETURNING usuario_id, plan_id)
 		INSERT INTO outbox (tipo, datos) SELECT 'plan.como_estuvo',
+			jsonb_build_object('planId', plan_id, 'usuarioId', usuario_id) FROM n`,
+		// «No marcaste Llegué»: al día siguiente (de 10 a 22), a quien quedó sin check-in en un plan donde
+		// otros sí lo hicieron. Le cuenta como faltazo: así se entera y, si fue, le pide a quien organizó
+		// que lo marque.
+		`WITH n AS (
+			INSERT INTO avisos_enviados (usuario_id, plan_id, tipo, enviado_en)
+			SELECT s.usuario_id, p.id, 'sin_llegue', $1 FROM planes p
+			JOIN solicitudes s ON s.plan_id = p.id AND s.estado = 'aceptada' AND s.usuario_id <> p.organizador_id
+				AND s.checkin_en IS NULL
+			WHERE p.cancelado_en IS NULL
+				AND p.empieza_en > $1::timestamptz - interval '3 days' AND p.empieza_en < $1
+				AND p.empieza_en + make_interval(mins => p.duracion_min) + interval '10 hours' <= $1
+				AND p.empieza_en + make_interval(mins => p.duracion_min) + interval '40 hours' > $1
+				AND extract(hour FROM $1::timestamptz AT TIME ZONE 'America/Argentina/Buenos_Aires') BETWEEN 10 AND 21
+				AND EXISTS (SELECT 1 FROM solicitudes c WHERE c.plan_id = p.id AND c.checkin_en IS NOT NULL)
+			ON CONFLICT DO NOTHING RETURNING usuario_id, plan_id)
+		INSERT INTO outbox (tipo, datos) SELECT 'plan.sin_llegue',
 			jsonb_build_object('planId', plan_id, 'usuarioId', usuario_id) FROM n`,
 		planes.ProgramadoSemana,
 	}

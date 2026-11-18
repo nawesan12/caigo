@@ -4,15 +4,15 @@ import "testing"
 
 func TestValido(t *testing.T) {
 	casos := map[string]bool{
-		"mama@gmail.com":         true,
-		"Mamá <mama@gmail.com>":  false,
-		"mama@":                  false,
-		"12":                     false,
-		"0223 15 592-6772":       true,
-		"+54 9 223 592-6772":     true,
-		"1234567":                false,
-		"llamame al 2235926772":  false,
-		"a@b.co":                 true,
+		"mama@gmail.com":        true,
+		"Mamá <mama@gmail.com>": false,
+		"mama@":                 false,
+		"12":                    false,
+		"0223 15 592-6772":      true,
+		"+54 9 223 592-6772":    true,
+		"1234567":               false,
+		"llamame al 2235926772": false,
+		"a@b.co":                true,
 	}
 	for c, quiere := range casos {
 		if Valido(c) != quiere {
