@@ -413,12 +413,6 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 		}
 		c.ContactoConfianza = &primero
 		contactos, _ = json.Marshal(lista)
-	} else if c.ContactoConfianza != nil {
-		lista := []Contacto{}
-		if *c.ContactoConfianza != "" {
-			lista = append(lista, Contacto{Contacto: *c.ContactoConfianza})
-		}
-		contactos, _ = json.Marshal(lista)
 	}
 	if len(campos) > 0 {
 		return Perfil{}, problema.Invalido("Revisá tu perfil.", campos...)
@@ -467,6 +461,31 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 		}
 		if nacimiento == nil && c.ContactoConfianza == nil && cerca == nil && gente == nil && semana == nil {
 			return nil
+		}
+		// Sólo el campo viejo (versiones viejas de las apps): cambia el primer contacto y deja los demás.
+		if c.ContactosConfianza == nil && c.ContactoConfianza != nil {
+			var raw []byte
+			lista := []Contacto{}
+			if err := tx.QueryRow(ctx, `SELECT contactos FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&raw); err == nil {
+				_ = json.Unmarshal(raw, &lista)
+			} else if !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+			switch {
+			case *c.ContactoConfianza == "" && len(lista) > 0:
+				lista = lista[1:]
+			case *c.ContactoConfianza == "":
+			case len(lista) > 0:
+				lista[0].Contacto = *c.ContactoConfianza
+			default:
+				lista = []Contacto{{Contacto: *c.ContactoConfianza}}
+			}
+			primero := ""
+			if len(lista) > 0 {
+				primero = lista[0].Contacto
+			}
+			c.ContactoConfianza = &primero
+			contactos, _ = json.Marshal(lista)
 		}
 		_, err := tx.Exec(ctx, `
 			INSERT INTO usuarios_privado (usuario_id, nacimiento, contacto_confianza, avisos_cerca, avisos_gente, avisos_semana, contactos)

@@ -512,3 +512,24 @@ func TestEstaSemana(t *testing.T) {
 		t.Fatalf("semana: %+v", sem)
 	}
 }
+
+// Las versiones viejas de las apps mandan sólo contactoConfianza: cambia el primero y deja los demás.
+func TestContactoViejoNoBorraLosDemas(t *testing.T) {
+	e := nuevoEntorno(t)
+	lu := e.persona("Lu")
+	var yo struct {
+		ContactoConfianza  string
+		ContactosConfianza []struct{ Nombre, Contacto string }
+	}
+	e.pedir(lu, "PATCH", "/v1/yo", map[string]any{"contactosConfianza": []map[string]string{
+		{"nombre": "Mamá", "contacto": "mama@caigo.test"}, {"nombre": "Sofi", "contacto": "sofi@caigo.test"}}}, http.StatusOK, &yo)
+	e.pedir(lu, "PATCH", "/v1/yo", map[string]any{"contactoConfianza": "+5492235550101"}, http.StatusOK, &yo)
+	if len(yo.ContactosConfianza) != 2 || yo.ContactosConfianza[0].Nombre != "Mamá" || yo.ContactosConfianza[0].Contacto != "+5492235550101" ||
+		yo.ContactoConfianza != "+5492235550101" {
+		t.Fatalf("contacto viejo: %+v", yo)
+	}
+	e.pedir(lu, "PATCH", "/v1/yo", map[string]any{"contactoConfianza": ""}, http.StatusOK, &yo)
+	if len(yo.ContactosConfianza) != 1 || yo.ContactoConfianza != "sofi@caigo.test" {
+		t.Fatalf("contacto viejo vacío: %+v", yo)
+	}
+}
