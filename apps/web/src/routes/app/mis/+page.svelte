@@ -204,7 +204,7 @@
 
 <style>
 	.contenido {
-		padding: calc(20px + env(safe-area-inset-top)) 20px 120px;
+		padding: calc(20px + env(safe-area-inset-top)) 20px var(--bajo-tabbar);
 		display: flex;
 		flex-direction: column;
 		gap: 16px;

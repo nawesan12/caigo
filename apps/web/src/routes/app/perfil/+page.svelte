@@ -151,7 +151,7 @@
 		box-shadow: var(--sh-icono);
 	}
 	.contenido {
-		padding: calc(42px + env(safe-area-inset-top)) 20px 120px;
+		padding: calc(42px + env(safe-area-inset-top)) 20px var(--bajo-tabbar);
 		display: flex;
 		flex-direction: column;
 		gap: 18px;

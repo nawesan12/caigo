@@ -152,7 +152,7 @@
 		font-weight: 700;
 	}
 	.lista {
-		padding: 12px 20px 120px;
+		padding: 12px 20px var(--bajo-tabbar);
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
@@ -171,6 +171,6 @@
 		color: var(--texto-2);
 	}
 	.vacio {
-		padding: 56px 28px 120px;
+		padding: 56px 28px var(--bajo-tabbar);
 	}
 </style>

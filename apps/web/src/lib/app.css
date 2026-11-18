@@ -10,6 +10,11 @@
 @import '@fontsource/geist/latin-800.css';
 
 :root {
+	/*
+	 * Lo que dejan libre abajo las pantallas con la barra de pestañas: la barra (24 + 70 px) más el
+	 * margen del sistema. Con 120 px fijos, en un iPhone (34 px abajo) tapaba la última tarjeta.
+	 */
+	--bajo-tabbar: calc(120px + env(safe-area-inset-bottom));
 	--coral: #ff7868;
 	--violeta: #7456f1;
 	--violeta-texto: #5b43c9;
