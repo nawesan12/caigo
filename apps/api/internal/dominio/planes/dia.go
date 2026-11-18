@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/contacto"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
@@ -55,8 +56,19 @@ const esperaPlazo = 15 * time.Minute
 // EventoLugarLibre: al primero de la lista de espera, que se liberó un lugar.
 const EventoLugarLibre = "espera.lugar"
 
-// EventoTodoBien: no hizo check-in a tiempo y tenía «¿Todo bien?» activo.
+// EventoCupo: quien organiza subió el cupo (o abrió el ingreso): se le ofrece el lugar a la lista de espera.
+const EventoCupo = "plan.cupo"
+
+// EventoTodoBienPregunta: llegó la hora y no hizo check-in. Primero se le pregunta a la persona
+// («¿Llegaste?»): tiene TodoBienEspera para tocar «Estoy bien» antes de que le escribamos a su contacto.
+const EventoTodoBienPregunta = "todo_bien.pregunta"
+
+// EventoTodoBien: siguió sin check-in después de la pregunta: se avisa al contacto (o, si es un teléfono,
+// a la persona para que le escriba).
 const EventoTodoBien = "todo_bien.aviso"
+
+// TodoBienEspera: el margen entre la pregunta a la persona y el aviso al contacto.
+const TodoBienEspera = 10 * time.Minute
 
 // completarMio suma lo de quien mira (Mio) y la reputación por caritas de quien organiza.
 func completarMio(ctx context.Context, tx pgx.Tx, usuarioID string, ps []*Plan) error {
@@ -166,10 +178,15 @@ func (s *Servicio) Confirmar(ctx context.Context, usuarioID, planID string) erro
 	})
 }
 
-// reservados (con p = planes, $N = quien pide): los lugares que esperan a alguien de la lista que
-// fue avisado y todavía está a tiempo. No cuentan para nadie más.
-const reservados = `(SELECT coalesce(sum(e.cantidad), 0)::integer FROM espera e WHERE e.plan_id = p.id
-	AND e.estado = 'avisado' AND e.vence_en > now() AND e.usuario_id <> $2)`
+// ocupado es la cuenta del cupo tomado de un plan, la misma para sumarse, aceptar, la lista de espera
+// y liberar: los aceptados más los lugares guardados para alguien de la lista que fue avisado y sigue a
+// tiempo. plan es la expresión del id del plan, persona la de quien pide (su propio lugar guardado no le
+// cuenta en contra; NULL si no hay nadie) y ahora la de la hora.
+func ocupado(plan, persona, ahora string) string {
+	return `((SELECT coalesce(sum(x.cantidad), 0)::integer FROM solicitudes x WHERE x.plan_id = ` + plan + ` AND x.estado = 'aceptada')
+		+ (SELECT coalesce(sum(e.cantidad), 0)::integer FROM espera e WHERE e.plan_id = ` + plan + `
+			AND e.estado = 'avisado' AND e.vence_en > ` + ahora + ` AND e.usuario_id IS DISTINCT FROM ` + persona + `))`
+}
 
 // Esperar anota a la persona en la lista de espera de un plan completo. Devuelve su posición.
 func (s *Servicio) Esperar(ctx context.Context, usuarioID, planID string, cantidad int16, conf Confirma) (EsperaMia, error) {
@@ -196,9 +213,9 @@ func (s *Servicio) Esperar(ctx context.Context, usuarioID, planID string, cantid
 		err := tx.QueryRow(ctx, `
 			SELECT p.organizador_id, p.cancelado_en IS NOT NULL, p.acepta_grupos, p.empieza_en, p.total, p.edad_min, p.edad_max,
 				p.cobro, p.visibilidad, p.genero, `+organizaActivo+`,
-				p.total - (SELECT coalesce(sum(x.cantidad), 0)::integer FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'aceptada') - `+reservados+`,
+				p.total - `+ocupado("p.id", "$2::uuid", "$3")+`,
 				coalesce((SELECT x.estado FROM solicitudes x WHERE x.plan_id = p.id AND x.usuario_id = $2), '')
-			FROM planes p WHERE p.id = $1`, planID, usuarioID).
+			FROM planes p WHERE p.id = $1`, planID, usuarioID, s.ahora()).
 			Scan(&org, &cancelado, &grupos, &empieza, &total, &edadMin, &edadMax, &cobro, &visib, &generoPlan, &activo, &libres, &estado)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("Ese plan no existe.")
@@ -305,9 +322,7 @@ func LiberarLugar(ctx context.Context, tx pgx.Tx, planID string, ahora time.Time
 	if cancelado || !activo || cobro != "gratis" || !empieza.After(ahora) {
 		return nil, nil
 	}
-	if err := tx.QueryRow(ctx, `SELECT p.total - (SELECT coalesce(sum(x.cantidad), 0)::integer FROM solicitudes x
-			WHERE x.plan_id = p.id AND x.estado = 'aceptada')
-			- (SELECT coalesce(sum(e.cantidad), 0)::integer FROM espera e WHERE e.plan_id = p.id AND e.estado = 'avisado' AND e.vence_en > $2)
+	if err := tx.QueryRow(ctx, `SELECT p.total - `+ocupado("p.id", "NULL::uuid", "$2")+`
 		FROM planes p WHERE p.id = $1`, planID, ahora).Scan(&libres); err != nil {
 		return nil, err
 	}
@@ -345,9 +360,15 @@ func LiberarLugar(ctx context.Context, tx pgx.Tx, planID string, ahora time.Time
 }
 
 // VencerEspera (como sistema, el worker): los planes con avisos de la lista que no se usaron a
-// tiempo pasan el lugar al siguiente.
+// tiempo pasan el lugar al siguiente. De red, también los planes gratis por venir con gente esperando y
+// lugar libre (si algo liberó un lugar sin pasar por LiberarLugar, la fila no se queda esperando).
 func VencerEspera(ctx context.Context, tx pgx.Tx, ahora time.Time) (int, error) {
-	rows, err := tx.Query(ctx, `SELECT DISTINCT plan_id::text FROM espera WHERE estado = 'avisado' AND vence_en <= $1`, ahora)
+	rows, err := tx.Query(ctx, `SELECT DISTINCT plan_id::text FROM espera WHERE estado = 'avisado' AND vence_en <= $1
+		UNION
+		SELECT p.id::text FROM planes p
+		WHERE p.cobro = 'gratis' AND p.cancelado_en IS NULL AND p.empieza_en > $1
+			AND EXISTS (SELECT 1 FROM espera e WHERE e.plan_id = p.id AND e.estado = 'esperando')
+			AND p.total - `+ocupado("p.id", "NULL::uuid", "$1")+` > 0`, ahora)
 	if err != nil {
 		return 0, err
 	}
@@ -370,10 +391,22 @@ func VencerEspera(ctx context.Context, tx pgx.Tx, ahora time.Time) (int, error) 
 type Contacto struct {
 	Nombre   string `json:"nombre"`
 	Contacto string `json:"contacto"`
+	// A quién le llega el aviso si no hay check-in: "contacto" (es un mail: le escribimos nosotros) o
+	// "vos" (es un teléfono: no mandamos SMS, te avisamos a vos para que le escribas).
+	Avisa string `json:"avisa"`
 }
 
 // EsMail: el contacto es un mail (le escribimos nosotros si no hay check-in).
-func (c Contacto) EsMail() bool { return strings.Contains(c.Contacto, "@") }
+func (c Contacto) EsMail() bool { return contacto.EsMail(c.Contacto) }
+
+// conAvisa completa Avisa.
+func (c Contacto) conAvisa() Contacto {
+	c.Avisa = "vos"
+	if c.EsMail() {
+		c.Avisa = "contacto"
+	}
+	return c
+}
 
 // TodoBien es el estado de «¿Todo bien?» de quien mira en un plan.
 type TodoBien struct {
@@ -381,6 +414,8 @@ type TodoBien struct {
 	Contacto *Contacto  `json:"contacto,omitempty"`
 	AvisaEn  *time.Time `json:"avisaEn,omitempty"`
 	Avisado  bool       `json:"avisado"`
+	// Ya se le preguntó a la persona «¿Llegaste?» (el aviso al contacto sale TodoBienEspera después).
+	Preguntado bool `json:"preguntado"`
 	// Los contactos del perfil, para elegir a quién.
 	Contactos []Contacto `json:"contactos"`
 }
@@ -415,10 +450,12 @@ func Contactos(ctx context.Context, tx pgx.Tx, usuarioID string) ([]Contacto, er
 	}
 	cs := []Contacto{}
 	_ = json.Unmarshal(raw, &cs)
+	// Los de antes de validar el largo (un «12») no sirven para avisar a nadie: no se ofrecen.
 	out := cs[:0]
 	for _, c := range cs {
-		if strings.TrimSpace(c.Contacto) != "" {
-			out = append(out, c)
+		c.Contacto = strings.TrimSpace(c.Contacto)
+		if n := len([]rune(c.Contacto)); n >= contacto.Min && n <= contacto.Max {
+			out = append(out, c.conAvisa())
 		}
 	}
 	return out, nil
@@ -440,16 +477,17 @@ func (s *Servicio) VerTodoBien(ctx context.Context, usuarioID, planID string) (T
 		}
 		var c Contacto
 		var avisa time.Time
-		var avisado bool
-		err = tx.QueryRow(ctx, `SELECT contacto_nombre, contacto, avisa_en, avisado_en IS NOT NULL FROM todo_bien
-			WHERE plan_id = $1 AND usuario_id = $2`, planID, usuarioID).Scan(&c.Nombre, &c.Contacto, &avisa, &avisado)
+		var avisado, preguntado bool
+		err = tx.QueryRow(ctx, `SELECT contacto_nombre, contacto, avisa_en, avisado_en IS NOT NULL, preguntado_en IS NOT NULL
+			FROM todo_bien WHERE plan_id = $1 AND usuario_id = $2`, planID, usuarioID).Scan(&c.Nombre, &c.Contacto, &avisa, &avisado, &preguntado)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		t.Activo, t.Contacto, t.AvisaEn, t.Avisado = true, &c, &avisa, avisado
+		c = c.conAvisa()
+		t.Activo, t.Contacto, t.AvisaEn, t.Avisado, t.Preguntado = true, &c, &avisa, avisado, preguntado
 		return nil
 	})
 	return t, err
@@ -484,6 +522,16 @@ func (s *Servicio) ActivarTodoBien(ctx context.Context, usuarioID, planID string
 		if indice < 0 || indice >= len(cs) {
 			return problema.Invalido("Elegí uno de tus contactos.")
 		}
+		// Un solo aviso al contacto por plan: después del aviso (o de un mail ya enviado, aunque haya tocado
+		// «Estoy bien» y lo vuelva a activar) no se rearma. Si no, cada media hora salía otro mail.
+		var yaAvisado bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM todo_bien WHERE plan_id = $1 AND usuario_id = $2 AND avisado_en IS NOT NULL)
+			OR EXISTS (SELECT 1 FROM todo_bien_mails WHERE plan_id = $1 AND usuario_id = $2)`, planID, usuarioID).Scan(&yaAvisado); err != nil {
+			return err
+		}
+		if yaAvisado {
+			return problema.Conflicto("ya_avisamos", "Ya le avisamos a tu contacto en este plan.")
+		}
 		avisa := empieza.Add(todoBienMargen)
 		if a := ahora.Add(todoBienMargen); a.After(avisa) {
 			avisa = a
@@ -491,7 +539,7 @@ func (s *Servicio) ActivarTodoBien(ctx context.Context, usuarioID, planID string
 		c := cs[indice]
 		_, err = tx.Exec(ctx, `INSERT INTO todo_bien (plan_id, usuario_id, contacto_nombre, contacto, avisa_en) VALUES ($1, $2, $3, $4, $5)
 			ON CONFLICT (plan_id, usuario_id) DO UPDATE SET contacto_nombre = excluded.contacto_nombre,
-				contacto = excluded.contacto, avisa_en = excluded.avisa_en, avisado_en = NULL`,
+				contacto = excluded.contacto, avisa_en = excluded.avisa_en, preguntado_en = NULL`,
 			planID, usuarioID, recortar(c.Nombre, 40), c.Contacto, avisa)
 		return err
 	})
@@ -515,12 +563,20 @@ func (s *Servicio) ApagarTodoBien(ctx context.Context, usuarioID, planID string)
 // ProgramadosDia son las consultas del worker para el día del plan ($1 = ahora). Van con las de
 // avisos.Programados: cada una anota y encola en la misma sentencia (idempotente).
 var ProgramadosDia = []string{
-	// «¿Todo bien?»: llegó la hora y no hizo check-in (ni lo apagó). Se anota avisado_en y sale el evento.
+	// «¿Todo bien?», primer paso: llegó la hora y no hizo check-in (ni lo apagó). Se le pregunta a la persona.
+	`WITH n AS (
+		UPDATE todo_bien t SET preguntado_en = $1 FROM solicitudes s, planes p
+		WHERE s.plan_id = t.plan_id AND s.usuario_id = t.usuario_id AND p.id = t.plan_id
+			AND t.preguntado_en IS NULL AND t.avisado_en IS NULL AND t.avisa_en <= $1 AND s.checkin_en IS NULL
+			AND s.estado = 'aceptada' AND p.cancelado_en IS NULL AND t.avisa_en > $1::timestamptz - interval '6 hours'
+		RETURNING t.plan_id, t.usuario_id)
+	INSERT INTO outbox (tipo, datos) SELECT '` + EventoTodoBienPregunta + `', jsonb_build_object('planId', plan_id, 'usuarioId', usuario_id) FROM n`,
+	// Segundo paso: TodoBienEspera después de la pregunta sigue sin check-in ni «Estoy bien»: se avisa.
 	`WITH n AS (
 		UPDATE todo_bien t SET avisado_en = $1 FROM solicitudes s, planes p
 		WHERE s.plan_id = t.plan_id AND s.usuario_id = t.usuario_id AND p.id = t.plan_id
-			AND t.avisado_en IS NULL AND t.avisa_en <= $1 AND s.checkin_en IS NULL AND s.estado = 'aceptada'
-			AND p.cancelado_en IS NULL AND t.avisa_en > $1::timestamptz - interval '6 hours'
+			AND t.avisado_en IS NULL AND t.preguntado_en <= $1::timestamptz - interval '10 minutes' AND s.checkin_en IS NULL
+			AND s.estado = 'aceptada' AND p.cancelado_en IS NULL AND t.preguntado_en > $1::timestamptz - interval '6 hours'
 		RETURNING t.plan_id, t.usuario_id)
 	INSERT INTO outbox (tipo, datos) SELECT '` + EventoTodoBien + `', jsonb_build_object('planId', plan_id, 'usuarioId', usuario_id) FROM n`,
 	// Privacidad: lo de «¿Todo bien?» se borra a las 24 h del final del plan, y enseguida si hizo
@@ -532,4 +588,56 @@ var ProgramadosDia = []string{
 			AND s.estado = 'aceptada' AND s.checkin_en IS NULL))`,
 	// La lista de espera de un plan que ya pasó no sirve más.
 	`DELETE FROM espera e USING planes p WHERE p.id = e.plan_id AND p.empieza_en < $1::timestamptz - interval '1 day'`,
+}
+
+// propositoBaja: el link de baja del mail de «¿Todo bien?» (lleva la huella del mail, no la dirección).
+const propositoBaja = "baja-contacto"
+
+// Topes del mail de «¿Todo bien?» por dirección, sumando todas las cuentas: nadie puede usar Caigo para
+// llenarle la casilla a otro.
+const (
+	MailsPorDestino = 3
+	MailsVentana    = 24 * time.Hour
+)
+
+// LinkBaja arma el link para que el contacto deje de recibir los mails de «¿Todo bien?».
+func (s *Servicio) LinkBaja(mail string) string {
+	if s.APIPublica == "" {
+		return ""
+	}
+	tok := s.Firma.Firmar(propositoBaja, contacto.Huella(mail), s.ahora().AddDate(1, 0, 0))
+	return strings.TrimRight(s.APIPublica, "/") + "/v1/publico/todo-bien/baja/" + tok
+}
+
+// Baja anota la dirección del link en la lista de supresión: no le llegan más mails de «¿Todo bien?».
+func (s *Servicio) Baja(ctx context.Context, token string) error {
+	huella, err := s.Firma.Verificar(propositoBaja, token, s.ahora())
+	if err != nil || len(huella) != 64 {
+		return problema.NoEncontrado("Este link no es válido.")
+	}
+	return s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO correo_supresion (destino) VALUES ($1) ON CONFLICT DO NOTHING`, huella)
+		return err
+	})
+}
+
+// ReservarMail (como sistema) decide si el mail de «¿Todo bien?» de este plan puede salir hacia mail y,
+// si puede, lo anota (uno por plan y persona). false: la dirección pidió la baja, llegó al tope o ya salió.
+func ReservarMail(ctx context.Context, tx pgx.Tx, planID, usuarioID, mail string, ahora time.Time) (bool, error) {
+	h := contacto.Huella(mail)
+	var bloqueado bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM correo_supresion WHERE destino = $1)
+		OR (SELECT count(*) FROM todo_bien_mails WHERE destino = $1 AND enviado_en > $2) >= $3`,
+		h, ahora.Add(-MailsVentana), MailsPorDestino).Scan(&bloqueado); err != nil || bloqueado {
+		return false, err
+	}
+	tag, err := tx.Exec(ctx, `INSERT INTO todo_bien_mails (plan_id, usuario_id, destino, enviado_en) VALUES ($1, $2, $3, $4)
+		ON CONFLICT DO NOTHING`, planID, usuarioID, h, ahora)
+	return err == nil && tag.RowsAffected() == 1, err
+}
+
+// SoltarMail deshace ReservarMail si el envío falló (el reintento del outbox lo vuelve a probar).
+func SoltarMail(ctx context.Context, tx pgx.Tx, planID, usuarioID string) error {
+	_, err := tx.Exec(ctx, `DELETE FROM todo_bien_mails WHERE plan_id::text = $1 AND usuario_id::text = $2`, planID, usuarioID)
+	return err
 }

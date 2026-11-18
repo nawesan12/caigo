@@ -129,21 +129,15 @@ func (s *Servicio) SubirFoto(ctx context.Context, usuarioID, planID string, r io
 		if ahora.After(fin.Add(fotosHasta)) {
 			return problema.Conflicto("tarde", "Ya pasó una semana del plan: no se suben más fotos.")
 		}
-		var mias, todas int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE usuario_id = $2), count(*) FROM fotos_plan WHERE plan_id = $1`,
-			planID, usuarioID).Scan(&mias, &todas); err != nil {
-			return err
-		}
-		if mias >= fotosPorPersona || todas >= fotosPorPlan {
-			return problema.Conflicto("tope_fotos", "Ya hay muchas fotos de este plan.")
-		}
-		return nil
+		return topeFotos(ctx, tx, usuarioID, planID)
 	})
 	if err != nil {
 		return FotoPlan{}, err
 	}
-	ruta, contenido, n, err := s.Disco.Guardar("plan", r)
-	if errors.Is(err, archivos.ErrTipo) || errors.Is(err, archivos.ErrGrande) {
+	// Sin metadatos (GPS, hora, teléfono) y sin HEIC, que no se puede limpiar: las apps y la web suben JPEG.
+	ruta, contenido, n, err := s.Disco.GuardarLimpia("plan", r)
+	if errors.Is(err, archivos.ErrTipo) || errors.Is(err, archivos.ErrGrande) || errors.Is(err, archivos.ErrSinLimpiar) ||
+		errors.Is(err, archivos.ErrMalFormada) {
 		return FotoPlan{}, problema.Invalido(strings.TrimPrefix(err.Error(), "archivos: "))
 	}
 	if err != nil {
@@ -152,6 +146,13 @@ func (s *Servicio) SubirFoto(ctx context.Context, usuarioID, planID string, r io
 	var f FotoPlan
 	var archivo string
 	err = s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		// Con un candado por plan se vuelve a contar: varias subidas a la vez no pasan los topes.
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('fotos:' || $1))`, planID); err != nil {
+			return err
+		}
+		if err := topeFotos(ctx, tx, usuarioID, planID); err != nil {
+			return err
+		}
 		if err := tx.QueryRow(ctx, `INSERT INTO archivos (usuario_id, tipo, ruta, contenido, bytes) VALUES ($1, 'plan', $2, $3, $4)
 			RETURNING id`, usuarioID, ruta, contenido, n).Scan(&archivo); err != nil {
 			return err
@@ -186,11 +187,25 @@ func (s *Servicio) BorrarFoto(ctx context.Context, usuarioID, planID, fotoID str
 	})
 }
 
+// MotivosFoto: por qué se reporta una foto del plan. «salgo_yo» es quien aparece y no quiere estar.
+var MotivosFoto = map[string]string{"inapropiada": "inapropiado", "salgo_yo": "otro"}
+
 // ReportarFoto: alguien que fue la reporta. Deja de verse enseguida (para todos menos quien la subió)
-// y va a la cola de reportes del equipo.
-func (s *Servicio) ReportarFoto(ctx context.Context, usuarioID, planID, fotoID string) error {
+// y va a la cola de reportes del equipo. Una foto ya oculta no genera otro reporte.
+func (s *Servicio) ReportarFoto(ctx context.Context, usuarioID, planID, fotoID, motivo string) error {
 	if !esUUID(planID) || !esUUID(fotoID) {
 		return problema.NoEncontrado("Esa foto no existe.")
+	}
+	if motivo == "" {
+		motivo = "inapropiada"
+	}
+	m, ok := MotivosFoto[motivo]
+	if !ok {
+		return problema.Invalido("Elegí por qué la reportás.")
+	}
+	detalle := "Foto del plan " + fotoID
+	if motivo == "salgo_yo" {
+		detalle = "Salgo yo y no quiero estar: foto del plan " + fotoID
 	}
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		if _, _, err := exigirQueFue(ctx, tx, usuarioID, planID); err != nil {
@@ -198,15 +213,23 @@ func (s *Servicio) ReportarFoto(ctx context.Context, usuarioID, planID, fotoID s
 		}
 		var autor string
 		err := tx.QueryRow(ctx, `UPDATE fotos_plan SET moderacion = 'oculto' WHERE id = $1 AND plan_id = $2 AND usuario_id <> $3
-			RETURNING usuario_id`, fotoID, planID, usuarioID).Scan(&autor)
+			AND moderacion = 'ok' RETURNING usuario_id`, fotoID, planID, usuarioID).Scan(&autor)
 		if errors.Is(err, pgx.ErrNoRows) {
+			var oculta bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM fotos_plan WHERE id = $1 AND plan_id = $2 AND usuario_id <> $3)`,
+				fotoID, planID, usuarioID).Scan(&oculta); err != nil {
+				return err
+			}
+			if oculta {
+				return nil // ya la reportó alguien: no se ve y está en la cola
+			}
 			return problema.NoEncontrado("Esa foto no existe.")
 		}
 		if err != nil {
 			return err
 		}
 		_, err = tx.Exec(ctx, `INSERT INTO reportes (usuario_id, sobre_usuario_id, sobre_plan_id, motivo, detalle)
-			VALUES ($1, $2, $3, 'inapropiado', $4)`, usuarioID, autor, planID, "Foto del plan "+fotoID)
+			VALUES ($1, $2, $3, $4, $5)`, usuarioID, autor, planID, m, detalle)
 		return err
 	})
 }
@@ -241,4 +264,17 @@ func PurgarFotos(ctx context.Context, tx pgx.Tx) (int, error) {
 		}
 	}
 	return len(rutas), nil
+}
+
+// topeFotos: fotosPorPersona por persona y fotosPorPlan por plan.
+func topeFotos(ctx context.Context, tx pgx.Tx, usuarioID, planID string) error {
+	var mias, todas int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE usuario_id = $2), count(*) FROM fotos_plan WHERE plan_id = $1`,
+		planID, usuarioID).Scan(&mias, &todas); err != nil {
+		return err
+	}
+	if mias >= fotosPorPersona || todas >= fotosPorPlan {
+		return problema.Conflicto("tope_fotos", "Ya hay muchas fotos de este plan.")
+	}
+	return nil
 }

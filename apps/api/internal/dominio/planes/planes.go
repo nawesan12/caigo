@@ -380,8 +380,18 @@ func sufijo(n int) string {
 	return string(b)
 }
 
-// Crear publica el plan y deja al organizador (con su grupo) adentro.
+// Crear publica el plan y deja al organizador (con su grupo) adentro. Respeta el tope de planes abiertos.
 func (s *Servicio) Crear(ctx context.Context, usuarioID string, e Entrada) (Plan, error) {
+	return s.crear(ctx, usuarioID, e, true)
+}
+
+// CrearSinTope es Crear para el equipo (los planes semilla de caigoctl y de /v1/equipo/planes): el tope
+// de planes abiertos es contra el spam de una persona, no para la agenda que arma Caigo.
+func (s *Servicio) CrearSinTope(ctx context.Context, usuarioID string, e Entrada) (Plan, error) {
+	return s.crear(ctx, usuarioID, e, false)
+}
+
+func (s *Servicio) crear(ctx context.Context, usuarioID string, e Entrada, conTope bool) (Plan, error) {
 	if err := e.validar(s.ahora()); err != nil {
 		return Plan{}, err
 	}
@@ -400,8 +410,10 @@ func (s *Servicio) Crear(ctx context.Context, usuarioID string, e Entrada) (Plan
 	}
 	var id string
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
-		if err := s.topeAbiertos(ctx, tx, usuarioID); err != nil {
-			return err
+		if conTope {
+			if err := s.topeAbiertos(ctx, tx, usuarioID); err != nil {
+				return err
+			}
 		}
 		if err := archivos.ExigirPropias(ctx, tx, s.APIPublica, "foto", []string{usuarioID}, nil, e.Foto); err != nil {
 			return err
@@ -462,14 +474,16 @@ const (
 	AbiertosPlus   = 5
 )
 
-// topeAbiertos frena un plan nuevo si ya tiene AbiertosGratis abiertos (AbiertosPlus con Plus).
+// topeAbiertos frena un plan nuevo si ya tiene AbiertosGratis abiertos (AbiertosPlus con Plus). Cuentan
+// sólo los planes propios: los eventos de un lugar llevan como organizador a quien atiende y no le
+// pueden sacar el lugar para sus planes.
 func (s *Servicio) topeAbiertos(ctx context.Context, tx pgx.Tx, usuarioID string) error {
 	// Un candado por persona: dos «Publicar» a la vez no pasan los dos con el último lugar.
 	if err := plus.Bloquear(ctx, tx, usuarioID); err != nil {
 		return err
 	}
 	var abiertos int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM planes WHERE organizador_id = $1 AND cancelado_en IS NULL
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM planes WHERE organizador_id = $1 AND lugar_id IS NULL AND cancelado_en IS NULL
 		AND empieza_en + make_interval(mins => duracion_min) > $2`, usuarioID, s.ahora()).Scan(&abiertos); err != nil {
 		return err
 	}

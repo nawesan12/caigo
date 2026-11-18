@@ -231,12 +231,21 @@ func (e *Enviador) Manejadores() map[string]outbox.Manejador {
 		"plan.repetimos":    e.planRepetimos,
 		"plan.publicado":    e.planPublicado,
 		// El día del plan y después (informe del 18/11).
-		"plan.como_estuvo":      e.planComoEstuvo,
-		planes.EventoLugarLibre: e.lugarLibre,
-		planes.EventoTodoBien:   e.todoBien,
-		"semana.aviso":          e.semanaAviso,
-		"solicitud.rechazada":   e.solicitudFuera(false),
-		"solicitud.sacada":      e.solicitudFuera(true),
+		"plan.como_estuvo":            e.planComoEstuvo,
+		planes.EventoLugarLibre:       e.lugarLibre,
+		planes.EventoTodoBien:         e.todoBien,
+		planes.EventoTodoBienPregunta: e.todoBienPregunta,
+		// Subió el cupo de un plan: el lugar es primero de la lista de espera.
+		planes.EventoCupo: func(ctx context.Context, ev outbox.Evento) error {
+			var d struct{ PlanID string }
+			if err := json.Unmarshal(ev.Datos, &d); err != nil || d.PlanID == "" {
+				return nil
+			}
+			return e.liberar(ctx, d.PlanID)
+		},
+		"semana.aviso":        e.semanaAviso,
+		"solicitud.rechazada": e.solicitudFuera(false),
+		"solicitud.sacada":    e.solicitudFuera(true),
 		// Al equipo: un pedido de arrepentimiento (hay que responder en el día).
 		"arrepentimiento.nuevo": e.arrepentimientoNuevo,
 		// Al equipo: un lugar pidió placas Caigo Tap.

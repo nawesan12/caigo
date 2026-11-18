@@ -137,6 +137,20 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, planID string, cuerpo 
 			planID, e.Direccion, e.Lat, e.Lng); err != nil {
 			return err
 		}
+		// Si se movió el horario, «¿Todo bien?» avisa a la media hora del horario nuevo (y vuelve a empezar:
+		// si ya había preguntado por el horario viejo, no cuenta).
+		if !e.EmpiezaEn.Equal(orig.EmpiezaEn) {
+			if _, err := tx.Exec(ctx, `UPDATE todo_bien SET avisa_en = $2::timestamptz + interval '30 minutes',
+				preguntado_en = NULL WHERE plan_id = $1 AND avisado_en IS NULL`, planID, e.EmpiezaEn); err != nil {
+				return err
+			}
+		}
+		// Si subió el cupo o ahora se entra sin aprobación, la lista de espera se entera antes que nadie.
+		if e.Somos+e.Faltan > total || (e.Ingreso == "libre" && orig.Ingreso != "libre") {
+			if err := outbox.Publicar(ctx, tx, EventoCupo, map[string]string{"planId": planID}); err != nil {
+				return err
+			}
+		}
 		cambio := !e.EmpiezaEn.Equal(orig.EmpiezaEn) || e.Lat != orig.Lat || e.Lng != orig.Lng ||
 			e.Direccion != orig.Direccion || e.LugarNombre != orig.LugarNombre || e.Zona != orig.Zona
 		if !cambio {

@@ -80,6 +80,10 @@ func Armar(remitente string, m Mensaje, ahora time.Time) ([]byte, error) {
 	}
 	if m.Baja != "" {
 		fmt.Fprintf(&b, "List-Unsubscribe: <%s>\r\n", m.Baja)
+		if strings.HasPrefix(m.Baja, "https://") {
+			// RFC 8058: la baja con un toque desde el cliente de correo (un POST al mismo link).
+			b.WriteString("List-Unsubscribe-Post: List-Unsubscribe=One-Click\r\n")
+		}
 	}
 	alternativa := "caigo-alt-" + aleatorio()
 	if len(m.Adjuntos) == 0 {

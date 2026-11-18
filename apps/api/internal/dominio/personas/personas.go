@@ -19,6 +19,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/logros"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/contacto"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
@@ -340,7 +341,14 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 	largo("ciudad", c.Ciudad, 60)
 	largo("bio", c.Bio, 300)
 	largo("trabajo", c.Trabajo, 60)
-	largo("contactoConfianza", c.ContactoConfianza, 80)
+	// El campo viejo valida igual que la lista: un mail o un teléfono (un «12» rompía «¿Todo bien?»).
+	if c.ContactoConfianza != nil {
+		v := strings.TrimSpace(*c.ContactoConfianza)
+		c.ContactoConfianza = &v
+		if v != "" && !contacto.Valido(v) {
+			mal("contactoConfianza", "Poné un teléfono o un mail.")
+		}
+	}
 	if c.Nombre != nil && *c.Nombre == "" {
 		mal("nombre", "Poné tu nombre.")
 	}
@@ -419,7 +427,7 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 			if x.Contacto == "" {
 				continue
 			}
-			if len([]rune(x.Nombre)) > 40 || len([]rune(x.Contacto)) > 80 || len([]rune(x.Contacto)) < 6 {
+			if len([]rune(x.Nombre)) > 40 || !contacto.Valido(x.Contacto) {
 				mal("contactosConfianza", "Revisá el nombre y el teléfono o mail.")
 				break
 			}

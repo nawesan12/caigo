@@ -104,9 +104,7 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 		if ingreso == "libre" {
 			var sumados int
 			// Los lugares guardados para alguien de la lista de espera (avisado y a tiempo) no son de nadie más.
-			if err := tx.QueryRow(ctx, `SELECT (SELECT coalesce(sum(cantidad), 0)::integer FROM solicitudes WHERE plan_id = $1 AND estado = 'aceptada')
-				+ (SELECT coalesce(sum(cantidad), 0)::integer FROM espera WHERE plan_id = $1 AND estado = 'avisado'
-					AND vence_en > $3 AND usuario_id <> $2)`, planID, usuarioID, s.ahora()).Scan(&sumados); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT `+ocupado("$1::uuid", "$2::uuid", "$3"), planID, usuarioID, s.ahora()).Scan(&sumados); err != nil {
 				return err
 			}
 			if sumados+int(cantidad) > int(total) {
@@ -276,7 +274,8 @@ func (s *Servicio) Responder(ctx context.Context, usuarioID, solicitudID string,
 			if err := tx.QueryRow(ctx, `SELECT total FROM planes WHERE id = $1 FOR UPDATE`, planID).Scan(&total); err != nil {
 				return err
 			}
-			if err := tx.QueryRow(ctx, `SELECT coalesce(sum(cantidad), 0) FROM solicitudes WHERE plan_id = $1 AND estado = 'aceptada'`, planID).Scan(&sumados); err != nil {
+			// El lugar guardado para alguien de la lista de espera no se le da a otro; si es esa persona, usa el suyo.
+			if err := tx.QueryRow(ctx, `SELECT `+ocupado("$1::uuid", "$2::uuid", "$3"), planID, persona, s.ahora()).Scan(&sumados); err != nil {
 				return err
 			}
 			if sumados+int(cantidad) > int(total) {

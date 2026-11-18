@@ -213,9 +213,14 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 				}
 			}
 		}
+		// La carita es de quien fue (con check-in, o en un plan que no usó el check-in) y de un plan que ya
+		// terminó; si no, se ignora sin romper el resto (opiniones y repetir). Si no, alguien que faltó
+		// bajaba el promedio de quien organiza.
 		if carita != nil && org != usuarioID {
-			if _, err := tx.Exec(ctx, `UPDATE solicitudes SET carita = $3 WHERE plan_id::text = $1 AND usuario_id = $2`,
-				planID, usuarioID, *carita); err != nil {
+			if _, err := tx.Exec(ctx, `UPDATE solicitudes s SET carita = $3 FROM planes p
+				WHERE p.id = s.plan_id AND s.plan_id::text = $1 AND s.usuario_id = $2
+					AND p.empieza_en + make_interval(mins => p.duracion_min) <= $4 AND `+fue,
+				planID, usuarioID, *carita, s.ahora()); err != nil {
 				return err
 			}
 		}
@@ -247,6 +252,10 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
+		// «Repetir» es publicar un plan nuevo: el mismo tope de planes abiertos que al crearlo.
+		if err := s.topeAbiertos(ctx, tx, usuarioID); err != nil {
+			return err
+		}
 		// Mismo plan, a la semana, en la misma serie; si el «¿Repetimos?» llega tarde, la próxima semana
 		// que no pasó (nunca uno en el pasado). Arranca con el grupo del organizador.
 		const semana = 7 * 24 * time.Hour
@@ -261,7 +270,7 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 					recurrente, serie_id, ciudad, zona, lugar_nombre, lat, lng, somos, total, ingreso, visibilidad,
 					solo_verificados, ocultar_direccion, edad_min, edad_max, genero, nivel, costo_centavos, foto)
 				SELECT $2, organizador_id, titulo, categoria, descripcion, $3, duracion_min,
-					true, coalesce(serie_id, id), ciudad, zona, lugar_nombre, lat, lng, somos, total, ingreso, visibilidad,
+					recurrente, coalesce(serie_id, id), ciudad, zona, lugar_nombre, lat, lng, somos, total, ingreso, visibilidad,
 					solo_verificados, ocultar_direccion, edad_min, edad_max, genero, nivel, costo_centavos, foto
 				FROM viejo RETURNING id, somos)
 			SELECT id FROM n`, planID, slug(titulo, zona), proximo).Scan(&nuevo)

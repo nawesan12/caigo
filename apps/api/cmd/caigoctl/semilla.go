@@ -42,7 +42,7 @@ func semilla(ctx context.Context, url, archivo string) error {
 		}); err != nil {
 			return fmt.Errorf("plan %d: no encontré a %s (¿entró alguna vez a Caigo?)", i+1, p.Organizador)
 		}
-		plan, err := s.Crear(ctx, id, p.Entrada)
+		plan, err := s.CrearSinTope(ctx, id, p.Entrada)
 		if err != nil {
 			return fmt.Errorf("plan %d (%s): %w", i+1, p.Titulo, err)
 		}

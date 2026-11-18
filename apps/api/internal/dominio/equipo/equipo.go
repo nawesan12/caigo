@@ -218,7 +218,7 @@ func (s *Servicio) CrearSemilla(ctx context.Context, in Semilla) (planes.Plan, e
 	if !existe {
 		return planes.Plan{}, problema.Invalido("organizadorId no es una persona activa.")
 	}
-	return s.Publicador.Crear(ctx, in.OrganizadorID, in.Entrada)
+	return s.Publicador.CrearSinTope(ctx, in.OrganizadorID, in.Entrada)
 }
 
 // Semana de métricas (de lunes a domingo, hora de Argentina).

@@ -235,6 +235,21 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 		}
 		respuesta.JSON(w, http.StatusOK, v)
 	})
+	// La baja del mail de «¿Todo bien?»: el GET muestra un botón (los antivirus de correo abren los links
+	// solos) y el POST la hace (también el «Cancelar suscripción» del cliente de correo, RFC 8058).
+	mux.HandleFunc("GET /v1/publico/todo-bien/baja/{token}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write([]byte(paginaBaja(false)))
+	})
+	mux.HandleFunc("POST /v1/publico/todo-bien/baja/{token}", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.Baja(r.Context(), r.PathValue("token")); err != nil {
+			mal(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(paginaBaja(true)))
+	})
 	// Mirar sin sesión (la web, antes de entrar).
 	mux.HandleFunc("GET /v1/publico/planes/ahora", func(w http.ResponseWriter, r *http.Request) {
 		f, err := filtro(r)
@@ -336,4 +351,18 @@ func filtro(r *http.Request) (Filtro, error) {
 		}
 	}
 	return f, nil
+}
+
+// paginaBaja: la página chica del link de baja (antes y después de confirmar).
+func paginaBaja(hecho bool) string {
+	cuerpo := `<p>No te vamos a escribir más cuando alguien no marque que llegó a un plan.</p>`
+	if !hecho {
+		cuerpo = `<p>¿Dejás de recibir los mails de «¿Todo bien?» de Caigo?</p>
+<form method="post"><button>Sí, no quiero recibirlos</button></form>`
+	}
+	return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Caigo</title><style>body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f4f1fb;color:#17141f}
+main{max-width:420px;margin:15vh auto;padding:28px;background:#fff;border-radius:24px}h1{font-size:22px;margin:0 0 12px}
+p{font-size:16px;line-height:1.5;color:#5d5870}button{font:inherit;font-weight:800;border:0;border-radius:16px;padding:14px 22px;background:#C8F36B;color:#17141f}</style>
+</head><body><main><h1>Caigo<span style="color:#6B4EFF">.</span></h1>` + cuerpo + `</main></body></html>`
 }

@@ -87,7 +87,8 @@ func rutasDia(mux *http.ServeMux, s *Servicio, h func(func(http.ResponseWriter, 
 		listo(w, s.BorrarFoto(r.Context(), p.ID, r.PathValue("id"), r.PathValue("foto")))
 	}))
 	mux.Handle("POST /v1/planes/{id}/fotos/{foto}/reportar", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
-		listo(w, s.ReportarFoto(r.Context(), p.ID, r.PathValue("id"), r.PathValue("foto")))
+		// ?motivo=salgo_yo (quien aparece y no quiere estar) o inapropiada (por defecto).
+		listo(w, s.ReportarFoto(r.Context(), p.ID, r.PathValue("id"), r.PathValue("foto"), r.URL.Query().Get("motivo")))
 	}))
 	mux.Handle("GET /v1/semana", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
 		sem, err := s.Semana(r.Context(), p.ID, strings.TrimSpace(r.URL.Query().Get("ciudad")))
