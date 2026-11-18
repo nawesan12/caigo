@@ -45,3 +45,57 @@ func TestMazoSoloConDNIYSinSuspender(t *testing.T) {
 	e.pedir(yo, "GET", "/v1/personas/"+susp.id, nil, http.StatusNotFound, nil)
 	e.pedir(yo, "GET", "/v1/personas/"+con.id, nil, http.StatusOK, nil)
 }
+
+// Quien pidió sumarse y después bloqueó al organizador: su solicitud ya no se ve ni se acepta.
+func TestSolicitudConBloqueo(t *testing.T) {
+	e := nuevoEntorno(t)
+	nico, lu := e.persona("Nico"), e.persona("Lu")
+	e.verificar(lu, true)
+	p := e.planNuevo(nico, map[string]any{"ingreso": "aprobacion"})
+	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	var solID string
+	e.valor(`SELECT id::text FROM solicitudes WHERE plan_id = $1 AND usuario_id = $2`, &solID, p.ID, lu.id)
+	var sols struct{ Solicitudes []struct{ ID string } }
+	e.pedir(nico, "GET", "/v1/planes/"+p.ID+"/solicitudes", nil, http.StatusOK, &sols)
+	if len(sols.Solicitudes) != 1 {
+		t.Fatalf("antes del bloqueo: %+v", sols)
+	}
+	e.pedir(lu, "PUT", "/v1/bloqueos/"+nico.id, nil, http.StatusNoContent, nil)
+	e.pedir(nico, "GET", "/v1/planes/"+p.ID+"/solicitudes", nil, http.StatusOK, &sols)
+	if len(sols.Solicitudes) != 0 {
+		t.Fatalf("con bloqueo se ve: %+v", sols)
+	}
+	e.pedir(nico, "POST", "/v1/solicitudes/"+solID+"/aceptar", nil, http.StatusNotFound, nil)
+}
+
+// En el chat del plan, dos personas bloqueadas entre sí no se leen; el resto ve todo.
+func TestChatGrupalConBloqueo(t *testing.T) {
+	e := nuevoEntorno(t)
+	nico, lu, fede := e.persona("Nico"), e.persona("Lu"), e.persona("Fede")
+	e.verificar(lu, true)
+	e.verificar(fede, true)
+	p := e.planNuevo(nico, map[string]any{"faltan": 3})
+	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	e.pedir(fede, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{}, http.StatusOK, nil)
+	e.pedir(fede, "PUT", "/v1/bloqueos/"+lu.id, nil, http.StatusNoContent, nil)
+	e.pedir(lu, "POST", "/v1/planes/"+p.ID+"/mensajes", map[string]string{"texto": "de Lu"}, http.StatusCreated, nil)
+	e.pedir(fede, "POST", "/v1/planes/"+p.ID+"/mensajes", map[string]string{"texto": "de Fede"}, http.StatusCreated, nil)
+	textos := func(quien persona) []string {
+		var ms struct{ Mensajes []struct{ Texto string } }
+		e.pedir(quien, "GET", "/v1/planes/"+p.ID+"/mensajes", nil, http.StatusOK, &ms)
+		var out []string
+		for _, m := range ms.Mensajes {
+			out = append(out, m.Texto)
+		}
+		return out
+	}
+	if got := strings.Join(textos(nico), "|"); got != "de Lu|de Fede" {
+		t.Fatalf("nico: %s", got)
+	}
+	if got := strings.Join(textos(lu), "|"); got != "de Lu" {
+		t.Fatalf("lu: %s", got)
+	}
+	if got := strings.Join(textos(fede), "|"); got != "de Fede" {
+		t.Fatalf("fede: %s", got)
+	}
+}

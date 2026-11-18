@@ -341,7 +341,10 @@ func (e *Enviador) mensajePlan(ctx context.Context, ev outbox.Evento) error {
 	}
 	var ids []string
 	err := e.App.EnSistema(ctx, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT usuario_id FROM solicitudes WHERE plan_id = $1 AND estado = 'aceptada' AND usuario_id <> $2`, d.PlanID, autor)
+		// A quien tiene un bloqueo con el autor no le llega (tampoco lo ve en el chat).
+		rows, err := tx.Query(ctx, `SELECT s.usuario_id FROM solicitudes s WHERE s.plan_id = $1 AND s.estado = 'aceptada'
+			AND s.usuario_id <> $2 AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = s.usuario_id AND b.bloqueado_id = $2)
+				OR (b.usuario_id = $2 AND b.bloqueado_id = s.usuario_id))`, d.PlanID, autor)
 		if err != nil {
 			return err
 		}

@@ -130,7 +130,11 @@ func (h *Hub) repartir(ctx context.Context, tipo string, id int64) error {
 			if err != nil {
 				return err
 			}
-			ids, err := aceptados(ctx, tx, m.PlanID)
+			autor := ""
+			if m.Autor != nil {
+				autor = m.Autor.ID
+			}
+			ids, err := aceptados(ctx, tx, m.PlanID, autor)
 			if err != nil {
 				return err
 			}
@@ -167,8 +171,10 @@ func (h *Hub) avisarPlan(ctx context.Context, planID string) error {
 	})
 }
 
-func aceptados(ctx context.Context, tx pgx.Tx, planID string) ([]string, error) {
-	rows, err := tx.Query(ctx, `SELECT usuario_id FROM solicitudes WHERE plan_id = $1 AND estado = 'aceptada'`, planID)
+// aceptados del plan, menos quienes tienen un bloqueo con autor (vacío: el sistema, le llega a todos).
+func aceptados(ctx context.Context, tx pgx.Tx, planID, autor string) ([]string, error) {
+	rows, err := tx.Query(ctx, `SELECT s.usuario_id FROM solicitudes s WHERE s.plan_id = $1 AND s.estado = 'aceptada'
+		AND NOT `+bloqueados("s.usuario_id", "nullif($2, '')::uuid"), planID, autor)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +221,7 @@ func (h *Hub) Conectar(w http.ResponseWriter, r *http.Request, usuarioID, nombre
 				if err != nil || !esta || !abierto {
 					return err
 				}
-				ids, err := aceptados(ctx, tx, in.PlanID)
+				ids, err := aceptados(ctx, tx, in.PlanID, usuarioID)
 				for _, u := range ids {
 					if u != usuarioID {
 						h.mandar(u, Evento{Tipo: "escribiendo", PlanID: in.PlanID, Quien: &Autor{ID: usuarioID, Nombre: nombre}})

@@ -103,8 +103,9 @@ func (s *Servicio) Mensajes(ctx context.Context, usuarioID, planID string, antes
 			SELECT * FROM (
 				SELECT m.id, m.plan_id, m.usuario_id, coalesce(u.nombre, ''), coalesce(u.fotos[1], ''), m.texto, m.creado_en
 				FROM mensajes m LEFT JOIN usuarios u ON u.id = m.usuario_id
-				WHERE m.plan_id = $1 AND m.id < $2 ORDER BY m.id DESC LIMIT 100
-			) x ORDER BY id`, planID, antes)
+				WHERE m.plan_id = $1 AND m.id < $2 AND NOT `+bloqueados("m.usuario_id", "$3")+`
+				ORDER BY m.id DESC LIMIT 100
+			) x ORDER BY id`, planID, antes, usuarioID)
 		if err != nil {
 			return err
 		}
@@ -160,6 +161,15 @@ func (s *Servicio) Enviar(ctx context.Context, usuarioID, planID, texto string) 
 		return outbox.Publicar(ctx, tx, "mensaje.plan", map[string]any{"mensajeId": m.ID, "planId": planID})
 	})
 	return m, err
+}
+
+// bloqueados es la condición «hay un bloqueo entre a y b» (en cualquier sentido). En el chat grupal
+// dos personas bloqueadas pueden seguir en el mismo plan (el bloqueo sólo saca a quien bloquea el
+// organizador): el grupo sigue igual para el resto, pero entre ellas no se ven los mensajes ni el
+// «escribiendo». Con a NULL (mensaje del sistema) da falso.
+func bloqueados(a, b string) string {
+	return `EXISTS (SELECT 1 FROM bloqueos x WHERE (x.usuario_id = ` + a + ` AND x.bloqueado_id = ` + b + `)
+		OR (x.usuario_id = ` + b + ` AND x.bloqueado_id = ` + a + `))`
 }
 
 // Sistema deja un mensaje del sistema en el chat del plan ("Plan completo. A disfrutar.").

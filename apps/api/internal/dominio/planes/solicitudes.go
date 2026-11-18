@@ -171,6 +171,9 @@ func (s *Servicio) Solicitudes(ctx context.Context, usuarioID, planID string) ([
 			FROM solicitudes s JOIN usuarios u ON u.id = s.usuario_id
 			LEFT JOIN LATERAL app.asistencia(u.id) rep ON true
 			WHERE s.plan_id = $1 AND s.usuario_id <> $2 AND s.estado IN ('pendiente', 'aceptada')
+				-- Una pendiente con un bloqueo de por medio (de cualquiera de los dos) no se muestra.
+				AND (s.estado = 'aceptada' OR NOT EXISTS (SELECT 1 FROM bloqueos b
+					WHERE (b.usuario_id = $2 AND b.bloqueado_id = u.id) OR (b.usuario_id = u.id AND b.bloqueado_id = $2)))
 			ORDER BY s.estado = 'pendiente' DESC, s.creada_en`, planID, usuarioID)
 		if err != nil {
 			return err
@@ -197,14 +200,17 @@ func (s *Servicio) Responder(ctx context.Context, usuarioID, solicitudID string,
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var planID, org, estado string
 		var cantidad int16
-		var cancelado bool
+		var cancelado, bloqueo bool
 		var fin time.Time
 		err := tx.QueryRow(ctx, `
 			SELECT s.plan_id, p.organizador_id, s.estado, s.cantidad, s.usuario_id, p.cancelado_en IS NOT NULL,
-				p.empieza_en + make_interval(mins => p.duracion_min)
+				p.empieza_en + make_interval(mins => p.duracion_min),
+				EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = p.organizador_id AND b.bloqueado_id = s.usuario_id)
+					OR (b.usuario_id = s.usuario_id AND b.bloqueado_id = p.organizador_id))
 			FROM solicitudes s JOIN planes p ON p.id = s.plan_id WHERE s.id = $1`, solicitudID).
-			Scan(&planID, &org, &estado, &cantidad, &persona, &cancelado, &fin)
-		if errors.Is(err, pgx.ErrNoRows) || (err == nil && org != usuarioID) {
+			Scan(&planID, &org, &estado, &cantidad, &persona, &cancelado, &fin, &bloqueo)
+		// Con un bloqueo de por medio la solicitud no existe para el organizador (no se ve ni se acepta).
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && (org != usuarioID || bloqueo)) {
 			return problema.NoEncontrado("Esa solicitud no es de un plan tuyo.")
 		}
 		if err != nil {
