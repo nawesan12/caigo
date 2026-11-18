@@ -82,6 +82,8 @@ struct Checkout: View {
 
     /// `confirma`: lo que confirmó en «Antes de sumarte» (vale sólo para este pedido).
     private func pagar(_ plan: Plan, confirma: Confirma = Confirma()) async {
+        // Un segundo toque no pide otra orden de Mercado Pago.
+        guard !pagando else { return }
         pagando = true
         defer { pagando = false }
         do {

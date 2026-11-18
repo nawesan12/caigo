@@ -163,8 +163,14 @@ fun Checkout(ir: Ir, planId: String, cantidad: Int) {
         }
     }
 
-    fun pagar(plan: Plan) = alcance.launch {
+    fun pagar(plan: Plan) {
+        // Antes del launch: un segundo toque no pide otra orden de Mercado Pago.
+        if (pagando) return
         pagando = true
+        alcance.launch { pagarYa(plan) }
+    }
+
+    suspend fun pagarYa(plan: Plan) {
         try {
             val m = if (plan.cobro == "sena" && plan.senaPct != null) modo else "entrada"
             // Plan «Solo mujeres» / «Solo diversidades»: se confirma y se reintenta (no se guarda).
