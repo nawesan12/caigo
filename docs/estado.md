@@ -1,5 +1,17 @@
 # Estado
 
+## 18/11/2026: premios por ir, gestos y festejo (rama `mejoras-gamificacion`, sin desplegar)
+
+Sobrio a pedido de Nahuel. API (`internal/dominio/logros`, migración **00030**): nivel (Nuevo, Habitué, De fierro,
+Leyenda), pocas insignias, racha semanal con comodín, «Anfitrión», faltazos a la vista de quien organiza, tope de 3
+planes abiertos (5 con Plus), «No me interesa» (`/v1/planes/{id}/ocultar`), beneficio por nivel en lugares aliados y
+«Traé a alguien» (semana de Plus para los dos con el primer check-in que cuenta; el worker la da). Todo cuenta sólo
+con check-in validado por otra cuenta de 7 días o por el lugar. Contrato en `docs/api.md` › «Premios por ir…».
+Web: gestos en Ahora y Explorar, «Decidí rápido» (con 8 o más), festejo «¡Estás adentro!», logros en los perfiles,
+`/app/perfil/invitar`, `/i/<código>`, «Ocultar mis insignias» y el campo en el panel (Caigo Tap). iOS y Android a la
+par (sin compilar). Para desplegar: pg_dump, `desplegar-api.sh --migrar` (00030; si 00028/00029 de los otros frentes
+no están todavía, goose las corre igual en orden), worker recreado, web y apps en la próxima tanda.
+
 ## 18/11/2026: revisión con ojos de usuario (rama `revision-usuario`, sin desplegar)
 
 Stack local con 5 cuentas (sesiones `cs_` directas en la base) y flujos de punta a punta. API: con ingreso libre quien
