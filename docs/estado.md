@@ -1,5 +1,14 @@
 # Estado
 
+## 18/11/2026: revisión de bugs (API desplegada, 81c404f; la web no se desplegó)
+
+Link «en vivo» sólo para quien sigue aceptada; mazo con DNI aprobado; bloqueos en solicitudes y chat grupal;
+con entradas pagas no se mueve la fecha ni se endurece la cancelación (409 con_entradas: confirmar con
+Nahuel); cobros de MP sólo de la cuenta del lugar; clave de reembolso con el monto; invitación no pisa la
+cantidad; planes de suspendidas fuera de los links; «¿Repetimos?» con bloqueos y cancelados; apps: 409
+ya_verificado y sin `async let` en iOS. Falta desplegar la web (sólo cambió un texto del panel).
+Pendiente: la mayoría de edad del DNI depende de lo que manda la app (sin OCR).
+
 ## Cómo retomar (actualizado 31/10/2026, cierre del día)
 **Todo está en `main`** (sin ramas ni worktrees abiertos). Producción: API 52cca06 y web en el VPS
 (`/opt/caigo`). iOS en **TestFlight** (1.0.0 build 5; Nahuel la instaló y la vio bien). Android en
