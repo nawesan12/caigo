@@ -36,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -58,6 +59,7 @@ import ar.com.caigo.app.pantallas.planes.HojaConfirmar
 import ar.com.caigo.app.pantallas.planes.esDeLugar
 import ar.com.caigo.app.pantallas.planes.planesPolitica
 import ar.com.caigo.app.nucleo.Cupo
+import ar.com.caigo.app.nucleo.Moderacion
 import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.piezas.Avatar
 import ar.com.caigo.app.piezas.BotonIcono
@@ -91,12 +93,29 @@ import ar.com.caigo.app.nucleo.Perfil
 /** La API manda los mensajes de a 100 (chat del plan y privados). */
 internal const val MIOS_PAGINA = 100
 
-/** Un renglón del chat, sea del plan o privado. */
-internal data class MiosLinea(val id: Long, val texto: String, val mio: Boolean, val sistema: Boolean, val autor: String, val foto: String)
+/** Un renglón del chat, sea del plan o privado. `moderacion`, sólo en los propios: "revision" | "oculto". */
+internal data class MiosLinea(
+    val id: Long, val texto: String, val mio: Boolean, val sistema: Boolean, val autor: String, val foto: String,
+    val moderacion: String = "",
+)
 
-private fun Mensaje.linea(yo: String) = MiosLinea(id, texto, autor?.id == yo, autor == null, autor?.nombre.orEmpty(), autor?.foto.orEmpty())
+private fun Mensaje.linea(yo: String) =
+    MiosLinea(id, texto, autor?.id == yo, autor == null, autor?.nombre.orEmpty(), autor?.foto.orEmpty(), moderacion)
 
-private fun PrivadoMsj.linea(yo: String, nombre: String) = MiosLinea(id, texto, deId == yo, false, if (deId == yo) "" else nombre, "")
+private fun PrivadoMsj.linea(yo: String, nombre: String) = MiosLinea(id, texto, deId == yo, false, if (deId == yo) "" else nombre, "", moderacion)
+
+/**
+ * Evento `moderado`: uno ajeno que quedó oculto se saca; uno propio se reemplaza (muestra «En revisión» u
+ * «Oculto por las normas», o vuelve a la normalidad). Es `MiosHilo.moderar` en iOS.
+ */
+internal fun miosModerar(lineas: MutableList<MiosLinea>, l: MiosLinea) {
+    if (Moderacion.sacar(l.moderacion, l.mio)) {
+        lineas.removeAll { it.id == l.id }
+    } else {
+        val i = lineas.indexOfFirst { it.id == l.id }
+        if (i >= 0) lineas[i] = l
+    }
+}
 
 /** 08 · Chat del plan, en tiempo real por el WebSocket. */
 @Composable
@@ -140,6 +159,8 @@ fun Chat(ir: Ir, planId: String) {
                 if (lineas.none { it.id == m.id }) lineas.add(m.linea(yo))
                 val n = m.autor?.nombre
                 if (n != null && miosPrimer(n) == escribe?.first) escribe = null
+            } else if (ev.tipo == "moderado" && m != null && m.planId == planId) {
+                miosModerar(lineas, m.linea(yo))
             } else if (ev.tipo == "escribiendo" && ev.planId == planId && q != null && q.id != yo) {
                 escribe = miosPrimer(q.nombre) to System.currentTimeMillis()
             }
@@ -254,6 +275,7 @@ fun Chat(ir: Ir, planId: String) {
                     true
                 } catch (e: Throwable) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
+                    // 422 contenido_bloqueado: el aviso es el `detail` de la API y el texto queda en el campo.
                     avisos.error(mensajeDe(e)); false
                 }
             }
@@ -346,12 +368,15 @@ private fun MiosBurbuja(l: MiosLinea) {
         l.sistema -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Box(Modifier.gel(13.dp, Gels.limaChico).padding(horizontal = 14.dp, vertical = 8.dp)) { T(l.texto, 13f, 700, C.carbon, alinear = TextAlign.Center) }
         }
-        l.mio -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        l.mio -> Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Box(
                 Modifier.widthIn(max = 250.dp)
+                    // Oculto por las normas: nadie más lo ve, así que se atenúa.
+                    .alpha(if (l.moderacion == "oculto") 0.45f else 1f)
                     .background(C.violeta, RoundedCornerShape(18.dp, 18.dp, 6.dp, 18.dp))
                     .padding(horizontal = 14.dp, vertical = 10.dp),
             ) { T(l.texto, 15f, 400, C.blanco, alto = 1.4f) }
+            Moderacion.etiqueta(l.moderacion)?.let { T(it, 11f, 600, p.texto2, unRenglon = true) }
         }
         else -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Avatar(l.autor, l.foto, 28.dp, borde = 0.dp, tamTexto = 11f)
@@ -538,6 +563,8 @@ fun Privado(ir: Ir, conId: String, nombre: String) {
             if (ev.tipo == "privado" && m != null && (m.deId == conId || m.aId == conId)) {
                 if (lineas.none { it.id == m.id }) lineas.add(m.linea(yo, nombre.ifEmpty { persona?.nombre.orEmpty() }))
                 if (m.deId == conId) escribe = null
+            } else if (ev.tipo == "moderado" && m != null && (m.deId == conId || m.aId == conId)) {
+                miosModerar(lineas, m.linea(yo, nombre.ifEmpty { persona?.nombre.orEmpty() }))
             } else if (ev.tipo == "escribiendo" && ev.privadoDe == conId) {
                 // «escribiendo» en privados (contrato §10): llega con el id de quien escribe.
                 val n = nombre.ifEmpty { persona?.nombre.orEmpty() }
@@ -579,6 +606,7 @@ fun Privado(ir: Ir, conId: String, nombre: String) {
                     true
                 } catch (e: Throwable) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
+                    // 422 contenido_bloqueado: el aviso es el `detail` de la API y el texto queda en el campo.
                     avisos.error(mensajeDe(e)); false
                 }
             }

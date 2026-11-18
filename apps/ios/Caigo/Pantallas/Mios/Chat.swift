@@ -9,17 +9,20 @@ struct MiosLinea: Identifiable, Equatable {
     var sistema: Bool
     var autor: String
     var foto: String
+    /// Sólo en los propios: "revision" | "oculto" (moderación automática).
+    var moderacion = ""
 }
 
 private extension Mensaje {
     func linea(_ yo: String) -> MiosLinea {
-        MiosLinea(id: id, texto: texto, mio: autor?.id == yo, sistema: autor == nil, autor: autor?.nombre ?? "", foto: autor?.foto ?? "")
+        MiosLinea(id: id, texto: texto, mio: autor?.id == yo, sistema: autor == nil, autor: autor?.nombre ?? "", foto: autor?.foto ?? "",
+                   moderacion: moderacion)
     }
 }
 
 private extension Privado {
     func linea(_ yo: String, _ nombre: String) -> MiosLinea {
-        MiosLinea(id: id, texto: texto, mio: deId == yo, sistema: false, autor: deId == yo ? "" : nombre, foto: "")
+        MiosLinea(id: id, texto: texto, mio: deId == yo, sistema: false, autor: deId == yo ? "" : nombre, foto: "", moderacion: moderacion)
     }
 }
 
@@ -43,6 +46,16 @@ final class MiosHilo {
 
     func agregar(_ l: MiosLinea) {
         if !lineas.contains(where: { $0.id == l.id }) { lineas.append(l) }
+    }
+
+    /// Evento `moderado`: uno ajeno que quedó oculto se saca; uno propio se reemplaza (muestra
+    /// «En revisión» u «Oculto por las normas», o vuelve a la normalidad).
+    func moderar(_ l: MiosLinea) {
+        if Moderacion.sacar(l.moderacion, mio: l.mio) {
+            lineas.removeAll { $0.id == l.id }
+        } else if let i = lineas.firstIndex(where: { $0.id == l.id }) {
+            lineas[i] = l
+        }
     }
 
     /// La primera página (la más nueva).
@@ -211,6 +224,7 @@ struct Chat: View {
                         hilo.agregar(m.linea(c.usuarioId))
                         return true
                     } catch {
+                        // 422 contenido_bloqueado: el aviso es el `detail` de la API y el texto queda en el campo.
                         c.avisos.error(error)
                         return false
                     }
@@ -228,6 +242,8 @@ struct Chat: View {
                 if ev.tipo == "mensaje", let m = ev.mensaje, m.planId == id {
                     h.agregar(m.linea(yo))
                     if let n = m.autor?.nombre, miosPrimer(n) == h.escribe { h.escribe = nil }
+                } else if ev.tipo == "moderado", let m = ev.mensaje, m.planId == id {
+                    h.moderar(m.linea(yo))
                 } else if ev.tipo == "escribiendo", ev.planId == id, let q = ev.quien, q.id != yo {
                     h.marcarEscribe(miosPrimer(q.nombre))
                 }
@@ -350,12 +366,17 @@ private struct MiosBurbuja: View {
                 .gel(13, Gels.limaChico)
                 .frame(maxWidth: .infinity)
         } else if l.mio {
-            T(l.texto, 15, 400, C.blanco, alto: 1.4)
-                .padding(.horizontal, 14).padding(.vertical, 10)
-                .background(UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 6, topTrailingRadius: 18, style: .continuous)
-                    .fill(C.violeta))
-                .frame(maxWidth: 250, alignment: .trailing)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            VStack(alignment: .trailing, spacing: 3) {
+                T(l.texto, 15, 400, C.blanco, alto: 1.4)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 6, topTrailingRadius: 18, style: .continuous)
+                        .fill(C.violeta))
+                    // Oculto por las normas: nadie más lo ve, así que se atenúa.
+                    .opacity(l.moderacion == "oculto" ? 0.45 : 1)
+                if let e = Moderacion.etiqueta(l.moderacion) { T(e, 11, 600, p.texto2, unRenglon: true) }
+            }
+            .frame(maxWidth: 250, alignment: .trailing)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         } else {
             HStack(alignment: .bottom, spacing: 8) {
                 Avatar(nombre: l.autor, foto: l.foto, tam: 28, borde: 0, tamTexto: 11)
@@ -537,6 +558,8 @@ struct VistaPrivado: View {
                     if ev.tipo == "privado", let m = ev.privado, m.deId == id || m.aId == id {
                         h.agregar(m.linea(yo, nombreFijo))
                         if m.deId == id { h.escribe = nil }
+                    } else if ev.tipo == "moderado", let m = ev.privado, m.deId == id || m.aId == id {
+                        h.moderar(m.linea(yo, nombreFijo))
                     } else if ev.tipo == "escribiendo", ev.privadoDe == id {
                         let n = nombreFijo.isEmpty ? (persona?.nombre ?? "") : nombreFijo
                         h.marcarEscribe(n.isEmpty ? "Escribiendo" : miosPrimer(n))
@@ -606,6 +629,7 @@ struct VistaPrivado: View {
                         hilo.agregar(m.linea(c.usuarioId, quien))
                         return true
                     } catch {
+                        // 422 contenido_bloqueado: el aviso es el `detail` de la API y el texto queda en el campo.
                         c.avisos.error(error)
                         return false
                     }
