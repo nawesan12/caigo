@@ -22,6 +22,8 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | GET | `/v1/equipo/arrepentimientos` | equipo | dominio/confianza |
 | POST | `/v1/equipo/arrepentimientos/{id}` | equipo | dominio/confianza |
 | GET | `/v1/equipo/dni` | equipo | dominio/confianza |
+| GET | `/v1/equipo/moderacion` | equipo | dominio/confianza |
+| POST | `/v1/equipo/moderacion/{id}` | equipo | dominio/confianza |
 | GET | `/v1/equipo/pedidos-placas` | equipo | dominio/lugares |
 | POST | `/v1/equipo/pedidos-placas/{id}/atendido` | equipo | dominio/lugares |
 | POST | `/v1/equipo/dni/{id}` | equipo | dominio/confianza |
@@ -137,7 +139,8 @@ Primero un filtro propio (sin costo, al instante) y sólo lo dudoso va a Claude 
 **sólo el texto a revisar** (título y descripción de un plan, o un mensaje), sin historial, nombres ni datos de nadie.
 
 **Planes** (`POST /v1/planes`, `PATCH /v1/planes/{id}` si cambian título o descripción, y los semilla del equipo):
-esperan la decisión (hasta 5 s). Bloqueado: **422** `contenido_bloqueado` (`detail` dice por qué; el plan no se crea
+esperan la decisión (hasta 5 s). Los de los lugares (`/v1/lugares/{id}/planes`) pasan sólo por el filtro: son
+comercios aprobados y lo dudoso (promos, links, precios) es lo normal ahí. Bloqueado: **422** `contenido_bloqueado` (`detail` dice por qué; el plan no se crea
 o la edición no se guarda). Dudoso o sin respuesta de la IA: se publica y va a la cola del equipo. El plan trae
 `moderacion` **sólo para quien lo organiza**: `""` (o ausente) = normal, `"revision"` = el equipo lo está revisando
 (se ve igual para el resto), `"oculto"` = oculto por las normas (nadie más lo ve: ni en las listas, ni por link, ni
@@ -169,7 +172,10 @@ publicó, pero que el equipo tiene que ver (posible menor de edad): aprobar sól
 
 **Topes y costo:** tabla `ia_uso` (día, ruta, pedidos, tokens y costo en micro-dólares). Si el mes o el día pasan su
 tope, la IA se apaga sola y lo dudoso va directo a la cola del equipo. `caigoctl ia-uso` muestra el gasto del mes.
-Variables: `ANTHROPIC_API_KEY` (sin ella, sin IA), `CAIGO_IA_TOPE_MES_USD` (15), `CAIGO_IA_TOPE_DIA_USD` (1).
+Variables (api y worker): `ANTHROPIC_API_KEY` (sin ella, sin IA), `CAIGO_IA_TOPE_MES_USD` (15),
+`CAIGO_IA_TOPE_DIA_USD` (1). Migración 00026. Prueba del caché con la clave real, a mano:
+`CAIGO_IA_PRUEBA_REAL=1 ANTHROPIC_API_KEY=… go test ./internal/dominio/moderacion -run CacheReal -v`.
+Guarda: la cola se borra al año de resuelta (y al año de purgada la cuenta).
 
 ## Sin DNI no se usa Caigo (16/11, decisión de Nahuel)
 

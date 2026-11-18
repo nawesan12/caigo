@@ -1,5 +1,15 @@
 # Estado
 
+## 18/11/2026: moderación con IA (rama `moderacion-ia`, sin desplegar)
+
+Filtro propio (`internal/dominio/moderacion/filtro.go`) y, para lo dudoso, Claude Haiku 5.5 (`internal/plataforma/ia`,
+salida estructurada, caché del system, medición en `ia_uso` y topes). Planes esperan hasta 5 s; mensajes y privados
+salen y los revisa el worker. Cola en /equipo › Moderación; apps y web muestran «En revisión» / «Oculto por las
+normas»; privacidad y términos con Anthropic (vigencia 18/11). Contrato en `docs/api.md` › «Moderación automática».
+Para desplegar: pg_dump, `desplegar-api.sh --migrar` (00026), `ANTHROPIC_API_KEY` y topes en `/opt/caigo/api.conf`
+(api y worker, `--force-recreate`), límite de gasto en la consola de Anthropic, web, y las apps en la próxima tanda.
+Nahuel: modificar el registro de la AAIP (Anthropic como proveedor, transferencia a EE. UU.).
+
 ## 18/11/2026: revisión de bugs (API 81c404f y web fd602cd desplegadas)
 
 Link «en vivo» sólo para quien sigue aceptada; mazo con DNI aprobado; bloqueos en solicitudes y chat grupal;
