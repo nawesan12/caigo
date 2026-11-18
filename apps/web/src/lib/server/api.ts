@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import { CAIGO_API } from '$app/env/private';
 import { redirect, type RequestEvent } from '@sveltejs/kit';
 import { volverSeguro } from '#lib/hosts.ts';
@@ -50,12 +51,16 @@ type OpcionesSesion = Omit<Opciones, 'token'> & {
 
 const SESION_VENCIDA = 'Tu sesión venció. Volvé a ingresar.';
 
-/** La IP real de quien pide: Cloudflare la manda en Cf-Connecting-Ip y Caddy la deja pasar. */
+/**
+ * La IP real de quien pide: Cloudflare la manda en Cf-Connecting-Ip y Caddy la deja pasar. Sólo si
+ * es una IP: se reenvía a la API, que la usa para los topes y la anota en los registros.
+ */
 export function ipDe(event: RequestEvent): string | null {
-	const cf = event.request.headers.get('cf-connecting-ip');
-	if (cf) return cf;
+	const cf = event.request.headers.get('cf-connecting-ip')?.trim();
+	if (cf && isIP(cf)) return cf;
 	try {
-		return event.getClientAddress();
+		const c = event.getClientAddress();
+		return isIP(c) ? c : null;
 	} catch {
 		return null;
 	}
