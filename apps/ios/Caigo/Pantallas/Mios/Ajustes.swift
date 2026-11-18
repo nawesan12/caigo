@@ -23,7 +23,9 @@ struct AjustesDeAvisos: View {
                                 fila("Planes cerca", "Cuando alguien arma algo a menos de 5 km que arranca en un rato.",
                                      Binding(get: { a.planesCerca }, set: { guardar(\.planesCerca, $0) }), ultima: false)
                                 fila("De tu gente", "Cuando alguien de Mi gente publica un plan.",
-                                     Binding(get: { a.tuGente }, set: { guardar(\.tuGente, $0) }), ultima: true)
+                                     Binding(get: { a.tuGente }, set: { guardar(\.tuGente, $0) }), ultima: false)
+                                fila("Esta semana en tu ciudad", "Los lunes, lo mejor de la semana.",
+                                     Binding(get: { a.semana }, set: { guardar(\.semana, $0) }), ultima: true)
                             }
                             T("Los avisos de tus planes (solicitudes, chat, recordatorios y cambios) llegan siempre.",
                               12, 400, p.texto2, alto: 1.5)

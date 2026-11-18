@@ -235,6 +235,7 @@ final class Contenedor {
         case "explorar", "mapa": return .seccion(.explorar)
         case "mis": return .seccion(.mis)
         case "crear": return .ruta(.crear)
+        case "semana": return .ruta(.semana)
         case "verificar": return .ruta(.verificacion)
         case "mensajes":
             guard let id, id != "privados" else { return .ruta(.privados) }
@@ -256,6 +257,7 @@ final class Contenedor {
             case "chat": return .ruta(.chat(id))
             case "editar": return .ruta(.editarPlan(id))
             case "repetimos": return .ruta(.repetimos(id))
+            case "fotos": return .ruta(.fotosPlan(id))
             case "solicitudes": return .ruta(.solicitudes(id))
             default: return .web(url)
             }

@@ -24,6 +24,8 @@ public struct PersonaCorta: Codable, Hashable, Identifiable, Sendable {
     public var enMiGente = false
     public var organizador = false
     public var llego = false
+    /// Promedio de las caritas de sus planes (sólo de quien organiza, con 3 o más).
+    public var caritas: Caritas?
 
     public init(id: String = "", nombre: String = "", foto: String = "", edad: Int? = nil, verificada: Bool = false,
                 asistencia: Asist = Asist(), enMiGente: Bool = false, organizador: Bool = false, llego: Bool = false) {
@@ -36,6 +38,7 @@ public struct PersonaCorta: Codable, Hashable, Identifiable, Sendable {
         id = c.v("id", ""); nombre = c.v("nombre", ""); foto = c.v("foto", ""); edad = c.o("edad")
         verificada = c.v("verificada", false); asistencia = c.v("asistencia", Asist())
         enMiGente = c.v("enMiGente", false); organizador = c.v("organizador", false); llego = c.v("llego", false)
+        caritas = c.o("caritas")
     }
 }
 
@@ -107,6 +110,8 @@ public struct Plan: Codable, Hashable, Identifiable, Sendable {
     public var aceptaGrupos = true
     /// Sólo para quien organiza: "" normal, "revision" (lo mira el equipo) u "oculto" (nadie más lo ve).
     public var moderacion = ""
+    /// Lo de quien mira si está en el plan o en la lista de espera (día del plan, después).
+    public var mio: Mio?
 
     public init(id: String) { self.id = id }
 
@@ -126,7 +131,7 @@ public struct Plan: Codable, Hashable, Identifiable, Sendable {
         pendientes = c.v("pendientes", 0); lugar = c.o("lugar"); cobro = c.v("cobro", "gratis")
         precioCentavos = c.o("precioCentavos"); senaPct = c.o("senaPct"); cargoCentavos = c.v("cargoCentavos", 0)
         incluye = c.v("incluye", ""); cancelacion = c.v("cancelacion", ""); beneficio = c.v("beneficio", "")
-        aceptaGrupos = c.v("aceptaGrupos", true); moderacion = c.v("moderacion", "")
+        aceptaGrupos = c.v("aceptaGrupos", true); moderacion = c.v("moderacion", ""); mio = c.o("mio")
     }
 
     /// Plan de un lugar aliado con entrada o seña: el botón es "Entrada" en vez de "Sumarme".
@@ -211,7 +216,9 @@ public struct Link: Decodable, Sendable {
 
 public struct Nuevo: Decodable, Sendable {
     public var nuevo: Plan?
-    public init(from d: Decoder) throws { nuevo = try d.lector().o("nuevo") }
+    /// Con quiénes quedó mutuo al responder «¿Volverías?»: ya pueden hablar por privado.
+    public var mutuos: [PersonaCorta] = []
+    public init(from d: Decoder) throws { let c = try d.lector(); nuevo = c.o("nuevo"); mutuos = c.v("mutuos", []) }
 }
 
 public struct Opinion: Codable, Hashable, Sendable {
@@ -255,6 +262,8 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
     public var email = ""
     public var avisos = AjustesAvisos()
     public var contactoConfianza = ""
+    /// Contactos de confianza (hasta 3): «¿Todo bien?» el día del plan.
+    public var contactosConfianza: [Contacto] = []
     /// Sus próximos planes que quien mira puede ver (GET /v1/personas/{id}).
     public var proximos: [ProximoPlan] = []
     /// Lo que le falta al perfil propio (GET /v1/yo): edad, ciudad, zona, bio, fotos, intereses.
@@ -271,7 +280,7 @@ public struct Perfil: Decodable, Hashable, Identifiable, Sendable {
         miGente = c.v("miGente", 0); enMiGente = c.v("enMiGente", false); compartidos = c.v("compartidos", 0)
         equipo = c.v("equipo", false); telefono = c.v("telefono", ""); email = c.v("email", "")
         avisos = c.v("avisos", AjustesAvisos())
-        contactoConfianza = c.v("contactoConfianza", ""); proximos = c.v("proximos", []); faltan = c.v("faltan", [])
+        contactoConfianza = c.v("contactoConfianza", ""); contactosConfianza = c.v("contactosConfianza", []); proximos = c.v("proximos", []); faltan = c.v("faltan", [])
     }
 
     /// Le falta algo del alta (nombre, teléfono o selfie).
@@ -291,6 +300,7 @@ public struct CambiosPerfil: Encodable, Sendable {
     public var fotos: [String]?
     public var avisos: AjustesAvisos?
     public var contactoConfianza: String?
+    public var contactosConfianza: [Contacto]?
     public init() {}
 }
 
@@ -298,8 +308,14 @@ public struct CambiosPerfil: Encodable, Sendable {
 public struct AjustesAvisos: Codable, Hashable, Sendable {
     public var planesCerca = true
     public var tuGente = true
-    public init(planesCerca: Bool = true, tuGente: Bool = true) { self.planesCerca = planesCerca; self.tuGente = tuGente }
-    public init(from d: Decoder) throws { let c = try d.lector(); planesCerca = c.v("planesCerca", true); tuGente = c.v("tuGente", true) }
+    /// «Esta semana en tu ciudad», los lunes.
+    public var semana = true
+    public init(planesCerca: Bool = true, tuGente: Bool = true, semana: Bool = true) {
+        self.planesCerca = planesCerca; self.tuGente = tuGente; self.semana = semana
+    }
+    public init(from d: Decoder) throws {
+        let c = try d.lector(); planesCerca = c.v("planesCerca", true); tuGente = c.v("tuGente", true); semana = c.v("semana", true)
+    }
 }
 
 /// Lo que la persona confirma, sólo para un pedido (sumarse, comprar entrada, aceptar una
