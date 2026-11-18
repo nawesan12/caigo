@@ -71,7 +71,9 @@ type Perfil struct {
 	Email string `json:"email,omitempty"`
 	// Contacto de confianza (sólo en /v1/yo).
 	ContactoConfianza *string `json:"contactoConfianza,omitempty"`
-	Avisos            *Avisos `json:"avisos,omitempty"`
+	// Contactos de confianza (sólo en /v1/yo, hasta 3): para «¿Todo bien?» el día del plan.
+	ContactosConfianza []Contacto `json:"contactosConfianza,omitempty"`
+	Avisos             *Avisos    `json:"avisos,omitempty"`
 	// Próximos planes de la persona que quien mira puede ver (perfil ajeno).
 	Proximos []Proximo `json:"proximos,omitempty"`
 	// Sólo en /v1/yo: lo que le falta al perfil para estar completo (ver Faltantes). Vacío: completo.
@@ -135,7 +137,18 @@ const EdadMaxima = 120
 type Avisos struct {
 	PlanesCerca bool `json:"planesCerca"`
 	TuGente     bool `json:"tuGente"`
+	// «Esta semana en tu ciudad», los lunes.
+	Semana bool `json:"semana"`
 }
+
+// Contacto de confianza: nombre y teléfono o mail.
+type Contacto struct {
+	Nombre   string `json:"nombre"`
+	Contacto string `json:"contacto"`
+}
+
+// MaxContactos de confianza en el perfil.
+const MaxContactos = 3
 
 // Proximo es un plan que viene (mismo formato que en el mazo de Gente).
 type Proximo struct {
@@ -179,10 +192,16 @@ func (s *Servicio) Yo(ctx context.Context, usuarioID, clerkID string) (Perfil, e
 			return err
 		}
 		p.EnMiGente, p.Compartidos = false, 0
-		contacto, av := "", Avisos{PlanesCerca: true, TuGente: true}
-		err = tx.QueryRow(ctx, `SELECT coalesce(telefono, ''), avisos_cerca, avisos_gente, contacto_confianza, email
-			FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&p.Telefono, &av.PlanesCerca, &av.TuGente, &contacto, &p.Email)
+		contacto, av := "", Avisos{PlanesCerca: true, TuGente: true, Semana: true}
+		var contactos []byte
+		p.ContactosConfianza = []Contacto{}
+		err = tx.QueryRow(ctx, `SELECT coalesce(telefono, ''), avisos_cerca, avisos_gente, avisos_semana, contacto_confianza, email, contactos
+			FROM usuarios_privado WHERE usuario_id = $1`, usuarioID).Scan(&p.Telefono, &av.PlanesCerca, &av.TuGente, &av.Semana,
+			&contacto, &p.Email, &contactos)
 		p.Avisos, p.ContactoConfianza = &av, &contacto
+		if len(contactos) > 0 {
+			_ = json.Unmarshal(contactos, &p.ContactosConfianza)
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -265,8 +284,10 @@ type Cambios struct {
 	Intenciones *[]string `json:"intenciones"`
 	Prompts     *[]Prompt `json:"prompts"`
 	Fotos       *[]string `json:"fotos"`
-	// Contacto de confianza para compartir el plan en vivo.
+	// Contacto de confianza para compartir el plan en vivo (el primero de la lista; versiones viejas).
 	ContactoConfianza *string `json:"contactoConfianza"`
+	// Contactos de confianza (hasta 3): la lista entera reemplaza a la anterior.
+	ContactosConfianza *[]Contacto `json:"contactosConfianza"`
 	// Lo mandan las versiones viejas de las apps: se aceptan y se ignoran. Ni el género ni la
 	// diversidad se guardan: se confirman al sumarse a un plan "Solo mujeres" / "Solo diversidades"
 	// (AAIP 1.2).
@@ -275,6 +296,7 @@ type Cambios struct {
 	Avisos     *struct {
 		PlanesCerca *bool `json:"planesCerca"`
 		TuGente     *bool `json:"tuGente"`
+		Semana      *bool `json:"semana"`
 	} `json:"avisos"`
 	// De dónde llegó (p:<slug>, utm:instagram). Se guarda sólo la primera vez.
 	Origen *string `json:"origen"`
@@ -362,9 +384,41 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 			mal("origen", "Origen inválido.")
 		}
 	}
-	var cerca, gente *bool
+	var cerca, gente, semana *bool
 	if c.Avisos != nil {
-		cerca, gente = c.Avisos.PlanesCerca, c.Avisos.TuGente
+		cerca, gente, semana = c.Avisos.PlanesCerca, c.Avisos.TuGente, c.Avisos.Semana
+	}
+	// Contactos: la lista nueva manda (y el primero queda como contactoConfianza); sólo el viejo campo,
+	// pasa a ser la lista de uno.
+	var contactos []byte
+	if c.ContactosConfianza != nil {
+		lista := []Contacto{}
+		for _, x := range *c.ContactosConfianza {
+			x.Nombre, x.Contacto = strings.TrimSpace(x.Nombre), strings.TrimSpace(x.Contacto)
+			if x.Contacto == "" {
+				continue
+			}
+			if len([]rune(x.Nombre)) > 40 || len([]rune(x.Contacto)) > 80 || len([]rune(x.Contacto)) < 6 {
+				mal("contactosConfianza", "Revisá el nombre y el teléfono o mail.")
+				break
+			}
+			lista = append(lista, x)
+		}
+		if len(lista) > MaxContactos {
+			mal("contactosConfianza", fmt.Sprintf("Hasta %d contactos.", MaxContactos))
+		}
+		primero := ""
+		if len(lista) > 0 {
+			primero = lista[0].Contacto
+		}
+		c.ContactoConfianza = &primero
+		contactos, _ = json.Marshal(lista)
+	} else if c.ContactoConfianza != nil {
+		lista := []Contacto{}
+		if *c.ContactoConfianza != "" {
+			lista = append(lista, Contacto{Contacto: *c.ContactoConfianza})
+		}
+		contactos, _ = json.Marshal(lista)
 	}
 	if len(campos) > 0 {
 		return Perfil{}, problema.Invalido("Revisá tu perfil.", campos...)
@@ -411,16 +465,17 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 				return err
 			}
 		}
-		if nacimiento == nil && c.ContactoConfianza == nil && cerca == nil && gente == nil {
+		if nacimiento == nil && c.ContactoConfianza == nil && cerca == nil && gente == nil && semana == nil {
 			return nil
 		}
 		_, err := tx.Exec(ctx, `
-			INSERT INTO usuarios_privado (usuario_id, nacimiento, contacto_confianza, avisos_cerca, avisos_gente)
-			VALUES ($1, $2, coalesce($3, ''), coalesce($4, true), coalesce($5, true))
+			INSERT INTO usuarios_privado (usuario_id, nacimiento, contacto_confianza, avisos_cerca, avisos_gente, avisos_semana, contactos)
+			VALUES ($1, $2, coalesce($3, ''), coalesce($4, true), coalesce($5, true), coalesce($6, true), coalesce($7::jsonb, '[]'))
 			ON CONFLICT (usuario_id) DO UPDATE SET nacimiento = coalesce($2, usuarios_privado.nacimiento),
 				contacto_confianza = coalesce($3, usuarios_privado.contacto_confianza),
-				avisos_cerca = coalesce($4, usuarios_privado.avisos_cerca), avisos_gente = coalesce($5, usuarios_privado.avisos_gente)`,
-			usuarioID, nacimiento, c.ContactoConfianza, cerca, gente)
+				avisos_cerca = coalesce($4, usuarios_privado.avisos_cerca), avisos_gente = coalesce($5, usuarios_privado.avisos_gente),
+				avisos_semana = coalesce($6, usuarios_privado.avisos_semana), contactos = coalesce($7::jsonb, usuarios_privado.contactos)`,
+			usuarioID, nacimiento, c.ContactoConfianza, cerca, gente, semana, contactosArg(contactos))
 		return err
 	})
 	if err != nil {
@@ -615,4 +670,12 @@ func sacadas(antes, ahora []string) []string {
 		}
 	}
 	return out
+}
+
+// contactosArg: nil (no cambia) o el JSON de la lista nueva.
+func contactosArg(b []byte) any {
+	if b == nil {
+		return nil
+	}
+	return string(b)
 }

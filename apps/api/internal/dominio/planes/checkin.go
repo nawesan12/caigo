@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
 
@@ -114,6 +115,10 @@ func (s *Servicio) Checkin(ctx context.Context, usuarioID, planID string, l Lleg
 			WHERE plan_id::text = $1 AND usuario_id = $2`, planID, usuarioID, l.Metodo); err != nil {
 			return err
 		}
+		// Llegó: «¿Todo bien?» ya no tiene a quién avisar (y no se guarda más).
+		if _, err = tx.Exec(ctx, `DELETE FROM todo_bien WHERE plan_id::text = $1 AND usuario_id = $2`, planID, usuarioID); err != nil {
+			return err
+		}
 		if l.Metodo == "geo" {
 			return nil
 		}
@@ -134,10 +139,18 @@ type Opinion struct {
 
 // Repetimos guarda el "¿Repetimos?" después del plan: a quién volvería a ver (privado; los "sí"
 // pasan a mi gente). Si el organizador dice que repite, se publica el mismo plan una semana después.
-func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repetir bool, ops []Opinion) (*Plan, error) {
+//
+// carita (1 a 5, opcional) es lo que le pareció el plan: privada, alimenta el promedio de quien organiza
+// (Caritas). Devuelve, además, con quiénes quedó mutuo: los dos dijeron que sí y ya pueden hablar por
+// privado (se avisa a los dos con «¡Es mutuo con…!»).
+func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repetir bool, ops []Opinion, carita *int16) (*Plan, []Persona, error) {
 	if len(ops) > 60 {
-		return nil, problema.Invalido("Demasiadas personas.")
+		return nil, nil, problema.Invalido("Demasiadas personas.")
 	}
+	if carita != nil && (*carita < 1 || *carita > 5) {
+		return nil, nil, problema.Invalido("La carita va de 1 a 5.")
+	}
+	mutuos := []Persona{}
 	var nuevo, existente string
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var org, titulo, zona string
@@ -179,9 +192,31 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 				return err
 			}
 			if o.Si {
-				if _, err := tx.Exec(ctx, `INSERT INTO mi_gente (usuario_id, otro_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, usuarioID, o.UsuarioID); err != nil {
+				tag, err := tx.Exec(ctx, `INSERT INTO mi_gente (usuario_id, otro_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, usuarioID, o.UsuarioID)
+				if err != nil {
 					return err
 				}
+				// Si el otro ya me había sumado, es mutuo: se abre el privado y se avisa a los dos (una vez).
+				var m Persona
+				err = tx.QueryRow(ctx, `SELECT u.id, u.nombre, coalesce(u.fotos[1], '') FROM mi_gente g JOIN usuarios u ON u.id = g.usuario_id
+					WHERE g.usuario_id::text = $1 AND g.otro_id = $2`, o.UsuarioID, usuarioID).Scan(&m.ID, &m.Nombre, &m.Foto)
+				if err == nil {
+					mutuos = append(mutuos, m)
+					if tag.RowsAffected() > 0 {
+						if err := outbox.Publicar(ctx, tx, "interes.nuevo", map[string]any{"de": usuarioID, "a": o.UsuarioID,
+							"modo": "plan", "mutuo": true}); err != nil {
+							return err
+						}
+					}
+				} else if !errors.Is(err, pgx.ErrNoRows) {
+					return err
+				}
+			}
+		}
+		if carita != nil && org != usuarioID {
+			if _, err := tx.Exec(ctx, `UPDATE solicitudes SET carita = $3 WHERE plan_id::text = $1 AND usuario_id = $2`,
+				planID, usuarioID, *carita); err != nil {
+				return err
 			}
 		}
 		if org != usuarioID {
@@ -233,10 +268,10 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 	})
 	if err == nil && existente != "" {
 		p, err := s.Ver(ctx, usuarioID, existente, nil)
-		return &p, err
+		return &p, mutuos, err
 	}
 	if err != nil || nuevo == "" {
-		return nil, err
+		return nil, mutuos, err
 	}
 	err = s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `INSERT INTO solicitudes (plan_id, usuario_id, cantidad, estado, respondida_en)
@@ -250,10 +285,10 @@ func (s *Servicio) Repetimos(ctx context.Context, usuarioID, planID string, repe
 		return Publicado(ctx, tx, nuevo)
 	})
 	if err != nil {
-		return nil, err
+		return nil, mutuos, err
 	}
 	p, err := s.Ver(ctx, usuarioID, nuevo, nil)
-	return &p, err
+	return &p, mutuos, err
 }
 
 // LinkEnVivo arma el link para "Compartir mi plan en vivo" con un contacto de confianza: muestra

@@ -25,6 +25,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/fcm"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/ia"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/vetados"
@@ -62,7 +63,9 @@ func correr() error {
 		return err
 	}
 	slog.Info("worker andando", "apns", ap.Activo(), "fcm", fc != nil)
-	env := &avisos.Enviador{App: app, APNs: ap, FCM: fc}
+	// «¿Todo bien?»: el mail al contacto de confianza sale por el mismo SMTP; el link en vivo, con la firma de la API.
+	env := &avisos.Enviador{App: app, APNs: ap, FCM: fc, Correo: correo.Elegir(cfg.SMTP, cfg.SMTPUsuario, cfg.SMTPClave, cfg.CorreoDe),
+		Planes: &planes.Servicio{App: app, Firma: firma.Firmador{Clave: []byte(cfg.Secreto)}, Sitio: cfg.Sitio}}
 	manejadores := env.Manejadores()
 	// Pagos de entradas: se concilian con el token del lugar.
 	if cfg.MPAppID != "" && cfg.ClaveCifrado != "" {
@@ -176,6 +179,7 @@ func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string, veto *ve
 			}
 		}
 		barrerFotos(ctx, app, carpetaArchivos)
+		fotosDePlanes(ctx, app, carpetaArchivos)
 		fotosDNI(ctx, app, carpetaArchivos)
 		purgar(ctx, app, carpetaArchivos, veto)
 		select {
@@ -231,5 +235,23 @@ func purgar(ctx context.Context, app *db.Pool, carpeta string, veto *vetados.Cla
 	}
 	if n > 0 {
 		slog.Info("cuentas purgadas", "cantidad", n)
+	}
+}
+
+// fotosDePlanes borra las fotos de los planes que terminaron hace más de 6 meses (y las subidas
+// cortadas). Sin la carpeta montada no borra: el evento no podría sacar el archivo del disco.
+func fotosDePlanes(ctx context.Context, app *db.Pool, carpeta string) {
+	if st, err := os.Stat(carpeta); err != nil || !st.IsDir() {
+		return
+	}
+	err := app.EnSistema(ctx, func(tx pgx.Tx) error {
+		n, err := planes.PurgarFotos(ctx, tx)
+		if n > 0 {
+			slog.Info("fotos de planes borradas", "cantidad", n)
+		}
+		return err
+	})
+	if err != nil && ctx.Err() == nil {
+		slog.Warn("fotos de planes", "error", err)
 	}
 }

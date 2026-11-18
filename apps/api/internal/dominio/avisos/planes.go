@@ -146,6 +146,12 @@ func (e *Enviador) solicitudFuera(sacada bool) outbox.Manejador {
 			a = Aviso{Titulo: "Ya no estás en " + p.Titulo, Cuerpo: p.OrgNombre + " te sacó del plan.",
 				Datos: map[string]string{"pantalla": "ahora"}}
 		}
+		if sacada {
+			// Sacar a alguien también libera un lugar para la lista de espera.
+			if err := e.liberar(ctx, d.PlanID); err != nil {
+				return err
+			}
+		}
 		return e.Mandar(ctx, d.UsuarioID, a)
 	}
 }
@@ -158,6 +164,10 @@ func (e *Enviador) planRecordatorio(ctx context.Context, ev outbox.Evento) error
 	p, err := e.plan(ctx, d.PlanID)
 	if err != nil {
 		return ignorarSiNoEsta(err)
+	}
+	if d.Momento == "vispera" {
+		return e.Mandar(ctx, d.UsuarioID, Aviso{Titulo: cuando(p.EmpiezaEn, e.ahora()) + ": " + p.Titulo + ". ¿Seguís yendo?",
+			Cuerpo: "Confirmá o liberá tu lugar para otro.", Datos: datosPlan(d.PlanID, "vispera"), Colapso: "rec-" + d.PlanID})
 	}
 	if d.Momento == "checkin" {
 		return e.Mandar(ctx, d.UsuarioID, Aviso{Titulo: "¿Llegaste? Hacé check-in", Cuerpo: p.Titulo + " · " + p.Lugar,
@@ -178,6 +188,68 @@ func (e *Enviador) planRepetimos(ctx context.Context, ev outbox.Evento) error {
 	}
 	return e.Mandar(ctx, d.UsuarioID, Aviso{Titulo: "¿Repetimos?", Cuerpo: "¿Cómo estuvo " + p.Titulo + "? Contanos y armamos el próximo.",
 		Datos: datosPlan(d.PlanID, "repetimos"), Colapso: "rep-" + d.PlanID})
+}
+
+// planComoEstuvo: a quienes fueron, al otro día (o unas horas después): caritas, fotos y su gente.
+func (e *Enviador) planComoEstuvo(ctx context.Context, ev outbox.Evento) error {
+	var d struct{ PlanID, UsuarioID string }
+	if err := json.Unmarshal(ev.Datos, &d); err != nil {
+		return nil
+	}
+	p, err := e.plan(ctx, d.PlanID)
+	if err != nil {
+		return ignorarSiNoEsta(err)
+	}
+	return e.Mandar(ctx, d.UsuarioID, Aviso{Titulo: "¿Cómo estuvo " + p.Titulo + "?",
+		Cuerpo: "Contanos con una carita y mirá las fotos.", Datos: datosPlan(d.PlanID, "repetimos"), Colapso: "rep-" + d.PlanID})
+}
+
+// lugarLibre: al primero de la lista de espera, que se liberó un lugar (tiene 15 minutos).
+func (e *Enviador) lugarLibre(ctx context.Context, ev outbox.Evento) error {
+	var d struct{ PlanID, UsuarioID string }
+	if err := json.Unmarshal(ev.Datos, &d); err != nil {
+		return nil
+	}
+	var titulo string
+	var sigue bool
+	if err := e.leer(ctx, `SELECT p.titulo, EXISTS (SELECT 1 FROM espera x WHERE x.plan_id = p.id AND x.usuario_id::text = $2
+			AND x.estado = 'avisado' AND x.vence_en > now())
+		FROM planes p WHERE p.id::text = $1 AND p.cancelado_en IS NULL`, []any{d.PlanID, d.UsuarioID}, &titulo, &sigue); err != nil {
+		return ignorarSiNoEsta(err)
+	}
+	if !sigue {
+		return nil // ya entró, se bajó de la lista o se le venció
+	}
+	return e.Mandar(ctx, d.UsuarioID, Aviso{Titulo: "Se liberó un lugar en " + titulo,
+		Cuerpo: "Tenés 15 min para entrar. Tocá y caé.", Datos: datosPlan(d.PlanID, "detalle"), Colapso: "espera-" + d.PlanID})
+}
+
+// liberarYAvisar: alguien que estaba adentro ya no está; si había lista de espera, el lugar se le
+// ofrece al siguiente (planes.LiberarLugar encola espera.lugar en la misma transacción).
+func (e *Enviador) liberar(ctx context.Context, planID string) error {
+	return e.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		_, err := planes.LiberarLugar(ctx, tx, planID, e.ahora())
+		return err
+	})
+}
+
+// semanaAviso: «Esta semana en <ciudad>», los lunes.
+func (e *Enviador) semanaAviso(ctx context.Context, ev outbox.Evento) error {
+	var d struct {
+		UsuarioID, Ciudad string
+		Total, Aliados    int
+	}
+	if err := json.Unmarshal(ev.Datos, &d); err != nil || d.UsuarioID == "" {
+		return nil
+	}
+	cuerpo := fmt.Sprintf("%d planes hasta el domingo.", d.Total)
+	if d.Aliados == 1 {
+		cuerpo = fmt.Sprintf("%d planes, 1 en un lugar aliado.", d.Total)
+	} else if d.Aliados > 1 {
+		cuerpo = fmt.Sprintf("%d planes, %d en lugares aliados.", d.Total, d.Aliados)
+	}
+	return e.Mandar(ctx, d.UsuarioID, Aviso{Titulo: "Esta semana en " + d.Ciudad, Cuerpo: cuerpo + " Mirá cuáles.",
+		Datos: map[string]string{"pantalla": "semana"}, Colapso: "semana"})
 }
 
 // planPublicado reparte un plan nuevo: a quienes tienen al organizador en su gente
@@ -329,7 +401,39 @@ func (p *Programados) Pasada(ctx context.Context) (int, error) {
 			ON CONFLICT DO NOTHING RETURNING usuario_id, plan_id)
 		INSERT INTO outbox (tipo, datos) SELECT 'plan.repetimos',
 			jsonb_build_object('planId', plan_id, 'usuarioId', usuario_id) FROM n`,
+		// «¿Seguís yendo?»: la víspera desde las 19 (Argentina), a los aceptados que no confirmaron y
+		// estaban adentro desde antes.
+		`WITH n AS (
+			INSERT INTO avisos_enviados (usuario_id, plan_id, tipo, enviado_en)
+			SELECT s.usuario_id, p.id, 'vispera', $1 FROM planes p
+			JOIN solicitudes s ON s.plan_id = p.id AND s.estado = 'aceptada' AND s.usuario_id <> p.organizador_id
+				AND s.confirmada_en IS NULL
+			WHERE p.cancelado_en IS NULL
+				AND (p.empieza_en AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+					= ($1::timestamptz AT TIME ZONE 'America/Argentina/Buenos_Aires')::date + 1
+				AND extract(hour FROM $1::timestamptz AT TIME ZONE 'America/Argentina/Buenos_Aires') >= 19
+				AND coalesce(s.respondida_en, s.creada_en) < $1::timestamptz - interval '1 hour'
+			ON CONFLICT DO NOTHING RETURNING usuario_id, plan_id)
+		INSERT INTO outbox (tipo, datos) SELECT 'plan.recordatorio',
+			jsonb_build_object('planId', plan_id, 'usuarioId', usuario_id, 'momento', 'vispera') FROM n`,
+		// «¿Cómo estuvo?»: a quienes fueron (no al organizador, que tiene «¿Repetimos?»), desde 1 h después
+		// del final, de 10 a 22 (Argentina): un plan de la noche les llega a la mañana. Hasta 2 días.
+		`WITH n AS (
+			INSERT INTO avisos_enviados (usuario_id, plan_id, tipo, enviado_en)
+			SELECT s.usuario_id, p.id, 'como_estuvo', $1 FROM planes p
+			JOIN solicitudes s ON s.plan_id = p.id AND s.estado = 'aceptada' AND s.usuario_id <> p.organizador_id
+			WHERE p.cancelado_en IS NULL
+				AND p.empieza_en + make_interval(mins => p.duracion_min) + interval '1 hour' <= $1
+				AND p.empieza_en + make_interval(mins => p.duracion_min) + interval '48 hours' > $1
+				AND extract(hour FROM $1::timestamptz AT TIME ZONE 'America/Argentina/Buenos_Aires') BETWEEN 10 AND 21
+				AND (s.checkin_en IS NOT NULL
+					OR NOT EXISTS (SELECT 1 FROM solicitudes c WHERE c.plan_id = p.id AND c.checkin_en IS NOT NULL))
+			ON CONFLICT DO NOTHING RETURNING usuario_id, plan_id)
+		INSERT INTO outbox (tipo, datos) SELECT 'plan.como_estuvo',
+			jsonb_build_object('planId', plan_id, 'usuarioId', usuario_id) FROM n`,
+		planes.ProgramadoSemana,
 	}
+	consultas = append(consultas, planes.ProgramadosDia...)
 	total := 0
 	var errs []error
 	for _, q := range consultas {
@@ -340,6 +444,12 @@ func (p *Programados) Pasada(ctx context.Context) (int, error) {
 		})
 		errs = append(errs, err)
 	}
+	// La lista de espera: los avisos que vencieron pasan el lugar al siguiente.
+	errs = append(errs, p.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		n, err := planes.VencerEspera(ctx, tx, ahora)
+		total += n
+		return err
+	}))
 	errs = append(errs, p.App.EnSistema(ctx, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `DELETE FROM ubicaciones WHERE actualizada_en < $1::timestamptz - interval '24 hours'`, ahora)
 		return err

@@ -189,17 +189,19 @@ func Rutas(mux *http.ServeMux, s *Servicio, con func(http.Handler) http.Handler,
 		var in struct {
 			Repetir  bool      `json:"repetir"`
 			Volveria []Opinion `json:"volveria"`
+			Carita   *int16    `json:"carita"`
 		}
 		if !respuesta.Leer(w, r, &in) {
 			return
 		}
-		nuevo, err := s.Repetimos(r.Context(), p.ID, r.PathValue("id"), in.Repetir, in.Volveria)
+		nuevo, mutuos, err := s.Repetimos(r.Context(), p.ID, r.PathValue("id"), in.Repetir, in.Volveria, in.Carita)
 		if err != nil {
 			mal(w, err)
 			return
 		}
-		respuesta.JSON(w, http.StatusOK, map[string]any{"nuevo": nuevo})
+		respuesta.JSON(w, http.StatusOK, map[string]any{"nuevo": nuevo, "mutuos": mutuos})
 	}))
+	rutasDia(mux, s, h, mal)
 	mux.Handle("POST /v1/planes/{id}/en-vivo", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) {
 		link, err := s.LinkEnVivo(r.Context(), p.ID, r.PathValue("id"))
 		if err != nil {

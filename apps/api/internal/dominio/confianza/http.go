@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/limite"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
@@ -52,6 +53,30 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 			}
 			defer f.Close()
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			w.Header().Set("Content-Type", a.Contenido)
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			_, _ = io.Copy(w, f)
+			return
+		}
+		// Fotos del plan: con el link firmado para una persona (vence a la hora), y sólo si esa persona
+		// la sigue pudiendo ver (fue, la foto no está oculta y no hay bloqueo). Sin caché compartida.
+		if a.Tipo == "plan" {
+			quien := planes.FotoFirmada(s.FotosPlan, a.ID, r.URL.Query().Get("t"), s.ahora())
+			ve := false
+			if quien != "" {
+				ve, err = s.PuedeVerFotoPlan(r.Context(), quien, a.ID)
+			}
+			if err != nil || !ve {
+				problema.Escribir(w, problema.NoEncontrado("Ese archivo no existe."))
+				return
+			}
+			f, err := s.Disco.Abrir(a.Ruta)
+			if err != nil {
+				problema.Escribir(w, problema.NoEncontrado("Ese archivo no existe."))
+				return
+			}
+			defer f.Close()
+			w.Header().Set("Cache-Control", "private, max-age=3600")
 			w.Header().Set("Content-Type", a.Contenido)
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			_, _ = io.Copy(w, f)
