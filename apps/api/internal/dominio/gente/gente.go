@@ -448,19 +448,33 @@ func (s *Servicio) ResponderInvitacion(ctx context.Context, usuarioID, planID st
 		if !aceptar || de != org || cobro != "gratis" {
 			return nil
 		}
-		if previo != nil && *previo == "rechazada" {
+		switch {
+		case previo != nil && *previo == "rechazada":
 			return problema.Conflicto("rechazada", "Esta vez el organizador no te sumó.")
+		case previo != nil && *previo == "aceptada":
+			// Ya estaba (quizás con «somos 3»): no se toca la cantidad.
+			adentro = true
+			return nil
+		}
+		// Si había pedido sumarse en grupo y estaba pendiente, entra el grupo entero (con su cupo).
+		cantidad := 1
+		if previo != nil && *previo == "pendiente" {
+			if err := tx.QueryRow(ctx, `SELECT cantidad FROM solicitudes WHERE plan_id::text = $1 AND usuario_id = $2`,
+				planID, usuarioID).Scan(&cantidad); err != nil {
+				return err
+			}
 		}
 		var sumados int
 		if err := tx.QueryRow(ctx, `SELECT coalesce(sum(cantidad), 0) FROM solicitudes WHERE plan_id::text = $1 AND estado = 'aceptada'`, planID).Scan(&sumados); err != nil {
 			return err
 		}
-		if sumados >= int(total) {
+		if sumados+cantidad > int(total) {
 			return problema.Conflicto("completo", "El plan se llenó antes de que respondieras.")
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO solicitudes (plan_id, usuario_id, cantidad, estado, respondida_en)
-			VALUES ($1, $2, 1, 'aceptada', now()) ON CONFLICT (plan_id, usuario_id) DO UPDATE SET estado = 'aceptada', cantidad = 1, respondida_en = now()`,
-			planID, usuarioID); err != nil {
+			VALUES ($1, $2, $3, 'aceptada', now()) ON CONFLICT (plan_id, usuario_id) DO UPDATE SET estado = 'aceptada',
+				cantidad = excluded.cantidad, respondida_en = now()`,
+			planID, usuarioID, cantidad); err != nil {
 			return err
 		}
 		adentro = true

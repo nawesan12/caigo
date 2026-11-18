@@ -183,3 +183,20 @@ func TestCobroDeOtraCuentaNoAcredita(t *testing.T) {
 		t.Fatalf("con la cuenta del lugar: %q", estado)
 	}
 }
+
+// Quien ya estaba con «somos 3» y después acepta una invitación del organizador sigue siendo 3.
+func TestInvitacionNoPisaLaCantidad(t *testing.T) {
+	e := nuevoEntorno(t)
+	nico, fede := e.persona("Nico"), e.persona("Fede")
+	e.verificar(fede, true)
+	p := e.planNuevo(nico, map[string]any{"faltan": 5})
+	e.pedir(nico, "POST", "/v1/planes/"+p.ID+"/invitar", map[string]string{"usuarioId": fede.id}, http.StatusNoContent, nil)
+	e.pedir(fede, "POST", "/v1/planes/"+p.ID+"/sumarme", map[string]any{"cantidad": 3}, http.StatusOK, nil)
+	var res struct{ Adentro bool }
+	e.pedir(fede, "POST", "/v1/invitaciones/"+p.ID, map[string]bool{"aceptar": true}, http.StatusOK, &res)
+	var cantidad int
+	e.valor(`SELECT cantidad FROM solicitudes WHERE plan_id = $1 AND usuario_id = $2`, &cantidad, p.ID, fede.id)
+	if cantidad != 3 || !res.Adentro {
+		t.Fatalf("cantidad: %d %+v", cantidad, res)
+	}
+}
