@@ -12,11 +12,13 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async (event) => {
 	const id = uuid(event.params.id);
 	try {
-		const r = await conSesion<{ mensajes: Mensaje[] }>(event, 'GET', `/v1/planes/${id}/mensajes`);
+		const r = await conSesion<{ mensajes: Mensaje[] }>(event, 'GET', `/v1/planes/${id}/mensajes`, {
+			json: true
+		});
 		return json(r, { headers: { 'cache-control': 'no-store' } });
 	} catch (e) {
 		if (!(e instanceof ErrorApi)) throw e;
-		return json({ error: mensajeDe(e) }, { status: e.estado });
+		return json({ error: mensajeDe(e), code: e.codigo }, { status: e.estado });
 	}
 };
 
@@ -27,7 +29,8 @@ export const POST: RequestHandler = async (event) => {
 	if (!texto?.trim()) return json({ error: 'Escribí algo.' }, { status: 400 });
 	try {
 		const m = await conSesion<Mensaje>(event, 'POST', `/v1/planes/${id}/mensajes`, {
-			cuerpo: { texto: texto.trim().slice(0, 1000) }
+			cuerpo: { texto: texto.trim().slice(0, 1000) },
+			json: true
 		});
 		return json(m, { status: 201 });
 	} catch (e) {

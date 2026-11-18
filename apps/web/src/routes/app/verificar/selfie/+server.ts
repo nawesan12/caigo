@@ -21,10 +21,14 @@ export const POST: RequestHandler = async (event) => {
 	try {
 		const a = await conSesion<{ id: string }>(event, 'POST', '/v1/archivos?tipo=selfie', {
 			crudo: cuerpo,
-			tipo
+			tipo,
+			json: true
 		});
 		if (event.url.searchParams.get('para') !== 'dni')
-			await conSesion(event, 'POST', '/v1/verificacion/selfie', { cuerpo: { archivoId: a.id } });
+			await conSesion(event, 'POST', '/v1/verificacion/selfie', {
+				cuerpo: { archivoId: a.id },
+				json: true
+			});
 		event.cookies.set(COOKIE_SELFIE, a.id, {
 			path: '/app/verificar',
 			httpOnly: true,

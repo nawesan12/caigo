@@ -69,7 +69,8 @@
 		try {
 			const r = await fetch(`/app/plan/${p.id}/chat/mensajes`);
 			if (!r.ok) return;
-			const j = (await r.json()) as { mensajes: Mensaje[] };
+			const j = (await r.json()) as { mensajes?: Mensaje[] };
+			if (!Array.isArray(j.mensajes)) return;
 			const ultimo = mensajes.at(-1)?.id ?? 0;
 			if ((j.mensajes.at(-1)?.id ?? 0) !== ultimo) {
 				const abajo = lista ? lista.scrollHeight - lista.scrollTop - lista.clientHeight < 80 : true;
@@ -98,6 +99,10 @@
 				return;
 			}
 			if (!r.ok) return avisar(j.error || 'No se pudo mandar.');
+			// Sólo con un mensaje de verdad se borra lo escrito: si llegó otra cosa (una página en vez
+			// del JSON), el texto queda para reintentar.
+			if (typeof j.id !== 'number' || typeof j.texto !== 'string')
+				return avisar('No se pudo mandar.');
 			texto = '';
 			mensajes = [...mensajes.filter((m) => m.id !== j.id), j];
 			bajar();

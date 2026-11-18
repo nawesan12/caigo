@@ -66,7 +66,8 @@
 		try {
 			const r = await fetch(`/app/mensajes/${p.id}/privados`);
 			if (!r.ok) return;
-			const j = (await r.json()) as { privados: Privado[] };
+			const j = (await r.json()) as { privados?: Privado[] };
+			if (!Array.isArray(j.privados)) return;
 			if ((j.privados.at(-1)?.id ?? 0) === (privados.at(-1)?.id ?? 0)) return;
 			const abajo = lista ? lista.scrollHeight - lista.scrollTop - lista.clientHeight < 80 : true;
 			const desde = j.privados[0]?.id ?? Infinity;
@@ -85,7 +86,8 @@
 		try {
 			const r = await fetch(`/app/mensajes/${p.id}/privados?antes=${primero}`);
 			const j = await r.json().catch(() => ({}));
-			if (!r.ok) return avisar(j.error || 'No pudimos traer los anteriores.');
+			if (!r.ok || !Array.isArray(j.privados))
+				return avisar(j.error || 'No pudimos traer los anteriores.');
 			const viejos = (j.privados as Privado[]).filter((m) => !privados.some((x) => x.id === m.id));
 			hayMas = j.privados.length >= 100;
 			const alto = lista?.scrollHeight ?? 0;

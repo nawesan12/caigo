@@ -25,7 +25,8 @@ export const POST: RequestHandler = async (event) => {
 				detalle: String(b.detalle ?? '')
 					.trim()
 					.slice(0, 1000)
-			}
+			},
+			json: true
 		});
 		return json({ ok: true });
 	} catch (e) {

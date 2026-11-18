@@ -17,7 +17,8 @@ export const POST: RequestHandler = async (event) => {
 	try {
 		const a = await conSesion<{ id: string }>(event, 'POST', '/v1/archivos?tipo=dni', {
 			crudo: cuerpo,
-			tipo
+			tipo,
+			json: true
 		});
 		return json({ id: a.id });
 	} catch (e) {

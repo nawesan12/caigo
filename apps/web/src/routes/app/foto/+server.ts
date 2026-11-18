@@ -24,7 +24,8 @@ export const POST: RequestHandler = async (event) => {
 			'/v1/archivos?tipo=foto',
 			{
 				crudo: cuerpo,
-				tipo
+				tipo,
+				json: true
 			}
 		);
 		return json(a);
