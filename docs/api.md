@@ -131,6 +131,46 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | PATCH | `/v1/yo` | sesión | dominio/personas |
 | PUT | `/v1/yo/ubicacion` | sesión | dominio/personas |
 
+## Moderación automática (18/11, rama `moderacion-ia`, sin desplegar)
+
+Primero un filtro propio (sin costo, al instante) y sólo lo dudoso va a Claude Haiku 5.5 (Anthropic). A la IA va
+**sólo el texto a revisar** (título y descripción de un plan, o un mensaje), sin historial, nombres ni datos de nadie.
+
+**Planes** (`POST /v1/planes`, `PATCH /v1/planes/{id}` si cambian título o descripción, y los semilla del equipo):
+esperan la decisión (hasta 5 s). Bloqueado: **422** `contenido_bloqueado` (`detail` dice por qué; el plan no se crea
+o la edición no se guarda). Dudoso o sin respuesta de la IA: se publica y va a la cola del equipo. El plan trae
+`moderacion` **sólo para quien lo organiza**: `""` (o ausente) = normal, `"revision"` = el equipo lo está revisando
+(se ve igual para el resto), `"oculto"` = oculto por las normas (nadie más lo ve: ni en las listas, ni por link, ni
+en la página pública; el organizador lo sigue viendo en «Mis planes»).
+
+**Mensajes del chat del plan y privados** (`POST /v1/planes/{id}/mensajes`, `POST /v1/privados/{id}`): el filtro
+decide en el momento. Bloqueado: **422** `contenido_bloqueado` y el mensaje no sale. Dudoso: sale enseguida y el
+worker lo revisa con la IA; si da «bloquear» se oculta (nadie más lo ve) y al autor le llega un push; si da
+«revisar», va a la cola del equipo. `Mensaje` y `Privado` traen `moderacion` **sólo en los del autor**: `"revision"` |
+`"oculto"` (ausente = normal). Los ocultos ajenos no vienen en `GET` (ni en la última de `GET /v1/privados`).
+
+**Tiempo real:** evento nuevo `{"tipo":"moderado","mensaje":{…}}` o `{"tipo":"moderado","privado":{…}}` cuando cambia
+el estado de un mensaje. Si `moderacion == "oculto"` y el autor no soy yo: sacarlo de la lista. Si es mío:
+reemplazarlo (muestra «En revisión» u «Oculto por las normas»; `""` lo vuelve a la normalidad).
+
+**Push al autor** (evento `moderacion.oculto`): «Ocultamos un mensaje tuyo» / «Ocultamos tu plan», con `plan` o
+`privado` en los datos para abrir la pantalla.
+
+**Equipo** (`/equipo`, pestaña «Moderación»): `GET /v1/equipo/moderacion` → `{"moderaciones":[{id, tipo
+(plan|mensaje|privado), objetoId?, planId?, planTitulo?, autor:{id,nombre}, autorReportes, texto, origen
+(filtro|ia|sin_ia), categoria, motivo, estado (revision|oculto|bloqueado), creadaEn}]}`, la más vieja primero.
+`POST /v1/equipo/moderacion/{id}` con `{"accion":"aprobar"}` (queda normal), `{"accion":"ocultar"}` (se oculta y
+avisa al autor) o `{"accion":"suspender","motivo":"…"}` (se oculta y la cuenta se suspende y veta, como en
+`/v1/equipo/usuarios/{id}/suspender`). Ya resuelta: 404. `estado: "bloqueado"` es algo que el filtro frenó y no se
+publicó, pero que el equipo tiene que ver (posible menor de edad): aprobar sólo lo cierra.
+
+**Categorías:** `insultos`, `odio`, `acoso`, `sexual`, `menores`, `violencia`, `drogas`, `estafa`, `spam`, `contacto`
+(sacar la charla de la app: teléfono, mail, redes), `datos_personales`, `otro`.
+
+**Topes y costo:** tabla `ia_uso` (día, ruta, pedidos, tokens y costo en micro-dólares). Si el mes o el día pasan su
+tope, la IA se apaga sola y lo dudoso va directo a la cola del equipo. `caigoctl ia-uso` muestra el gasto del mes.
+Variables: `ANTHROPIC_API_KEY` (sin ella, sin IA), `CAIGO_IA_TOPE_MES_USD` (15), `CAIGO_IA_TOPE_DIA_USD` (1).
+
 ## Sin DNI no se usa Caigo (16/11, decisión de Nahuel)
 
 **El DNI se aprueba al subirlo.** `POST /v1/verificacion/dni` (mismo cuerpo: `frenteId`, `dorsoId`, `selfieId`,
