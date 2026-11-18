@@ -32,6 +32,8 @@ struct Ahora: View {
     @State private var error: String?
     @State private var cargando = true
     @State private var invitaciones: Invitaciones?
+    /// «Esta semana en <ciudad>»: de lunes a miércoles, con 5 planes o más.
+    @State private var semana: Semana?
     @State private var vuelta = 0
 
     private struct Clave: Equatable {
@@ -52,6 +54,10 @@ struct Ahora: View {
             await ubicar()
         }
         .task { invitaciones = try? await c.api.invitaciones() }
+        .task {
+            guard Dia.semanaVisible(), let s = try? await c.api.semana(), s.total >= 5 else { return }
+            semana = s
+        }
         .task(id: Clave(lat: punto?.0, lng: punto?.1, sinUbicacion: sinUbicacion, categoria: categoria, chicas: chicas,
                         q: mapa ? Api.busqueda(busqueda) : nil, vuelta: vuelta)) {
             await cargar()
@@ -175,6 +181,7 @@ struct Ahora: View {
                     if let inv = invitaciones, !inv.invitaciones.isEmpty {
                         BannerInvitaciones(inv: inv)
                     }
+                    if let semana { TarjetaSemana(s: semana) }
                     HStack {
                         VStack(alignment: .leading, spacing: 0) {
                             T("Próximas 3 horas", 15, 700, p.texto, unRenglon: true)

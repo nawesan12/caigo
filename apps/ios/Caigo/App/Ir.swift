@@ -66,6 +66,10 @@ enum Ruta: Hashable {
     case bloqueos
     /// Ajustes de avisos push (planes cerca, tu gente).
     case ajustesAvisos
+    /// «Esta semana en <ciudad>» (el ritual de los lunes).
+    case semana
+    /// Fotos del plan (sólo para quienes fueron).
+    case fotosPlan(String)
 }
 
 /// Las acciones de navegación que usan las pantallas. Ninguna pantalla toca la pila: así cada una se
@@ -169,4 +173,6 @@ final class Ir {
     func editarPlan(_ id: String) { ir(.editarPlan(id)) }
     func bloqueos() { ir(.bloqueos) }
     func ajustesAvisos() { ir(.ajustesAvisos) }
+    func semana() { ir(.semana) }
+    func fotosPlan(_ planId: String) { ir(.fotosPlan(planId)) }
 }

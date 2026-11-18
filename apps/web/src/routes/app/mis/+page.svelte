@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
 	import { PUBLIC_SITIO } from '$app/env/public';
 	import Icono from '#lib/ui/Icono.svelte';
@@ -110,9 +111,20 @@
 					</a>
 					{#if data.cual === 'historial'}
 						<div class="acciones">
-							<a href="/app/plan/{p.id}/repetimos"
-								>{p.miEstado === 'organizador' ? '¿Repetimos?' : '¿Volverías?'}</a
-							>
+							{#if p.miEstado === 'organizador' && !p.cancelado && !p.lugar}
+								<form method="POST" action="?/repetir" use:enhance>
+									<input type="hidden" name="id" value={p.id} />
+									<button>Repetir</button>
+								</form>
+							{:else}
+								<a href="/app/plan/{p.id}/repetimos"
+									>{p.mio?.carita ? 'Tu gente' : '¿Cómo estuvo?'}</a
+								>
+							{/if}
+							{#if p.mio?.fotos}
+								<span aria-hidden="true">·</span>
+								<a href="/app/plan/{p.id}/fotos">Fotos · {p.mio.fotos}</a>
+							{/if}
 							<span aria-hidden="true">·</span>
 							<button
 								onclick={() => {
@@ -383,6 +395,7 @@
 	/* Las acciones de cada plan, con el mismo texto que tenía «Compartir link». */
 	.acciones {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: 6px;
 		padding: 0 14px 14px 98px;

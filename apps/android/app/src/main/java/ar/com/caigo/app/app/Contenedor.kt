@@ -247,6 +247,7 @@ class Contenedor(val ctx: Context) {
                 "explorar", "mapa" -> Destino.Seccion(Pestana.Explorar)
                 "mis" -> Destino.Seccion(Pestana.Mis)
                 "crear" -> Destino.Ruta("crear")
+                "semana" -> Destino.Ruta("semana")
                 "verificar" -> Destino.Ruta("verificacion")
                 "mensajes" -> if (id == null || id == "privados") Destino.Ruta("privados") else Destino.Ruta("privado", id)
                 "persona" -> if (id != null) Destino.Ruta("persona", id) else Destino.Web(url)
@@ -264,6 +265,7 @@ class Contenedor(val ctx: Context) {
                     sub == "chat" -> Destino.Ruta("chat", id)
                     sub == "editar" -> Destino.Ruta("editarPlan", id)
                     sub == "repetimos" -> Destino.Ruta("repetimos", id)
+                    sub == "fotos" -> Destino.Ruta("fotos", id)
                     sub == "solicitudes" -> Destino.Ruta("solicitudes", id)
                     else -> Destino.Web(url)
                 }

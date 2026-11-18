@@ -102,13 +102,21 @@ func (s *Servicio) Sumarse(ctx context.Context, usuarioID, planID string, cantid
 		estado = "pendiente"
 		if ingreso == "libre" {
 			var sumados int
-			if err := tx.QueryRow(ctx, `SELECT coalesce(sum(cantidad), 0) FROM solicitudes WHERE plan_id = $1 AND estado = 'aceptada'`, planID).Scan(&sumados); err != nil {
+			// Los lugares guardados para alguien de la lista de espera (avisado y a tiempo) no son de nadie más.
+			if err := tx.QueryRow(ctx, `SELECT (SELECT coalesce(sum(cantidad), 0)::integer FROM solicitudes WHERE plan_id = $1 AND estado = 'aceptada')
+				+ (SELECT coalesce(sum(cantidad), 0)::integer FROM espera WHERE plan_id = $1 AND estado = 'avisado'
+					AND vence_en > $3 AND usuario_id <> $2)`, planID, usuarioID, s.ahora()).Scan(&sumados); err != nil {
 				return err
 			}
 			if sumados+int(cantidad) > int(total) {
 				return problema.Conflicto("completo", "No hay lugar para tantos: el plan se llenó.")
 			}
 			estado = "aceptada"
+		}
+		// Si estaba en la lista de espera, ya entró (o pidió entrar).
+		if _, err := tx.Exec(ctx, `UPDATE espera SET estado = 'entro' WHERE plan_id = $1 AND usuario_id = $2
+			AND estado IN ('esperando', 'avisado')`, planID, usuarioID); err != nil {
+			return err
 		}
 		if _, err = tx.Exec(ctx, `
 			INSERT INTO solicitudes (plan_id, usuario_id, cantidad, mensaje, estado, respondida_en)

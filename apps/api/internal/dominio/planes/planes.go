@@ -53,6 +53,8 @@ type Servicio struct {
 	Reloj func() time.Time
 	// Moderación del título y la descripción. nil: sólo el filtro propio (lo dudoso va al equipo).
 	Moderacion *moderacion.Servicio
+	// Disco de las fotos del plan (las que ven sólo quienes fueron).
+	Disco archivos.Disco
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -75,6 +77,8 @@ type Persona struct {
 	Organizador bool   `json:"organizador,omitempty"`
 	// Ya hizo check-in en el plan ("Lu y Nico ya llegaron"; sólo en la lista de los que van).
 	Llego bool `json:"llego,omitempty"`
+	// Promedio de las caritas de sus planes (sólo de quien organiza, con 3 o más).
+	Caritas *Caritas `json:"caritas,omitempty"`
 }
 
 // Asist es la asistencia real: fue a Fue de De planes con check-in.
@@ -139,6 +143,8 @@ type Plan struct {
 	AceptaGrupos   bool   `json:"aceptaGrupos"`
 	// La línea de confianza de la tarjeta («Todos verificados · Organiza Martín (9/10) · Van 2 chicas»).
 	Confianza Confianza `json:"confianza"`
+	// Lo de quien mira, si está en el plan (llegó, confirmó, carita, «¿Todo bien?», lista de espera, fotos).
+	Mio *Mio `json:"mio,omitempty"`
 }
 
 // Confianza es lo que la tarjeta del plan muestra para que se vea que es seguro, con datos reales y
@@ -627,10 +633,11 @@ func (s *Servicio) completar(ctx context.Context, tx pgx.Tx, usuarioID string, p
 	if err := rows.Err(); err != nil {
 		return err
 	}
+	rows.Close()
 	for _, p := range ps {
 		confianza(p)
 	}
-	return nil
+	return completarMio(ctx, tx, usuarioID, ps)
 }
 
 // Filtro de las listas.

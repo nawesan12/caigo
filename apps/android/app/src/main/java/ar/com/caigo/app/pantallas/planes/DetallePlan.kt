@@ -200,6 +200,8 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
     var cancelandoPlan by remember { mutableStateOf(false) }
     var cancelandoEntrada by remember { mutableStateOf(false) }
     var bajandome by remember { mutableStateOf(false) }
+    /** «¿Todo bien?» abierta (el día del plan). */
+    var todoBien by remember { mutableStateOf(false) }
     val deLugar = esDeLugar(p)
     val link = "https://caigo.com.ar/p/${p.slug}"
 
@@ -279,6 +281,12 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                 ) {
                     ChipsDetalle(p)
                     T(p.titulo, 30f, 700, pal.texto, alto = 1.05f, espaciado = px(-.8f, 30f))
+                    // El día del plan, la víspera y después (informe del 18/11).
+                    if (p.adentro && !deLugar && ar.com.caigo.app.nucleo.Dia.enElDia(p)) DiaTarjeta(ir, p) { todoBien = true }
+                    if (p.miEstado == "aceptada" && !p.cancelado && ar.com.caigo.app.nucleo.Dia.esVispera(p) && p.mio?.confirme != true) {
+                        VisperaTarjeta(p, bajarme = { bajandome = true }, recargar = recargar)
+                    }
+                    if (p.adentro && !p.cancelado && yaPaso(p)) DespuesTarjeta(ir, p)
                     PlanesContador(p)
                     Organizador(ir, p)
                     LineaConfianza(p, 13f)
@@ -305,6 +313,7 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
                 ) {
                     EstadoAbajo(
                         ir, p, grupo, { grupo = it }, cantidad, { cantidad = it }, sena, { sena = it }, mensaje, { mensaje = it.take(200) }, enviando,
+                        recargar = recargar,
                         alSumarme = {
                             val n = if (grupo == 1 && p.aceptaGrupos && p.faltan > 1) cantidad else 1
                             if (deLugar) {
@@ -381,6 +390,7 @@ private fun ContenidoDetalle(ir: Ir, p: Plan, recargar: () -> Unit) {
             avisos.ok(if (p.adentro) "Listo, te bajaste del plan." else "Listo, retiraste tu pedido.")
             recargar()
         }
+        HojaTodoBien(ir, p, todoBien, cerrar = { todoBien = false }, reportar = { reportando = true }, recargar = recargar)
         // «Antes de sumarte» (confirmar_mujer / confirmar_diversidad): en Android es la hoja global
         // de Genero.kt (conConfirmacion).
     }
@@ -400,6 +410,7 @@ private fun EstadoAbajo(
     sena: Boolean, alSena: (Boolean) -> Unit,
     mensaje: String, alMensaje: (String) -> Unit,
     enviando: Boolean,
+    recargar: () -> Unit,
     alSumarme: () -> Unit,
     alQrEntrada: () -> Unit,
 ) {
@@ -443,6 +454,9 @@ private fun EstadoAbajo(
                 Cta("Ir al chat del plan", { ir.chat(p.id) }, Modifier.fillMaxWidth(), gel = Gels.violeta, color = C.blanco, alto = 62.dp, radio = 22.dp, tam = 18f)
             }
         }
+        // Lista de espera: «Anotame», el lugar en la fila o «Se liberó un lugar» (15 min para entrar).
+        p.mio?.espera != null || (Cupo.completo(p.faltan) && !deLugar && !cerroParaSumarse(p)) ->
+            EsperaAbajo(p, entrar = alSumarme, recargar = recargar, enviandoEntrar = enviando)
         Cupo.completo(p.faltan) -> Box(Modifier.fillMaxWidth().height(58.dp).gel(20.dp, Gels.limaBadge), contentAlignment = Alignment.Center) {
             T("Completo", 17f, 800, C.carbon)
         }

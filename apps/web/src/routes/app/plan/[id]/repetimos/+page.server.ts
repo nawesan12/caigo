@@ -27,14 +27,20 @@ export const actions: Actions = {
 			.filter((x) => /^[0-9a-f-]{36}$/i.test(x))
 			.slice(0, 60)
 			.map((usuarioId) => ({ usuarioId, si: true }));
+		// La carita (1 a 5) es privada: sólo suma al promedio de quien organiza.
+		const c = Number(f.get('carita'));
+		const carita = Number.isInteger(c) && c >= 1 && c <= 5 ? c : undefined;
 		try {
-			const r = await conSesion<{ nuevo?: Plan | null }>(
-				event,
-				'POST',
-				`/v1/planes/${id}/repetimos`,
-				{ cuerpo: { repetir, volveria } }
-			);
-			return { listo: true, nuevo: r?.nuevo ? { id: r.nuevo.id } : null, gente: volveria.length };
+			const r = await conSesion<{
+				nuevo?: Plan | null;
+				mutuos?: { id: string; nombre: string; foto?: string }[];
+			}>(event, 'POST', `/v1/planes/${id}/repetimos`, { cuerpo: { repetir, volveria, carita } });
+			return {
+				listo: true,
+				nuevo: r?.nuevo ? { id: r.nuevo.id } : null,
+				gente: volveria.length,
+				mutuos: r?.mutuos ?? []
+			};
 		} catch (e) {
 			if (!(e instanceof ErrorApi)) throw e;
 			return fail(e.estado === 409 ? 409 : 400, { error: mensajeDe(e) });

@@ -115,8 +115,25 @@ func miosLinkCompartir(_ pl: Plan) -> String { "\(pl.titulo) · https://\(linkPl
 private struct TarjetaMio: View {
     var pl: Plan
     var cual: String
+    @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var p
+    @State private var repitiendo = false
+
+    /// POST /repetimos con repetir: publica el mismo plan la semana que viene y lo abre.
+    private func repetir() {
+        guard !repitiendo else { return }
+        repitiendo = true
+        Task {
+            do {
+                if let nuevo = try await c.api.repetimos(pl.id, repetir: true, volveria: [], carita: nil).nuevo {
+                    c.avisos.ok("Listo, se repite. Ya está publicado.")
+                    ir.plan(nuevo.id)
+                }
+            } catch { c.avisos.error(error) }
+            repitiendo = false
+        }
+    }
 
     var body: some View {
         let franja = cual == "organizo" && pl.pendientes > 0
@@ -166,7 +183,15 @@ private struct TarjetaMio: View {
                 MiosPill(texto: "Esperando", fondo: C.tinte1, color: C.violetaTexto, tam: 15)
             }
         case "historial":
-            T("¿Repetimos?", 12, 700, enlace).tocable { ir.repetimos(pl.id) }
+            // «Repetir» en un toque (quien organizó): el mismo plan la semana que viene.
+            if pl.esMio && !pl.cancelado && pl.lugar == nil {
+                T(repitiendo ? "Repitiendo…" : "Repetir", 12, 700, enlace).tocable { repetir() }
+            } else {
+                T(pl.mio?.carita != nil ? "Tu gente" : "¿Cómo estuvo?", 12, 700, enlace).tocable { ir.repetimos(pl.id) }
+            }
+            if let n = pl.mio?.fotos, n > 0 {
+                T("Fotos · \(n)", 12, 700, enlace).tocable { ir.fotosPlan(pl.id) }
+            }
         default:
             badge(hoy: hoy)
             if pl.destacado {

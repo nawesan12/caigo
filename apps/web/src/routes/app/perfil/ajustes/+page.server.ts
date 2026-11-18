@@ -29,17 +29,27 @@ export const actions: Actions = {
 		if (!intenciones.length) return fail(400, { error: 'Elegí al menos una.' });
 		return guardar(event, { intenciones }, { intenciones });
 	},
+	/** Contactos de confianza (hasta 3): la lista entera reemplaza a la anterior. */
 	contacto: async (event) => {
-		const contactoConfianza = String((await event.request.formData()).get('contacto') ?? '')
-			.trim()
-			.slice(0, 80);
-		return guardar(event, { contactoConfianza }, { contactoConfianza });
+		const f = await event.request.formData();
+		const nombres = f.getAll('nombre').map((x) => String(x).trim().slice(0, 40));
+		const contactosConfianza = f
+			.getAll('contacto')
+			.map((x, i) => ({ nombre: nombres[i] ?? '', contacto: String(x).trim().slice(0, 80) }))
+			.filter((c) => c.contacto)
+			.slice(0, 3);
+		return guardar(event, { contactosConfianza }, { contactosConfianza });
 	},
 	avisos: async (event) => {
 		const f = await event.request.formData();
-		const avisos = { planesCerca: f.get('pc') === '1', tuGente: f.get('tg') === '1' };
+		const avisos = {
+			planesCerca: f.get('pc') === '1',
+			tuGente: f.get('tg') === '1',
+			semana: f.get('se') === '1'
+		};
 		if (f.get('cambia') === 'pc') avisos.planesCerca = !avisos.planesCerca;
 		if (f.get('cambia') === 'tg') avisos.tuGente = !avisos.tuGente;
+		if (f.get('cambia') === 'se') avisos.semana = !avisos.semana;
 		return guardar(event, { avisos }, { avisos });
 	},
 	tema: async ({ request, cookies }) => {

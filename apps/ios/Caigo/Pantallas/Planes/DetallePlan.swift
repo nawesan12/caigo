@@ -117,6 +117,10 @@ private struct ContenidoDetalle: View {
     @State private var cancelandoPlan = false
     @State private var cancelandoEntrada = false
     @State private var bajandome = false
+    /// «¿Todo bien?» abierta (el día del plan).
+    @State private var todoBien = false
+    /// La lista de espera pide confirmar un plan «Solo mujeres» / «Solo diversidades».
+    @State private var esperaPide: String?
 
     private var deLugar: Bool { esDeLugar(p) }
     private var link: String { "https://caigo.com.ar/p/\(p.slug)" }
@@ -136,6 +140,14 @@ private struct ContenidoDetalle: View {
                     VStack(alignment: .leading, spacing: 16) {
                         chips
                         T(p.titulo, 30, 700, pal.texto, alto: 1.05, espaciado: -0.8)
+                        // El día del plan, la víspera y después (informe del 18/11).
+                        if p.adentro && !deLugar && Dia.enElDia(p) {
+                            DiaTarjeta(p: p) { withAnimation { todoBien = true } }
+                        }
+                        if p.miEstado == "aceptada" && !p.cancelado && Dia.esVispera(p) && p.mio?.confirme != true {
+                            VisperaTarjeta(p: p, bajarme: { withAnimation { bajandome = true } }, recargar: recargar)
+                        }
+                        if p.adentro && !p.cancelado && yaPaso(p) { DespuesTarjeta(p: p) }
                         PlanesContador(p: p)
                         organizador
                         LineaConfianza(plan: p, tam: 13)
@@ -213,6 +225,12 @@ private struct ContenidoDetalle: View {
                 recargar()
             }
             HojaAntesDeSumarte(pide: pide, cerrar: { pide = nil }) { sumarme(confirma: $0) }
+            HojaAntesDeSumarte(pide: esperaPide, cerrar: { esperaPide = nil }) { confirma in
+                esperaPide = nil
+                Task { if await esperaAnotar(c, p, confirma: confirma, pedirConfirmacion: { esperaPide = $0 }) { recargar() } }
+            }
+            HojaTodoBien(p: p, abierta: todoBien, cerrar: { withAnimation { todoBien = false } },
+                         reportar: { withAnimation { reportando = true } }, recargar: recargar)
         }
         .onAppear {
             sena = UserDefaults.standard.string(forKey: claveModoCheckout(p.id)) == "sena" && p.cobro == "sena"
@@ -430,6 +448,9 @@ private struct ContenidoDetalle: View {
                 }
                 Cta(texto: "Ir al chat del plan", gel: Gels.violeta, alto: 62, radio: 22, tam: 18, color: C.blanco) { ir.chat(p.id) }
             }
+        } else if p.mio?.espera != nil || (Cupo.completo(p.faltan) && !deLugar && !cerroParaSumarse(p)) {
+            // Lista de espera: «Anotame», el lugar en la fila o «Se liberó un lugar» (15 min para entrar).
+            EsperaAbajo(p: p, entrar: { sumarme() }, recargar: recargar, enviandoEntrar: enviando, pedirConfirmacion: { esperaPide = $0 })
         } else if Cupo.completo(p.faltan) {
             T("Completo", 17, 800, C.carbon).frame(maxWidth: .infinity).frame(height: 58).gel(20, Gels.limaBadge)
         } else if cerroParaSumarse(p) {

@@ -140,6 +140,9 @@ fun CaigoNav(c: Contenedor) {
                 "detalle" -> d.plan?.let { ir.plan(it) }
                 "checkin" -> d.plan?.let { ir.checkin(it) }
                 "repetimos" -> d.plan?.let { ir.repetimos(it) }
+                // La víspera («¿Seguís yendo?») y «¿Todo bien?»: el detalle, que muestra las dos cosas.
+                "vispera", "dia" -> d.plan?.let { ir.plan(it) }
+                "semana" -> ir.semana()
                 // solicitud.rechazada / solicitud.sacada: de vuelta a Ahora a buscar otro plan.
                 "ahora" -> ir.principal(Pestana.Ahora)
                 "recibidos" -> ir.recibidos(d.modo ?: "gente", 0)
@@ -166,6 +169,8 @@ fun CaigoNav(c: Contenedor) {
                 "editarPlan" -> d.id?.let { ir.editarPlan(it) }
                 "repetimos" -> d.id?.let { ir.repetimos(it) }
                 "solicitudes" -> d.id?.let { ir.solicitudes(it) }
+                "semana" -> ir.semana()
+                "fotos" -> d.id?.let { ir.fotosPlan(it) }
             }
             // Lo que la app no tiene: la web dentro de la app (pestaña personalizada, nunca el navegador, que volvería acá).
             is Destino.Web -> runCatching { CustomTabsIntent.Builder().build().launchUrl(contexto, Uri.parse(d.url)) }
@@ -230,6 +235,8 @@ fun CaigoNav(c: Contenedor) {
                     composable("gente") { MiGente(ir) }
                     composable("bloqueos") { VistaBloqueos(ir) }
                     composable("ajustesavisos") { AjustesDeAvisos(ir) }
+                    composable("semana") { VistaSemana(ir) }
+                    composable("fotos/{id}") { FotosDelPlan(ir, it.arg("id")) }
                 }
                 HojaAntesDeSumarte(c)
                 if (actualizar) ActualizarApp()

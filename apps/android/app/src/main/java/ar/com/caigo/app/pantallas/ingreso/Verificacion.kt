@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -96,7 +97,8 @@ fun Verificacion(ir: Ir) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { estado.recargar() }
     val v = estado.dato
     val yo by c.yo.collectAsState()
-    var contacto by remember { mutableStateOf("") }
+    /** Los renglones de la hoja: los contactos que hay y uno vacío para sumar (hasta 3). */
+    var contactos by remember { mutableStateOf(listOf<ar.com.caigo.app.nucleo.Contacto>()) }
     var editandoContacto by remember { mutableStateOf(false) }
     var guardandoContacto by remember { mutableStateOf(false) }
     var compartiendo by remember { mutableStateOf(false) }
@@ -168,9 +170,9 @@ fun Verificacion(ir: Ir) {
             Column(Modifier.fillMaxWidth().gel(22.dp, Gels.neutra)) {
                 herramienta(I.pin, C.violeta, "Compartir mi plan en vivo", "Tu contacto ve dónde estás hasta que termina", true,
                     cargando = compartiendo) { compartirEnVivo() }
-                herramienta(I.usuario, C.violeta, "Contacto de confianza",
-                    yo?.contactoConfianza.orEmpty().ifEmpty { "Sumá a alguien que sepa dónde estás" }, true) {
-                    contacto = yo?.contactoConfianza.orEmpty()
+                herramienta(I.usuario, C.violeta, "Contactos de confianza",
+                    yo?.contactosConfianza.orEmpty().joinToString(" · ") { it.mostrar }.ifEmpty { "Te cuidan el día del plan con «¿Todo bien?»" }, true) {
+                    contactos = (yo?.contactosConfianza.orEmpty() + ar.com.caigo.app.nucleo.Contacto()).take(3)
                     editandoContacto = true
                 }
                 herramienta(I.bloqueo, C.coral2, "Bloqueos y reportes", "Los revisa una persona del equipo, no un bot", false) { ir.bloqueos() }
@@ -180,15 +182,23 @@ fun Verificacion(ir: Ir) {
                 alinear = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
             )
         }
-        // Contacto de confianza (PATCH /v1/yo `contactoConfianza`): teléfono o mail.
-        MiosHoja(editandoContacto, { if (!guardandoContacto) editandoContacto = false }, "Contacto de confianza") {
-            T("A quién le mandás tu plan en vivo. Un teléfono o un mail, con un nombre si querés.", 15f, 400, C.texto2, alto = 1.45f)
-            ar.com.caigo.app.pantallas.mios.MiosCampo(contacto, { contacto = it }, placeholder = "Mamá · +54 223 444 1290", maximo = 80)
+        // Contactos de confianza (PATCH /v1/yo `contactosConfianza`, hasta 3): nombre y teléfono o mail.
+        MiosHoja(editandoContacto, { if (!guardandoContacto) editandoContacto = false }, "Contactos de confianza") {
+            T("Sólo se usan si activás «¿Todo bien?» en un plan. Si es un mail, le escribimos si no llegás.", 15f, 400, C.texto2, alto = 1.45f)
+            contactos.forEachIndexed { i, k ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ar.com.caigo.app.pantallas.mios.MiosCampo(k.nombre, { v -> contactos = contactos.toMutableList().also { it[i] = it[i].copy(nombre = v) } },
+                        Modifier.width(120.dp), placeholder = "Nombre", maximo = 40)
+                    ar.com.caigo.app.pantallas.mios.MiosCampo(k.contacto, { v -> contactos = contactos.toMutableList().also { it[i] = it[i].copy(contacto = v) } },
+                        Modifier.weight(1f), placeholder = "Teléfono o mail", maximo = 80)
+                }
+            }
             ar.com.caigo.app.piezas.Cta("Guardar", {
                 guardandoContacto = true
                 alcance.launch {
                     try {
-                        c.yo.value = c.api.actualizarYo(ar.com.caigo.app.nucleo.CambiosPerfil(contactoConfianza = contacto.trim()))
+                        val lista = contactos.map { it.copy(nombre = it.nombre.trim(), contacto = it.contacto.trim()) }.filter { it.contacto.isNotEmpty() }
+                        c.yo.value = c.api.actualizarYo(ar.com.caigo.app.nucleo.CambiosPerfil(contactosConfianza = lista))
                         editandoContacto = false
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e

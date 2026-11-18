@@ -9,6 +9,7 @@
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { cuandoCorto, diasHasta, partes } from '#lib/fechas.ts';
 	import { primerNombre } from '#lib/plan.ts';
+	import { CARITAS } from '#lib/dia.ts';
 
 	/*
 	 * 09b ¿Repetimos? (Mockups v5). Quien organizó elige «Sí, el <día>» o «Esta vez no»; los que
@@ -35,6 +36,10 @@
 	);
 	let enviando = $state(false);
 	let reportar = $state(false);
+	let carita = $state(untrack(() => data.plan.mio?.carita ?? 0));
+	/** Con quiénes quedó mutuo al responder: ya pueden hablar por privado. */
+	let mutuos = $state<{ id: string; nombre: string; foto?: string }[]>([]);
+	const fotos = $derived(p.mio?.fotos ?? 0);
 
 	function alternar(id: string) {
 		if (si.has(id)) si.delete(id);
@@ -55,6 +60,11 @@
 			enviando = false;
 			if (result.type === 'success') {
 				const nuevo = result.data?.nuevo as { id: string } | null;
+				const m = (result.data?.mutuos as typeof mutuos) ?? [];
+				if (m.length && !nuevo) {
+					mutuos = m;
+					return;
+				}
 				avisar(
 					nuevo
 						? 'Listo, se repite. Ya está publicado.'
@@ -70,6 +80,7 @@
 	}}
 >
 	{#each [...si] as id (id)}<input type="hidden" name="si" value={id} />{/each}
+	{#if carita}<input type="hidden" name="carita" value={carita} />{/if}
 	<div class="arriba">
 		<a class="atras" href="/app/mis?cual=historial" aria-label="Volver"
 			><Icono nombre="atras" tam={22} /></a
@@ -87,6 +98,48 @@
 	</div>
 
 	<div class="hoja">
+		{#if mutuos.length}
+			<div class="mutuo" role="status">
+				{#each mutuos as m (m.id)}
+					<div class="persona">
+						<Avatar nombre={m.nombre} foto={m.foto} tam={44} />
+						<div class="pc">
+							<span class="n">¡Es mutuo con {primerNombre(m.nombre)}!</span>
+							<span class="d">Ya pueden hablar</span>
+						</div>
+						<a class="gel gel-lima escribir" href="/app/mensajes/{m.id}">Escribir</a>
+					</div>
+				{/each}
+				<a class="link-volver" href="/app/mis?cual=historial">Listo</a>
+			</div>
+		{/if}
+		{#if !organizo}
+			<div class="cab">
+				<h2>¿Cómo estuvo?</h2>
+				<p>Nadie ve tu carita: suma al promedio de quien organizó.</p>
+			</div>
+			<div class="caritas" role="radiogroup" aria-label="¿Cómo estuvo?">
+				{#each CARITAS as c (c.valor)}
+					<button
+						type="button"
+						role="radio"
+						aria-checked={carita === c.valor}
+						aria-label={c.texto}
+						class:on={carita === c.valor}
+						onclick={() => (carita = c.valor)}><span>{c.cara}</span></button
+					>
+				{/each}
+			</div>
+		{/if}
+		<a class="fotos" href="/app/plan/{p.id}/fotos">
+			<Icono nombre="personas" tam={20} color="var(--c-acento)" trazo={2} />
+			<span class="pc"
+				><span class="n">Fotos del plan{fotos ? ` · ${fotos}` : ''}</span><span class="d"
+					>{fotos ? 'Sólo las ven quienes fueron' : 'Subí la primera'}</span
+				></span
+			>
+			<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
+		</a>
 		<div class="cab">
 			<h2>¿Volverías a salir con…?</h2>
 			<p>Los que sumes a tu gente ven primero tus próximos planes. Nadie ve tus respuestas.</p>
@@ -268,6 +321,53 @@
 		box-shadow: var(--sh-icono);
 		display: grid;
 		place-items: center;
+	}
+	.caritas {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: 8px;
+	}
+	.caritas button {
+		height: 56px;
+		border-radius: 18px;
+		background: var(--grad-off);
+		box-shadow: var(--sh-icono);
+		font-size: 26px;
+		display: grid;
+		place-items: center;
+	}
+	.caritas button.on {
+		background: var(--c-chip-on);
+		box-shadow: var(--sh-chip-on);
+	}
+	.fotos {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 14px 16px;
+		border-radius: 20px;
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-tarjeta-plan);
+		color: inherit;
+		text-decoration: none;
+	}
+	.mutuo {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+	.escribir {
+		height: 40px;
+		padding: 0 14px;
+		border-radius: 14px;
+		font-size: 14px;
+		text-decoration: none;
+	}
+	.link-volver {
+		align-self: center;
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--violeta-texto);
 	}
 	.vacio {
 		font-size: 14px;

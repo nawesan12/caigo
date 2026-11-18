@@ -9,6 +9,8 @@
 	import Verificado from '#lib/app-ui/Verificado.svelte';
 	import Confirmar from '#lib/app-ui/Confirmar.svelte';
 	import Reportar from '#lib/app-ui/Reportar.svelte';
+	import DiaDelPlan from '#lib/app-ui/DiaDelPlan.svelte';
+	import { enElDia, esVispera } from '#lib/dia.ts';
 	import { avisar } from '#lib/toast.svelte.ts';
 	import { CATEGORIAS, faltanTexto, fotoDelPlan, lineaConfianza, primerNombre } from '#lib/plan.ts';
 	import { cuandoCorto } from '#lib/fechas.ts';
@@ -60,9 +62,22 @@
 	const organiza = $derived(p.lugar ? p.lugar.nombre : primerNombre(p.organizador.nombre));
 	/** La línea de confianza sin «Organiza…» (ya está arriba): «Todos verificados · Van 2 chicas». */
 	const seguro = $derived(lineaConfianza(p).filter((x) => !x.startsWith('Organiza')));
+	const adentro = $derived(estado === 'aceptada' || estado === 'organizador');
+	/** Hoy: cuenta regresiva, Llegué y «¿Todo bien?» (desde 3 h antes hasta el final). */
+	const hoy = $derived(!data.anonimo && adentro && enElDia(p));
+	/** La víspera: «¿Seguís yendo?» (no a quien organiza ni a quien ya confirmó). */
+	const vispera = $derived(
+		!data.anonimo && estado === 'aceptada' && !p.cancelado && esVispera(p) && !p.mio?.confirme
+	);
+	/** Después: caritas, fotos y su gente. */
+	const despues = $derived(!data.anonimo && adentro && yaPaso && !p.cancelado);
+	/** Lista de espera: el plan está completo (o se llenó al tocar «Sumarme»). */
+	const espera = $derived(p.mio?.espera);
+	const completo = $derived(p.faltan <= 0 || form?.codigo === 'completo');
 
 	let grupo = $state(false);
 	let reportar = $state(false);
+	let todoBien = $state(false);
 	let salir = $state(false);
 	let cancelar = $state(false);
 	/** Lo que el organizador todavía puede tocar: un plan propio que no empezó ni se canceló. */
@@ -171,6 +186,51 @@
 			{#if p.lugar}<span class="chip-lima">Lugar aliado</span>{/if}
 		</div>
 		<h1>{p.titulo}</h1>
+
+		{#if hoy}
+			<DiaDelPlan plan={p} todoBien={data.todoBien} yoId={data.yo?.id} bind:hoja={todoBien} />
+		{/if}
+		{#if vispera}
+			<div class="vispera">
+				<span class="v-t">{cuandoCorto(p.empiezaEn)}. ¿Seguís&nbsp;yendo?</span>
+				<div class="dos">
+					<form
+						method="POST"
+						action="?/confirmo"
+						use:enhance={() =>
+							async ({ result, update }) => {
+								if (result.type === 'success') avisar('¡Genial! Te esperan.');
+								await update({ reset: false });
+							}}
+					>
+						<button class="gel gel-lima v-b">Voy</button>
+					</form>
+					<button class="gel gel-blanco v-b" onclick={() => (salir = true)}>Me bajo</button>
+				</div>
+			</div>
+		{/if}
+		{#if despues}
+			<div class="despues">
+				<a class="fila-d" href="/app/plan/{p.id}/repetimos">
+					<span class="cara" aria-hidden="true">{p.mio?.carita ? '✓' : '🙂'}</span>
+					<span class="ft"
+						><b>{estado === 'organizador' ? '¿Repetimos?' : '¿Cómo estuvo?'}</b><span
+							>{p.mio?.carita ? 'Ya nos contaste. Gracias.' : 'Una carita y tu gente'}</span
+						></span
+					>
+					<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
+				</a>
+				<a class="fila-d" href="/app/plan/{p.id}/fotos">
+					<Icono nombre="personas" tam={20} color="var(--c-acento)" trazo={2} />
+					<span class="ft"
+						><b>Fotos del plan{p.mio?.fotos ? ` · ${p.mio.fotos}` : ''}</b><span
+							>Sólo las ven quienes fueron</span
+						></span
+					>
+					<Icono nombre="flecha" tam={18} color="#9A95AD" trazo={2.6} />
+				</a>
+			</div>
+		{/if}
 
 		<div class="contador">
 			<div class="cont-fila">
@@ -345,6 +405,60 @@
 		>
 			<button disabled={enviando}>Cancelar el pedido</button>
 		</form>
+	{:else if espera}
+		{#if espera.estado === 'avisado'}
+			<p class="libre" role="status">Se liberó un lugar. Es tuyo por 15&nbsp;min.</p>
+			<form
+				method="POST"
+				action="?/sumarme"
+				use:enhance={() => {
+					enviando = true;
+					return async ({ update }) => {
+						await update({ reset: false });
+						enviando = false;
+					};
+				}}
+			>
+				{#if confirmar}<input type="hidden" name={confirmar.campo} value="si" />{/if}
+				<button class="gel gel-lima cta" disabled={enviando}>Entrar al plan</button>
+			</form>
+		{:else}
+			<span class="estado esperando">En la lista · {espera.posicion}°</span>
+			<form method="POST" action="?/dejarEspera" class="cancelar" use:enhance>
+				<button>Salir de la lista</button>
+			</form>
+		{/if}
+	{:else if completo && !yaPaso && !conCobro}
+		<form
+			method="POST"
+			action="?/espera"
+			use:enhance={() => {
+				enviando = true;
+				return async ({ result, update }) => {
+					if (result.type === 'success') avisar('Te anotamos. Si se libera un lugar, te avisamos.');
+					await update({ reset: false });
+					enviando = false;
+				};
+			}}
+		>
+			{#if confirmar}
+				<button
+					type="button"
+					class="confirma"
+					role="switch"
+					aria-checked={confirmado}
+					onclick={() => (confirmado = !confirmado)}
+				>
+					<span class="confirma-txt"><b>{confirmar.texto}</b></span>
+					<span class="tog" class:on={confirmado}></span>
+				</button>
+				<input type="hidden" name={confirmar.campo} value={confirmado ? 'si' : ''} />
+			{/if}
+			<span class="estado esperando">Completo</span>
+			<button class="gel gel-violeta cta" disabled={enviando || (!!confirmar && !confirmado)}
+				>Anotame en la lista</button
+			>
+		</form>
 	{:else if p.faltan <= 0}
 		<span class="estado esperando">Completo</span>
 	{:else}
@@ -437,6 +551,15 @@
 </div>
 
 {#if !data.anonimo}
+	{#if hoy}
+		<DiaDelPlan
+			parte="hoja"
+			plan={p}
+			todoBien={data.todoBien}
+			bind:hoja={todoBien}
+			onReportar={() => (reportar = true)}
+		/>
+	{/if}
 	<Reportar bind:abierta={reportar} planId={p.id} />
 	<Confirmar
 		bind:abierta={salir}
@@ -947,6 +1070,72 @@
 	}
 	.acciones .paso-algo button {
 		font-size: 13px;
+	}
+	.vispera,
+	.despues {
+		display: flex;
+		flex-direction: column;
+		border-radius: 22px;
+		background: var(--c-tarjeta);
+		box-shadow: var(--sh-tarjeta-plana);
+	}
+	.vispera {
+		gap: 12px;
+		padding: 16px;
+	}
+	.v-t {
+		font:
+			700 18px/1.2 'Geist',
+			sans-serif;
+		text-wrap: balance;
+	}
+	.v-b {
+		height: 50px;
+		border-radius: 18px;
+		font-size: 16px;
+		width: 100%;
+	}
+	.vispera form {
+		display: contents;
+	}
+	.fila-d {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 14px 16px;
+		text-decoration: none;
+		color: inherit;
+		border-bottom: 1px solid var(--c-linea);
+	}
+	.fila-d:last-child {
+		border-bottom: 0;
+	}
+	.fila-d .ft {
+		display: flex;
+		flex-direction: column;
+	}
+	.fila-d .ft b {
+		font-size: 14px;
+		font-weight: 800;
+	}
+	.fila-d .ft span {
+		font-size: 12px;
+		font-weight: 400;
+		color: var(--texto-2);
+	}
+	.cara {
+		width: 20px;
+		text-align: center;
+		font-size: 18px;
+	}
+	.libre {
+		padding: 10px 12px;
+		border-radius: 14px;
+		background: #c8f36b;
+		color: #24212d;
+		font-size: 14px;
+		font-weight: 700;
+		text-align: center;
 	}
 	.error {
 		padding: 10px 12px;

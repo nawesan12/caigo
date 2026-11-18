@@ -97,7 +97,13 @@
 			(la usamos para frenar abusos y la borramos a los 2 días).
 		</li>
 		<li>
-			<b>Contacto de confianza.</b> Si usás «Compartir mi plan en vivo», el contacto que elegís.
+			<b>Contactos de confianza.</b> Hasta 3 (nombre y teléfono o mail), si los cargás. Sólo se usan si
+			activás «¿Todo bien?» en un plan: si a la media hora del inicio no hiciste check-in, le escribimos
+			por mail al contacto que elegiste (si es un teléfono, te avisamos a vos para que le escribas). Compartir
+			tu ubicación desde «¿Todo bien?» sale de tu teléfono y no pasa por Caigo.
+		</li>
+		<li>
+			<b>Después del plan.</b> La carita que le ponés a un plan y las fotos que subís de un plan.
 		</li>
 	</ul>
 
@@ -142,6 +148,11 @@
 		<li>
 			Si comprás una entrada en un lugar aliado, el lugar ve tu nombre, tu foto, cuántos van y tu
 			código de entrada.
+		</li>
+		<li>
+			Tu carita de un plan no la ve nadie: quien organiza sólo ve el promedio de sus planes, y
+			recién cuando hay 3 o más. Las fotos de un plan las ven sólo quienes fueron, con un link que
+			vence a la hora.
 		</li>
 	</ul>
 
@@ -228,6 +239,11 @@
 		<li>
 			Las fotos del DNI y la selfie de la verificación del DNI: hasta que el equipo revisa la
 			verificación, y como máximo 30 días. En ese momento se borran.
+		</li>
+		<li>
+			«¿Todo bien?» (a quién avisar y a qué hora): hasta 24 horas después del final del plan, o
+			hasta que hacés check-in. Las fotos de un plan: 6 meses desde el plan (las podés borrar
+			antes).
 		</li>
 		<li>
 			Los textos que marca la moderación automática y quedan para que los revise el equipo: hasta un

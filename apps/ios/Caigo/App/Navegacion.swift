@@ -109,6 +109,8 @@ struct CaigoRaiz: View {
         case let .editarPlan(id): Crear(editar: id)
         case .bloqueos: VistaBloqueos()
         case .ajustesAvisos: AjustesDeAvisos()
+        case .semana: VistaSemana()
+        case let .fotosPlan(id): FotosDelPlan(planId: id)
         }
     }
 
@@ -129,6 +131,9 @@ struct CaigoRaiz: View {
             case "detalle": if let plan { ir.plan(plan) }
             case "checkin": if let plan { ir.checkin(plan) }
             case "repetimos": if let plan { ir.repetimos(plan) }
+            // La víspera («¿Seguís yendo?») y «¿Todo bien?»: el detalle, que muestra las dos cosas.
+            case "vispera", "dia": if let plan { ir.plan(plan) }
+            case "semana": ir.semana()
             // solicitud.rechazada / solicitud.sacada: de vuelta a Ahora a buscar otro plan.
             case "ahora": ir.principal(.ahora)
             case "recibidos": ir.recibidos(modo: modo ?? "gente", pestana: 0)

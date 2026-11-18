@@ -106,11 +106,11 @@ func Nuevo(d Dependencias) http.Handler {
 		ses.Rutas(mux)
 		mod := moderacion.Nuevo(d.App, d.IA, d.Log)
 		pls := &planes.Servicio{App: d.App, Reloj: d.Reloj, Firma: firma.Firmador{Clave: []byte(d.Secreto)}, Sitio: d.Sitio,
-			APIPublica: d.APIPublica, Moderacion: mod}
+			APIPublica: d.APIPublica, Moderacion: mod, Disco: archivos.Disco{Raiz: d.Archivos}}
 		planes.Rutas(mux, pls, ses.Exigir, d.Log)
 		equipo.Rutas(mux, &equipo.Servicio{App: d.App, Publicador: pls, Reloj: d.Reloj, Vetados: d.Vetados}, ses, d.Log)
 		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos, Clave: d.ClaveVerificacion}, Correo: d.Correo, Casillas: d.Clerk,
-			Vetados: d.Vetados, Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj, Moderacion: mod}, ses, d.Log)
+			Vetados: d.Vetados, Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj, Moderacion: mod, FotosPlan: pls.Firma}, ses, d.Log)
 		personas.Rutas(mux, &personas.Servicio{App: d.App, Casillas: d.Clerk, APIPublica: d.APIPublica}, ses.Exigir, d.Log)
 		avisos.Rutas(mux, d.App, ses.Exigir, d.Log)
 		if d.Hub == nil {
@@ -181,6 +181,11 @@ var Reglas = map[string]limite.Regla{
 	"GET /v1/publico/planes/explorar":                         {Max: 120, Ventana: time.Minute, PorIP: true},
 	"POST /v1/publico/espera":                                 {Max: 5, Ventana: time.Hour, PorIP: true},
 	"POST /v1/lugares/{id}/placas/pedido":                     {Max: 10, Ventana: 24 * time.Hour},
+	// El día del plan (18/11).
+	"POST /v1/planes/{id}/fotos":                 {Max: 30, Ventana: time.Hour},
+	"POST /v1/planes/{id}/fotos/{foto}/reportar": {Max: 20, Ventana: 24 * time.Hour},
+	"POST /v1/planes/{id}/espera":                {Max: 30, Ventana: time.Hour},
+	"POST /v1/planes/{id}/todo-bien":             {Max: 20, Ventana: time.Hour},
 }
 
 // recuperar convierte un panic en un 500 con problem+json y lo registra, sin tirar el proceso.

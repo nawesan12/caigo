@@ -98,8 +98,11 @@ fun AjustesDeAvisos(ir: Ir) {
                         FilaAviso("Planes cerca", "Cuando alguien arma algo a menos de 5 km que arranca en un rato.", a.planesCerca, ultima = false) { v ->
                             guardar { it.copy(planesCerca = v) }
                         }
-                        FilaAviso("De tu gente", "Cuando alguien de Mi gente publica un plan.", a.tuGente, ultima = true) { v ->
+                        FilaAviso("De tu gente", "Cuando alguien de Mi gente publica un plan.", a.tuGente, ultima = false) { v ->
                             guardar { it.copy(tuGente = v) }
+                        }
+                        FilaAviso("Esta semana en tu ciudad", "Los lunes, lo mejor de la semana.", a.semana, ultima = true) { v ->
+                            guardar { it.copy(semana = v) }
                         }
                     }
                     T("Los avisos de tus planes (solicitudes, chat, recordatorios y cambios) llegan siempre.", 12f, 400, p.texto2, alto = 1.5f)

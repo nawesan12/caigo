@@ -132,6 +132,10 @@ struct Repetimos: View {
     @State private var volveria: [String: Bool] = [:]
     @State private var mandando: Bool?
     @State private var reportar = false
+    /// La carita del plan (1 a 5): privada, sólo suma al promedio de quien organizó.
+    @State private var carita: Int?
+    /// Con quiénes quedó mutuo al responder: ya pueden hablar por privado.
+    @State private var mutuos: [PersonaCorta] = []
 
     /// `radial-gradient(120% 70% at 85% 0%, #A38FFF, #7456F1 45%, #5A3DD8)`.
     private var fondo: some View {
@@ -211,6 +215,42 @@ struct Repetimos: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
+                    ForEach(mutuos) { m in
+                        HStack(spacing: 12) {
+                            Avatar(nombre: m.nombre, foto: m.foto, tam: 44, borde: 0, tamTexto: 17)
+                            VStack(alignment: .leading, spacing: 1) {
+                                T("¡Es mutuo con \(miosPrimer(m.nombre))!", 15, 700)
+                                T("Ya pueden hablar", 12, 400, p.texto2)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            T("Escribir", 13, 800, C.carbon).padding(.horizontal, 12).frame(height: 40).gel(14, Gels.limaChico)
+                                .tocable { ir.privado(m.id, nombre: m.nombre) }
+                        }
+                        .padding(12)
+                        .gel(20, miosGelTarjeta(p))
+                    }
+                    if !mutuos.isEmpty {
+                        T("Listo", 14, 700, p.oscuro ? C.lima : C.violetaTexto).frame(maxWidth: .infinity).tocable { ir.atras() }
+                    }
+                    if !pl.esMio {
+                        VStack(alignment: .leading, spacing: 4) {
+                            T("¿Cómo estuvo?", 22, 700)
+                            T("Nadie ve tu carita: suma al promedio de quien organizó.", 13, 400, p.texto2, alto: 1.45)
+                        }
+                        HStack(spacing: 8) {
+                            ForEach(Caras.todas, id: \.valor) { k in
+                                Text(k.cara).font(.system(size: 26))
+                                    .frame(maxWidth: .infinity).frame(height: 56)
+                                    .gel(18, (carita ?? pl.mio?.carita) == k.valor ? (p.oscuro ? Gels.limaChico : Gels.oscuroSel) : Gels.chip(p))
+                                    .tocable { carita = k.valor }
+                                    .accessibilityLabel(k.texto)
+                            }
+                        }
+                    }
+                    MiosGrupo {
+                        MiosFila(icono: I.gente, titulo: (pl.mio?.fotos ?? 0) > 0 ? "Fotos del plan · \(pl.mio!.fotos)" : "Fotos del plan",
+                                 sub: (pl.mio?.fotos ?? 0) > 0 ? "Sólo las ven quienes fueron" : "Subí la primera", ultima: true) { ir.fotosPlan(pl.id) }
+                    }
                     if !gente.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             T("¿Volverías a salir con…?", 22, 700)
@@ -265,7 +305,14 @@ struct Repetimos: View {
         Task {
             do {
                 let r = try await c.api.repetimos(planId, repetir: repetir,
-                                                  volveria: volveria.filter { $0.value }.map { Opinion(usuarioId: $0.key, si: true) })
+                                                  volveria: volveria.filter { $0.value }.map { Opinion(usuarioId: $0.key, si: true) },
+                                                  carita: carita)
+                if !r.mutuos.isEmpty && r.nuevo == nil {
+                    // Mutuo: se queda para que escriba ya («¡Es mutuo con…! Ya pueden hablar»).
+                    mutuos = r.mutuos
+                    mandando = nil
+                    return
+                }
                 if repetir, let nuevo = r.nuevo {
                     c.avisos.ok("Listo, ya está el plan de la semana que viene.")
                     ir.atras()

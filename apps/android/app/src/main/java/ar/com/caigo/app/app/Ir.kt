@@ -112,4 +112,8 @@ class Ir(private val nav: NavController) {
     fun bloqueos() = ir("bloqueos")
     /** Ajustes de avisos push (planes cerca, tu gente). */
     fun ajustesAvisos() = ir("ajustesavisos")
+    /** «Esta semana en <ciudad>» (el ritual de los lunes). */
+    fun semana() = ir("semana")
+    /** Fotos del plan (sólo para quienes fueron). */
+    fun fotosPlan(planId: String) = ir("fotos/${e(planId)}")
 }

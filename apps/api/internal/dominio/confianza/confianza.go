@@ -11,6 +11,8 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
 	"io"
 	"log/slog"
 	"math/big"
@@ -53,6 +55,8 @@ type Servicio struct {
 	// Moderación automática: su cola se revisa acá, con los reportes y los DNI. nil: la cola anda igual
 	// (lee la base), sin IA.
 	Moderacion *moderacion.Servicio
+	// Firma de los links de las fotos del plan (sólo para quienes fueron; vencen a la hora).
+	FotosPlan firma.Firmador
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -426,4 +430,15 @@ func (s *Servicio) VerEstado(ctx context.Context, usuarioID string) (Estado, err
 		return err
 	})
 	return e, err
+}
+
+// PuedeVerFotoPlan: quien (del link firmado) puede ver esa foto del plan (como sistema).
+func (s *Servicio) PuedeVerFotoPlan(ctx context.Context, quien, archivoID string) (bool, error) {
+	var ok bool
+	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+		var err error
+		ok, err = planes.PuedeVerFoto(ctx, tx, quien, archivoID)
+		return err
+	})
+	return ok, err
 }

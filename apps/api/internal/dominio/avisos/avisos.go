@@ -15,7 +15,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/apns"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/fcm"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
@@ -105,6 +107,10 @@ type Enviador struct {
 	Log  *slog.Logger
 	// Reloj (tests). nil: time.Now.
 	Reloj func() time.Time
+	// Correo para «¿Todo bien?» (el mail al contacto de confianza). nil: sólo el push a la persona.
+	Correo correo.Correo
+	// Planes arma el link «en vivo» que va en el mail al contacto (Firma y Sitio). nil: el mail va sin link.
+	Planes *planes.Servicio
 }
 
 func (e *Enviador) log() *slog.Logger {
@@ -219,13 +225,18 @@ func (e *Enviador) Manejadores() map[string]outbox.Manejador {
 		"invitacion.nueva":   e.invitacionNueva,
 		"entrada.pagada":     e.entradaPagada,
 		// Planes (contrato del 31/10).
-		"plan.cancelado":      e.planCancelado,
-		"plan.cambiado":       e.planCambiado,
-		"plan.recordatorio":   e.planRecordatorio,
-		"plan.repetimos":      e.planRepetimos,
-		"plan.publicado":      e.planPublicado,
-		"solicitud.rechazada": e.solicitudFuera(false),
-		"solicitud.sacada":    e.solicitudFuera(true),
+		"plan.cancelado":    e.planCancelado,
+		"plan.cambiado":     e.planCambiado,
+		"plan.recordatorio": e.planRecordatorio,
+		"plan.repetimos":    e.planRepetimos,
+		"plan.publicado":    e.planPublicado,
+		// El día del plan y después (informe del 18/11).
+		"plan.como_estuvo":      e.planComoEstuvo,
+		planes.EventoLugarLibre: e.lugarLibre,
+		planes.EventoTodoBien:   e.todoBien,
+		"semana.aviso":          e.semanaAviso,
+		"solicitud.rechazada":   e.solicitudFuera(false),
+		"solicitud.sacada":      e.solicitudFuera(true),
 		// Al equipo: un pedido de arrepentimiento (hay que responder en el día).
 		"arrepentimiento.nuevo": e.arrepentimientoNuevo,
 		// Al equipo: un lugar pidió placas Caigo Tap.
@@ -401,6 +412,10 @@ func (e *Enviador) solicitudSalio(ctx context.Context, ev outbox.Evento) error {
 	if err := e.leer(ctx, `SELECT p.organizador_id, p.titulo, u.nombre FROM planes p JOIN usuarios u ON u.id = $2
 		WHERE p.id = $1 AND p.cancelado_en IS NULL`, []any{d.PlanID, d.UsuarioID}, &org, &titulo, &nombre); err != nil {
 		return ignorarSiNoEsta(err)
+	}
+	// Primero la lista de espera (el lugar queda guardado para el siguiente); un reintento no avisa dos veces.
+	if err := e.liberar(ctx, d.PlanID); err != nil {
+		return err
 	}
 	return e.Mandar(ctx, org, Aviso{Titulo: nombre + " se bajó", Cuerpo: titulo + " · Se liberó un lugar.",
 		Datos: map[string]string{"plan": d.PlanID}, Colapso: "sum-" + d.PlanID})

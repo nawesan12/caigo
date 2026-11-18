@@ -133,6 +133,45 @@ Sesión: `Authorization: Bearer cs_…` (de `POST /v1/sesion`). Errores: problem
 | PATCH | `/v1/yo` | sesión | dominio/personas |
 | PUT | `/v1/yo/ubicacion` | sesión | dominio/personas |
 
+## El día del plan, después del plan y el ritual semanal (18/11, rama `mejoras-dia-del-plan`, migración 00029)
+
+Del informe `caigo-investigacion/mejoras-producto.md` (B1, B2, B3, B4, C2, A8 con avisos programados).
+
+- **`mio` en el plan** (`GET /v1/planes/{id}`, listas y Mis planes; sólo con sesión y si estás aceptado o en la
+  lista): `{llegue, confirme, carita?, todoBien, fotos, espera?: {estado: esperando|avisado, posicion, venceEn?}}`.
+  `organizador.caritas` `{promedio, cantidad}`: el promedio de las caritas de sus planes, sólo con 3 o más.
+- **«¿Seguís yendo?»**: push `plan.recordatorio` con `momento: vispera` la víspera desde las 19 (Argentina) a los
+  aceptados que no confirmaron (datos `{"plan", "pantalla": "vispera"}`). `POST /v1/planes/{id}/confirmo` → 204 es
+  «Voy»; «Me bajo» es `DELETE /v1/planes/{id}/sumarme` (libera el lugar).
+- **Lista de espera** (planes gratis completos): `POST /v1/planes/{id}/espera` `{cantidad?, mujer?, diversidad?}` →
+  `{estado, posicion}` (409 `hay_lugar` si hay lugar, `ya_estas`, `rechazada`, `paso`, `con_entrada`);
+  `DELETE /v1/planes/{id}/espera`. Cuando alguien se baja (`solicitud.salio`) o lo sacan (`solicitud.sacada`), el
+  primero de la fila que entra queda `avisado` con 15 min (push `espera.lugar`: «Se liberó un lugar en X»,
+  `{"plan", "pantalla": "detalle"}`); ese lugar no lo puede tomar nadie más. Entra con `POST /sumarme` de siempre.
+  Si no entra a tiempo, el worker lo vence y pasa al siguiente.
+- **«¿Todo bien?»** (desde 3 h antes hasta el final del plan): `GET|POST|DELETE /v1/planes/{id}/todo-bien`.
+  `POST {contacto: índice}` elige uno de los contactos del perfil (422 `sin_contacto`, 409 `llegaste`/`temprano`/`paso`).
+  Respuesta `{activo, contacto?, avisaEn?, avisado, contactos}`. Si a la media hora del inicio no hizo check-in, el
+  worker manda `todo_bien.aviso`: mail al contacto si es un mail (con el link en vivo) y push a la persona
+  (`pantalla: dia`); si el contacto es un teléfono no hay SMS: el push le pide que le avise ella. El check-in lo
+  apaga. Se guarda sólo una copia del contacto elegido y la hora; se borra a las 24 h del final. La ubicación
+  actual se comparte desde el teléfono (no pasa por la API).
+- **Contactos de confianza** en `PATCH /v1/yo` `contactosConfianza: [{nombre, contacto}]` (hasta 3, la lista
+  reemplaza a la anterior; `contactoConfianza` queda como el primero). `avisos.semana` (default true).
+- **Después del plan**: `POST /v1/planes/{id}/repetimos` suma `carita` (1 a 5, privada) y devuelve
+  `{nuevo, mutuos: [{id, nombre, foto}]}`. Si los dos dijeron que sí, sale `interes.nuevo` mutuo («¡Es mutuo con X!
+  Ya pueden hablar.»). Push `plan.como_estuvo` a quienes fueron (no al organizador), de 10 a 22, desde 1 h después.
+  **Privados**: compartir un plan abre el privado hasta un día después del final; después, sólo si es mutuo.
+- **Fotos del plan** (sólo quienes fueron: aceptados con check-in, o todos si nadie usó el check-in):
+  `GET /v1/planes/{id}/fotos` → `{fotos: [{id, url, autor, mia, creadaEn}]}`; `POST` con la foto cruda (desde que
+  empieza hasta 7 días después; 5 por persona, 40 por plan); `DELETE /fotos/{foto}` (quien la subió);
+  `POST /fotos/{foto}/reportar` (la oculta para los demás y abre un reporte). La `url` va firmada para quien mira y
+  vence a la hora; el archivo (tipo `plan`) no es público. Se borran a los 6 meses del plan.
+- **«Esta semana en <ciudad>»**: `GET /v1/semana?ciudad=` → `{ciudad, desde, hasta, total, aliados, deTuGente,
+  dias: [{dia, cantidad}], planes}` (hasta el domingo; `planes` = lo mejor para descubrir, hasta 8). Push
+  `semana.aviso` los lunes desde las 18 si en la ciudad hay 5 planes públicos o más, una vez por semana, a quien
+  tiene `avisos.semana` y un teléfono (`{"pantalla": "semana"}`).
+
 ## Revisión con ojos de usuario (18/11, rama `revision-usuario`)
 - Push nuevos a quien organiza: `solicitud.sumada` (alguien entró directo a un plan de ingreso libre: «Lu se sumó»,
   «Truco · Somos 3 de 4.» o «¡Plan completo!») y `solicitud.salio` (alguien que estaba aceptado se bajó: «Lu se bajó»,

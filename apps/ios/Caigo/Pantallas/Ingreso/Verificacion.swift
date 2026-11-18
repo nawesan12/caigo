@@ -38,7 +38,8 @@ struct Verificacion: View {
     @State private var error: String?
     @State private var compartiendo = false
     @State private var editandoContacto = false
-    @State private var contacto = ""
+    /// Los renglones de la hoja: los contactos que hay y uno vacío para sumar (hasta 3).
+    @State private var contactos: [Contacto] = []
     @State private var guardandoContacto = false
 
     var body: some View {
@@ -69,16 +70,23 @@ struct Verificacion: View {
         .task { await cargar() }
     }
 
-    /// Contacto de confianza (PATCH /v1/yo `contactoConfianza`): teléfono o mail.
+    /// Contactos de confianza (PATCH /v1/yo `contactosConfianza`, hasta 3): nombre y teléfono o mail.
     private var hojaContacto: some View {
-        MiosHoja(abierta: editandoContacto, titulo: "Contacto de confianza", cerrar: { if !guardandoContacto { editandoContacto = false } }) {
-            T("A quién le mandás tu plan en vivo. Un teléfono o un mail, con un nombre si querés.", 15, 400, C.texto2, alto: 1.45)
-            MiosCampo(valor: $contacto, placeholder: "Mamá · +54 223 444 1290", maximo: 80)
+        MiosHoja(abierta: editandoContacto, titulo: "Contactos de confianza", cerrar: { if !guardandoContacto { editandoContacto = false } }) {
+            T("Sólo se usan si activás «¿Todo bien?» en un plan. Si es un mail, le escribimos si no llegás.", 15, 400, C.texto2, alto: 1.45)
+            ForEach(contactos.indices, id: \.self) { i in
+                HStack(spacing: 8) {
+                    MiosCampo(valor: $contactos[i].nombre, placeholder: "Nombre", maximo: 40).frame(width: 120)
+                    MiosCampo(valor: $contactos[i].contacto, placeholder: "Teléfono o mail", maximo: 80)
+                }
+            }
             Cta(texto: "Guardar", cargando: guardandoContacto) {
                 guardandoContacto = true
                 Task {
                     var cambios = CambiosPerfil()
-                    cambios.contactoConfianza = contacto.trimmingCharacters(in: .whitespacesAndNewlines)
+                    cambios.contactosConfianza = contactos
+                        .map { Contacto(nombre: $0.nombre.trimmingCharacters(in: .whitespaces), contacto: $0.contacto.trimmingCharacters(in: .whitespaces)) }
+                        .filter { !$0.contacto.isEmpty }
                     do {
                         c.yo = try await c.api.actualizarYo(cambios)
                         editandoContacto = false
@@ -153,9 +161,10 @@ struct Verificacion: View {
         VStack(spacing: 0) {
             herramienta(I.pin, C.violeta, "Compartir mi plan en vivo", "Tu contacto ve dónde estás hasta que termina", borde: true,
                         cargando: compartiendo) { compartirEnVivo() }
-            herramienta(I.usuario, C.violeta, "Contacto de confianza",
-                        (c.yo?.contactoConfianza).flatMap { $0.isEmpty ? nil : $0 } ?? "Sumá a alguien que sepa dónde estás", borde: true) {
-                contacto = c.yo?.contactoConfianza ?? ""
+            herramienta(I.usuario, C.violeta, "Contactos de confianza",
+                        (c.yo?.contactosConfianza ?? []).isEmpty ? "Te cuidan el día del plan con «¿Todo bien?»"
+                            : (c.yo?.contactosConfianza ?? []).map(\.mostrar).joined(separator: " · "), borde: true) {
+                contactos = Array(((c.yo?.contactosConfianza ?? []) + [Contacto()]).prefix(3))
                 editandoContacto = true
             }
             herramienta(I.bloqueo, C.coral2, "Bloqueos y reportes", "Los revisa una persona del equipo, no un bot", borde: false) { ir.bloqueos() }
