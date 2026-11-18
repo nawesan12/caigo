@@ -463,7 +463,9 @@ func (s *Servicio) Ver(ctx context.Context, usuarioID, idOSlug string, desdePunt
 		p, err = escanear(tx.QueryRow(ctx, `SELECT `+columnas+desde+`
 			WHERE `+campo+` = $2 AND ((p.visibilidad = 'link' AND `+sinBloqueo+`) OR (`+visible+`))
 				-- Como en las listas: el plan de una cuenta suspendida o dada de baja no se ve, ni por link.
-				AND `+organizaActivo, usuarioID, idOSlug))
+				-- Quien ya estaba en el plan sí, y uno cancelado también (la baja cancela los suyos: el link
+				-- dice «se canceló» en vez de «no existe»).
+				AND (`+organizaActivo+` OR m.estado IS NOT NULL OR p.cancelado_en IS NOT NULL)`, usuarioID, idOSlug))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("Ese plan no existe o no lo podés ver.")
 		}
