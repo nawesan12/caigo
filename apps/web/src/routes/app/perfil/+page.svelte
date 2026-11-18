@@ -3,6 +3,7 @@
 	import Avatar from '#lib/app-ui/Avatar.svelte';
 	import Verificado from '#lib/app-ui/Verificado.svelte';
 	import { CATEGORIAS } from '#lib/plan.ts';
+	import { nivelTexto, rachaTexto, siguienteTexto } from '#lib/gestos.ts';
 	import type { YoCompleto } from '#lib/tipos.ts';
 
 	/*
@@ -23,6 +24,7 @@
 	);
 	const prompts = $derived((yo.prompts ?? []).filter((p) => p.p && p.r));
 	const restoGente = $derived(Math.max(0, yo.miGente - data.gente.length));
+	const logros = $derived(yo.logros);
 </script>
 
 <svelte:head><title>Perfil · Caigo</title></svelte:head>
@@ -76,6 +78,24 @@
 			</div>
 		</div>
 
+		{#if logros}
+			<!-- Premios por ir: sobrio, sin puntos. Nivel, racha semanal, insignias y lo que falta. -->
+			<div class="caja logros">
+				<div class="l-arriba">
+					<span class="rot">{nivelTexto(logros)}</span>
+					{#if rachaTexto(logros)}<span class="sd">{rachaTexto(logros)}</span>{/if}
+				</div>
+				{#if logros.insignias.length}
+					<div class="chips">
+						{#each logros.insignias as ins (ins.id)}
+							<span class="interes" title={ins.detalle}>{ins.nombre}</span>
+						{/each}
+					</div>
+				{/if}
+				{#if siguienteTexto(logros)}<span class="sd">{siguienteTexto(logros)}</span>{/if}
+			</div>
+		{/if}
+
 		{#if yo.bio}
 			<div class="caja">
 				<span class="overline">SOBRE MÍ</span>
@@ -112,6 +132,15 @@
 				{:else}
 					<span class="sd">Después de un plan, sumá a quien volverías a&nbsp;ver.</span>
 				{/if}
+			</div>
+			<Icono nombre="flecha" tam={20} trazo={2.2} />
+		</a>
+
+		<a class="gente" href="/app/perfil/invitar">
+			<div class="g-txt">
+				<span class="rot">Traé a alguien</span>
+				<span class="sd">Cuando vaya a su primer plan, los dos tienen una semana de&nbsp;Plus.</span
+				>
 			</div>
 			<Icono nombre="flecha" tam={20} trazo={2.2} />
 		</a>
@@ -251,6 +280,16 @@
 			sans-serif;
 		letter-spacing: -0.4px;
 		text-wrap: pretty;
+	}
+	.l-arriba {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 4px 12px;
+	}
+	.logros .sd {
+		font-size: 13px;
 	}
 	.bloque {
 		display: flex;

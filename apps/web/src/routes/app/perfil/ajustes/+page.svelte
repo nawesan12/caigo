@@ -21,6 +21,7 @@
 	let editandoContacto = $state(false);
 	let avisos = $state({ planesCerca: true, tuGente: true, ...(yo.avisos ?? {}) });
 	let tema = $state(untrack(() => data.tema));
+	let ocultas = $state(!!yo.logros?.ocultas);
 
 	/** Envía sin recargar; si sale bien, `aplicar` deja la pantalla como quedó. */
 	const enviar =
@@ -167,6 +168,25 @@
 					></span
 				>
 				<span class="toggle" class:on={avisos.tuGente}></span>
+			</button>
+		</form>
+
+		<h2>Insignias</h2>
+		<form
+			method="POST"
+			action="?/insignias"
+			class="lista"
+			use:enhance={enviar((d) => (ocultas = !!d.ocultas))}
+		>
+			<input type="hidden" name="ocultar" value={ocultas ? '0' : '1'} />
+			<button class="fila" role="switch" aria-checked={ocultas}>
+				<Icono nombre="escudo" tam={20} color="var(--c-acento)" trazo={2} />
+				<span class="ft"
+					><b>Ocultar mis insignias</b><span
+						>Los demás ven tu nivel y tu asistencia,&nbsp;nada más</span
+					></span
+				>
+				<span class="toggle" class:on={ocultas}></span>
 			</button>
 		</form>
 

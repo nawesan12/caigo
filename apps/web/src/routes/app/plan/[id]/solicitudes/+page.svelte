@@ -121,6 +121,9 @@
 										: ''}{#if s.persona.verificada}<Verificado tam={15} />{/if}</span
 							>
 							<span class="d">{datoDe(s.persona)}</span>
+							{#if (s.persona.faltazos ?? 0) >= 2}<span class="d faltazos"
+									>Faltó a {s.persona.faltazos} planes este&nbsp;mes</span
+								>{/if}
 						</div>
 						{#if completan}<span class="completan-chip">Completan</span>{/if}
 					</div>
@@ -200,6 +203,10 @@
 {/if}
 
 <style>
+	.d.faltazos {
+		color: #c23a28;
+		font-weight: 600;
+	}
 	.contenido {
 		padding: calc(20px + env(safe-area-inset-top)) 20px 40px;
 		display: flex;

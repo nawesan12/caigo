@@ -5,6 +5,7 @@ import { verificada } from '#lib/verificacion.ts';
 import { COOKIE_UBIC, leerUbicacion } from '#lib/app.ts';
 import type { Verificacion, Yo } from '#lib/tipos.ts';
 import type { LayoutServerLoad } from './$types';
+import { usarInvitacion } from '#lib/server/invitacion.ts';
 
 /** Tema de /app (perfil › ajustes): claro, oscuro o como el teléfono. */
 const TEMAS = ['claro', 'oscuro', 'sistema'] as const;
@@ -42,7 +43,8 @@ export const load: LayoutServerLoad = async (event) => {
 	}
 	const [yo, verif] = await Promise.all([
 		conSesion<Yo>(event, 'GET', '/v1/yo'),
-		event.locals.verif ?? conSesion<Verificacion>(event, 'GET', '/v1/verificacion')
+		event.locals.verif ?? conSesion<Verificacion>(event, 'GET', '/v1/verificacion'),
+		usarInvitacion(event)
 	]);
 	// Sin la verificación completa, sólo el alta (hooks.server.ts ya cortó lo demás).
 	if (!verificada(verif) && !exentaDeVerificar(ruta)) aVerificar(event);
