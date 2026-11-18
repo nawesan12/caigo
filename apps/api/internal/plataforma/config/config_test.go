@@ -48,3 +48,17 @@ func TestProduccionLeeElPanel(t *testing.T) {
 		t.Fatalf("panel de CAIGO_PANEL: %q", c.Panel)
 	}
 }
+
+func TestTopesDeIA(t *testing.T) {
+	t.Setenv("CAIGO_ENTORNO", "desarrollo")
+	t.Setenv("CAIGO_IA_TOPE_MES_USD", "")
+	t.Setenv("CAIGO_IA_TOPE_DIA_USD", "0.5")
+	c, err := Leer()
+	if err != nil || c.IATopeMes != 15 || c.IATopeDia != 0.5 {
+		t.Fatalf("topes: %v %v %v", c.IATopeMes, c.IATopeDia, err)
+	}
+	t.Setenv("CAIGO_IA_TOPE_MES_USD", "quince")
+	if _, err := Leer(); err == nil {
+		t.Fatal("un tope que no es número tiene que fallar")
+	}
+}

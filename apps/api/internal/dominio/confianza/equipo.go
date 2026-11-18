@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/equipo"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
 
@@ -188,4 +189,25 @@ func (s *Servicio) Resolver(ctx context.Context, equipoID, id string, descartar,
 		_, err = s.Vetados.Anotar(ctx, tx, *sobre)
 		return err
 	})
+}
+
+// moderacion devuelve el servicio de moderación (uno sin IA si no vino: la cola es la base).
+func (s *Servicio) moderacion() *moderacion.Servicio {
+	if s.Moderacion != nil {
+		return s.Moderacion
+	}
+	return &moderacion.Servicio{App: s.App, Log: s.Log}
+}
+
+// ColaModeracion: lo que marcó la moderación automática y espera al equipo.
+func (s *Servicio) ColaModeracion(ctx context.Context) ([]moderacion.Item, error) {
+	return s.moderacion().Cola(ctx)
+}
+
+// ResolverModeracion: aprobar, ocultar o suspender (como desde el backoffice: mail y DNI vetados).
+func (s *Servicio) ResolverModeracion(ctx context.Context, equipoID, id, accion, motivo string) error {
+	return s.moderacion().Resolver(ctx, equipoID, id, accion, motivo,
+		func(ctx context.Context, tx pgx.Tx, usuarioID, motivo string) error {
+			return equipo.SuspenderTx(ctx, tx, s.Vetados, usuarioID, motivo)
+		})
 }

@@ -13,6 +13,8 @@ var Plazos = []string{
 	// Privados con una cuenta purgada (los que mandó y los que recibió): al año de la purga.
 	`DELETE FROM privados x USING usuarios u WHERE (x.de_id = u.id OR x.a_id = u.id)
 		AND u.purgada_en < now() - interval '1 year'`,
+	// La cola de la moderación (copias de textos de esa cuenta, resueltas o no): al año de la purga.
+	`DELETE FROM moderaciones m USING usuarios u WHERE m.usuario_id = u.id AND u.purgada_en < now() - interval '1 year'`,
 	// Asistencia (a qué planes se sumó y si hizo check-in) y «¿Volverías?»: al año de la purga.
 	`DELETE FROM solicitudes s USING usuarios u WHERE s.usuario_id = u.id AND u.purgada_en < now() - interval '1 year'`,
 	`DELETE FROM volveria v USING usuarios u WHERE (v.usuario_id = u.id OR v.otro_id = u.id)

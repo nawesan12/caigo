@@ -14,6 +14,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/equipo"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/gente"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/lugares"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/personas"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
@@ -24,6 +25,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/firma"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/ia"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/limite"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/sesion"
@@ -65,6 +67,8 @@ type Dependencias struct {
 	// Huellas de la lista de vetados (derivada de CAIGO_CLAVE_VERIFICACION). nil: el alta y el DNI
 	// no se cruzan con la lista y suspender no anota huellas.
 	Vetados *vetados.Clave
+	// IA de la moderación (Claude Haiku). nil: sólo el filtro propio; lo dudoso va al equipo.
+	IA *ia.Cliente
 }
 
 // Nuevo arma el handler con todas las rutas.
@@ -100,17 +104,19 @@ func Nuevo(d Dependencias) http.Handler {
 	if d.App != nil {
 		ses := &sesion.Resolvedor{Clerk: d.Clerk, App: d.App, Log: d.Log, Vetados: d.Vetados}
 		ses.Rutas(mux)
+		mod := moderacion.Nuevo(d.App, d.IA, d.Log)
 		pls := &planes.Servicio{App: d.App, Reloj: d.Reloj, Firma: firma.Firmador{Clave: []byte(d.Secreto)}, Sitio: d.Sitio,
-			APIPublica: d.APIPublica}
+			APIPublica: d.APIPublica, Moderacion: mod}
 		planes.Rutas(mux, pls, ses.Exigir, d.Log)
 		equipo.Rutas(mux, &equipo.Servicio{App: d.App, Publicador: pls, Reloj: d.Reloj, Vetados: d.Vetados}, ses, d.Log)
 		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos, Clave: d.ClaveVerificacion}, Correo: d.Correo, Casillas: d.Clerk,
-			Vetados: d.Vetados, Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj}, ses, d.Log)
+			Vetados: d.Vetados, Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj, Moderacion: mod}, ses, d.Log)
 		personas.Rutas(mux, &personas.Servicio{App: d.App, Casillas: d.Clerk, APIPublica: d.APIPublica}, ses.Exigir, d.Log)
 		avisos.Rutas(mux, d.App, ses.Exigir, d.Log)
 		if d.Hub == nil {
 			d.Hub = &chat.Hub{Servicio: &chat.Servicio{App: d.App, Reloj: d.Reloj}, Log: d.Log}
 		}
+		d.Hub.Servicio.Moderacion = mod
 		chat.Rutas(mux, d.Hub.Servicio, d.Hub, ses, d.Origenes, d.Log)
 		gente.Rutas(mux, &gente.Servicio{App: d.App, Reloj: d.Reloj}, ses.Exigir, d.Log)
 		if d.Tiendas == nil {

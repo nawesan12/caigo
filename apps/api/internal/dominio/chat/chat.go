@@ -5,11 +5,13 @@ package chat
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
@@ -22,6 +24,9 @@ const Archivo = 3 * 24 * time.Hour
 type Servicio struct {
 	App   *db.Pool
 	Reloj func() time.Time
+	// Moderación (para anotar en la cola lo que el filtro frena y el equipo tiene que ver). nil: igual
+	// se filtra; sólo no se anota.
+	Moderacion *moderacion.Servicio
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -45,6 +50,8 @@ type Mensaje struct {
 	Autor    *Autor    `json:"autor,omitempty"`
 	Texto    string    `json:"texto"`
 	CreadoEn time.Time `json:"creadoEn"`
+	// Sólo en los del autor: "" | revision | oculto (los ocultos ajenos no se mandan).
+	Moderacion string `json:"moderacion,omitempty"`
 }
 
 // Privado entre dos personas.
@@ -55,6 +62,39 @@ type Privado struct {
 	Texto    string     `json:"texto"`
 	CreadoEn time.Time  `json:"creadoEn"`
 	LeidoEn  *time.Time `json:"leidoEn,omitempty"`
+	// Como en Mensaje: sólo en los del autor.
+	Moderacion string `json:"moderacion,omitempty"`
+}
+
+// estadoPara es la moderación como la ve quien mira: el autor ve «revision» u «oculto»; el resto, nada
+// (los ocultos ajenos ni siquiera le llegan). Lo pendiente no se muestra: son segundos.
+func estadoPara(autor, quien, estado string) string {
+	if autor == "" || autor != quien {
+		return ""
+	}
+	switch estado {
+	case moderacion.EstadoRevisar:
+		return "revision"
+	case moderacion.EstadoOculto:
+		return "oculto"
+	}
+	return ""
+}
+
+// columnaEstado: la moderación de m como la ve $quien (en SQL, para las listas).
+func columnaEstado(autor, estado, quien string) string {
+	return `CASE WHEN ` + autor + ` = ` + quien + ` THEN CASE ` + estado + ` WHEN 'revisar' THEN 'revision'
+		WHEN 'oculto' THEN 'oculto' ELSE '' END ELSE '' END`
+}
+
+// filtrar pasa el texto por el filtro propio. Lo bloqueado no sale (422); lo dudoso sale y lo revisa la IA.
+func (s *Servicio) filtrar(ctx context.Context, usuarioID, tipo, planID, texto string) (moderacion.Veredicto, error) {
+	v := moderacion.Filtrar(texto)
+	if v.Decision == moderacion.Bloquear {
+		s.Moderacion.AnotarBloqueo(ctx, usuarioID, tipo, planID, texto, v)
+		return v, moderacion.Bloqueado(tipo, v.Motivo)
+	}
+	return v, nil
 }
 
 func limpiar(texto string) (string, error) {
@@ -101,9 +141,11 @@ func (s *Servicio) Mensajes(ctx context.Context, usuarioID, planID string, antes
 		}
 		rows, err := tx.Query(ctx, `
 			SELECT * FROM (
-				SELECT m.id, m.plan_id, m.usuario_id, coalesce(u.nombre, ''), coalesce(u.fotos[1], ''), m.texto, m.creado_en
+				SELECT m.id, m.plan_id, m.usuario_id, coalesce(u.nombre, ''), coalesce(u.fotos[1], ''), m.texto, m.creado_en,
+					`+columnaEstado("m.usuario_id", "m.moderacion", "$3")+`
 				FROM mensajes m LEFT JOIN usuarios u ON u.id = m.usuario_id
 				WHERE m.plan_id = $1 AND m.id < $2 AND NOT `+bloqueados("m.usuario_id", "$3")+`
+					AND (m.moderacion <> 'oculto' OR m.usuario_id = $3)
 				ORDER BY m.id DESC LIMIT 100
 			) x ORDER BY id`, planID, antes, usuarioID)
 		if err != nil {
@@ -126,7 +168,7 @@ func escanearMensaje(row pgx.Row) (Mensaje, error) {
 	var m Mensaje
 	var autorID *string
 	var nombre, foto string
-	err := row.Scan(&m.ID, &m.PlanID, &autorID, &nombre, &foto, &m.Texto, &m.CreadoEn)
+	err := row.Scan(&m.ID, &m.PlanID, &autorID, &nombre, &foto, &m.Texto, &m.CreadoEn, &m.Moderacion)
 	if autorID != nil {
 		m.Autor = &Autor{ID: *autorID, Nombre: nombre, Foto: foto}
 	}
@@ -136,6 +178,14 @@ func escanearMensaje(row pgx.Row) (Mensaje, error) {
 // Enviar manda un mensaje al chat del plan.
 func (s *Servicio) Enviar(ctx context.Context, usuarioID, planID, texto string) (Mensaje, error) {
 	texto, err := limpiar(texto)
+	if err != nil {
+		return Mensaje{}, err
+	}
+	var plan *string
+	if esUUID(planID) {
+		plan = &planID
+	}
+	v, err := s.filtrar(ctx, usuarioID, moderacion.TipoMensaje, deref(plan), texto)
 	if err != nil {
 		return Mensaje{}, err
 	}
@@ -152,11 +202,16 @@ func (s *Servicio) Enviar(ctx context.Context, usuarioID, planID, texto string) 
 			return problema.Conflicto("archivado", "Este chat ya se archivó.")
 		}
 		m, err = escanearMensaje(tx.QueryRow(ctx, `
-			WITH n AS (INSERT INTO mensajes (plan_id, usuario_id, texto) VALUES ($1, $2, $3) RETURNING *)
-			SELECT n.id, n.plan_id, n.usuario_id, u.nombre, coalesce(u.fotos[1], ''), n.texto, n.creado_en
-			FROM n JOIN usuarios u ON u.id = n.usuario_id`, planID, usuarioID, texto))
+			WITH n AS (INSERT INTO mensajes (plan_id, usuario_id, texto, moderacion) VALUES ($1, $2, $3, $4) RETURNING *)
+			SELECT n.id, n.plan_id, n.usuario_id, u.nombre, coalesce(u.fotos[1], ''), n.texto, n.creado_en, ''
+			FROM n JOIN usuarios u ON u.id = n.usuario_id`, planID, usuarioID, texto, moderacion.EstadoMensaje(v)))
 		if err != nil {
 			return err
+		}
+		if v.Decision == moderacion.Dudoso {
+			if err := moderacion.PublicarRevision(ctx, tx, moderacion.TipoMensaje, m.ID, v); err != nil {
+				return err
+			}
 		}
 		return outbox.Publicar(ctx, tx, "mensaje.plan", map[string]any{"mensajeId": m.ID, "planId": planID})
 	})
@@ -209,9 +264,10 @@ func (s *Servicio) Conversaciones(ctx context.Context, usuarioID string) ([]Conv
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `
 			SELECT DISTINCT ON (otro) otro, u.nombre, coalesce(u.fotos[1], ''),
-				p.id, p.de_id, p.a_id, p.texto, p.creado_en, p.leido_en,
+				p.id, p.de_id, p.a_id, p.texto, p.creado_en, p.leido_en, `+columnaEstado("p.de_id", "p.moderacion", "$1")+`,
 				(SELECT count(*) FROM privados z WHERE z.de_id = otro AND z.a_id = $1 AND z.leido_en IS NULL)
-			FROM (SELECT *, CASE WHEN de_id = $1 THEN a_id ELSE de_id END AS otro FROM privados) p
+			FROM (SELECT *, CASE WHEN de_id = $1 THEN a_id ELSE de_id END AS otro FROM privados
+				WHERE moderacion <> 'oculto' OR de_id = $1) p
 			JOIN usuarios u ON u.id = p.otro
 			-- Sin bloqueos en ningún sentido ni cuentas dadas de baja.
 			WHERE u.baja_en IS NULL AND NOT EXISTS (SELECT 1 FROM bloqueos b
@@ -224,7 +280,7 @@ func (s *Servicio) Conversaciones(ctx context.Context, usuarioID string) ([]Conv
 		for rows.Next() {
 			var c Conversacion
 			if err := rows.Scan(&c.Con.ID, &c.Con.Nombre, &c.Con.Foto, &c.Ultimo.ID, &c.Ultimo.DeID,
-				&c.Ultimo.AID, &c.Ultimo.Texto, &c.Ultimo.CreadoEn, &c.Ultimo.LeidoEn, &c.SinLeer); err != nil {
+				&c.Ultimo.AID, &c.Ultimo.Texto, &c.Ultimo.CreadoEn, &c.Ultimo.LeidoEn, &c.Ultimo.Moderacion, &c.SinLeer); err != nil {
 				return err
 			}
 			out = append(out, c)
@@ -249,8 +305,9 @@ func (s *Servicio) Hilo(ctx context.Context, usuarioID, otroID string, antes int
 		}
 		// Con un bloqueo en cualquier sentido, la conversación no se ve (como en Conversaciones).
 		rows, err := tx.Query(ctx, `
-			SELECT * FROM (SELECT id, de_id, a_id, texto, creado_en, leido_en FROM privados
+			SELECT * FROM (SELECT id, de_id, a_id, texto, creado_en, leido_en, `+columnaEstado("de_id", "moderacion", "$1")+` FROM privados
 				WHERE ((de_id = $1 AND a_id::text = $2) OR (de_id::text = $2 AND a_id = $1)) AND id < $3
+					AND (moderacion <> 'oculto' OR de_id = $1)
 					AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $1 AND b.bloqueado_id::text = $2)
 						OR (b.usuario_id::text = $2 AND b.bloqueado_id = $1))
 				ORDER BY id DESC LIMIT 100) x ORDER BY id`, usuarioID, otroID, antes)
@@ -259,7 +316,7 @@ func (s *Servicio) Hilo(ctx context.Context, usuarioID, otroID string, antes int
 		}
 		for rows.Next() {
 			var p Privado
-			if err := rows.Scan(&p.ID, &p.DeID, &p.AID, &p.Texto, &p.CreadoEn, &p.LeidoEn); err != nil {
+			if err := rows.Scan(&p.ID, &p.DeID, &p.AID, &p.Texto, &p.CreadoEn, &p.LeidoEn, &p.Moderacion); err != nil {
 				rows.Close()
 				return err
 			}
@@ -284,6 +341,10 @@ func (s *Servicio) EnviarPrivado(ctx context.Context, usuarioID, otroID, texto s
 	if otroID == usuarioID {
 		return Privado{}, problema.Invalido("No te podés escribir a vos.")
 	}
+	v, err := s.filtrar(ctx, usuarioID, moderacion.TipoPrivado, "", texto)
+	if err != nil {
+		return Privado{}, err
+	}
 	var p Privado
 	err = s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		ok, err := puedenHablar(ctx, tx, usuarioID, otroID)
@@ -293,12 +354,28 @@ func (s *Servicio) EnviarPrivado(ctx context.Context, usuarioID, otroID, texto s
 		if !ok {
 			return problema.SinPermiso("Los privados son entre quienes compartieron un plan o son de tu gente.")
 		}
-		if err := tx.QueryRow(ctx, `INSERT INTO privados (de_id, a_id, texto) VALUES ($1, $2, $3)
-			RETURNING id, de_id, a_id, texto, creado_en`, usuarioID, otroID, texto).
+		if err := tx.QueryRow(ctx, `INSERT INTO privados (de_id, a_id, texto, moderacion) VALUES ($1, $2, $3, $4)
+			RETURNING id, de_id, a_id, texto, creado_en`, usuarioID, otroID, texto, moderacion.EstadoMensaje(v)).
 			Scan(&p.ID, &p.DeID, &p.AID, &p.Texto, &p.CreadoEn); err != nil {
 			return err
+		}
+		if v.Decision == moderacion.Dudoso {
+			if err := moderacion.PublicarRevision(ctx, tx, moderacion.TipoPrivado, p.ID, v); err != nil {
+				return err
+			}
 		}
 		return outbox.Publicar(ctx, tx, "privado.nuevo", map[string]any{"privadoId": p.ID})
 	})
 	return p, err
+}
+
+var reUUID = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+func esUUID(s string) bool { return reUUID.MatchString(s) }
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/google"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/ia"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/servidor"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/tiendas"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/vetados"
@@ -87,6 +88,11 @@ func correr() error {
 		deps.Wallet.Google = &wallet.Google{Cuenta: cuentaPlay, Emisor: cfg.GoogleWalletEmisor, Origenes: []string{cfg.Sitio}}
 	}
 	deps.Panel = cfg.Panel
+	// Moderación: sin la clave de Anthropic queda sólo el filtro propio y lo dudoso va al equipo.
+	deps.IA = ia.Nuevo(cfg.AnthropicClave, app, cfg.IATopeMes, cfg.IATopeDia, nil)
+	if deps.IA == nil {
+		slog.Warn("sin ANTHROPIC_API_KEY: la moderación usa sólo el filtro propio")
+	}
 	// El código del teléfono sale por mail (no hay proveedor de SMS). Sin SMTP, simulado.
 	if cfg.SMTP != "" {
 		deps.Correo = correo.Elegir(cfg.SMTP, cfg.SMTPUsuario, cfg.SMTPClave, cfg.CorreoDe)

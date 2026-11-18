@@ -17,7 +17,9 @@ const Canal = "caigo_tiempo_real"
 
 // Evento que viaja por el WebSocket.
 type Evento struct {
-	Tipo    string   `json:"tipo"` // mensaje | privado | escribiendo | plan (cambió el plan o sus solicitudes)
+	// mensaje | privado | escribiendo | plan (cambió el plan o sus solicitudes) | moderado (cambió la
+	// moderación de un mensaje o privado: si quedó oculto y no es mío, se saca; si no, se reemplaza)
+	Tipo    string   `json:"tipo"`
 	Mensaje *Mensaje `json:"mensaje,omitempty"`
 	Privado *Privado `json:"privado,omitempty"`
 	PlanID  string   `json:"planId,omitempty"`
@@ -101,9 +103,9 @@ func (h *Hub) mandar(usuarioID string, ev Evento) {
 func (h *Hub) Escuchar(ctx context.Context) {
 	h.Servicio.App.Escuchar(ctx, Canal, func(payload string) {
 		var n struct {
-			Tipo string `json:"tipo"`
-			ID   int64  `json:"id"`
-			Plan string `json:"plan"`
+			Tipo string      `json:"tipo"`
+			ID   json.Number `json:"id"`
+			Plan string      `json:"plan"`
 		}
 		if json.Unmarshal([]byte(payload), &n) != nil {
 			return
@@ -114,7 +116,11 @@ func (h *Hub) Escuchar(ctx context.Context) {
 			}
 			return
 		}
-		if err := h.repartir(ctx, n.Tipo, n.ID); err != nil {
+		id, err := n.ID.Int64()
+		if err != nil {
+			return
+		}
+		if err := h.repartir(ctx, n.Tipo, id); err != nil {
 			h.log().Warn("tiempo real: no se pudo repartir", "tipo", n.Tipo, "id", n.ID, "error", err)
 		}
 	})
@@ -125,7 +131,7 @@ func (h *Hub) repartir(ctx context.Context, tipo string, id int64) error {
 		switch tipo {
 		case "mensaje":
 			m, err := escanearMensaje(tx.QueryRow(ctx, `
-				SELECT m.id, m.plan_id, m.usuario_id, coalesce(u.nombre, ''), coalesce(u.fotos[1], ''), m.texto, m.creado_en
+				SELECT m.id, m.plan_id, m.usuario_id, coalesce(u.nombre, ''), coalesce(u.fotos[1], ''), m.texto, m.creado_en, ''
 				FROM mensajes m LEFT JOIN usuarios u ON u.id = m.usuario_id WHERE m.id = $1`, id))
 			if err != nil {
 				return err
@@ -149,9 +155,57 @@ func (h *Hub) repartir(ctx context.Context, tipo string, id int64) error {
 			}
 			h.mandar(p.DeID, Evento{Tipo: "privado", Privado: &p})
 			h.mandar(p.AID, Evento{Tipo: "privado", Privado: &p})
+		case "moderado_mensaje":
+			return h.moderadoMensaje(ctx, tx, id)
+		case "moderado_privado":
+			return h.moderadoPrivado(ctx, tx, id)
 		}
 		return nil
 	})
+}
+
+// moderadoMensaje reparte el nuevo estado de moderación de un mensaje del chat del plan. Cada uno lo
+// recibe como lo vería en la lista: el autor con su estado; el resto, «oculto» (para sacarlo) o nada.
+func (h *Hub) moderadoMensaje(ctx context.Context, tx pgx.Tx, id int64) error {
+	var estado string
+	m, err := escanearMensaje(tx.QueryRow(ctx, `
+		SELECT m.id, m.plan_id, m.usuario_id, coalesce(u.nombre, ''), coalesce(u.fotos[1], ''), m.texto, m.creado_en, m.moderacion
+		FROM mensajes m LEFT JOIN usuarios u ON u.id = m.usuario_id WHERE m.id = $1`, id))
+	if err != nil || m.Autor == nil {
+		return err
+	}
+	estado, m.Moderacion = m.Moderacion, ""
+	ids, err := aceptados(ctx, tx, m.PlanID, m.Autor.ID)
+	if err != nil {
+		return err
+	}
+	for _, u := range append(ids, m.Autor.ID) {
+		x := m
+		x.Moderacion = estadoPara(m.Autor.ID, u, estado)
+		if u != m.Autor.ID && estado == "oculto" {
+			x.Moderacion, x.Texto = "oculto", "" // sólo para sacarlo: el texto no viaja
+		}
+		h.mandar(u, Evento{Tipo: "moderado", Mensaje: &x})
+	}
+	return nil
+}
+
+// moderadoPrivado: lo mismo para un privado (le llega a los dos).
+func (h *Hub) moderadoPrivado(ctx context.Context, tx pgx.Tx, id int64) error {
+	var p Privado
+	var estado string
+	if err := tx.QueryRow(ctx, `SELECT id, de_id, a_id, texto, creado_en, moderacion FROM privados WHERE id = $1`, id).
+		Scan(&p.ID, &p.DeID, &p.AID, &p.Texto, &p.CreadoEn, &estado); err != nil {
+		return err
+	}
+	autor, otro := p, p
+	autor.Moderacion = estadoPara(p.DeID, p.DeID, estado)
+	if estado == "oculto" {
+		otro.Moderacion, otro.Texto = "oculto", ""
+	}
+	h.mandar(p.DeID, Evento{Tipo: "moderado", Privado: &autor})
+	h.mandar(p.AID, Evento{Tipo: "moderado", Privado: &otro})
+	return nil
 }
 
 // avisarPlan: cambió el plan o alguna de sus solicitudes (00016). Le llega al organizador y a todos

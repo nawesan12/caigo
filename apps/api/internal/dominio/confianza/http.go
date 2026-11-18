@@ -235,4 +235,25 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 		}
 		return listo(w)
 	}))
+	// Cola de la moderación automática (filtro propio + IA).
+	mux.Handle("GET /v1/equipo/moderacion", h(equipo, func(w http.ResponseWriter, r *http.Request, _ sesion.Persona) error {
+		ms, err := s.ColaModeracion(r.Context())
+		if err == nil {
+			respuesta.JSON(w, http.StatusOK, map[string]any{"moderaciones": ms})
+		}
+		return err
+	}))
+	mux.Handle("POST /v1/equipo/moderacion/{id}", h(equipo, func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		var in struct {
+			Accion string `json:"accion"`
+			Motivo string `json:"motivo"`
+		}
+		if !respuesta.Leer(w, r, &in) {
+			return nil
+		}
+		if err := s.ResolverModeracion(r.Context(), p.ID, r.PathValue("id"), in.Accion, in.Motivo); err != nil {
+			return err
+		}
+		return listo(w)
+	}))
 }

@@ -20,6 +20,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/personas"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
@@ -49,6 +50,9 @@ type Servicio struct {
 	// URL pública de la API, para armar la URL de las fotos.
 	APIPublica string
 	Reloj      func() time.Time
+	// Moderación automática: su cola se revisa acá, con los reportes y los DNI. nil: la cola anda igual
+	// (lee la base), sin IA.
+	Moderacion *moderacion.Servicio
 }
 
 func (s *Servicio) ahora() time.Time {

@@ -50,6 +50,10 @@ type Config struct {
 	// Sin SMTP el código no sale: queda en el log y la API lo devuelve (codigoDePrueba). En
 	// desarrollo, con CAIGO_SMTP=127.0.0.1:1025, va a un Mailpit.
 	SMTP, SMTPUsuario, SMTPClave, CorreoDe string
+	// IA (moderación con Claude Haiku): la clave de Anthropic (sin ella, sólo el filtro propio) y los
+	// topes de gasto en dólares, del mes (la parte de Caigo del presupuesto común) y del día.
+	AnthropicClave       string
+	IATopeMes, IATopeDia float64
 }
 
 // Desarrollo dice si se está corriendo en local.
@@ -95,7 +99,14 @@ func Leer() (Config, error) {
 		SMTPClave:          os.Getenv("CAIGO_SMTP_CLAVE"),
 		CorreoDe:           valor("CAIGO_CORREO_DE", "Caigo <hola@caigo.com.ar>"),
 	}
+	c.AnthropicClave = os.Getenv("ANTHROPIC_API_KEY")
 	var err error
+	if c.IATopeMes, err = dolares("CAIGO_IA_TOPE_MES_USD", 15); err != nil {
+		return c, err
+	}
+	if c.IATopeDia, err = dolares("CAIGO_IA_TOPE_DIA_USD", 1); err != nil {
+		return c, err
+	}
 	if c.MinAndroid, err = entero("CAIGO_MIN_ANDROID"); err != nil {
 		return c, err
 	}
@@ -172,6 +183,19 @@ func entero(k string) (int, error) {
 	n, err := strconv.Atoi(v)
 	if err != nil || n < 0 {
 		return 0, fmt.Errorf("%s=%q: tiene que ser un entero", k, v)
+	}
+	return n, nil
+}
+
+// dolares lee un monto en dólares (con punto decimal); vacío: def. 0 apaga el tope.
+func dolares(k string, def float64) (float64, error) {
+	v := strings.TrimSpace(os.Getenv(k))
+	if v == "" {
+		return def, nil
+	}
+	n, err := strconv.ParseFloat(v, 64)
+	if err != nil || n < 0 {
+		return 0, fmt.Errorf("%s=%q: tiene que ser un monto en dólares", k, v)
 	}
 	return n, nil
 }

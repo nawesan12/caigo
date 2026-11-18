@@ -21,11 +21,12 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/config"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/ia"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "uso: caigoctl bootstrap|migrar|equipo <user_…> [no]|recuperar-cuenta <mail|user_…>|semilla <planes.json>|cifrar-verificaciones [--probar]")
+		fmt.Fprintln(os.Stderr, "uso: caigoctl bootstrap|migrar|equipo <user_…> [no]|recuperar-cuenta <mail|user_…>|semilla <planes.json>|cifrar-verificaciones [--probar]|ia-uso")
 		os.Exit(2)
 	}
 	if err := correr(os.Args[1]); err != nil {
@@ -109,6 +110,31 @@ func correr(cmd string) error {
 			return fmt.Errorf("no hay una cuenta borrada sin purgar con ese mail o id")
 		}
 		fmt.Println("recuperada:", id)
+	case "ia-uso":
+		// Gasto de la IA en el mes, por ruta, contra los topes.
+		if err := cfg.Exigir("BaseApp"); err != nil {
+			return err
+		}
+		app, err := db.Abrir(ctx, cfg.BaseApp)
+		if err != nil {
+			return err
+		}
+		defer app.Close()
+		c := &ia.Cliente{App: app}
+		filas, err := c.DelMes(ctx)
+		if err != nil {
+			return err
+		}
+		dia, mes, err := c.Gastado(ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%-22s %8s %8s %10s %10s %10s %8s %10s\n", "ruta", "pedidos", "fallidos", "entrada", "caché leído", "caché escr.", "salida", "USD")
+		for _, f := range filas {
+			fmt.Printf("%-22s %8d %8d %10d %10d %10d %8d %10.4f\n", f.Ruta, f.Pedidos, f.Fallidos, f.Entrada, f.CacheLeido,
+				f.CacheEscrito, f.Salida, float64(f.CostoMicro)/1e6)
+		}
+		fmt.Printf("\nhoy: USD %.4f de %.2f · mes: USD %.4f de %.2f\n", float64(dia)/1e6, cfg.IATopeDia, float64(mes)/1e6, cfg.IATopeMes)
 	case "semilla":
 		if err := cfg.Exigir("BaseApp"); err != nil {
 			return err

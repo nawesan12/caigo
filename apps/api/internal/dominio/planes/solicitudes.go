@@ -266,9 +266,9 @@ func completo(ctx context.Context, tx pgx.Tx, planID string) error {
 
 // organizaActivo (con p = planes): quien organiza no está suspendido ni dado de baja. Los planes de
 // una cuenta suspendida no salen en las listas, no admiten sumarse y la recurrencia no los repite (si
-// la reactivan, vuelven).
-const organizaActivo = `EXISTS (SELECT 1 FROM usuarios oa WHERE oa.id = p.organizador_id AND oa.suspendido_en IS NULL
-	AND oa.baja_en IS NULL)`
+// la reactivan, vuelven). Un plan oculto por la moderación tampoco: ni link público, ni sumarse, ni se repite.
+const organizaActivo = `(p.moderacion <> 'oculto' AND EXISTS (SELECT 1 FROM usuarios oa WHERE oa.id = p.organizador_id
+	AND oa.suspendido_en IS NULL AND oa.baja_en IS NULL))`
 
 // OrganizaActivo es organizaActivo para los otros paquetes (entradas, invitaciones).
 const OrganizaActivo = organizaActivo

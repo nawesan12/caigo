@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
@@ -31,7 +32,12 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, planID string, cuerpo 
 		return Plan{}, problema.NoEncontrado("Ese plan no existe.")
 	}
 	ahora := s.ahora()
-	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+	// Si cambian el título o la descripción, se modera antes y fuera de la transacción (puede esperar a la IA).
+	mod, texto, err := s.moderarEdicion(ctx, usuarioID, planID, cuerpo)
+	if err != nil {
+		return Plan{}, err
+	}
+	err = s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		var org string
 		var deLugar, cancelado bool
 		var total int16
@@ -85,6 +91,18 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, planID string, cuerpo 
 		if err := e.validar(ahora); err != nil {
 			return err
 		}
+		// Lo que se moderó tiene que ser lo que se guarda: si otro pedido cambió el texto en el medio, de nuevo.
+		if mod != nil && moderacion.TextoPlan(e.Titulo, e.Descripcion) != texto {
+			return problema.Conflicto("editado", "El plan cambió mientras lo editabas: probá de nuevo.")
+		}
+		if mod != nil && mod.Estado == moderacion.EstadoRevisar {
+			if _, err := tx.Exec(ctx, `UPDATE planes SET moderacion = 'revisar' WHERE id = $1 AND moderacion IN ('ok', 'pendiente')`, planID); err != nil {
+				return err
+			}
+			if err := moderacion.AnotarTx(ctx, tx, entradaPlan(planID, usuarioID, texto, *mod)); err != nil {
+				return err
+			}
+		}
 		if err := archivos.ExigirPropias(ctx, tx, s.APIPublica, "foto", []string{usuarioID}, []string{fotoAntes}, e.Foto); err != nil {
 			return err
 		}
@@ -130,6 +148,39 @@ func (s *Servicio) Editar(ctx context.Context, usuarioID, planID string, cuerpo 
 		return Plan{}, err
 	}
 	return s.Ver(ctx, usuarioID, planID, nil)
+}
+
+// moderarEdicion revisa el título y la descripción que quedarían con el PATCH, si cambian. nil: no
+// cambian (o el plan no es de esta persona: eso lo responde la transacción de Editar). Un plan oculto
+// sigue oculto aunque lo editen: sólo el equipo lo vuelve a mostrar.
+func (s *Servicio) moderarEdicion(ctx context.Context, usuarioID, planID string, cuerpo []byte) (*moderacion.Resultado, string, error) {
+	var antes Edicion
+	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT titulo, descripcion FROM planes WHERE id = $1 AND organizador_id = $2`, planID, usuarioID).
+			Scan(&antes.Titulo, &antes.Descripcion)
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, "", nil
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	viejo := moderacion.TextoPlan(antes.Titulo, antes.Descripcion)
+	despues := antes
+	if err := Superponer(cuerpo, &despues); err != nil {
+		return nil, "", err
+	}
+	texto := moderacion.TextoPlan(despues.Titulo, despues.Descripcion)
+	if texto == viejo {
+		return nil, "", nil
+	}
+	r := s.Moderacion.RevisarPlan(ctx, texto)
+	if r.Estado == moderacion.Bloquear {
+		s.Moderacion.AnotarBloqueo(ctx, usuarioID, moderacion.TipoPlan, planID, texto,
+			moderacion.Veredicto{Categoria: r.Categoria, Motivo: r.Motivo})
+		return nil, "", moderacion.Bloqueado(moderacion.TipoPlan, r.Motivo)
+	}
+	return &r, texto, nil
 }
 
 // Superponer aplica un cuerpo JSON (PATCH) sobre v, que ya tiene los valores actuales. Campos

@@ -14,6 +14,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/avisos"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/confianza"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/lugares"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/planes"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/wallet"
 	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
@@ -24,6 +25,7 @@ import (
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/correo"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/fcm"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/ia"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/vetados"
 )
@@ -102,6 +104,12 @@ func correr() error {
 	} else {
 		slog.Warn("sin CAIGO_CLAVE_VERIFICACION: la purga no purga cuentas suspendidas sin huellas")
 	}
+	// Moderación: los mensajes dudosos se revisan con la IA acá, fuera del pedido (el chat no espera).
+	cli := ia.Nuevo(cfg.AnthropicClave, app, cfg.IATopeMes, cfg.IATopeDia, nil)
+	if cli == nil {
+		slog.Warn("sin ANTHROPIC_API_KEY: los mensajes dudosos van directo a la cola del equipo")
+	}
+	manejadores[moderacion.EventoRevisar] = moderacion.Nuevo(app, cli, nil).Manejador
 	w := &outbox.Worker{Pool: app, Manejadores: manejadores}
 	go limpiar(ctx, app, cfg.Archivos, veto)
 	go programados(ctx, app)
@@ -150,6 +158,8 @@ func limpiar(ctx context.Context, app *db.Pool, carpetaArchivos string, veto *ve
 		`DELETE FROM outbox WHERE publicado_en < now() - interval '30 days'`,
 		// Política de privacidad: reportes cerrados, 2 años.
 		`DELETE FROM reportes WHERE estado <> 'abierto' AND creado_en < now() - interval '2 years'`,
+		// La cola de la moderación: lo resuelto se borra al año (guarda una copia del texto).
+		`DELETE FROM moderaciones WHERE resuelta_en < now() - interval '1 year'`,
 		// Quién del equipo miró un DNI o una selfie: 2 años, como los reportes.
 		`DELETE FROM accesos_verificacion WHERE visto_en < now() - interval '2 years'`,
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/plus"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
@@ -50,6 +51,8 @@ type Servicio struct {
 	APIPublica string
 	// Ahora (tests). nil: time.Now.
 	Reloj func() time.Time
+	// Moderación del título y la descripción. nil: sólo el filtro propio (lo dudoso va al equipo).
+	Moderacion *moderacion.Servicio
 }
 
 func (s *Servicio) ahora() time.Time {
@@ -121,6 +124,8 @@ type Plan struct {
 	Direccion *Direccion `json:"direccion,omitempty"`
 	// Solicitudes pendientes (sólo para el organizador).
 	Pendientes int `json:"pendientes,omitempty"`
+	// Moderación, sólo para quien organiza: "" | revision (la mira el equipo) | oculto (nadie más lo ve).
+	Moderacion string `json:"moderacion,omitempty"`
 	// Plan de un lugar aliado: se entra con entrada o seña en vez de "Sumarme".
 	Lugar *LugarCorto `json:"lugar,omitempty"`
 	Cobro string      `json:"cobro"` // gratis | entrada | sena
@@ -330,6 +335,14 @@ func (s *Servicio) Crear(ctx context.Context, usuarioID string, e Entrada) (Plan
 	if err := e.validar(s.ahora()); err != nil {
 		return Plan{}, err
 	}
+	// La moderación va antes y fuera de la transacción: puede esperar a la IA hasta 5 s.
+	texto := moderacion.TextoPlan(e.Titulo, e.Descripcion)
+	mod := s.Moderacion.RevisarPlan(ctx, texto)
+	if mod.Estado == moderacion.Bloquear {
+		s.Moderacion.AnotarBloqueo(ctx, usuarioID, moderacion.TipoPlan, "", texto,
+			moderacion.Veredicto{Categoria: mod.Categoria, Motivo: mod.Motivo})
+		return Plan{}, moderacion.Bloqueado(moderacion.TipoPlan, mod.Motivo)
+	}
 	ocultar := verdad(e.OcultarDireccion, true)
 	lat, lng := e.Lat, e.Lng
 	if ocultar {
@@ -352,17 +365,22 @@ func (s *Servicio) Crear(ctx context.Context, usuarioID string, e Entrada) (Plan
 			INSERT INTO planes (slug, organizador_id, titulo, categoria, descripcion, empieza_en,
 				duracion_min, recurrente, serie_id, ciudad, zona, lugar_nombre, lat, lng, somos, total,
 				ingreso, visibilidad, solo_verificados, ocultar_direccion, edad_min, edad_max, genero,
-				nivel, costo_centavos, foto)
+				nivel, costo_centavos, foto, moderacion)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
-				$19, $20, $21, $22, $23, $24, $25, $26)
+				$19, $20, $21, $22, $23, $24, $25, $26, $27)
 			RETURNING id`,
 			slug(e.Titulo, e.Zona), usuarioID, e.Titulo, e.Categoria, strings.TrimSpace(e.Descripcion),
 			e.EmpiezaEn, e.DuracionMin, e.Recurrente, serie, e.Ciudad, e.Zona, strings.TrimSpace(e.LugarNombre),
 			lat, lng, e.Somos, e.Somos+e.Faltan, e.Ingreso, e.Visibilidad, verdad(e.SoloVerificados, true),
 			ocultar, e.EdadMin, e.EdadMax, e.Genero, strings.TrimSpace(e.Nivel), e.CostoCentavos,
-			strings.TrimSpace(e.Foto)).Scan(&id)
+			strings.TrimSpace(e.Foto), mod.Estado).Scan(&id)
 		if err != nil {
 			return err
+		}
+		if mod.Estado == moderacion.EstadoRevisar {
+			if err := moderacion.AnotarTx(ctx, tx, entradaPlan(id, usuarioID, texto, mod)); err != nil {
+				return err
+			}
 		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO solicitudes (plan_id, usuario_id, cantidad, estado, respondida_en)
@@ -397,7 +415,9 @@ const columnas = `
 		(SELECT count(*) FROM solicitudes x WHERE x.plan_id = p.id AND x.estado = 'pendiente') ELSE 0 END,
 	l.id, coalesce(l.slug, ''), coalesce(l.nombre, ''), coalesce(l.zona, ''), coalesce(l.foto, ''),
 	p.cobro, p.precio_centavos, p.sena_pct, p.incluye, p.cancelacion, p.beneficio, p.acepta_grupos,
-	p.destacado_en IS NOT NULL`
+	p.destacado_en IS NOT NULL,
+	CASE WHEN p.organizador_id = $1 THEN CASE p.moderacion WHEN 'revisar' THEN 'revision' WHEN 'oculto' THEN 'oculto' ELSE '' END
+		ELSE '' END`
 
 const desde = `
 	FROM planes p
@@ -412,6 +432,9 @@ const desde = `
 const sinBloqueo = `
 	NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $1 AND b.bloqueado_id = p.organizador_id)
 		OR (b.usuario_id = p.organizador_id AND b.bloqueado_id = $1))`
+
+// noOculto: un plan oculto por la moderación sólo lo ve quien lo organiza ($1).
+const noOculto = `(p.moderacion <> 'oculto' OR p.organizador_id = $1)`
 
 // visible: lo que puede encontrar quien mira ($1) en las listas. Los planes "por link" no se listan.
 const visible = sinBloqueo + `
@@ -432,7 +455,7 @@ func escanear(row pgx.Row) (Plan, error) {
 		&p.Organizador.Verificada, &p.Organizador.Asistencia.Fue, &p.Organizador.Asistencia.De,
 		&p.MiEstado, &p.MiCantidad, &p.Pendientes,
 		&lugarID, &lugar.Slug, &lugar.Nombre, &lugar.Zona, &lugar.Foto,
-		&p.Cobro, &p.PrecioCentavos, &p.SenaPct, &p.Incluye, &p.Cancelacion, &p.Beneficio, &p.AceptaGrupos, &p.Destacado)
+		&p.Cobro, &p.PrecioCentavos, &p.SenaPct, &p.Incluye, &p.Cancelacion, &p.Beneficio, &p.AceptaGrupos, &p.Destacado, &p.Moderacion)
 	if lugarID != nil {
 		lugar.ID = *lugarID
 		p.Lugar = &lugar
@@ -465,7 +488,7 @@ func (s *Servicio) Ver(ctx context.Context, usuarioID, idOSlug string, desdePunt
 				-- Como en las listas: el plan de una cuenta suspendida o dada de baja no se ve, ni por link.
 				-- Quien ya estaba en el plan sí, y uno cancelado también (la baja cancela los suyos: el link
 				-- dice «se canceló» en vez de «no existe»).
-				AND (`+organizaActivo+` OR m.estado IS NOT NULL OR p.cancelado_en IS NOT NULL)`, usuarioID, idOSlug))
+				AND (`+organizaActivo+` OR m.estado IS NOT NULL OR p.cancelado_en IS NOT NULL) AND `+noOculto, usuarioID, idOSlug))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return problema.NoEncontrado("Ese plan no existe o no lo podés ver.")
 		}
@@ -655,7 +678,7 @@ func (s *Servicio) listar(ctx context.Context, usuarioID string, f Filtro) ([]Pl
 	}
 	args := []any{usuarioID, f.Desde, f.Hasta}
 	// Los de una cuenta suspendida (o dada de baja) no salen.
-	where := []string{"p.cancelado_en IS NULL", "p.empieza_en BETWEEN $2 AND $3", "p.visibilidad <> 'link'", visible,
+	where := []string{"p.cancelado_en IS NULL", "p.empieza_en BETWEEN $2 AND $3", "p.visibilidad <> 'link'", visible, noOculto,
 		"o.suspendido_en IS NULL", "o.baja_en IS NULL"}
 	arg := func(v any) string { args = append(args, v); return fmt.Sprintf("$%d", len(args)) }
 	if f.Lat != nil && f.Lng != nil {
@@ -768,7 +791,7 @@ func (s *Servicio) Mios(ctx context.Context, usuarioID, cual string) ([]Plan, er
 	}
 	ps := []Plan{}
 	err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT `+columnas+desde+` WHERE `+where+` ORDER BY `+orden+` LIMIT 100`, usuarioID)
+		rows, err := tx.Query(ctx, `SELECT `+columnas+desde+` WHERE `+where+` AND `+noOculto+` ORDER BY `+orden+` LIMIT 100`, usuarioID)
 		if err != nil {
 			return err
 		}
@@ -861,4 +884,10 @@ func distancia(lat1, lng1, lat2, lng2 float64) float64 {
 func ponerDistancia(p *Plan, lat, lng float64) {
 	d := int(math.Round(distancia(lat, lng, p.Lat, p.Lng)))
 	p.DistanciaM = &d
+}
+
+// entradaPlan es la entrada de la cola de un plan para revisar.
+func entradaPlan(planID, usuarioID, texto string, r moderacion.Resultado) moderacion.Entrada {
+	return moderacion.Entrada{Tipo: moderacion.TipoPlan, ObjetoID: planID, PlanID: planID, UsuarioID: usuarioID,
+		Texto: texto, Origen: r.Origen, Categoria: r.Categoria, Motivo: r.Motivo, Estado: "revision"}
 }

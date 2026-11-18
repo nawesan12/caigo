@@ -228,9 +228,57 @@ func (e *Enviador) Manejadores() map[string]outbox.Manejador {
 		"arrepentimiento.nuevo": e.arrepentimientoNuevo,
 		// Al equipo: un lugar pidió placas Caigo Tap.
 		"placas.pedido": e.placasPedido,
+		// Moderación: al autor, que se ocultó algo suyo; al equipo, lo urgente (posible menor de edad).
+		"moderacion.oculto":  e.moderacionOculto,
+		"moderacion.urgente": e.moderacionUrgente,
 		// El reintento de un aviso a un solo dispositivo.
 		eventoDispositivo: e.reintentarDispositivo,
 	}
+}
+
+// textoModerado: lo que dice el push de un mensaje según su moderación. Uno que la IA todavía está
+// revisando avisa sin el texto (si después se oculta, el texto no quedó en ninguna pantalla bloqueada);
+// uno ya oculto no avisa.
+func textoModerado(texto, estado string) (string, bool) {
+	switch estado {
+	case "oculto":
+		return "", false
+	case "pendiente":
+		return "Te mandó un mensaje.", true
+	}
+	return recortar(texto, 140), true
+}
+
+// moderacionOculto le avisa al autor que se ocultó un mensaje o un plan suyo.
+func (e *Enviador) moderacionOculto(ctx context.Context, ev outbox.Evento) error {
+	var d struct {
+		UsuarioID string `json:"usuarioId"`
+		Tipo      string `json:"tipo"`
+		PlanID    string `json:"planId"`
+		OtroID    string `json:"otroId"`
+		Titulo    string `json:"titulo"`
+	}
+	if err := json.Unmarshal(ev.Datos, &d); err != nil || d.UsuarioID == "" {
+		return nil
+	}
+	a := Aviso{Titulo: "Ocultamos un mensaje tuyo", Cuerpo: "Iba contra las normas de Caigo. Si creés que es un error, escribinos."}
+	switch d.Tipo {
+	case "plan":
+		a.Titulo = "Ocultamos tu plan"
+		a.Cuerpo = "«" + recortar(d.Titulo, 60) + "» iba contra las normas de Caigo: nadie más lo ve."
+		a.Datos = map[string]string{"plan": d.PlanID}
+	case "mensaje":
+		a.Datos = map[string]string{"plan": d.PlanID, "pantalla": "chat"}
+	case "privado":
+		a.Datos = map[string]string{"privado": d.OtroID}
+	}
+	return e.Mandar(ctx, d.UsuarioID, a)
+}
+
+// moderacionUrgente: el filtro frenó a alguien que dice ser menor de edad (Caigo es +18).
+func (e *Enviador) moderacionUrgente(ctx context.Context, _ outbox.Evento) error {
+	return e.alEquipo(ctx, Aviso{Titulo: "Moderación: posible menor de edad",
+		Cuerpo: "Revisalo en caigo.com.ar/equipo › Moderación.", Colapso: "moderacion-urgente"})
 }
 
 func (e *Enviador) arrepentimientoNuevo(ctx context.Context, ev outbox.Evento) error {
@@ -333,11 +381,15 @@ func (e *Enviador) mensajePlan(ctx context.Context, ev outbox.Evento) error {
 	if err := json.Unmarshal(ev.Datos, &d); err != nil {
 		return nil
 	}
-	var autor, nombre, texto, titulo string
-	if err := e.leer(ctx, `SELECT m.usuario_id, u.nombre, m.texto, p.titulo FROM mensajes m
+	var autor, nombre, texto, titulo, estado string
+	if err := e.leer(ctx, `SELECT m.usuario_id, u.nombre, m.texto, p.titulo, m.moderacion FROM mensajes m
 		JOIN usuarios u ON u.id = m.usuario_id JOIN planes p ON p.id = m.plan_id WHERE m.id = $1`,
-		[]any{d.MensajeID}, &autor, &nombre, &texto, &titulo); err != nil {
+		[]any{d.MensajeID}, &autor, &nombre, &texto, &titulo, &estado); err != nil {
 		return ignorarSiNoEsta(err)
+	}
+	texto, sale := textoModerado(texto, estado)
+	if !sale {
+		return nil
 	}
 	var ids []string
 	err := e.App.EnSistema(ctx, func(tx pgx.Tx) error {
@@ -356,7 +408,11 @@ func (e *Enviador) mensajePlan(ctx context.Context, ev outbox.Evento) error {
 	}
 	var errs []error
 	for _, u := range ids {
-		errs = append(errs, e.Mandar(ctx, u, Aviso{Titulo: titulo, Cuerpo: nombre + ": " + recortar(texto, 140),
+		cuerpo := nombre + ": " + texto
+		if estado == "pendiente" {
+			cuerpo = nombre + " escribió en el chat."
+		}
+		errs = append(errs, e.Mandar(ctx, u, Aviso{Titulo: titulo, Cuerpo: cuerpo,
 			Datos: map[string]string{"plan": d.PlanID, "pantalla": "chat"}, Colapso: "chat-" + d.PlanID}))
 	}
 	return errors.Join(errs...)
@@ -367,12 +423,16 @@ func (e *Enviador) privadoNuevo(ctx context.Context, ev outbox.Evento) error {
 	if err := json.Unmarshal(ev.Datos, &d); err != nil {
 		return nil
 	}
-	var de, a, nombre, texto string
-	if err := e.leer(ctx, `SELECT p.de_id, p.a_id, u.nombre, p.texto FROM privados p JOIN usuarios u ON u.id = p.de_id WHERE p.id = $1`,
-		[]any{d.PrivadoID}, &de, &a, &nombre, &texto); err != nil {
+	var de, a, nombre, texto, estado string
+	if err := e.leer(ctx, `SELECT p.de_id, p.a_id, u.nombre, p.texto, p.moderacion FROM privados p JOIN usuarios u ON u.id = p.de_id WHERE p.id = $1`,
+		[]any{d.PrivadoID}, &de, &a, &nombre, &texto, &estado); err != nil {
 		return ignorarSiNoEsta(err)
 	}
-	return e.Mandar(ctx, a, Aviso{Titulo: nombre, Cuerpo: recortar(texto, 140),
+	texto, sale := textoModerado(texto, estado)
+	if !sale {
+		return nil
+	}
+	return e.Mandar(ctx, a, Aviso{Titulo: nombre, Cuerpo: texto,
 		Datos: map[string]string{"privado": de}, Colapso: "priv-" + de})
 }
 
