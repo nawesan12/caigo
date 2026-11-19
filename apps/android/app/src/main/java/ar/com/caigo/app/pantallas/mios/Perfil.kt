@@ -675,13 +675,27 @@ fun EditarPerfil(ir: Ir, completar: Boolean = false, apilado: Boolean = false) {
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     MiosSeccion("Fotos")
+                    T("La primera es la que ve todo el mundo. Tocá otra para ponerla primera.", 13f, 500, p.texto2, alto = 1.4f)
                     val celdas = fotos.toList() + if (fotos.size < 6) listOf("") else emptyList()
                     celdas.chunked(3).forEach { fila ->
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             fila.forEach { url ->
                                 Box(Modifier.weight(1f).aspectRatio(.8f)) {
                                     if (url.isNotEmpty()) {
-                                        Foto(url, Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)))
+                                        val i = fotos.indexOf(url)
+                                        Foto(
+                                            url,
+                                            Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp))
+                                                .then(if (i == 0) Modifier.border(3.dp, C.violeta, RoundedCornerShape(18.dp)) else Modifier)
+                                                .tocable { if (i > 0) { fotos.removeAt(i); fotos.add(0, url) } }
+                                                .semantics { contentDescription = if (i == 0) "Foto principal" else "Foto ${i + 1}, usar como principal" },
+                                        )
+                                        if (i == 0) {
+                                            T(
+                                                "Principal", 11f, 800, C.blanco,
+                                                Modifier.align(Alignment.BottomStart).padding(6.dp).background(C.violeta, CircleShape).padding(horizontal = 8.dp, vertical = 4.dp),
+                                            )
+                                        }
                                         Box(
                                             Modifier.align(Alignment.TopEnd).padding(6.dp).size(28.dp).background(C.carbon, CircleShape).tocable { fotos.remove(url) }
                                                 .semantics { contentDescription = "Sacar foto"; role = Role.Button },

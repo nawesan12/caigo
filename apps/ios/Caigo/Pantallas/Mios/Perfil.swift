@@ -730,9 +730,10 @@ struct EditarPerfil: View {
     private var seccionFotos: some View {
         VStack(alignment: .leading, spacing: 10) {
             MiosSeccion(texto: "Fotos")
+            T("La primera es la que ve todo el mundo. Tocá otra para ponerla primera.", 13, 500, p.texto2, alto: 1.4)
             let celdas = fotos + (fotos.count < 6 ? [""] : [])
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
-                ForEach(Array(celdas.enumerated()), id: \.offset) { _, url in
+                ForEach(Array(celdas.enumerated()), id: \.offset) { i, url in
                     Color.clear.aspectRatio(0.8, contentMode: .fit)
                         .overlay {
                             if url.isEmpty {
@@ -748,6 +749,29 @@ struct EditarPerfil: View {
                                 .accessibilityLabel("Sumar foto")
                             } else {
                                 Foto(url: url).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                    .overlay {
+                                        if i == 0 {
+                                            RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(C.violeta, lineWidth: 3)
+                                        }
+                                    }
+                                    .overlay(alignment: .bottomLeading) {
+                                        if i == 0 {
+                                            T("Principal", 11, 800, C.blanco)
+                                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                                .background(Capsule().fill(C.violeta))
+                                                .padding(6)
+                                        }
+                                    }
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        guard i > 0 else { return }
+                                        withAnimation(.easeOut(duration: 0.2)) { fotos.remove(at: i); fotos.insert(url, at: 0) }
+                                    }
+                                    .accessibilityLabel(i == 0 ? "Foto principal" : "Foto \(i + 1)")
+                                    .accessibilityAction(named: "Usar como principal") {
+                                        guard i > 0 else { return }
+                                        fotos.remove(at: i); fotos.insert(url, at: 0)
+                                    }
                                     .overlay(alignment: .topTrailing) {
                                         Button { fotos.removeAll { $0 == url } } label: {
                                             Icono(I.cruz, 14, C.blanco, trazo: 3).frame(width: 28, height: 28).background(Circle().fill(C.carbon))
