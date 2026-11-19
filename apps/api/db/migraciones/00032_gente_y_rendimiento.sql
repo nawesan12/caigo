@@ -3,11 +3,12 @@
 
 -- El «me encanta» se cuenta por su propia fecha: pasar de «me interesa» a «me encanta» no corre la de la
 -- reacción (creado_en, que cuenta las sumadas del día y olvida los pasos), y el tope de encantas no se
--- saltea reaccionando primero con «me interesa».
+-- saltea reaccionando primero con «me interesa». Se pone una vez y queda aunque la reacción cambie después
+-- (ir y volver entre interesa y encanta no libera el tope).
 ALTER TABLE intereses ADD COLUMN encanta_en timestamptz;
 UPDATE intereses SET encanta_en = creado_en WHERE accion = 'encanta';
 GRANT UPDATE (encanta_en) ON intereses TO caigo_app;
-CREATE INDEX intereses_encanta_hoy ON intereses (usuario_id, encanta_en) WHERE accion = 'encanta';
+CREATE INDEX intereses_encanta_hoy ON intereses (usuario_id, encanta_en) WHERE encanta_en IS NOT NULL;
 
 -- Privados por cada lado (Conversaciones, el borrado de cuentas y los plazos filtran por de_id o por a_id).
 CREATE INDEX privados_de ON privados (de_id, id);

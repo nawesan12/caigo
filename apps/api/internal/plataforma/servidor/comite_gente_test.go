@@ -141,3 +141,27 @@ func TestPlusPruebaUnaVezYCancelarGuardaElPeriodo(t *testing.T) {
 		t.Fatalf("cancelada con período pago: %+v", activo)
 	}
 }
+
+// El «me encanta» del día no se libera yendo y viniendo a «me interesa»: volver a darlo a la misma persona
+// no gasta otro, y a otra persona da el límite.
+func TestEncantaNoSeLiberaCambiandoAInteresa(t *testing.T) {
+	e := nuevoEntorno(t)
+	ciudad := ciudadUnica()
+	yo, a, b := e.persona("Yo"), e.persona("A"), e.persona("B")
+	for _, p := range []persona{yo, a, b} {
+		e.perfilCompleto(p, ciudad, "citas")
+	}
+	reaccion := func(_ persona, accion string) map[string]string {
+		return map[string]string{"modo": "citas", "accion": accion}
+	}
+	e.pedir(yo, "POST", "/v1/gente/"+a.id+"/reaccion", reaccion(a, "encanta"), http.StatusOK, nil)
+	e.pedir(yo, "POST", "/v1/gente/"+a.id+"/reaccion", reaccion(a, "interesa"), http.StatusOK, nil)
+	if c := codigo(t, e, yo, "POST", "/v1/gente/"+b.id+"/reaccion", reaccion(b, "encanta"), http.StatusConflict); c != "limite_encanta" {
+		t.Fatalf("segundo me encanta del día sin Plus: %s", c)
+	}
+	antes := len(e.eventos("interes.nuevo", a.id))
+	e.pedir(yo, "POST", "/v1/gente/"+a.id+"/reaccion", reaccion(a, "encanta"), http.StatusOK, nil)
+	if n := len(e.eventos("interes.nuevo", a.id)); n != antes {
+		t.Fatalf("volver a dar me encanta avisó %d veces", n-antes)
+	}
+}

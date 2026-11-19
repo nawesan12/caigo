@@ -241,8 +241,12 @@ func (s *Servicio) Reaccionar(ctx context.Context, usuarioID, otroID, modo, acci
 			return problema.NoEncontrado("Esa persona no existe.")
 		}
 		var previa string
-		if err := tx.QueryRow(ctx, `SELECT accion FROM intereses WHERE usuario_id = $1 AND otro_id = $2::uuid AND modo = $3`,
-			usuarioID, otroID, modo).Scan(&previa); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		// yaEncanto: ya le dio «me encanta» a esta persona (encanta_en queda aunque después cambie a
+		// «me interesa» o pase): volver a darlo no gasta otro ni le avisa de nuevo. Sin esto, ir y volver
+		// entre interesa y encanta liberaba el tope del día.
+		var yaEncanto bool
+		if err := tx.QueryRow(ctx, `SELECT accion, encanta_en IS NOT NULL FROM intereses WHERE usuario_id = $1 AND otro_id = $2::uuid AND modo = $3`,
+			usuarioID, otroID, modo).Scan(&previa, &yaEncanto); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
 		var err error
@@ -260,19 +264,20 @@ func (s *Servicio) Reaccionar(ctx context.Context, usuarioID, otroID, modo, acci
 		if nueva && !r.Plus.Activo && r.Plus.SumadasHoy >= plus.LimiteDiario {
 			return problema.Conflicto("limite", "Llegaste a las 3 sumadas de hoy. Con Plus no tenés límite.")
 		}
-		if accion == "encanta" && r.Plus.EncantasHoy >= r.Plus.LimiteEncantas {
+		encantaNuevo := accion == "encanta" && !yaEncanto
+		if encantaNuevo && r.Plus.EncantasHoy >= r.Plus.LimiteEncantas {
 			if r.Plus.Activo {
 				return problema.Conflicto("limite_encanta", fmt.Sprintf("Ya usaste los %d me encanta de hoy.", plus.EncantasPlus))
 			}
 			return problema.Conflicto("limite_encanta", fmt.Sprintf("Ya usaste tu me encanta de hoy. Con Plus tenés %d por día.", plus.EncantasPlus))
 		}
 		// creado_en es el día de la sumada (o del paso, para olvidarlo): pasar de interesa a encanta no lo corre.
-		// El «me encanta» se cuenta por encanta_en.
+		// El «me encanta» se cuenta por encanta_en, que se pone una vez y no se borra.
 		if _, err := tx.Exec(ctx, `INSERT INTO intereses (usuario_id, otro_id, modo, accion, encanta_en)
 			VALUES ($1, $2::uuid, $3, $4, CASE WHEN $4 = 'encanta' THEN now() END)
 			ON CONFLICT (usuario_id, otro_id, modo) DO UPDATE SET accion = excluded.accion, descartado_en = NULL,
 				creado_en = CASE WHEN intereses.accion = 'paso' OR excluded.accion = 'paso' THEN now() ELSE intereses.creado_en END,
-				encanta_en = excluded.encanta_en`,
+				encanta_en = coalesce(intereses.encanta_en, excluded.encanta_en)`,
 			usuarioID, otroID, modo, accion); err != nil {
 			return err
 		}
@@ -282,7 +287,7 @@ func (s *Servicio) Reaccionar(ctx context.Context, usuarioID, otroID, modo, acci
 		if nueva {
 			r.Plus.SumadasHoy++
 		}
-		if accion == "encanta" {
+		if encantaNuevo {
 			r.Plus.EncantasHoy++
 		}
 		if modo == "gente" {
@@ -293,9 +298,9 @@ func (s *Servicio) Reaccionar(ctx context.Context, usuarioID, otroID, modo, acci
 		if err := mutuo(ctx, tx, usuarioID, otroID, modo, &r.Mutuo); err != nil {
 			return err
 		}
-		// Un aviso por reacción nueva (o por pasar a «me encanta»): cambiar entre interesa y encanta, o
+		// Un aviso por reacción nueva (o por el primer «me encanta»): cambiar entre interesa y encanta, o
 		// repetir, no le vuelve a llegar a la otra persona.
-		if !nueva && accion != "encanta" {
+		if !nueva && !encantaNuevo {
 			return nil
 		}
 		return outbox.Publicar(ctx, tx, "interes.nuevo", map[string]any{"de": usuarioID, "a": otroID, "modo": modo, "mutuo": r.Mutuo && nueva})

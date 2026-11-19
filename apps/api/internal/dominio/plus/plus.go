@@ -131,7 +131,7 @@ func Leer(ctx context.Context, tx pgx.Tx, usuarioID string, ahora time.Time) (Es
 	var ultimo *time.Time
 	err = tx.QueryRow(ctx, `SELECT
 			(SELECT count(*) FROM intereses WHERE usuario_id = $1 AND accion <> 'paso' AND creado_en >= $2),
-			(SELECT count(*) FROM intereses WHERE usuario_id = $1 AND accion = 'encanta' AND encanta_en >= $2),
+			(SELECT count(*) FROM intereses WHERE usuario_id = $1 AND encanta_en >= $2),
 			(SELECT max(destacado_en) FROM planes WHERE organizador_id = $1 AND destacado_en IS NOT NULL)`,
 		usuarioID, desde).Scan(&e.SumadasHoy, &e.EncantasHoy, &ultimo)
 	if err != nil {
