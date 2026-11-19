@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -129,6 +131,13 @@ fun Recibidos(ir: Ir, modo: String, pestana: Int) {
                         ) {
                             // `blur` necesita Android 12; en los anteriores la foto queda nítida bajo el candado.
                             if (f.isNotEmpty()) AsyncImage(f, null, Modifier.fillMaxSize().then(if (bloqueada) Modifier.blur(14.dp) else Modifier), contentScale = ContentScale.Crop)
+                            else if (bloqueada) {
+                                // Sin Plus la API no manda la foto (se sabría quién es comparando links): un degradé genérico.
+                                val t = tonosBorrosos[i % tonosBorrosos.size]
+                                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(t.first, t.second)))) {
+                                    Box(Modifier.align(Alignment.Center).offset(y = (-30).dp).size(90.dp).blur(16.dp).background(Color.White.copy(alpha = .3f), CircleShape))
+                                }
+                            }
                             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to rgba(32, 29, 43, .25f), .35f to rgba(32, 29, 43, 0f), 1f to rgba(32, 29, 43, .85f))))
                             planes.getOrNull(i)?.let { pt ->
                                 Box(Modifier.fillMaxWidth().padding(10.dp).background(rgba(250, 249, 246, .95f), RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 7.dp)) {
@@ -160,3 +169,9 @@ fun Recibidos(ir: Ir, modo: String, pestana: Int) {
     }
     }
 }
+
+/** Degradés de las tarjetas bloqueadas sin foto (los mismos tonos que las caras borrosas de Plus). */
+private val tonosBorrosos = listOf(
+    Color(0xFF8B74F5) to Color(0xFFF2A48F), Color(0xFF7456F1) to Color(0xFFC8F36B),
+    Color(0xFFF07A5F) to Color(0xFF5B4BB0), Color(0xFFA38FFF) to Color(0xFF2E2850),
+)

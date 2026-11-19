@@ -138,7 +138,15 @@ struct VistaRecibidos: View {
         Button(action: it.abrir) {
             ZStack(alignment: .bottomLeading) {
                 C.oscuro2
-                if !it.foto.isEmpty { ImagenRed(url: it.foto).blur(radius: bloqueada ? 14 : 0) }
+                if !it.foto.isEmpty {
+                    ImagenRed(url: it.foto).blur(radius: bloqueada ? 14 : 0)
+                } else if bloqueada {
+                    // Sin Plus la API no manda la foto (se sabría quién es comparando links): un degradé genérico.
+                    let t = tonosBorrosos[abs(it.id.unicodeScalars.reduce(0) { $0 &+ Int($1.value) }) % tonosBorrosos.count]
+                    LinearGradient(colors: [t.0, t.1], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        .overlay(Circle().fill(Color.white.opacity(0.3)).frame(width: 90).offset(y: -30).blur(radius: 16))
+                        .accessibilityHidden(true)
+                }
                 LinearGradient(stops: Fondo.paradas((0, rgba(32, 29, 43, 0.25)), (0.35, rgba(32, 29, 43, 0)), (1, rgba(32, 29, 43, 0.85))),
                                startPoint: .top, endPoint: .bottom)
                 if let pt = it.plan {
@@ -170,3 +178,9 @@ struct VistaRecibidos: View {
         .buttonStyle(EstiloPlano())
     }
 }
+
+/// Degradés de las tarjetas bloqueadas sin foto (los mismos tonos que las caras borrosas de Plus).
+private let tonosBorrosos: [(Color, Color)] = [
+    (Color(hex: 0x8B74F5), Color(hex: 0xF2A48F)), (Color(hex: 0x7456F1), Color(hex: 0xC8F36B)),
+    (Color(hex: 0xF07A5F), Color(hex: 0x5B4BB0)), (Color(hex: 0xA38FFF), Color(hex: 0x2E2850)),
+]
