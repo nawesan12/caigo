@@ -109,9 +109,10 @@ final class PantallasTests: XCTestCase {
     // MARK: Planes
 
     func testAhora() { montar(Ahora(modoInicial: nil)) }
-    // Gente y Citas salieron de la cabecera de Ahora (18/11): el mazo va apilado.
-    func testVistaMazoGente() { montar(VistaMazo(modo: "gente")) }
-    func testVistaMazoCitas() { montar(VistaMazo(modo: "citas")) }
+    // Gente y Citas de vuelta en la cabecera de Ahora (19/11), y sin DNI la lámina que pide verificarse.
+    func testAhoraGente() { montar(Ahora(modoInicial: "gente")) }
+    func testAhoraCitas() { montar(Ahora(modoInicial: "citas")) }
+    func testMazoSinDni() { montar(MazoSinDni(modo: "citas")) }
     func testAhoraVacio() {
         ApiFalsa.respuestas["/v1/planes/ahora"] = "{\"planes\": []}"
         montar(Ahora(modoInicial: nil))
