@@ -169,23 +169,24 @@ fun Pases(ir: Ir) {
 
 @Composable
 private fun FilaEntrada(e: EntradaMia, conWallet: Boolean, bajando: Boolean, abrir: () -> Unit, agregar: () -> Unit) {
+    val pal = LocalPaleta.current
     val c = LocalApp.current
     // La foto sale del plan (la entrada no la trae).
     val foto = rememberCarga(e.planId) { runCatching { fotoDe(c.api.plan(e.planId)) }.getOrNull() }
     Row(
-        Modifier.fillMaxWidth().tocable(abrir).gel(22.dp, Gels.neutra).padding(12.dp),
+        Modifier.fillMaxWidth().tocable(abrir).gel(22.dp, Gels.neutra(pal)).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Foto(foto.dato, Modifier.size(62.dp).clip(RoundedCornerShape(16.dp)))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            T(e.titulo, 15f, 800, C.carbon, maxRenglones = 2)
+            T(e.titulo, 15f, 800, pal.texto, maxRenglones = 2)
             val detalle = if (e.modo == "sena") "Señada" else if (e.cantidad > 1) "${e.cantidad} entradas" else "1 entrada"
-            T("${Fecha.cuando(e.empiezaEn)} · $detalle", 12f, 600, C.texto2, unRenglon = true)
+            T("${Fecha.cuando(e.empiezaEn)} · $detalle", 12f, 600, pal.texto2, unRenglon = true)
         }
         if (conWallet) {
             Box(
-                Modifier.toque(onClick = agregar).background(C.carbon, RoundedCornerShape(12.dp)).padding(horizontal = 11.dp, vertical = 8.dp),
+                Modifier.toque(onClick = agregar).background(if (pal.oscuro) C.oscuro1 else C.carbon, RoundedCornerShape(12.dp)).padding(horizontal = 11.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 if (bajando) Puntitos(C.blanco, 5.dp) else T("+ Wallet", 11f, 800, C.blanco, alinear = TextAlign.Center, unRenglon = true)

@@ -72,6 +72,7 @@ val vidrioSobreFoto: Color = rgba(255, 255, 255, .16f)
  */
 @Composable
 fun HojaOpciones(cerrar: () -> Unit, filas: List<Pair<String, () -> Unit>>) {
+    val pal = ar.com.caigo.app.tema.LocalPaleta.current
     val abajo = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val entrada = remember { MutableTransitionState(false).apply { targetState = true } }
     Box(Modifier.fillMaxSize().zIndex(30f)) {
@@ -81,12 +82,12 @@ fun HojaOpciones(cerrar: () -> Unit, filas: List<Pair<String, () -> Unit>>) {
         AnimatedVisibility(entrada, Modifier.align(Alignment.BottomCenter), enter = slideInVertically(tween(280)) { it }) {
             Column(
                 Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp + abajo).tocable { }
-                    .gel(24.dp, Gels.neutra),
+                    .gel(24.dp, Gels.neutra(pal)),
             ) {
                 filas.forEachIndexed { i, (t, f) ->
-                    if (i > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(C.lavanda))
+                    if (i > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(pal.separador))
                     Box(Modifier.fillMaxWidth().tocable { cerrar(); f() }.padding(horizontal = 18.dp, vertical = 16.dp)) {
-                        T(t, 15f, 700, if (listOf("Reportar", "Cancelar", "Bloquear", "Borrar").any { t.startsWith(it) }) C.coral2 else C.carbon)
+                        T(t, 15f, 700, if (listOf("Reportar", "Cancelar", "Bloquear", "Borrar").any { t.startsWith(it) }) C.coral2 else pal.texto)
                     }
                 }
             }

@@ -346,12 +346,13 @@ private fun PanelFiltros(
     edad: Int, alEdad: (Int) -> Unit,
     gratis: Boolean, alGratis: (Boolean) -> Unit,
 ) {
+    val pal = LocalPaleta.current
     @Composable
-    fun Separador() = Box(Modifier.fillMaxWidth().height(1.dp).background(C.lavanda))
+    fun Separador() = Box(Modifier.fillMaxWidth().height(1.dp).background(pal.separador))
 
     @Composable
     fun Titulo(t: String, modifier: Modifier = Modifier, plus: Boolean = true) = Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        T(t, 14f, 700, C.carbon, unRenglon = true)
+        T(t, 14f, 700, pal.texto, unRenglon = true)
         if (plus && !conPlus) PlanesChipPlus()
     }
 
@@ -379,7 +380,7 @@ private fun PanelFiltros(
             }
         }
 
-    Column(Modifier.fillMaxWidth().gel(22.dp, Gels.neutra)) {
+    Column(Modifier.fillMaxWidth().gel(22.dp, Gels.neutra(pal))) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(null to "Todas", "Mar del Plata" to "Mar del Plata", "Villa Gesell" to "Villa Gesell").forEach { (k, l) ->
                 Chip(l, ciudad == k, { alCiudad(k) }, tam = 13f, padH = 12.dp, padV = 8.dp, radio = 13.dp)
@@ -388,7 +389,7 @@ private fun PanelFiltros(
         if (zonas.isNotEmpty()) {
             Separador()
             Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                T("Zona", 14f, 700, C.carbon, Modifier.padding(horizontal = 16.dp), unRenglon = true)
+                T("Zona", 14f, 700, pal.texto, Modifier.padding(horizontal = 16.dp), unRenglon = true)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 4.dp)) {
                     item { Chip("Todas", zona == null, { alZona(null) }, tam = 13f, padH = 12.dp, padV = 8.dp, radio = 13.dp) }
                     items(zonas) { z -> Chip(z, zona == z, { alZona(if (zona == z) null else z) }, tam = 13f, padH = 12.dp, padV = 8.dp, radio = 13.dp) }
