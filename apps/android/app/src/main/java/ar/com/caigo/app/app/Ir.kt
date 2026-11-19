@@ -34,14 +34,11 @@ class Ir(private val nav: NavController) {
 
     fun principal(pestana: Pestana = Pestana.Ahora, modo: String? = null) {
         this.pestana = pestana
-        // Gente y Citas ya no son modos de Ahora (18/11): Ahora y, encima, el mazo.
-        val modoMazo = modo?.takeIf { it == "gente" || it == "citas" }
-        modoAhora = if (modoMazo != null) null else modo
-        nav.navigate("principal?tab=${pestana.name}&modo=${modoAhora.orEmpty()}") {
+        modoAhora = modo
+        nav.navigate("principal?tab=${pestana.name}&modo=${modo.orEmpty()}") {
             popUpTo(0) { inclusive = true }
             launchSingleTop = true
         }
-        if (modoMazo != null) mazo(modoMazo)
     }
 
     fun intro() = nav.navigate("intro") { popUpTo(0) { inclusive = true } }
@@ -95,8 +92,6 @@ class Ir(private val nav: NavController) {
         launchSingleTop = true
     }
 
-    /** El mazo de Gente o Citas (salió de la cabecera de Ahora; se abre desde Perfil › Mi gente). */
-    fun mazo(modo: String) = ir("mazo?modo=$modo")
     fun checkout(planId: String, cantidad: Int) = ir("checkout/${e(planId)}?cantidad=$cantidad")
     fun entrada(entradaId: String, planId: String) = ir("entrada/${e(entradaId)}?plan=${e(planId)}")
     fun qrEntrada(entradaId: String) = ir("qrentrada/${e(entradaId)}")

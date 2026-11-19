@@ -116,7 +116,7 @@ private val rutas = listOf(
     "editarplan/{id}", "publicado/{id}", "persona/{id}?desde={desde}", "recibidos?modo={modo}&tab={tab}", "solicitudes/{id}",
     "chat/{id}", "privados", "privado/{id}?nombre={nombre}", "checkin/{id}", "repetimos/{id}", "qr/{id}", "escanear/{id}",
     "plus?motivo={motivo}", "checkout/{id}?cantidad={cantidad}", "entrada/{id}?plan={plan}", "qrentrada/{id}", "pases",
-    "tap?plan={plan}", "adentro", "editar", "gente", "pedirdni?motivo={motivo}&plan={plan}", "mazo?modo={modo}",
+    "tap?plan={plan}", "adentro", "editar", "gente", "pedirdni?motivo={motivo}&plan={plan}",
     "completarapilado", "semana", "fotos/{id}",
 )
 
@@ -223,9 +223,10 @@ class PantallasTest {
     // MARK: Planes
 
     @Test fun ahora() = montar("Ahora") { Ahora(it, null) }
-    // Gente y Citas salieron de la cabecera de Ahora (18/11): el mazo va apilado.
-    @Test fun vistaMazoGente() = montar("VistaMazoGente") { VistaMazo(it, "gente") }
-    @Test fun vistaMazoCitas() = montar("VistaMazoCitas") { VistaMazo(it, "citas") }
+    // Gente y Citas de vuelta en la cabecera de Ahora (19/11), y sin DNI la lámina que pide verificarse.
+    @Test fun ahoraGente() = montar("AhoraGente") { Ahora(it, "gente") }
+    @Test fun ahoraCitas() = montar("AhoraCitas") { Ahora(it, "citas") }
+    @Test fun mazoSinDni() = montar("MazoSinDni") { MazoSinDni(it, "citas") }
     @Test fun ahoraVacio() = montar("AhoraVacio", contenedor(mapOf("/v1/planes/ahora" to """{"planes": []}"""))) { Ahora(it, null) }
     @Ignore("Falta en Android: PlanesVacioAhora (va privada adentro de Ahora.kt)")
     @Test fun planesVacioAhora() {}

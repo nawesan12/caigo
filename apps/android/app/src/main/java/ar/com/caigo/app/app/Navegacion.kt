@@ -204,7 +204,6 @@ fun CaigoNav(c: Contenedor) {
                     hoja("verificacion") { Verificacion(ir) }
                     hoja("dni?plan={plan}") { Dni(ir, it.arg("plan").ifBlank { null }) }
                     hoja(RUTA_PEDIR_DNI) { PedirDni(ir, it.arg("motivo").ifBlank { "gente" }, it.arg("plan").ifBlank { null }) }
-                    composable("mazo?modo={modo}") { VistaMazo(ir, it.arg("modo").ifBlank { "gente" }) }
                     composable(ingresoRutaDni) { Dni(ir, null, alta = true) }
 
                     composable("principal?tab={tab}&modo={modo}", enterTransition = { fadeIn(tween(250)) }) {

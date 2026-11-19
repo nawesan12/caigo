@@ -265,3 +265,16 @@ class GestosTest {
         assertNull(TextoLogros.racha(l.copy(racha = 1)))
     }
 }
+
+class PlusTablaTest {
+    @Test fun textoFino() {
+        val nb = " "
+        assertEquals("\$2.500 por${nb}semana, se renueva sola. Cancelás cuando quieras desde${nb}App${nb}Store.",
+            PlusTabla.textoFino("semana", "\$2.500", 0, "App Store"))
+        assertEquals("Gratis 7${nb}días, después \$6.900 por${nb}mes, se renueva sola. Cancelás cuando quieras desde${nb}Google${nb}Play.",
+            PlusTabla.textoFino("mes", "\$6.900", 7, "Google Play"))
+        assertTrue(PlusTabla.textoFino("temporada", "\$15.900", 7, "Google Play").startsWith("\$15.900 cada 3${nb}meses, se renueva sola."))
+        assertEquals(5, PlusTabla.filas.size)
+        assertEquals("sí", PlusTabla.leer("✓"))
+    }
+}

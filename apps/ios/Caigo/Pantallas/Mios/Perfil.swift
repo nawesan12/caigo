@@ -711,7 +711,7 @@ struct EditarPerfil: View {
     private var seccionFotos: some View {
         VStack(alignment: .leading, spacing: 10) {
             MiosSeccion(texto: "Fotos")
-            T("La primera es la principal. Mantené una foto apretada para ordenarla o\u{00A0}sacarla.", 13, 500, p.texto2, alto: 1.4)
+            T("La primera es la principal. Mantené apretada otra para hacerla principal o\u{00A0}sacarla.", 13, 500, p.texto2, alto: 1.4)
             // Celdas por URL (son únicas) y "" para la de sumar: al reordenar, la foto se mueve (no cambia
             // el contenido de cada lugar).
             let celdas = fotos + (fotos.count < 6 ? [""] : [])
@@ -746,12 +746,6 @@ struct EditarPerfil: View {
         fotos.insert(url, at: 0)
     }
 
-    private func mover(_ url: String, a destino: String) {
-        guard url != destino, let i = fotos.firstIndex(of: url), let j = fotos.firstIndex(of: destino) else { return }
-        fotos.remove(at: i)
-        fotos.insert(url, at: j)
-    }
-
     private func celdaFoto(_ url: String) -> some View {
         let primera = fotos.first == url
         let forma = RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -765,19 +759,12 @@ struct EditarPerfil: View {
                         .padding(8)
                 }
             }
-            .contentShape(.dragPreview, forma)
             .contentShape(.contextMenuPreview, forma)
             .contextMenu {
                 if !primera {
                     Button { withAnimation { principal(url) } } label: { Label("Usar como principal", systemImage: "star") }
                 }
                 Button(role: .destructive) { withAnimation { fotos.removeAll { $0 == url } } } label: { Label("Sacar", systemImage: "trash") }
-            }
-            .draggable(url)
-            .dropDestination(for: String.self) { items, _ in
-                guard let de = items.first, fotos.contains(de) else { return false }
-                withAnimation { mover(de, a: url) }
-                return true
             }
             .overlay(alignment: .topTrailing) {
                 // Se ve de 30 y se toca en 44 (con borde blanco, para leerse sobre cualquier foto).

@@ -32,6 +32,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.collectAsState
@@ -281,11 +287,12 @@ fun Perfil(ir: Ir) {
                     }
                     val zona = listOf(y.zona, y.ciudad).filter { it.isNotEmpty() }.joinToString(", ")
                     T(listOfNotNull(zona.ifEmpty { null }, estado).joinToString(" · "), 14f, 400, p.texto2, alinear = TextAlign.Center)
-                    // Lo de todos los días, a la vista: antes estaba escondido en la hoja de la cuenta.
-                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.Top) {
-                        AccionRapida(I.lapiz, "Editar perfil") { ir.editarPerfil() }
-                        AccionRapida(I.billetera, "Mis pases") { ir.pases() }
-                        AccionRapida(I.ajustes, "Ajustes") { opciones = true }
+                    // Tres círculos, como en Tinder: Editar perfil al medio y más grande (la acción principal), Ajustes
+                    // y Mis pases a los costados. Un solo lugar para cada cosa (no hay engranaje arriba).
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(30.dp), verticalAlignment = Alignment.Top) {
+                        AccionRapida(I.ajustes, "Ajustes", principal = false) { opciones = true }
+                        AccionRapida(I.lapiz, "Editar perfil", principal = true) { ir.editarPerfil() }
+                        AccionRapida(I.qr, "Mis pases", principal = false) { ir.pases() }
                     }
                 }
 
@@ -421,16 +428,6 @@ fun Perfil(ir: Ir) {
                     Icono(I.adelante, 20.dp, p.texto, 2.2f)
                 }
 
-                // Gente y Citas salieron de la cabecera de Ahora (18/11): se abren desde acá, sin protagonismo.
-                // Citas, sólo para quien eligió esa intención. Sin DNI, antes «verificamos que seas vos».
-                val citas = y.intenciones.contains("citas")
-                MiosGrupo {
-                    MiosFila(I.usuario, "Conocer gente", "Gente cerca que sale a lo mismo que vos", ultima = !citas) {
-                        if (c.conDni(ir, "gente")) ir.mazo("gente")
-                    }
-                    if (citas) MiosFila(I.corazonChico, "Citas", ultima = true) { if (c.conDni(ir, "gente")) ir.mazo("citas") }
-                }
-
                 // Al final, la acción destructiva (con el texto de peligro de «Cancelar el plan»).
                 T(
                     "Borrar mi cuenta", 15f, 700, C.coral2,
@@ -441,11 +438,6 @@ fun Perfil(ir: Ir) {
             }
             }
         }
-        BotonIcono(
-            I.ajustes, { opciones = true },
-            Modifier.align(Alignment.TopEnd).padding(top = arriba + 8.dp, end = 20.dp).semantics { contentDescription = "Ajustes" },
-            iconoTam = 21.dp, trazo = 2f, gel = if (p.oscuro) Gels.chipOscuro else Gels.chipClaro, color = p.texto,
-        )
         // «Traé a alguien»: el link para compartir, el premio, cuántos invité y, en los primeros días, el código de
         // quien me invitó (POST /v1/yo/invitado).
         MiosHoja(trayendo, { trayendo = false }, "Traé a alguien") {
@@ -477,11 +469,9 @@ fun Perfil(ir: Ir) {
                 Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) { Puntitos(p.acento) }
             }
         }
-        MiosHoja(opciones, { opciones = false }, "Tu cuenta") {
+        MiosHoja(opciones, { opciones = false }, "Ajustes") {
             MiosGrupo {
-                MiosFila(I.usuario, "Editar perfil") { opciones = false; ir.editarPerfil() }
                 MiosFila(I.corazonChico, "Lo que buscás") { opciones = false; ir.intenciones(true) }
-                MiosFila(I.billetera, "Mis pases") { opciones = false; ir.pases() }
                 MiosFila(I.enviar, "Mensajes privados") { opciones = false; ir.privados() }
                 // PARA LA NAVEGACIÓN: Ir.ajustesAvisos() → ruta "avisos" → AjustesDeAvisos(ir) (Ajustes.kt).
                 MiosFila(I.campana, "Avisos") { opciones = false; ir.ajustesAvisos() }
@@ -675,7 +665,7 @@ fun EditarPerfil(ir: Ir, completar: Boolean = false, apilado: Boolean = false) {
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     MiosSeccion("Fotos")
-                    T("La primera es la que ve todo el mundo. Tocá otra para ponerla primera.", 13f, 500, p.texto2, alto = 1.4f)
+                    T("La primera es la principal. Mantené apretada otra para hacerla principal o\u00A0sacarla.", 13f, 500, p.texto2, alto = 1.4f)
                     val celdas = fotos.toList() + if (fotos.size < 6) listOf("") else emptyList()
                     celdas.chunked(3).forEach { fila ->
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -683,24 +673,41 @@ fun EditarPerfil(ir: Ir, completar: Boolean = false, apilado: Boolean = false) {
                                 Box(Modifier.weight(1f).aspectRatio(.8f)) {
                                     if (url.isNotEmpty()) {
                                         val i = fotos.indexOf(url)
+                                        var menu by remember(url) { mutableStateOf(false) }
+                                        // Mantener apretada: el menú (como el contextMenu de iOS). Un toque suelto no reordena.
                                         Foto(
                                             url,
                                             Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp))
                                                 .then(if (i == 0) Modifier.border(3.dp, C.violeta, RoundedCornerShape(18.dp)) else Modifier)
-                                                .tocable { if (i > 0) { fotos.removeAt(i); fotos.add(0, url) } }
-                                                .semantics { contentDescription = if (i == 0) "Foto principal" else "Foto ${i + 1}, usar como principal" },
+                                                .combinedClickable(onClick = {}, onLongClick = { menu = true }, onLongClickLabel = "Opciones de la foto")
+                                                .semantics {
+                                                    contentDescription = if (i == 0) "Foto principal" else "Foto"
+                                                    if (i > 0) customActions = listOf(CustomAccessibilityAction("Usar como principal") { fotos.removeAt(fotos.indexOf(url)); fotos.add(0, url); true })
+                                                },
                                         )
+                                        DropdownMenu(menu, { menu = false }) {
+                                            if (i > 0) DropdownMenuItem({ T("Usar como principal", 15f, 600) }, {
+                                                menu = false; fotos.remove(url); fotos.add(0, url)
+                                            })
+                                            DropdownMenuItem({ T("Sacar", 15f, 600, C.coral2) }, { menu = false; fotos.remove(url) })
+                                        }
                                         if (i == 0) {
                                             T(
                                                 "Principal", 11f, 800, C.blanco,
-                                                Modifier.align(Alignment.BottomStart).padding(6.dp).background(C.violeta, CircleShape).padding(horizontal = 8.dp, vertical = 4.dp),
+                                                Modifier.align(Alignment.BottomStart).padding(8.dp).background(C.violeta, CircleShape).padding(horizontal = 8.dp, vertical = 4.dp),
+                                                unRenglon = true,
                                             )
                                         }
+                                        // Se ve de 30 y se toca en 44 (con borde blanco, para leerse sobre cualquier foto).
                                         Box(
-                                            Modifier.align(Alignment.TopEnd).padding(6.dp).size(28.dp).background(C.carbon, CircleShape).tocable { fotos.remove(url) }
+                                            Modifier.align(Alignment.TopEnd).padding(1.dp).size(44.dp).tocable { fotos.remove(url) }
                                                 .semantics { contentDescription = "Sacar foto"; role = Role.Button },
                                             contentAlignment = Alignment.Center,
-                                        ) { Icono(I.cruz, 14.dp, C.blanco, 3f) }
+                                        ) {
+                                            Box(Modifier.size(30.dp).background(C.carbon, CircleShape).border(2.dp, C.blanco, CircleShape), contentAlignment = Alignment.Center) {
+                                                Icono(I.cruz, 13.dp, C.blanco, 3f)
+                                            }
+                                        }
                                     } else {
                                         Box(
                                             Modifier.fillMaxSize().background(p.superficie, RoundedCornerShape(18.dp))
@@ -714,7 +721,7 @@ fun EditarPerfil(ir: Ir, completar: Boolean = false, apilado: Boolean = false) {
                                                 .tocable { if (!subiendo) elegir.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                                                 .semantics { contentDescription = "Sumar foto"; role = Role.Button },
                                             contentAlignment = Alignment.Center,
-                                        ) { if (subiendo) Puntitos() else Icono(I.mas, 26.dp, C.violeta, 3f) }
+                                        ) { if (subiendo) Puntitos() else Icono(I.mas, 26.dp, if (p.oscuro) C.lima else C.violeta, 3f) }
                                     }
                                 }
                             }
@@ -840,16 +847,17 @@ private fun CabeceraLogros(y: ar.com.caigo.app.nucleo.Perfil, l: ar.com.caigo.ap
 }
 
 @Composable
-private fun AccionRapida(icono: String, titulo: String, onClick: () -> Unit) {
+private fun AccionRapida(icono: String, titulo: String, principal: Boolean, onClick: () -> Unit) {
     val p = LocalPaleta.current
+    val tam = if (principal) 64.dp else 48.dp
     Column(
-        Modifier.toque { onClick() }.semantics(mergeDescendants = true) { role = Role.Button },
+        Modifier.widthIn(min = 72.dp).toque { onClick() }.semantics(mergeDescendants = true) { role = Role.Button },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Box(Modifier.size(54.dp).gel(27.dp, if (p.oscuro) Gels.chipOscuro else Gels.chipClaro), contentAlignment = Alignment.Center) {
-            Icono(icono, 22.dp, if (p.oscuro) C.lima else C.violeta, 2.2f)
+        Box(Modifier.size(tam).gel(tam / 2, if (principal) Gels.lima else Gels.chip(p)), contentAlignment = Alignment.Center) {
+            Icono(icono, if (principal) 26.dp else 20.dp, if (principal) C.carbon else if (p.oscuro) C.lima else C.violeta, if (principal) 2.6f else 2.2f)
         }
-        T(titulo, 12f, 700, p.texto2)
+        T(titulo, 12f, if (principal) 800 else 700, if (principal) p.texto else p.texto2, unRenglon = true)
     }
 }

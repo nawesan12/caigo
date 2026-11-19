@@ -104,11 +104,10 @@ import androidx.compose.ui.semantics.semantics
 /**
  * Modos Gente y Citas del prototipo: mazo de personas arrastrables. Derecha (más de 100 px) = me
  * prendo / me interesa; izquierda = paso. Tocar arriba a los costados cambia de foto; tocar abajo abre
- * el perfil. Desde el 18/11 ya no está en la cabecera de Ahora: se abre apilado ([VistaMazo]) desde
- * Perfil › Mi gente. [apilado]: debajo de su propio encabezado, sin la tab bar abajo.
+ * el perfil. Va embebido en Ahora, debajo del encabezado (sin DNI, Ahora muestra MazoSinDni).
  */
 @Composable
-internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier, apilado: Boolean = false) {
+internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier) {
     val c = LocalApp.current
     val avisos = LocalAvisos.current
     val alcance = rememberCoroutineScope()
@@ -126,14 +125,17 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier, apil
     val personas = mazo.dato.orEmpty()
     val arriba = personas.getOrNull(estado.indice)
     val siguiente = personas.getOrNull(estado.indice + 1)
-    // Apilado: la fila de arriba sube 44 (10 en vez de 54) y abajo no está la tab bar.
-    val sube = if (apilado) 44.dp else 0.dp
-    val barra = if (apilado) 0.dp else altoTabBar()
+    val sube = 0.dp
+    val barra = altoTabBar()
+    val p = LocalPaleta.current
+    val tinta = if (p.oscuro) C.lima else C.violetaTexto
 
     /** Reacciona y hace volar la carta. accion: prendo | interesa | encanta | paso. */
     fun reaccionar(accion: String, mensaje: String? = null) {
         val t = arriba ?: return
         if (ocupado) return
+        // Antes de que vuele la carta: sin DNI, la pantalla amable de antes del DNI (no un 403 después).
+        if (!c.conDni(ir, "gente")) { alcance.launch { volver(dx, dy) }; return }
         alcance.launch {
             val lado = if (accion == "paso") -1 else 1
             if (lado > 0) {
@@ -189,7 +191,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier, apil
         ) {
             val rs = recibidos.dato
             Row(
-                Modifier.toque(alBajar = 2.dp) { ir.recibidos(modo, 0) }.heightIn(min = 34.dp).gel(17.dp, Gels.neutra).padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+                Modifier.toque(alBajar = 2.dp) { ir.recibidos(modo, 0) }.heightIn(min = 34.dp).gel(17.dp, Gels.neutra(p)).padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Row(Modifier.padding(start = 8.dp), horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
@@ -198,25 +200,25 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier, apil
                     }
                 }
                 val n = rs?.personas?.size ?: 0
-                T(if (esCitas) "$n les interesás" else "$n te sumaron", 13f, 800, C.carbon, unRenglon = true)
+                T(if (esCitas) "$n les interesás" else "$n te sumaron", 13f, 800, p.texto, unRenglon = true)
             }
             val e = plus.dato
             Row(
                 Modifier.toque(alBajar = 2.dp) { if (e?.activo == true) avisos.ok("Ya sos Caigo Plus. Disfrutalo.") else ir.plus("perfil") }
-                    .gel(13.dp, Gels.neutra).padding(horizontal = 11.dp, vertical = 8.dp),
+                    .gel(13.dp, Gels.neutra(p)).padding(horizontal = 11.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 val sumadas = ((e?.limite ?: 3) - (e?.sumadasHoy ?: 0)).coerceAtLeast(0)
-                Icono(I.mas, 13.dp, C.violetaTexto, 3.4f)
+                Icono(I.mas, 13.dp, tinta, 3.4f)
                 if (esCitas) {
                     // En Citas la misma pill suma los «me encanta» que quedan hoy (1 sin Plus, 5 con
                     // Plus), con la estrella del botón; con las palabras no entra junto a «les interesás».
-                    T(if (e?.activo == true) "Plus" else "$sumadas", 12f, 800, C.violetaTexto, unRenglon = true)
-                    T("·", 12f, 800, C.violetaTexto)
-                    Icono(I.estrella, 13.dp, Color.Transparent, 0f, relleno = C.violetaTexto)
-                    T("${GenteEncantas.quedan(e?.encantasHoy ?: 0, e?.limiteEncantas ?: 1)}", 12f, 800, C.violetaTexto, unRenglon = true)
+                    T(if (e?.activo == true) "Plus" else "$sumadas", 12f, 800, tinta, unRenglon = true)
+                    T("·", 12f, 800, tinta)
+                    Icono(I.estrella, 13.dp, Color.Transparent, 0f, relleno = tinta)
+                    T("${GenteEncantas.quedan(e?.encantasHoy ?: 0, e?.limiteEncantas ?: 1)}", 12f, 800, tinta, unRenglon = true)
                 } else {
-                    T(if (e?.activo == true) "Plus · sin límite" else "$sumadas ${if (sumadas == 1) "sumada" else "sumadas"} hoy", 12f, 800, C.violetaTexto, unRenglon = true)
+                    T(if (e?.activo == true) "Plus · sin límite" else "$sumadas ${if (sumadas == 1) "sumada" else "sumadas"} hoy", 12f, 800, tinta, unRenglon = true)
                 }
             }
         }
@@ -232,7 +234,7 @@ internal fun MazoGente(ir: Ir, modo: String, modifier: Modifier = Modifier, apil
                         }
                     } else Puntitos()
                 }
-                arriba == null -> MazoVacio(sumados) {
+                arriba == null -> MazoVacio(sumados, esCitas) {
                     // Como `cargar()` de iOS: vuelve al principio, con el cargando, y trae otra vez todo.
                     estado = FisicaMazo.Estado()
                     alcance.launch { dx.snapTo(0f); dy.snapTo(0f) }
@@ -433,37 +435,29 @@ private fun Sello(texto: String, color: Color, grados: Float, alfa: Float, modif
     ) { T(texto, 26f, 800, color, alto = 1f, unRenglon = true) }
 }
 
-/** "Ya viste a todos por hoy". */
+/** "Ya viste a todos por hoy" (claro y oscuro). */
 @Composable
-private fun MazoVacio(sumados: Int, onOtraVez: () -> Unit) {
+private fun MazoVacio(sumados: Int, esCitas: Boolean, onOtraVez: () -> Unit) {
+    val p = LocalPaleta.current
     Column(
-        Modifier.fillMaxSize().gel(34.dp, vertical(Color(0xFFF3EFFF), Color(0xFFE9E2FF))).padding(30.dp),
+        Modifier.fillMaxSize().gel(34.dp, if (p.oscuro) vertical(C.oscuro3, C.oscuro4) else vertical(Color(0xFFF3EFFF), Color(0xFFE9E2FF))).padding(30.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
     ) {
         Image(painterResource(R.drawable.caigo_icon), null, Modifier.size(120.dp))
-        T("Ya viste a todos por hoy", 26f, 700, C.carbon, alto = 1.1f, alinear = TextAlign.Center)
-        T("Sumaste $sumados a tu gente. ¿Y si armás algo con ellos?", 14f, 400, C.texto2, alto = 1.5f, alinear = TextAlign.Center)
+        T("Ya viste a todos por hoy", 26f, 700, p.texto, alto = 1.1f, alinear = TextAlign.Center)
+        T(
+            when {
+                esCitas -> "Mañana hay gente nueva. Mientras, sumate a un plan: es la mejor primera\u00A0cita."
+                sumados > 0 -> "Sumaste $sumados a tu gente. ¿Y si armás algo con\u00A0ellos?"
+                else -> "Mañana hay gente nueva. Mientras, mirá los planes de\u00A0hoy."
+            },
+            14f, 400, p.texto2, alto = 1.5f, alinear = TextAlign.Center,
+        )
         Box(
-            Modifier.toque(onClick = onOtraVez).gel(16.dp, vertical(C.blanco, Color(0xFFF3F0FA)), listOf(interna(2f, 0f, C.blanco), interna(-3f, 0f, rgba(116, 86, 241, .1f)), externa(3f, 0f, C.borde3)))
-                .padding(horizontal = 18.dp, vertical = 12.dp),
-        ) { T("Ver de nuevo", 14f, 800, C.carbon) }
-    }
-}
-
-/** Gente o Citas apilado (18/11): salió de la cabecera de Ahora; se abre desde Perfil › Mi gente. */
-@Composable
-fun VistaMazo(ir: Ir, modo: String) {
-    val p = LocalPaleta.current
-    Pantalla { arriba, abajo ->
-        Column(Modifier.fillMaxSize().padding(top = arriba, bottom = abajo)) {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 10.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                BotonIcono(I.atras, { ir.atras() }, iconoTam = 20.dp, trazo = 2.6f, gel = Gels.neutra)
-                T(if (modo == "citas") "Citas" else "Gente", 28f, 800, p.texto, alto = 1f, espaciado = px(-.8f, 28f), unRenglon = true)
-            }
-            MazoGente(ir, modo, Modifier.weight(1f), apilado = true)
-        }
+            Modifier.toque(onClick = onOtraVez).then(
+                if (p.oscuro) Modifier.gel(16.dp, Gels.neutraOscura)
+                else Modifier.gel(16.dp, vertical(C.blanco, Color(0xFFF3F0FA)), listOf(interna(2f, 0f, C.blanco), interna(-3f, 0f, rgba(116, 86, 241, .1f)), externa(3f, 0f, C.borde3))),
+            ).padding(horizontal = 18.dp, vertical = 12.dp),
+        ) { T("Ver de nuevo", 14f, 800, p.texto) }
     }
 }

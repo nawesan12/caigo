@@ -340,3 +340,33 @@ object TextoLogros {
         return "Te faltan $f para $s"
     }
 }
+
+/**
+ * El muro de Caigo Plus: las filas de la tabla Gratis / Plus y el texto chico de la suscripción, iguales en
+ * iOS, Android y la web (precio por período, que se renueva sola, Términos y Privacidad).
+ */
+object PlusTabla {
+    /** (fila, gratis, plus). «✓» es un tilde, «—» que no lo tiene. Lo de seguridad no va: es gratis siempre. */
+    val filas = listOf(
+        Triple("Sumadas en Gente", "3 por día", "Sin límite"),
+        Triple("Ver quién te sumó", "—", "✓"),
+        Triple("Me encanta en Citas", "1 por día", "5 por día"),
+        Triple("Tu plan destacado", "—", "1 por semana"),
+        Triple("Filtros de edad, cupo y precio", "—", "✓"),
+    )
+
+    /** Cómo se lee una celda con TalkBack. */
+    fun leer(v: String): String = when (v) { "✓" -> "sí"; "—" -> "no"; else -> v }
+
+    /** «$X por semana, se renueva sola. Cancelás cuando quieras desde Google Play.» Con prueba (sólo el mes): «Gratis 7 días, después…». */
+    fun textoFino(plan: String, precio: String, diasGratis: Int, tienda: String): String {
+        val nb = " "
+        val periodo = when (plan) {
+            "semana" -> "$precio por${nb}semana"
+            "temporada" -> "$precio cada 3${nb}meses"
+            else -> "$precio por${nb}mes"
+        }
+        val inicio = if (plan == "mes" && diasGratis > 0) "Gratis $diasGratis${nb}días, después $periodo" else periodo
+        return "$inicio, se renueva sola. Cancelás cuando quieras desde$nb${tienda.replace(" ", nb)}."
+    }
+}

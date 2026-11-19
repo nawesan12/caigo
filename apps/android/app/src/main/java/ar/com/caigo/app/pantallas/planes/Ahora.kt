@@ -38,6 +38,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import ar.com.caigo.app.pantallas.gente.MazoGente
+import ar.com.caigo.app.piezas.CtaGrande
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.rotate
@@ -100,17 +106,21 @@ private data class ClaveAhora(
 )
 
 /**
- * Ahora (02 lista · 03 mapa · 13a vacío · 14a oscuro): sólo planes. Gente y Citas salieron de la
- * cabecera (18/11: un mazo de caras con «Me encanta» cambiaba la lectura de toda la app); se abren desde
- * Perfil › Mi gente (un aviso que pide Ahora en modo gente/citas abre el mazo: ver [Ir.principal]).
- * `modoInicial` queda por compatibilidad y no se usa.
+ * Ahora (02 lista · 03 mapa · 13a vacío · 14a oscuro) con los modos del prototipo en la cabecera: Planes,
+ * Gente y Citas (Citas sólo si la persona eligió esa intención). Volvieron el 19/11 (decisión de Nahuel).
+ * Sin DNI se elige el modo igual y se ve una lámina que pide verificarse (el mazo pide el DNI).
  */
-@Suppress("UNUSED_PARAMETER")
 @Composable
 fun Ahora(ir: Ir, modoInicial: String?) {
     val c = LocalApp.current
     val ctx = LocalContext.current
     val yo by c.yo.collectAsState()
+    var modo by rememberSaveable { mutableStateOf<String?>(null) }
+    // Un aviso que abre Ahora en Gente o Citas con Ahora ya en pantalla.
+    LaunchedEffect(modoInicial) { if (modoInicial != null) modo = modoInicial }
+    val conCitas = yo?.intenciones?.contains("citas") == true
+    val m = modo ?: modoInicial ?: "planes"
+    val modoActual = if (m == "citas" && !conCitas && yo != null) "planes" else m
     var mapa by rememberSaveable { mutableStateOf(false) }
     var categoria by rememberSaveable { mutableStateOf<String?>(null) }
     // «Sólo chicas» (planes «Solo mujeres»): gratis, como toda la seguridad.
@@ -177,7 +187,7 @@ fun Ahora(ir: Ir, modoInicial: String?) {
         lugarActual = barrio(ctx, la, ln)
     }
 
-    if (mapa) {
+    if (modoActual == "planes" && mapa) {
         MapaAhora(ir, ocultos.visibles(planes.orEmpty()), punto, categoria, { categoria = it }, busqueda, { busqueda = it }, onLista = { mapa = false })
         return
     }
@@ -188,10 +198,15 @@ fun Ahora(ir: Ir, modoInicial: String?) {
     }
     val arriba = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     Box(Modifier.fillMaxSize()) {
+        if (modoActual != "planes") {
+            // Sin el renglón de ubicación y logo (ver encabezado): el mazo sube y gana lugar.
+            if (yo?.verificada == false) MazoSinDni(ir, modoActual, Modifier.padding(top = arriba + 24.dp))
+            else MazoGente(ir, modoActual, Modifier.padding(top = arriba + 24.dp))
+        }
         Column(Modifier.fillMaxSize().padding(top = arriba + 6.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Encabezado(ir, lugarActual, invitaciones)
-            Chips(categoria, { categoria = it }, chicas, { chicas = it })
-            Box(Modifier.weight(1f)) {
+            Encabezado(ir, modoActual, conCitas, lugarActual, invitaciones) { modo = it }
+            if (modoActual == "planes") Chips(categoria, { categoria = it }, chicas, { chicas = it })
+            if (modoActual == "planes") Box(Modifier.weight(1f)) {
                 Lista(
                     ir, planes?.let { ocultos.visibles(it) }, cargando, error, invitaciones, semana, ocultos,
                     alMapa = { mapa = true }, recargar = { vuelta++ }, alDecidir = { decidiendoIds = it.map { p -> p.id } },
@@ -224,12 +239,13 @@ private suspend fun barrio(ctx: android.content.Context, la: Double, ln: Double)
 }
 
 @Composable
-private fun Encabezado(ir: Ir, lugarActual: String?, invitaciones: Invitaciones?) {
+private fun Encabezado(ir: Ir, modoActual: String, conCitas: Boolean, lugarActual: String?, invitaciones: Invitaciones?, alModo: (String) -> Unit) {
     val c = LocalApp.current
     val p = LocalPaleta.current
     val yo by c.yo.collectAsState()
     Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        // En Gente y Citas la ubicación y el logo se sacan: le roban lugar a la tarjeta (Nahuel, 1/11).
+        if (modoActual == "planes") Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Icono(I.pin, 16.dp, if (p.oscuro) C.lima else C.violeta, 2.2f)
             val delPerfil = listOf(yo?.zona.orEmpty(), yo?.ciudad.orEmpty()).filter { it.isNotEmpty() }.joinToString(", ")
             val lugar = lugarActual ?: delPerfil
@@ -249,7 +265,57 @@ private fun Encabezado(ir: Ir, lugarActual: String?, invitaciones: Invitaciones?
                 }
             }
         }
-        T("Ahora", 40f, 800, p.texto, alto = 1f, espaciado = px(-1.4f, 40f), unRenglon = true)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            T(when (modoActual) { "gente" -> "Gente"; "citas" -> "Citas"; else -> "Ahora" }, 40f, 800, p.texto, alto = 1f, espaciado = px(-1.4f, 40f), unRenglon = true)
+            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.weight(1f))
+            val modos = listOf("planes" to "Planes", "gente" to "Gente") + if (conCitas) listOf("citas" to "Citas") else emptyList()
+            Segmentado(
+                modos.map { it.second }, maxOf(0, modos.indexOfFirst { it.first == modoActual }), { alModo(modos[it].first) },
+                radio = 14.dp, radioOpcion = 11.dp, alto = 42.dp, llenar = false, padOpcion = if (modos.size > 2) 10.dp else 13.dp,
+                gelOn = { if (modos[it].first == "citas") Gels.coralBadge else null },
+                colorOn = { if (modos[it].first == "citas") C.carbon else null },
+            )
+        }
+    }
+}
+
+/**
+ * Gente o Citas sin el DNI: se puede elegir el modo, pero el mazo son caras de otra gente y pide verificarse.
+ * Cartas borrosas (nunca fotos de nadie) y «Verificarme», que abre la pantalla amable de antes del DNI.
+ */
+@Composable
+internal fun MazoSinDni(ir: Ir, modo: String, modifier: Modifier = Modifier) {
+    val c = LocalApp.current
+    val citas = modo == "citas"
+    val colores = if (citas) listOf(Color(0xFFF07A5F), Color(0xFF5B4BB0)) else listOf(Color(0xFF8B74F5), Color(0xFF2E2850))
+    Column(modifier.fillMaxSize().padding(bottom = altoTabBar() + 14.dp)) {
+        Box(Modifier.weight(1f).fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 64.dp), contentAlignment = Alignment.Center) {
+            for (i in 0 until 3) {
+                val atras = 2 - i
+                Box(
+                    Modifier.fillMaxSize()
+                        .graphicsLayer { scaleX = 1f - atras * .05f; scaleY = 1f - atras * .05f; translationY = atras * 14.dp.toPx(); alpha = if (i == 2) 1f else .55f }
+                        .clip(RoundedCornerShape(34.dp))
+                        .background(Brush.linearGradient(colores)),
+                ) {
+                    Box(Modifier.align(Alignment.Center).offset(y = (-40).dp).size(120.dp).blur(18.dp).background(Color.White.copy(alpha = .28f), CircleShape))
+                }
+            }
+            Column(
+                Modifier.padding(horizontal = 28.dp).semantics(mergeDescendants = true) {},
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Box(Modifier.size(64.dp).background(rgba(255, 255, 255, .14f), CircleShape), contentAlignment = Alignment.Center) {
+                    Icono(I.escudoCheck, 34.dp, C.lima, 2.4f)
+                }
+                T(if (citas) "Citas con gente verificada" else "Conocé gente que sale a lo mismo que\u00A0vos",
+                    26f, 800, C.blanco, alto = 1.1f, espaciado = px(-.6f, 26f), alinear = TextAlign.Center)
+                T("Todos tienen el DNI verificado. Para ver y sumar gente, verificamos que seas\u00A0vos.",
+                    15f, 500, Color(0xFFE4E0EE), alto = 1.45f, alinear = TextAlign.Center)
+            }
+        }
+        CtaGrande("Verificarme", { c.conDni(ir, "gente") }, Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp))
     }
 }
 

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,6 +40,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -49,6 +52,7 @@ import ar.com.caigo.app.R
 import ar.com.caigo.app.nucleo.PlanPlus
 import ar.com.caigo.app.nucleo.mensajeDe
 import ar.com.caigo.app.nucleo.Plata
+import ar.com.caigo.app.nucleo.PlusTabla
 import ar.com.caigo.app.app.Facturacion
 import ar.com.caigo.app.app.Ir
 import ar.com.caigo.app.nucleo.Fecha
@@ -219,18 +223,9 @@ private fun VistaPlus(ir: Ir, motivo: String) {
         val n = recibidos.dato?.personas?.size ?: 0
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(top = arriba + 6.dp, start = 20.dp, end = 20.dp, bottom = 190.dp + abajo),
+                .padding(top = arriba + 62.dp, start = 20.dp, end = 20.dp, bottom = 220.dp + abajo),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                ar.com.caigo.app.piezas.BotonIcono(
-                    I.cruz, { ir.atras() }, iconoTam = 20.dp, trazo = 2.6f,
-                    gel = Gel(vertical(rgba(255, 255, 255, .1f), rgba(255, 255, 255, .1f)), listOf(interna(1f, 0f, rgba(255, 255, 255, .15f)))),
-                    color = C.blanco,
-                )
-                Spacer(Modifier.weight(1f))
-                T("Restaurar compra", 13f, 700, textoTenue, Modifier.tocable { restaurar() })
-            }
             // "Caigo" grande con la pill PLUS
             Box(Modifier.fillMaxWidth().height(150.dp)) {
                 T(
@@ -314,11 +309,26 @@ private fun VistaPlus(ir: Ir, motivo: String) {
                 )
             }
         }
+        // La × y «Restaurar compra» quedan fijas arriba, con una tapa que funde el contenido bajo la barra de estado.
+        Row(
+            Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                .background(Brush.verticalGradient(0f to Color(0xFF2B2452), .7f to Color(0xFF2B2452).copy(alpha = .92f), 1f to Color(0xFF2B2452).copy(alpha = 0f)))
+                .padding(top = arriba + 6.dp, start = 20.dp, end = 20.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ar.com.caigo.app.piezas.BotonIcono(
+                I.cruz, { ir.atras() }, iconoTam = 20.dp, trazo = 2.6f,
+                gel = Gel(vertical(rgba(255, 255, 255, .1f), rgba(255, 255, 255, .1f)), listOf(interna(1f, 0f, rgba(255, 255, 255, .15f)))),
+                color = C.blanco, modifier = Modifier.semantics { contentDescription = "Cerrar" },
+            )
+            Spacer(Modifier.weight(1f))
+            T("Restaurar compra", 13f, 700, textoTenue, Modifier.tocable { restaurar() })
+        }
         // CTA fija abajo con el degradé
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                 .background(Brush.verticalGradient(0f to C.grafito.copy(alpha = 0f), .3f to C.grafito))
-                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 30.dp + abajo),
+                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 14.dp + abajo),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             val p = porClave[elegido]
@@ -337,13 +347,9 @@ private fun VistaPlus(ir: Ir, motivo: String) {
                 }
             }
             if (p != null) {
-                val fino = when {
-                    p.plan == "mes" && diasGratis > 0 -> "Gratis $diasGratis días, después ${precio(p)} por mes."
-                    p.plan == "temporada" -> "Pagás ${precio(p)} hoy por 3 meses."
-                    else -> "Pagás ${precio(p)} hoy."
-                }
-                T("$fino Cancelás cuando quieras · Google Play", 12f, 600, textoTenue, Modifier.fillMaxWidth(), alto = 1.45f, alinear = TextAlign.Center)
+                T(PlusTabla.textoFino(p.plan, precio(p), diasGratis, "Google Play"), 12f, 600, textoTenue, Modifier.fillMaxWidth(), alto = 1.45f, alinear = TextAlign.Center)
             }
+            PlusLegales()
         }
     }
 }
@@ -367,9 +373,14 @@ private fun TeaserRecibidos(fotos: List<String>, n: Int) {
     ) {
         // HStack(spacing: -12): cada cara pisa 12 a la anterior.
         Row(Modifier.padding(start = 10.dp), horizontalArrangement = Arrangement.spacedBy((-12).dp)) {
-            fotos.forEach { f ->
+            // Sin Plus la API no manda las fotos (se sabría quién es comparando links): caras genéricas.
+            repeat(maxOf(fotos.size, minOf(n, 4))) { i ->
                 Box(Modifier.size(44.dp).clip(CircleShape).background(C.oscuro2).border(2.5.dp, Color(0xFF2E2850), CircleShape)) {
-                    AsyncImage(f, null, Modifier.fillMaxSize().graphicsLayer { scaleX = 1.2f; scaleY = 1.2f }.blur(6.dp), contentScale = ContentScale.Crop)
+                    if (i < fotos.size) {
+                        AsyncImage(fotos[i], null, Modifier.fillMaxSize().graphicsLayer { scaleX = 1.2f; scaleY = 1.2f }.blur(6.dp), contentScale = ContentScale.Crop)
+                    } else {
+                        CaraBorrosa(i)
+                    }
                 }
             }
         }
@@ -383,46 +394,70 @@ private fun TeaserRecibidos(fotos: List<String>, n: Int) {
     }
 }
 
-/** Comparación Gratis / Plus (la tabla del prototipo). */
-private val filasPlus = listOf(
-    Triple("Sumadas en Gente", "3 por día", "Sin límite"),
-    Triple("Ver quién te sumó", "—", "✓"),
-    Triple("Me encanta en Citas", "1 por día", "5 por día"),
-    Triple("Tu plan destacado", "—", "1 por semana"),
-    // Plus vende comodidad, nunca seguridad (18/11): los filtros de verificados y «Sólo chicas» son gratis.
-    Triple("Filtros de edad, cupo y precio", "—", "✓"),
-)
-
+/** Comparación Gratis / Plus (la tabla del prototipo): columnas 1,5 · 1 · 1 y la franja Plus del mismo ancho (2/7). */
 @Composable
 private fun TablaPlus() {
     Box(
         Modifier.fillMaxWidth().gel(24.dp, Gel(vertical(rgba(255, 255, 255, .05f), rgba(255, 255, 255, .05f)), listOf(interna(0f, 0f, rgba(255, 255, 255, .08f), spread = -1f)))),
     ) {
-        // Columna Plus resaltada (29 % a la derecha), con la raya de 1 a la izquierda.
         Row(Modifier.matchParentSize()) {
-            Box(Modifier.weight(.71f))
+            Box(Modifier.weight(5f))
             Row(
-                Modifier.weight(.29f).fillMaxSize().clip(RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp))
+                Modifier.weight(2f).fillMaxSize().clip(RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp))
                     .background(vertical(rgba(116, 86, 241, .45f), rgba(116, 86, 241, .2f))),
             ) { Box(Modifier.width(1.dp).fillMaxSize().background(rgba(163, 143, 255, .4f))) }
         }
         Column {
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp)) {
+            Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp).clearAndSetSemantics { }) {
                 Box(Modifier.weight(1.5f))
                 T("GRATIS", 11f, 800, C.apagado, Modifier.weight(1f), espaciado = px(.8f, 11f), alinear = TextAlign.Center, unRenglon = true)
                 T("PLUS", 11f, 800, C.lima, Modifier.weight(1f), espaciado = px(.8f, 11f), alinear = TextAlign.Center, unRenglon = true)
             }
-            filasPlus.forEachIndexed { i, (l, g, p) ->
+            PlusTabla.filas.forEachIndexed { i, (l, g, p) ->
                 if (i > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(rgba(255, 255, 255, .08f)))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    T(l, 13f, 700, C.blancoCalido, Modifier.weight(1.5f).padding(start = 14.dp, top = 12.dp, bottom = 12.dp))
-                    T(g, 12f, 600, C.apagado, Modifier.weight(1f).padding(horizontal = 4.dp), alinear = TextAlign.Center)
-                    Box(Modifier.weight(1f).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
-                        if (p == "✓") Icono(I.check, 16.dp, C.lima, 3.4f) else T(p, 12f, 800, C.lima, alinear = TextAlign.Center)
+                Row(
+                    Modifier.fillMaxWidth().clearAndSetSemantics {
+                        contentDescription = "$l. Gratis: ${PlusTabla.leer(g)}. Plus: ${PlusTabla.leer(p)}."
+                    },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    T(l, 13f, 700, C.blancoCalido, Modifier.weight(1.5f).padding(start = 14.dp, end = 6.dp, top = 12.dp, bottom = 12.dp), alto = 1.3f)
+                    T(g, 12f, 600, C.apagado, Modifier.weight(1f).padding(horizontal = 6.dp), alto = 1.25f, alinear = TextAlign.Center)
+                    Box(Modifier.weight(1f).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
+                        if (p == "✓") Icono(I.check, 16.dp, C.lima, 3.4f) else T(p, 12f, 800, C.lima, alto = 1.25f, alinear = TextAlign.Center)
                     }
                 }
             }
         }
+    }
+}
+
+/** Una cara borrosa genérica para el teaser sin Plus (un degradé, nunca la foto de nadie). */
+@Composable
+private fun CaraBorrosa(semilla: Int) {
+    val tonos = listOf(
+        Color(0xFF8B74F5) to Color(0xFFF2A48F), Color(0xFFC8F36B) to Color(0xFF7456F1),
+        Color(0xFFF07A5F) to Color(0xFF5B4BB0), Color(0xFFA38FFF) to Color(0xFFE4E0EE),
+    )
+    val t = tonos[semilla % tonos.size]
+    Box(Modifier.fillMaxSize().blur(4.dp).background(Brush.linearGradient(listOf(t.first, t.second))), contentAlignment = Alignment.Center) {
+        Box(Modifier.offset(y = (-6).dp).size(18.dp).background(Color.White.copy(alpha = .35f), CircleShape))
+    }
+}
+
+/** «Términos · Privacidad» debajo del botón de pago, con los links de la web. */
+@Composable
+internal fun PlusLegales(color: Color = textoTenue) {
+    val ctx = LocalContext.current
+    fun abrir(url: String) = runCatching {
+        ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+    }
+    Row(Modifier.fillMaxWidth().heightIn(min = 30.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        val estilo = ar.com.caigo.app.tema.estilo(12f, 700, color, null, androidx.compose.ui.unit.TextUnit.Unspecified, TextAlign.Unspecified)
+            .copy(textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)
+        androidx.compose.foundation.text.BasicText("Términos", Modifier.tocable { abrir(ar.com.caigo.app.pantallas.ingreso.Legales.TERMINOS) }.padding(6.dp), style = estilo)
+        T("·", 12f, 700, color)
+        androidx.compose.foundation.text.BasicText("Privacidad", Modifier.tocable { abrir(ar.com.caigo.app.pantallas.ingreso.Legales.PRIVACIDAD) }.padding(6.dp), style = estilo)
     }
 }
 
