@@ -111,7 +111,8 @@ struct MiPerfil: View {
                 .padding(28)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            BotonIcono(d: I.sol, iconoTam: 20, trazo: 2, gel: Gels.chip(p), color: p.texto) { opciones = true }
+            BotonIcono(d: I.ajustes, iconoTam: 21, trazo: 2, gel: Gels.chip(p), color: p.texto) { opciones = true }
+                .accessibilityLabel("Ajustes")
                 .padding(.top, 8).padding(.trailing, 20)
             hojaCuenta
             hojaBorrar
@@ -201,8 +202,19 @@ struct MiPerfil: View {
     /// Cabecera: foto 112, nombre con badge y zona.
     private func cabecera(_ y: Perfil) -> some View {
         VStack(spacing: 10) {
-            Avatar(nombre: y.nombre, foto: y.fotos.first, tam: 112, borde: 4, colorBorde: C.blanco, tamTexto: 40)
-                .background(Circle().fill(Color.clear).gel(56, nil, [externa(14, 26, rgba(80, 60, 160, 0.45), spread: -10)]))
+            // La foto lleva a editar el perfil y las fotos, con el lápiz a la vista (como en Tinder).
+            Button { ir.editarPerfil() } label: {
+                Avatar(nombre: y.nombre, foto: y.fotos.first, tam: 112, borde: 4, colorBorde: C.blanco, tamTexto: 40)
+                    .background(Circle().fill(Color.clear).gel(56, nil, [externa(14, 26, rgba(80, 60, 160, 0.45), spread: -10)]))
+                    .overlay(alignment: .bottomTrailing) {
+                        Icono(I.lapiz, 16, C.blanco, trazo: 2.4)
+                            .frame(width: 36, height: 36)
+                            .background(Circle().fill(C.violeta))
+                            .overlay(Circle().strokeBorder(C.blanco, lineWidth: 3))
+                    }
+            }
+            .buttonStyle(EstiloToque(baja: 2))
+            .accessibilityLabel("Editar perfil y fotos")
             HStack(spacing: 8) {
                 T([y.nombre.isEmpty ? nil : y.nombre, y.edad.map(String.init)].compactMap { $0 }.joined(separator: ", "), 28, 700, alto: 1)
                 if y.verificada { MiosVerificado() }
@@ -210,8 +222,30 @@ struct MiPerfil: View {
             let estado: String? = y.verificada ? "Verificada con DNI" : (y.selfie ? "Selfie verificada · falta DNI" : nil)
             let zona = [y.zona, y.ciudad].filter { !$0.isEmpty }.joined(separator: ", ")
             T([zona.isEmpty ? nil : zona, estado].compactMap { $0 }.joined(separator: " · "), 14, 400, p.texto2, alinear: .center)
+            // Lo de todos los días, a la vista: antes estaba escondido en la hoja de la cuenta.
+            HStack(alignment: .top, spacing: 28) {
+                accionRapida(I.lapiz, "Editar perfil") { ir.editarPerfil() }
+                accionRapida(I.billetera, "Mis pases") { ir.pases() }
+                accionRapida(I.ajustes, "Ajustes") { opciones = true }
+            }
+            .padding(.top, 8)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func accionRapida(_ icono: String, _ titulo: String, accion: @escaping () -> Void) -> some View {
+        Button(action: accion) {
+            VStack(spacing: 7) {
+                Icono(icono, 22, p.oscuro ? C.lima : C.violeta, trazo: 2.2)
+                    .frame(width: 54, height: 54)
+                    .gel(27, Gels.chip(p))
+                T(titulo, 12, 700, p.texto2)
+            }
+        }
+        .buttonStyle(EstiloToque(baja: 2))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(titulo)
+        .accessibilityAddTraits(.isButton)
     }
 
     /// Verificación y seguridad.

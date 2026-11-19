@@ -74,6 +74,7 @@ struct Datos: View {
             }
         }
         .environment(\.colorScheme, .light)
+        .environment(\.paleta, .clara)
         .onAppear {
             guard !listoInicial, let yo = c.yo else { return }
             listoInicial = true
@@ -170,6 +171,7 @@ struct Telefono: View {
             }
         }
         .environment(\.colorScheme, .light)
+        .environment(\.paleta, .clara)
         .task(id: espera > 0) {
             while espera > 0 {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)

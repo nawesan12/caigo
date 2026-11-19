@@ -126,6 +126,7 @@ struct Dni: View {
             .scrollDisabled(paso == .frente || paso == .dorso || paso == .selfie)
         }
         .environment(\.colorScheme, .light)
+        .environment(\.paleta, .clara)
         .task { await arrancar() }
         // La selfie se saca sola al completar la prueba de vida.
         .onChange(of: vida.fase) { _, f in
@@ -389,5 +390,6 @@ struct PedirDni: View {
             }
         }
         .environment(\.colorScheme, .light)
+        .environment(\.paleta, .clara)
     }
 }

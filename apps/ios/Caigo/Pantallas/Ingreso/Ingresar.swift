@@ -132,6 +132,7 @@ struct DebugToken: View {
             .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 36)
         }
         .environment(\.colorScheme, .light)
+        .environment(\.paleta, .clara)
         .onAppear {
             #if !DEBUG
             ir.atras()

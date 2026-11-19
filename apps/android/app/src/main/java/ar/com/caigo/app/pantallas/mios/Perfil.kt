@@ -258,8 +258,17 @@ fun Perfil(ir: Ir) {
             ) {
                 // Cabecera: foto 112, nombre con badge y zona.
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(Modifier.size(112.dp).gel(56.dp, null, listOf(externa(14f, 26f, rgba(80, 60, 160, .45f), spread = -10f)))) {
+                    // La foto lleva a editar el perfil y las fotos, con el lápiz a la vista (como en Tinder).
+                    Box(
+                        Modifier.size(112.dp).gel(56.dp, null, listOf(externa(14f, 26f, rgba(80, 60, 160, .45f), spread = -10f)))
+                            .toque { ir.editarPerfil() }
+                            .semantics { role = Role.Button; contentDescription = "Editar perfil y fotos" },
+                    ) {
                         Avatar(y.nombre, y.fotos.firstOrNull(), 112.dp, borde = 4.dp, colorBorde = C.blanco, tamTexto = 40f)
+                        Box(
+                            Modifier.align(Alignment.BottomEnd).size(36.dp).background(C.violeta, CircleShape).border(3.dp, C.blanco, CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) { Icono(I.lapiz, 16.dp, C.blanco, 2.4f) }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         T(listOfNotNull(y.nombre.ifEmpty { null }, y.edad?.toString()).joinToString(", "), 28f, 700, alto = 1f)
@@ -272,6 +281,12 @@ fun Perfil(ir: Ir) {
                     }
                     val zona = listOf(y.zona, y.ciudad).filter { it.isNotEmpty() }.joinToString(", ")
                     T(listOfNotNull(zona.ifEmpty { null }, estado).joinToString(" · "), 14f, 400, p.texto2, alinear = TextAlign.Center)
+                    // Lo de todos los días, a la vista: antes estaba escondido en la hoja de la cuenta.
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.Top) {
+                        AccionRapida(I.lapiz, "Editar perfil") { ir.editarPerfil() }
+                        AccionRapida(I.billetera, "Mis pases") { ir.pases() }
+                        AccionRapida(I.ajustes, "Ajustes") { opciones = true }
+                    }
                 }
 
                 // Verificación y seguridad.
@@ -427,8 +442,9 @@ fun Perfil(ir: Ir) {
             }
         }
         BotonIcono(
-            I.sol, { opciones = true }, Modifier.align(Alignment.TopEnd).padding(top = arriba + 8.dp, end = 20.dp),
-            iconoTam = 20.dp, trazo = 2f, gel = if (p.oscuro) Gels.chipOscuro else Gels.chipClaro, color = p.texto,
+            I.ajustes, { opciones = true },
+            Modifier.align(Alignment.TopEnd).padding(top = arriba + 8.dp, end = 20.dp).semantics { contentDescription = "Ajustes" },
+            iconoTam = 21.dp, trazo = 2f, gel = if (p.oscuro) Gels.chipOscuro else Gels.chipClaro, color = p.texto,
         )
         // «Traé a alguien»: el link para compartir, el premio, cuántos invité y, en los primeros días, el código de
         // quien me invitó (POST /v1/yo/invitado).
@@ -806,5 +822,20 @@ private fun CabeceraLogros(y: ar.com.caigo.app.nucleo.Perfil, l: ar.com.caigo.ap
             }
         }
         ar.com.caigo.app.nucleo.TextoLogros.siguiente(l)?.let { T(it, 12f, 400, C.apagado2) }
+    }
+}
+
+@Composable
+private fun AccionRapida(icono: String, titulo: String, onClick: () -> Unit) {
+    val p = LocalPaleta.current
+    Column(
+        Modifier.toque { onClick() }.semantics(mergeDescendants = true) { role = Role.Button },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Box(Modifier.size(54.dp).gel(27.dp, if (p.oscuro) Gels.chipOscuro else Gels.chipClaro), contentAlignment = Alignment.Center) {
+            Icono(icono, 22.dp, if (p.oscuro) C.lima else C.violeta, 2.2f)
+        }
+        T(titulo, 12f, 700, p.texto2)
     }
 }

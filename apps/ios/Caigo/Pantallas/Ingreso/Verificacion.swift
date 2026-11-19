@@ -67,6 +67,7 @@ struct Verificacion: View {
         hojaContacto
         }
         .environment(\.colorScheme, .light)
+        .environment(\.paleta, .clara)
         .task { await cargar() }
     }
 

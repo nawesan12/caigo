@@ -83,6 +83,7 @@ struct Intenciones: View {
             }
         }
         .environment(\.colorScheme, .light)
+        .environment(\.paleta, .clara)
         .onAppear {
             guard !cargado else { return }
             cargado = true

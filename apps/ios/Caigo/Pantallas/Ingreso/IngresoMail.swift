@@ -47,6 +47,7 @@ struct IngresoMail: View {
             }
         }
         .environment(\.colorScheme, .light)
+        .environment(\.paleta, .clara)
         .onAppear { if flujo == nil { flujo = ClerkMail(clerk: c.clerk) } }
     }
 

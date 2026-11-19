@@ -223,6 +223,7 @@ struct IngresoSlideAmigos: View {
             .ignoresSafeArea()
         }
         .environment(\.colorScheme, .light)
+        .environment(\.paleta, .clara)
         .onAppear {
             // Lo que ya eligió. Si nunca tocó nada se ve «Somos 2» (el del handoff), pero no se guarda.
             if UserDefaults.standard.object(forKey: "somos") != nil, let k = Self.personas.firstIndex(of: c.somos) { cuantos = k }

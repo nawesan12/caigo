@@ -127,6 +127,7 @@ struct Selfie: View {
             }
         }
         .environment(\.colorScheme, .light)
+        .environment(\.paleta, .clara)
         .task {
             if !permiso { permiso = await IngresoPermisoCamara.pedir() }
         }
