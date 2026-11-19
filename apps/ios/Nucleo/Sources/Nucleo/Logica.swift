@@ -325,3 +325,34 @@ public enum TextoLogros {
         return "Te faltan \(f) para \(s)"
     }
 }
+
+/// El muro de Caigo Plus: las filas de la tabla Gratis / Plus y el texto chico de la suscripción, iguales en
+/// iOS, Android y la web (App Review 3.1.2: precio por período, que se renueva sola, Términos y Privacidad).
+public enum PlusTabla {
+    /// (fila, gratis, plus). «✓» es un tilde, «—» que no lo tiene. Lo de seguridad no va: es gratis siempre.
+    public static let filas: [(String, String, String)] = [
+        ("Sumadas en Gente", "3 por día", "Sin límite"),
+        ("Ver quién te sumó", "—", "✓"),
+        ("Me encanta en Citas", "1 por día", "5 por día"),
+        ("Tu plan destacado", "—", "1 por semana"),
+        ("Filtros de edad, cupo y precio", "—", "✓"),
+    ]
+
+    /// Cómo se lee una celda con VoiceOver.
+    public static func leer(_ v: String) -> String { v == "✓" ? "sí" : (v == "—" ? "no" : v) }
+
+    /// «$X por semana, se renueva sola. Cancelás cuando quieras desde App Store.» `tienda`: App Store,
+    /// Google Play o Mercado Pago. Con prueba gratis (sólo el mes): «Gratis 7 días, después $X por mes…».
+    public static func textoFino(plan: String, precio: String, diasGratis: Int, tienda: String) -> String {
+        let nb = "\u{00A0}"
+        let periodo: String
+        switch plan {
+        case "semana": periodo = "\(precio) por\(nb)semana"
+        case "temporada": periodo = "\(precio) cada 3\(nb)meses"
+        default: periodo = "\(precio) por\(nb)mes"
+        }
+        let inicio = plan == "mes" && diasGratis > 0 ? "Gratis \(diasGratis)\(nb)días, después \(periodo)" : periodo
+        let t = tienda.replacingOccurrences(of: " ", with: nb)
+        return "\(inicio), se renueva sola. Cancelás cuando quieras desde\(nb)\(t)."
+    }
+}

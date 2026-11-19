@@ -34,6 +34,8 @@ struct CaigoRaiz: View {
             if actualizar { ActualizarApp().transition(.opacity).zIndex(50) }
         }
         .task { await chequearVersion() }
+        // StoreKit toda la sesión: renovaciones, «Pedir compra» y compras sin cerrar (no sólo con Plus abierto).
+        .task(id: c.conSesion) { if c.conSesion { await PagosTienda.escuchar(c) } }
         .sheet(item: Binding(get: { web.map(PaginaWeb.init) }, set: { web = $0?.url })) { p in NavegadorWeb(url: p.url).ignoresSafeArea() }
         .modifier(ConPaleta())
         .onChange(of: c.destino) { resolverDestino() }
@@ -87,7 +89,6 @@ struct CaigoRaiz: View {
         case .verificacion: Verificacion()
         case let .dni(plan): Dni(plan: plan)
         case let .pedirDni(motivo, plan): PedirDni(motivo: motivo, plan: plan)
-        case let .mazo(modo): VistaMazo(modo: modo)
         case .completarPerfil: EditarPerfil(completar: true, apilado: true)
         case let .plan(id): DetallePlan(id: id)
         case let .planSlug(slug): DetallePlan(slug: slug)

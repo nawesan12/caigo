@@ -111,9 +111,6 @@ struct MiPerfil: View {
                 .padding(28)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            BotonIcono(d: I.ajustes, iconoTam: 21, trazo: 2, gel: Gels.chip(p), color: p.texto) { opciones = true }
-                .accessibilityLabel("Ajustes")
-                .padding(.top, 8).padding(.trailing, 20)
             hojaCuenta
             hojaBorrar
             hojaTraer
@@ -184,7 +181,6 @@ struct MiPerfil: View {
                 }
             }
             miGente(y)
-            conocerGente(y)
             // Al final, la acción destructiva (con el texto de peligro de «Cancelar el plan»).
             Button { mailBaja = ""; borrando = true } label: {
                 T("Borrar mi cuenta", 15, 700, C.coral2).padding(.horizontal, 18).padding(.vertical, 16)
@@ -222,25 +218,28 @@ struct MiPerfil: View {
             let estado: String? = y.verificada ? "Verificada con DNI" : (y.selfie ? "Selfie verificada · falta DNI" : nil)
             let zona = [y.zona, y.ciudad].filter { !$0.isEmpty }.joined(separator: ", ")
             T([zona.isEmpty ? nil : zona, estado].compactMap { $0 }.joined(separator: " · "), 14, 400, p.texto2, alinear: .center)
-            // Lo de todos los días, a la vista: antes estaba escondido en la hoja de la cuenta.
-            HStack(alignment: .top, spacing: 28) {
-                accionRapida(I.lapiz, "Editar perfil") { ir.editarPerfil() }
-                accionRapida(I.billetera, "Mis pases") { ir.pases() }
-                accionRapida(I.ajustes, "Ajustes") { opciones = true }
+            // Tres círculos, como en Tinder: Editar perfil al medio y más grande (la acción principal), Ajustes
+            // y Mis pases a los costados. Un solo lugar para cada cosa (no hay engranaje arriba).
+            HStack(alignment: .top, spacing: 30) {
+                accionRapida(I.ajustes, "Ajustes", principal: false) { opciones = true }
+                accionRapida(I.lapiz, "Editar perfil", principal: true) { ir.editarPerfil() }
+                accionRapida(I.qr, "Mis pases", principal: false) { ir.pases() }
             }
             .padding(.top, 8)
         }
         .frame(maxWidth: .infinity)
     }
 
-    private func accionRapida(_ icono: String, _ titulo: String, accion: @escaping () -> Void) -> some View {
-        Button(action: accion) {
+    private func accionRapida(_ icono: String, _ titulo: String, principal: Bool, accion: @escaping () -> Void) -> some View {
+        let tam: CGFloat = principal ? 64 : 48
+        return Button(action: accion) {
             VStack(spacing: 7) {
-                Icono(icono, 22, p.oscuro ? C.lima : C.violeta, trazo: 2.2)
-                    .frame(width: 54, height: 54)
-                    .gel(27, Gels.chip(p))
-                T(titulo, 12, 700, p.texto2)
+                Icono(icono, principal ? 26 : 20, principal ? C.carbon : (p.oscuro ? C.lima : C.violeta), trazo: principal ? 2.6 : 2.2)
+                    .frame(width: tam, height: tam)
+                    .gel(tam / 2, principal ? Gels.lima : Gels.chip(p))
+                T(titulo, 12, principal ? 800 : 700, principal ? p.texto : p.texto2, unRenglon: true)
             }
+            .frame(minWidth: 72)
         }
         .buttonStyle(EstiloToque(baja: 2))
         .accessibilityElement(children: .ignore)
@@ -467,28 +466,10 @@ struct MiPerfil: View {
         .onTapGesture { ir.gente() }
     }
 
-    /// Gente y Citas salieron de la cabecera de Ahora (18/11): se abren desde acá, sin protagonismo. Citas,
-    /// sólo para quien eligió esa intención. Sin DNI, antes «verificamos que seas vos».
-    private func conocerGente(_ y: Perfil) -> some View {
-        let citas = y.intenciones.contains("citas")
-        return MiosGrupo {
-            MiosFila(icono: I.usuario, titulo: "Conocer gente", sub: "Gente cerca que sale a lo mismo que vos", ultima: !citas) {
-                if c.conDni(ir, "gente") { ir.mazo("gente") }
-            }
-            if citas {
-                MiosFila(icono: I.corazonChico, titulo: "Citas", ultima: true) {
-                    if c.conDni(ir, "gente") { ir.mazo("citas") }
-                }
-            }
-        }
-    }
-
     private var hojaCuenta: some View {
-        MiosHoja(abierta: opciones, titulo: "Tu cuenta", cerrar: { opciones = false }) {
+        MiosHoja(abierta: opciones, titulo: "Ajustes", cerrar: { opciones = false }) {
             MiosGrupo {
-                MiosFila(icono: I.usuario, titulo: "Editar perfil") { opciones = false; ir.editarPerfil() }
                 MiosFila(icono: I.corazonChico, titulo: "Lo que buscás") { opciones = false; ir.intenciones(editar: true) }
-                MiosFila(icono: I.billetera, titulo: "Mis pases") { opciones = false; ir.pases() }
                 MiosFila(icono: I.enviar, titulo: "Mensajes privados") { opciones = false; ir.privados() }
                 MiosFila(icono: I.campana, titulo: "Avisos") { opciones = false; ir.ajustesAvisos() }
                 MiosFila(icono: I.escudo, titulo: "Verificación y seguridad", ultima: true) { opciones = false; ir.verificacion() }
@@ -730,61 +711,91 @@ struct EditarPerfil: View {
     private var seccionFotos: some View {
         VStack(alignment: .leading, spacing: 10) {
             MiosSeccion(texto: "Fotos")
-            T("La primera es la que ve todo el mundo. Tocá otra para ponerla primera.", 13, 500, p.texto2, alto: 1.4)
+            T("La primera es la principal. Mantené una foto apretada para ordenarla o\u{00A0}sacarla.", 13, 500, p.texto2, alto: 1.4)
+            // Celdas por URL (son únicas) y "" para la de sumar: al reordenar, la foto se mueve (no cambia
+            // el contenido de cada lugar).
             let celdas = fotos + (fotos.count < 6 ? [""] : [])
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
-                ForEach(Array(celdas.enumerated()), id: \.offset) { i, url in
+                ForEach(celdas, id: \.self) { url in
                     Color.clear.aspectRatio(0.8, contentMode: .fit)
                         .overlay {
-                            if url.isEmpty {
-                                PhotosPicker(selection: $eleccion, matching: .images) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 18, style: .continuous).fill(p.superficie)
-                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                            .strokeBorder(Color(hex: 0xB9ACF5), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
-                                        if subiendo { Puntitos(color: C.violeta) } else { Icono(I.mas, 26, C.violeta, trazo: 3) }
-                                    }
-                                }
-                                .disabled(subiendo)
-                                .accessibilityLabel("Sumar foto")
-                            } else {
-                                Foto(url: url).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                                    .overlay {
-                                        if i == 0 {
-                                            RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(C.violeta, lineWidth: 3)
-                                        }
-                                    }
-                                    .overlay(alignment: .bottomLeading) {
-                                        if i == 0 {
-                                            T("Principal", 11, 800, C.blanco)
-                                                .padding(.horizontal, 8).padding(.vertical, 4)
-                                                .background(Capsule().fill(C.violeta))
-                                                .padding(6)
-                                        }
-                                    }
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        guard i > 0 else { return }
-                                        withAnimation(.easeOut(duration: 0.2)) { fotos.remove(at: i); fotos.insert(url, at: 0) }
-                                    }
-                                    .accessibilityLabel(i == 0 ? "Foto principal" : "Foto \(i + 1)")
-                                    .accessibilityAction(named: "Usar como principal") {
-                                        guard i > 0 else { return }
-                                        fotos.remove(at: i); fotos.insert(url, at: 0)
-                                    }
-                                    .overlay(alignment: .topTrailing) {
-                                        Button { fotos.removeAll { $0 == url } } label: {
-                                            Icono(I.cruz, 14, C.blanco, trazo: 3).frame(width: 28, height: 28).background(Circle().fill(C.carbon))
-                                        }
-                                        .buttonStyle(EstiloPlano())
-                                        .padding(6)
-                                        .accessibilityLabel("Sacar foto")
-                                    }
-                            }
+                            if url.isEmpty { celdaSumar } else { celdaFoto(url) }
                         }
                 }
             }
+            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: fotos)
         }
+    }
+
+    private var celdaSumar: some View {
+        PhotosPicker(selection: $eleccion, matching: .images) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous).fill(p.superficie)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color(hex: 0xB9ACF5), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                if subiendo { Puntitos(color: C.violeta) } else { Icono(I.mas, 26, p.oscuro ? C.lima : C.violeta, trazo: 3) }
+            }
+        }
+        .disabled(subiendo)
+        .accessibilityLabel("Sumar foto")
+    }
+
+    private func principal(_ url: String) {
+        guard let i = fotos.firstIndex(of: url), i > 0 else { return }
+        fotos.remove(at: i)
+        fotos.insert(url, at: 0)
+    }
+
+    private func mover(_ url: String, a destino: String) {
+        guard url != destino, let i = fotos.firstIndex(of: url), let j = fotos.firstIndex(of: destino) else { return }
+        fotos.remove(at: i)
+        fotos.insert(url, at: j)
+    }
+
+    private func celdaFoto(_ url: String) -> some View {
+        let primera = fotos.first == url
+        let forma = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        return Foto(url: url).clipShape(forma)
+            .overlay { if primera { forma.strokeBorder(C.violeta, lineWidth: 3) } }
+            .overlay(alignment: .bottomLeading) {
+                if primera {
+                    T("Principal", 11, 800, C.blanco, unRenglon: true)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(Capsule().fill(C.violeta))
+                        .padding(8)
+                }
+            }
+            .contentShape(.dragPreview, forma)
+            .contentShape(.contextMenuPreview, forma)
+            .contextMenu {
+                if !primera {
+                    Button { withAnimation { principal(url) } } label: { Label("Usar como principal", systemImage: "star") }
+                }
+                Button(role: .destructive) { withAnimation { fotos.removeAll { $0 == url } } } label: { Label("Sacar", systemImage: "trash") }
+            }
+            .draggable(url)
+            .dropDestination(for: String.self) { items, _ in
+                guard let de = items.first, fotos.contains(de) else { return false }
+                withAnimation { mover(de, a: url) }
+                return true
+            }
+            .overlay(alignment: .topTrailing) {
+                // Se ve de 30 y se toca en 44 (con borde blanco, para leerse sobre cualquier foto).
+                Button { withAnimation { fotos.removeAll { $0 == url } } } label: {
+                    Icono(I.cruz, 13, C.blanco, trazo: 3)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(C.carbon))
+                        .overlay(Circle().strokeBorder(C.blanco, lineWidth: 2))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(EstiloPlano())
+                .padding(1)
+                .accessibilityLabel("Sacar foto")
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(primera ? "Foto principal" : "Foto")
+            .accessibilityAction(named: "Usar como principal") { principal(url) }
     }
 
     private var seccionPreguntas: some View {

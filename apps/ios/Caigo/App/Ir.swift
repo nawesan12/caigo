@@ -33,8 +33,6 @@ enum Ruta: Hashable {
     /// «Para sumarte, verificamos que seas vos»: antes del DNI, al primer «Caigo», crear, chatear o la gente.
     /// motivo: sumarte | crear | chatear | gente.
     case pedirDni(motivo: String, plan: String?)
-    /// El mazo de Gente o Citas (salió de la cabecera de Ahora; se abre desde Perfil › Mi gente).
-    case mazo(modo: String)
     case plan(String)
     case planSlug(String)
     case crear
@@ -98,13 +96,6 @@ final class Ir {
     func principal(_ p: Pestana = .ahora, modo: String? = nil) {
         pestana = p
         tabBarOculta = false
-        // Gente y Citas ya no son modos de Ahora: Ahora y, encima, el mazo.
-        if let m = modo, m == "gente" || m == "citas" {
-            modoAhora = nil
-            base = .principal(p, modo: nil)
-            camino = [.mazo(modo: m)]
-            return
-        }
         modoAhora = modo
         base = .principal(p, modo: modo)
         camino = []
@@ -157,7 +148,6 @@ final class Ir {
         if case .dni = camino.last { camino.removeLast() }
         camino.append(.completarPerfil)
     }
-    func mazo(_ modo: String) { ir(.mazo(modo: modo)) }
     func checkout(_ planId: String, cantidad: Int) { ir(.checkout(planId, cantidad: cantidad)) }
     func entrada(_ entradaId: String, plan: String) { ir(.entrada(entradaId, plan: plan)) }
     func qrEntrada(_ entradaId: String) { ir(.qrEntrada(entradaId)) }

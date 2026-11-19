@@ -426,3 +426,17 @@ import Testing
         #expect(p.lugar?.beneficioNivel == "Postre")
     }
 }
+
+@Suite struct PlusTablaTests {
+    @Test func textoFino() {
+        let nb = "\u{00A0}"
+        #expect(PlusTabla.textoFino(plan: "semana", precio: "$2.500", diasGratis: 0, tienda: "App Store")
+            == "$2.500 por\(nb)semana, se renueva sola. Cancelás cuando quieras desde\(nb)App\(nb)Store.")
+        #expect(PlusTabla.textoFino(plan: "mes", precio: "$6.900", diasGratis: 7, tienda: "Google Play")
+            == "Gratis 7\(nb)días, después $6.900 por\(nb)mes, se renueva sola. Cancelás cuando quieras desde\(nb)Google\(nb)Play.")
+        #expect(PlusTabla.textoFino(plan: "temporada", precio: "$15.900", diasGratis: 7, tienda: "App Store")
+            .hasPrefix("$15.900 cada 3\(nb)meses, se renueva sola."))
+        #expect(PlusTabla.filas.count == 5)
+        #expect(PlusTabla.leer("✓") == "sí" && PlusTabla.leer("—") == "no")
+    }
+}

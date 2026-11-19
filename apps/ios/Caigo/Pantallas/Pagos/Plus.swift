@@ -11,6 +11,21 @@ private let textoTenue = Color(hex: 0xC9C4DA)
 enum PagosTienda {
     static let productos = ["plus_semana", "plus_mes", "plus_temporada"]
 
+    /// Renovaciones, compras aprobadas después («Pedir compra»), las hechas en otro dispositivo y las que
+    /// quedaron sin cerrar: corre toda la sesión (desde la raíz), no sólo con el muro abierto. Cada una se
+    /// registra en la API y recién ahí se cierra con finish(); si falla, Apple la vuelve a entregar.
+    @MainActor static func escuchar(_ c: Contenedor) async {
+        for await v in StoreKit.Transaction.unfinished { await registrar(v, c) }
+        for await v in StoreKit.Transaction.updates { await registrar(v, c) }
+    }
+
+    @MainActor private static func registrar(_ v: VerificationResult<StoreKit.Transaction>, _ c: Contenedor) async {
+        guard c.conSesion, case let .verified(t) = v, productos.contains(t.productID) else { return }
+        guard let e = try? await c.api.plusApple(jws: v.jwsRepresentation) else { return }
+        await t.finish()
+        c.plus = e
+    }
+
     /// Días de prueba gratis de la oferta introductoria (0 si no hay o si ya la usó).
     static func diasGratis(_ p: Product?) async -> Int {
         guard let s = p?.subscription, let o = s.introductoryOffer, o.paymentMode == .freeTrial else { return 0 }
@@ -65,7 +80,6 @@ struct VistaPlus: View {
         }
         .environment(\.paleta, .oscura)
         .task { await cargar() }
-        .task { await escucharActualizaciones() }
         .task {
             // Contador en vivo hasta que se renuevan las sumadas.
             while !Task.isCancelled {
@@ -89,12 +103,6 @@ struct VistaPlus: View {
         ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    HStack {
-                        BotonIcono(d: I.cruz, iconoTam: 20, trazo: 2.6, gel: Gel(fondo: .liso(rgba(255, 255, 255, 0.1)), sombras: [interna(1, 0, rgba(255, 255, 255, 0.15))]),
-                                   color: C.blanco) { ir.atras() }
-                        Spacer()
-                        T("Restaurar compra", 13, 700, textoTenue).tocable { Task { await restaurar() } }
-                    }
                     // "Caigo" grande con la pill PLUS
                     ZStack(alignment: .topTrailing) {
                         T("Caigo", 80, 700, C.blancoCalido, alto: 1, espaciado: espaciadoTitulo(80), alinear: .center, unRenglon: true)
@@ -120,9 +128,28 @@ struct VistaPlus: View {
                             .frame(maxWidth: .infinity)
                     }
                 }
-                .padding(.horizontal, 20).padding(.top, 6).padding(.bottom, 190)
+                .padding(.horizontal, 20).padding(.top, 0).padding(.bottom, 220)
             }
+            // La × y «Restaurar compra» quedan fijas arriba, con una tapa que funde el contenido debajo de la
+            // barra de estado (antes se iban con el scroll y el título quedaba cortado bajo la hora).
+            .safeAreaInset(edge: .top, spacing: 0) { barraArriba }
             ctaFija
+        }
+    }
+
+    private var barraArriba: some View {
+        HStack {
+            BotonIcono(d: I.cruz, iconoTam: 20, trazo: 2.6, gel: Gel(fondo: .liso(rgba(255, 255, 255, 0.1)), sombras: [interna(1, 0, rgba(255, 255, 255, 0.15))]),
+                       color: C.blanco) { ir.atras() }
+                .accessibilityLabel("Cerrar")
+            Spacer()
+            T("Restaurar compra", 13, 700, textoTenue).tocable { Task { await restaurar() } }
+        }
+        .padding(.horizontal, 20).padding(.top, 6).padding(.bottom, 14)
+        .background {
+            LinearGradient(stops: Fondo.paradas((0, Color(hex: 0x2B2452)), (0.7, Color(hex: 0x2B2452).opacity(0.92)), (1, Color(hex: 0x2B2452).opacity(0))),
+                           startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea(edges: .top)
         }
     }
 
@@ -201,13 +228,13 @@ struct VistaPlus: View {
             .buttonStyle(EstiloToque(baja: 4))
             .disabled(comprando || p == nil)
             if let p {
-                let fino = p.plan == "mes" && diasGratis > 0 ? "Gratis \(diasGratis) días, después \(precio(p)) por mes."
-                    : p.plan == "temporada" ? "Pagás \(precio(p)) hoy por 3 meses." : "Pagás \(precio(p)) hoy."
-                T("\(fino) Cancelás cuando quieras · App Store", 12, 600, textoTenue, alto: 1.45, alinear: .center)
+                T(PlusTabla.textoFino(plan: p.plan, precio: precio(p), diasGratis: diasGratis, tienda: "App Store"),
+                  12, 600, textoTenue, alto: 1.45, alinear: .center)
                     .frame(maxWidth: .infinity)
             }
+            PlusLegales()
         }
-        .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 30)
+        .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 14)
         .background(LinearGradient(stops: Fondo.paradas((0, C.grafito.opacity(0)), (0.3, C.grafito)), startPoint: .top, endPoint: .bottom)
             .ignoresSafeArea())
     }
@@ -281,14 +308,6 @@ struct VistaPlus: View {
         if !encontrada { c.avisos.error("No encontramos compras de Caigo Plus en esta cuenta del App Store.") }
     }
 
-    /// Renovaciones, compras aprobadas después (Ask to Buy) y las hechas en otro dispositivo.
-    private func escucharActualizaciones() async {
-        for await v in StoreKit.Transaction.updates {
-            if case let .verified(t) = v, PagosTienda.productos.contains(t.productID) {
-                await registrar(v)
-            }
-        }
-    }
 }
 
 /// "4 personas te sumaron · Con Plus ves quiénes son", con las caras borrosas.
@@ -298,10 +317,17 @@ private struct TeaserRecibidos: View {
     var body: some View {
         HStack(spacing: 14) {
             HStack(spacing: -12) {
-                ForEach(Array(fotos.enumerated()), id: \.offset) { _, f in
-                    ImagenRed(url: f).scaleEffect(1.2).blur(radius: 6)
-                        .frame(width: 44, height: 44).background(C.oscuro2).clipShape(Circle())
-                        .overlay(Circle().strokeBorder(Color(hex: 0x2E2850), lineWidth: 2.5))
+                // Sin Plus la API no manda las fotos (se sabría quién es comparando links): caras genéricas.
+                ForEach(0..<max(fotos.count, min(n, 4)), id: \.self) { i in
+                    Group {
+                        if i < fotos.count {
+                            ImagenRed(url: fotos[i]).scaleEffect(1.2).blur(radius: 6)
+                        } else {
+                            CaraBorrosa(semilla: i)
+                        }
+                    }
+                    .frame(width: 44, height: 44).background(C.oscuro2).clipShape(Circle())
+                    .overlay(Circle().strokeBorder(Color(hex: 0x2E2850), lineWidth: 2.5))
                 }
             }
             .padding(.leading, 10)
@@ -320,54 +346,85 @@ private struct TeaserRecibidos: View {
     }
 }
 
-/// Comparación Gratis / Plus (la tabla del prototipo).
+/// Comparación Gratis / Plus (la tabla del prototipo). Las columnas se reparten 1,5 · 1 · 1 (como los pesos
+/// de Android): la etiqueta 3/7 del ancho y cada valor 2/7; la franja violeta mide lo mismo que la columna Plus.
 private struct TablaPlus: View {
-    let filas: [(String, String, String)] = [
-        ("Sumadas en Gente", "3 por día", "Sin límite"),
-        ("Ver quién te sumó", "—", "✓"),
-        ("Me encanta en Citas", "1 por día", "5 por día"),
-        ("Tu plan destacado", "—", "1 por semana"),
-        // Plus vende comodidad, nunca seguridad (18/11): los filtros de verificados y «Sólo chicas» son gratis.
-        ("Filtros de edad, cupo y precio", "—", "✓"),
-    ]
+    let filas: [(String, String, String)] = PlusTabla.filas
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                Color.clear.frame(maxWidth: .infinity).layoutPriority(1.5)
+            TresColumnas {
+                Color.clear.frame(height: 1)
                 columna("GRATIS", C.apagado)
                 columna("PLUS", C.lima)
             }
-            .padding(.top, 12).padding(.bottom, 4)
-            ForEach(Array(filas.enumerated()), id: \.offset) { i, f in
-                if i > 0 { Rectangle().fill(rgba(255, 255, 255, 0.08)).frame(height: 1) }
-                HStack(spacing: 0) {
-                    T(f.0, 13, 700, C.blancoCalido).padding(.leading, 14).padding(.vertical, 12)
-                        .frame(width: nil, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
-                        .layoutPriority(1.5)
-                    T(f.1, 12, 600, C.apagado, alinear: .center).frame(maxWidth: .infinity).padding(.horizontal, 4)
-                    Group {
-                        if f.2 == "✓" { Icono(I.check, 16, C.lima, trazo: 3.4) } else { T(f.2, 12, 800, C.lima, alinear: .center) }
-                    }
-                    .frame(maxWidth: .infinity).padding(.horizontal, 4)
+            .padding(.top, 14).padding(.bottom, 4)
+            .accessibilityHidden(true)
+            ForEach(filas, id: \.0) { f in
+                if f.0 != filas.first?.0 { Rectangle().fill(rgba(255, 255, 255, 0.08)).frame(height: 1) }
+                TresColumnas {
+                    T(f.0, 13, 700, C.blancoCalido, alto: 1.3)
+                        .padding(.leading, 14).padding(.trailing, 6).padding(.vertical, 12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    valor(f.1, plus: false)
+                    valor(f.2, plus: true)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(f.0). Gratis: \(PlusTabla.leer(f.1)). Plus: \(PlusTabla.leer(f.2)).")
             }
         }
-        .background(alignment: .trailing) {
-            // Columna Plus resaltada (29 % a la derecha)
+        .background {
             GeometryReader { g in
                 UnevenRoundedRectangle(cornerRadii: .init(topLeading: 0, bottomLeading: 0, bottomTrailing: 24, topTrailing: 24), style: .continuous)
                     .fill(LinearGradient(colors: [rgba(116, 86, 241, 0.45), rgba(116, 86, 241, 0.2)], startPoint: .top, endPoint: .bottom))
                     .overlay(alignment: .leading) { Rectangle().fill(rgba(163, 143, 255, 0.4)).frame(width: 1) }
-                    .frame(width: g.size.width * 0.29)
+                    .frame(width: g.size.width * 2 / 7)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .gel(24, Gel(fondo: .liso(rgba(255, 255, 255, 0.05)), sombras: [interna(0, 0, rgba(255, 255, 255, 0.08), spread: -1)]))
     }
 
+    @ViewBuilder
+    private func valor(_ v: String, plus: Bool) -> some View {
+        Group {
+            if v == "✓" {
+                Icono(I.check, 16, C.lima, trazo: 3.4)
+            } else {
+                T(v, 12, plus ? 800 : 600, plus ? C.lima : C.apagado, alto: 1.25, alinear: .center)
+            }
+        }
+        .padding(.horizontal, 6)
+        .frame(maxWidth: .infinity)
+    }
+
     private func columna(_ t: String, _ c: Color) -> some View {
         T(t, 11, 800, c, espaciado: 0.8, alinear: .center, unRenglon: true).frame(maxWidth: .infinity)
+    }
+}
+
+/// Tres columnas con anchos fijos 3/7 · 2/7 · 2/7 del ancho propuesto; el alto es el de la celda más alta y
+/// cada celda va centrada en vertical. (Un HStack con layoutPriority le daba todo el ancho a la etiqueta.)
+private struct TresColumnas: Layout {
+    private func anchos(_ w: CGFloat) -> [CGFloat] { [w * 3 / 7, w * 2 / 7, w * 2 / 7] }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let w = proposal.width ?? 335
+        let a = anchos(w)
+        var h: CGFloat = 0
+        for (i, s) in subviews.prefix(3).enumerated() {
+            h = max(h, s.sizeThatFits(ProposedViewSize(width: a[i], height: nil)).height)
+        }
+        return CGSize(width: w, height: h)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let a = anchos(bounds.width)
+        var x = bounds.minX
+        for (i, s) in subviews.prefix(3).enumerated() {
+            s.place(at: CGPoint(x: x, y: bounds.midY), anchor: .leading, proposal: ProposedViewSize(width: a[i], height: nil))
+            x += a[i]
+        }
     }
 }
 
@@ -460,5 +517,33 @@ private struct PlusListo: View {
             .padding(.top, 10)
         }
         .padding(30)
+    }
+}
+
+/// Una cara borrosa genérica para el teaser sin Plus (un degradé, nunca la foto de nadie).
+private struct CaraBorrosa: View {
+    var semilla: Int
+    var body: some View {
+        let tonos: [(Color, Color)] = [(Color(hex: 0x8B74F5), Color(hex: 0xF2A48F)), (Color(hex: 0xC8F36B), Color(hex: 0x7456F1)),
+                                       (Color(hex: 0xF07A5F), Color(hex: 0x5B4BB0)), (Color(hex: 0xA38FFF), Color(hex: 0xE4E0EE))]
+        let t = tonos[semilla % tonos.count]
+        return LinearGradient(colors: [t.0, t.1], startPoint: .topLeading, endPoint: .bottomTrailing)
+            .overlay(Circle().fill(Color.white.opacity(0.35)).frame(width: 18, height: 18).offset(y: -6))
+            .blur(radius: 4)
+            .accessibilityHidden(true)
+    }
+}
+
+/// «Términos · Privacidad» debajo del botón de pago (App Review 3.1.2), con los links de la web.
+struct PlusLegales: View {
+    var color: Color = Color(hex: 0xC9C4DA)
+    var body: some View {
+        HStack(spacing: 6) {
+            Link(destination: URL(string: Legales.terminos)!) { T("Términos", 12, 700, color).underline() }
+            T("·", 12, 700, color)
+            Link(destination: URL(string: Legales.privacidad)!) { T("Privacidad", 12, 700, color).underline() }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: 30)
     }
 }

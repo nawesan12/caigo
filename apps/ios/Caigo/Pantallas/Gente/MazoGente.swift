@@ -3,12 +3,9 @@ import Nucleo
 
 /// Modos Gente y Citas del prototipo: mazo de personas arrastrables. Derecha (más de 100) = me
 /// prendo / me interesa; izquierda = paso. Tocar arriba a los costados cambia de foto; tocar abajo
-/// abre el perfil. Desde el 18/11 ya no está en la cabecera de Ahora: se abre apilado (VistaMazo) desde
-/// Perfil › Mi gente.
+/// abre el perfil. Va embebido en Ahora, debajo del encabezado (sin DNI, Ahora muestra MazoSinDni).
 struct MazoGente: View {
     var modo: String
-    /// Apilado debajo de su propio encabezado (sin la tab bar abajo).
-    var apilado = false
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var p
@@ -31,12 +28,12 @@ struct MazoGente: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                filaArriba.padding(.horizontal, 20).padding(.top, apilado ? 10 : 54)
+                filaArriba.padding(.horizontal, 20).padding(.top, 54)
                 GeometryReader { g in mazoVista(g.size) }
                     .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 6)
                 if arriba != nil { botones.frame(height: 76) } else { Color.clear.frame(height: 76) }
             }
-            .padding(.bottom, apilado ? 14 : altoTabBar + 14)
+            .padding(.bottom, altoTabBar + 14)
             if let t = invitando {
                 GenteHojaInvitar(personaId: t.id, nombre: t.nombre, cerrar: { invitando = nil }) { plan in
                     Task { await reaccionar("prendo", mensaje: "Invitaste a \(t.nombre) a \(plan.titulo). Le llega como solicitud.") }
@@ -73,11 +70,11 @@ struct MazoGente: View {
                     }
                     .padding(.leading, 8)
                     let n = recibidos?.personas.count ?? 0
-                    T(esCitas ? "\(n) les interesás" : "\(n) te sumaron", 13, 800, C.carbon, unRenglon: true)
+                    T(esCitas ? "\(n) les interesás" : "\(n) te sumaron", 13, 800, p.texto, unRenglon: true)
                 }
                 .padding(.leading, 4).padding(.trailing, 12).padding(.vertical, 4)
                 .frame(minHeight: 34)
-                .gel(17, Gels.neutra)
+                .gel(17, Gels.neutra(p))
             }
             .buttonStyle(EstiloToque(baja: 2))
             Spacer()
@@ -86,20 +83,21 @@ struct MazoGente: View {
             } label: {
                 HStack(spacing: 6) {
                     let e = plus
+                    let tinta = p.oscuro ? C.lima : C.violetaTexto
                     let sumadas = max(0, (e?.limite ?? 3) - (e?.sumadasHoy ?? 0))
-                    Icono(I.mas, 13, C.violetaTexto, trazo: 3.4)
+                    Icono(I.mas, 13, tinta, trazo: 3.4)
                     if esCitas {
                         // En Citas la pill suma los «me encanta» que quedan hoy, con la estrella del botón.
-                        T(e?.activo == true ? "Plus" : "\(sumadas)", 12, 800, C.violetaTexto, unRenglon: true)
-                        T("·", 12, 800, C.violetaTexto)
-                        Icono(I.estrella, 13, .clear, trazo: 0, relleno: C.violetaTexto)
-                        T("\(GenteEncantas.quedan(e?.encantasHoy ?? 0, e?.limiteEncantas ?? 1))", 12, 800, C.violetaTexto, unRenglon: true)
+                        T(e?.activo == true ? "Plus" : "\(sumadas)", 12, 800, tinta, unRenglon: true)
+                        T("·", 12, 800, tinta)
+                        Icono(I.estrella, 13, .clear, trazo: 0, relleno: tinta)
+                        T("\(GenteEncantas.quedan(e?.encantasHoy ?? 0, e?.limiteEncantas ?? 1))", 12, 800, tinta, unRenglon: true)
                     } else {
-                        T(e?.activo == true ? "Plus · sin límite" : "\(sumadas) \(sumadas == 1 ? "sumada" : "sumadas") hoy", 12, 800, C.violetaTexto, unRenglon: true)
+                        T(e?.activo == true ? "Plus · sin límite" : "\(sumadas) \(sumadas == 1 ? "sumada" : "sumadas") hoy", 12, 800, tinta, unRenglon: true)
                     }
                 }
                 .padding(.horizontal, 11).padding(.vertical, 8)
-                .gel(13, Gels.neutra)
+                .gel(13, Gels.neutra(p))
             }
             .buttonStyle(EstiloToque(baja: 2))
         }
@@ -145,7 +143,7 @@ struct MazoGente: View {
             .contentShape(Rectangle())
             .gesture(arrastre(t, tam))
         } else {
-            MazoVacio(sumados: sumados) { Task { await cargar() } }
+            MazoVacio(sumados: sumados, esCitas: esCitas) { Task { await cargar() } }
         }
     }
 
@@ -190,6 +188,8 @@ struct MazoGente: View {
     /// Reacciona y hace volar la carta. accion: prendo | interesa | encanta | paso.
     private func reaccionar(_ accion: String, mensaje: String? = nil) async {
         guard let t = arriba, !ocupado else { return }
+        // Antes de que vuele la carta: sin DNI, la pantalla amable de antes del DNI (no un 403 después).
+        guard c.conDni(ir, "gente") else { volver(); return }
         let lado = accion == "paso" ? -1 : 1
         if lado > 0, let e = plus {
             if !e.activo && e.sumadasHoy >= e.limite { volver(); ir.plus(motivo: "limit"); return }
@@ -383,46 +383,31 @@ private struct Sello: View {
     }
 }
 
-/// "Ya viste a todos por hoy".
+/// "Ya viste a todos por hoy" (claro y oscuro).
 private struct MazoVacio: View {
     var sumados: Int
+    var esCitas: Bool
     var otraVez: () -> Void
+    @Environment(\.paleta) private var p
+
     var body: some View {
         VStack(spacing: 14) {
-            Image("CaigoIcono").resizable().frame(width: 120, height: 120)
-            T("Ya viste a todos por hoy", 26, 700, C.carbon, alto: 1.1, alinear: .center)
-            T("Sumaste \(sumados) a tu gente. ¿Y si armás algo con ellos?", 14, 400, C.texto2, alto: 1.5, alinear: .center)
+            Image("CaigoIcono").resizable().frame(width: 120, height: 120).accessibilityHidden(true)
+            T("Ya viste a todos por hoy", 26, 700, p.texto, alto: 1.1, alinear: .center)
+            T(esCitas ? "Mañana hay gente nueva. Mientras, sumate a un plan: es la mejor primera\u{00A0}cita."
+                      : (sumados > 0 ? "Sumaste \(sumados) a tu gente. ¿Y si armás algo con\u{00A0}ellos?" : "Mañana hay gente nueva. Mientras, mirá los planes de\u{00A0}hoy."),
+              14, 400, p.texto2, alto: 1.5, alinear: .center)
             Button(action: otraVez) {
-                T("Ver de nuevo", 14, 800, C.carbon)
+                T("Ver de nuevo", 14, 800, p.texto)
                     .padding(.horizontal, 18).padding(.vertical, 12)
-                    .gel(16, Gel(fondo: .vertical(C.blanco, Color(hex: 0xF3F0FA)),
-                                 sombras: [interna(2, 0, C.blanco), interna(-3, 0, rgba(116, 86, 241, 0.1)), externa(3, 0, C.borde3)]))
+                    .gel(16, p.oscuro ? Gels.neutraOscura
+                         : Gel(fondo: .vertical(C.blanco, Color(hex: 0xF3F0FA)),
+                               sombras: [interna(2, 0, C.blanco), interna(-3, 0, rgba(116, 86, 241, 0.1)), externa(3, 0, C.borde3)]))
             }
             .buttonStyle(EstiloToque())
         }
         .padding(30)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .gel(34, .vertical(Color(hex: 0xF3EFFF), Color(hex: 0xE9E2FF)))
-    }
-}
-
-/// Gente o Citas apilado (18/11): salió de la cabecera de Ahora; se abre desde Perfil › Mi gente.
-struct VistaMazo: View {
-    var modo: String
-    @Environment(Ir.self) private var ir
-    @Environment(\.paleta) private var p
-
-    var body: some View {
-        Pantalla {
-            VStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    BotonIcono(d: I.atras, iconoTam: 20, trazo: 2.6, gel: Gels.neutra) { ir.atras() }
-                    T(modo == "citas" ? "Citas" : "Gente", 28, 800, p.texto, alto: 1, espaciado: -0.8, unRenglon: true)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 20).padding(.top, 10)
-                MazoGente(modo: modo, apilado: true)
-            }
-        }
+        .gel(34, p.oscuro ? Fondo.vertical(C.oscuro3, C.oscuro4) : Fondo.vertical(Color(hex: 0xF3EFFF), Color(hex: 0xE9E2FF)))
     }
 }

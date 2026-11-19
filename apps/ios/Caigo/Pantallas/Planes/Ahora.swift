@@ -8,15 +8,16 @@ private let filtrosAhora: [(String?, String)] = [
     ("cita_doble", "Cita doble"), ("salida", "Salida"), ("taller", "Taller"),
 ]
 
-/// Ahora (02 lista · 03 mapa · 13a vacío · 14a oscuro): sólo planes. Gente y Citas salieron de la
-/// cabecera (18/11: un mazo de caras con «Me encanta» cambiaba la lectura de toda la app); se abren desde
-/// Perfil › Mi gente (un aviso que pide Ahora en modo gente/citas abre el mazo: ver `Ir.principal`).
-/// `modoInicial` queda por compatibilidad y no se usa.
+/// Ahora (02 lista · 03 mapa · 13a vacío · 14a oscuro) con los modos del prototipo en la cabecera: Planes,
+/// Gente y Citas (Citas sólo si la persona eligió esa intención). Volvieron el 19/11 (decisión de Nahuel:
+/// deslizar gente es lo que le da sentido a Citas). Sin DNI se elige el modo igual y se ve una lámina que
+/// pide verificarse (el mazo pide el DNI: son caras de otra gente).
 struct Ahora: View {
     var modoInicial: String?
     @Environment(Contenedor.self) private var c
     @Environment(Ir.self) private var ir
     @Environment(\.paleta) private var p
+    @State private var modo: String?
     @State private var mapa = false
     @State private var categoria: String?
     /// «Sólo chicas» (planes «Solo mujeres»): gratis, como toda la seguridad.
@@ -43,6 +44,12 @@ struct Ahora: View {
     @State private var hoy: Plan?
     @State private var hojaHoy = false
 
+    private var modoActual: String {
+        let m = modo ?? modoInicial ?? "planes"
+        return m == "citas" && !conCitas && c.yo != nil ? "planes" : m
+    }
+    private var conCitas: Bool { c.yo?.intenciones.contains("citas") == true }
+
     private struct Clave: Equatable {
         var lat: Double?; var lng: Double?; var sinUbicacion: Bool; var categoria: String?; var chicas: Bool; var q: String?
         var vuelta: Int
@@ -50,7 +57,7 @@ struct Ahora: View {
 
     var body: some View {
         Group {
-            if mapa {
+            if modoActual == "planes" && mapa {
                 MapaAhora(planes: ocultos.visibles(planes ?? []), punto: punto, categoria: $categoria, busqueda: $busqueda, alLista: { mapa = false })
             } else {
                 contenido
@@ -60,6 +67,8 @@ struct Ahora: View {
             if c.yo == nil { await c.recargarYo() }
             await ubicar()
         }
+        // Un aviso que abre Ahora en Gente o Citas con Ahora ya en pantalla.
+        .onChange(of: modoInicial) { _, m in if let m { modo = m } }
         .task { invitaciones = try? await c.api.invitaciones() }
         .task(id: vuelta) { if c.yo?.verificada == true { hoy = await planDeHoy(c) } }
         .task {
@@ -124,10 +133,23 @@ struct Ahora: View {
 
     private var contenido: some View {
         ZStack(alignment: .top) {
+            if modoActual != "planes" {
+                // Sin el renglón de ubicación y logo (ver encabezado): el mazo sube y gana lugar.
+                Group {
+                    if c.yo?.verificada == false {
+                        MazoSinDni(modo: modoActual)
+                    } else {
+                        MazoGente(modo: modoActual)
+                    }
+                }
+                .padding(.top, 24)
+            }
             VStack(alignment: .leading, spacing: 14) {
                 encabezado
-                chips
-                lista
+                if modoActual == "planes" {
+                    chips
+                    lista
+                }
             }
             .padding(.top, 6)
             AvisoDeshacer(ocultos: ocultos)
@@ -151,6 +173,8 @@ struct Ahora: View {
 
     private var encabezado: some View {
         VStack(alignment: .leading, spacing: 14) {
+            // En Gente y Citas la ubicación y el logo se sacan: le roban lugar a la tarjeta (Nahuel, 1/11).
+            if modoActual == "planes" {
             HStack(spacing: 4) {
                 Icono(I.pin, 16, p.oscuro ? C.lima : C.violeta, trazo: 2.2)
                 let delPerfil = [c.yo?.zona ?? "", c.yo?.ciudad ?? ""].filter { !$0.isEmpty }.joined(separator: ", ")
@@ -170,7 +194,21 @@ struct Ahora: View {
                     .accessibilityLabel("Te sumaron y te invitan")
                 }
             }
-            T("Ahora", 40, 800, p.texto, alto: 1, espaciado: -1.4, unRenglon: true)
+            }
+            HStack {
+                T(modoActual == "gente" ? "Gente" : (modoActual == "citas" ? "Citas" : "Ahora"), 40, 800, p.texto,
+                  alto: 1, espaciado: -1.4, unRenglon: true)
+                    .minimumScaleFactor(0.8)
+                Spacer(minLength: 8)
+                let modos: [(String, String)] = [("planes", "Planes"), ("gente", "Gente")] + (conCitas ? [("citas", "Citas")] : [])
+                Segmentado(
+                    opciones: modos.map(\.1),
+                    seleccion: Binding(get: { max(0, modos.firstIndex { $0.0 == modoActual } ?? 0) }, set: { modo = modos[$0].0 }),
+                    radio: 14, radioOpcion: 11, alto: 42, llenar: false, padOpcion: modos.count > 2 ? 10 : 13,
+                    gelOn: { modos[$0].0 == "citas" ? Gels.coralBadge : nil },
+                    colorOn: { modos[$0].0 == "citas" ? C.carbon : nil })
+                    .fixedSize()
+            }
         }
         .padding(.horizontal, 20)
     }
@@ -336,5 +374,49 @@ struct InterruptorChicas: View {
         .accessibilityLabel("Sólo chicas")
         .accessibilityValue(on ? "Activado" : "Desactivado")
         .accessibilityAddTraits(.isToggle)
+    }
+}
+
+/// Gente o Citas sin el DNI: se puede elegir el modo, pero el mazo son caras de otra gente y pide verificarse.
+/// Cartas borrosas (nunca fotos de nadie) y «Verificarme», que abre la pantalla amable de antes del DNI.
+struct MazoSinDni: View {
+    var modo: String
+    @Environment(Contenedor.self) private var c
+    @Environment(Ir.self) private var ir
+    @Environment(\.paleta) private var p
+
+    var body: some View {
+        let citas = modo == "citas"
+        VStack(spacing: 0) {
+            ZStack {
+                ForEach(0..<3, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 34, style: .continuous)
+                        .fill(LinearGradient(colors: citas ? [Color(hex: 0xF07A5F), Color(hex: 0x5B4BB0)] : [Color(hex: 0x8B74F5), Color(hex: 0x2E2850)],
+                                             startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .overlay(Circle().fill(Color.white.opacity(0.28)).frame(width: 120).offset(y: -40).blur(radius: 18))
+                        .blur(radius: 2)
+                        .scaleEffect(1 - CGFloat(2 - i) * 0.05)
+                        .offset(y: CGFloat(2 - i) * 14)
+                        .opacity(i == 2 ? 1 : 0.55)
+                }
+                VStack(spacing: 14) {
+                    Spacer()
+                    Icono(I.escudoCheck, 34, C.lima, trazo: 2.4)
+                        .frame(width: 64, height: 64)
+                        .background(Circle().fill(rgba(255, 255, 255, 0.14)))
+                    T(citas ? "Citas con gente verificada" : "Conocé gente que sale a lo mismo que\u{00A0}vos",
+                      26, 800, C.blanco, alto: 1.1, espaciado: -0.6, alinear: .center)
+                    T("Todos tienen el DNI verificado. Para ver y sumar gente, verificamos que seas\u{00A0}vos.",
+                      15, 500, Color(hex: 0xE4E0EE), alto: 1.45, alinear: .center)
+                    Spacer()
+                }
+                .padding(.horizontal, 28)
+            }
+            .padding(.horizontal, 14).padding(.top, 64)
+            .accessibilityElement(children: .combine)
+            CtaGrande("Verificarme") { _ = c.conDni(ir, "gente") }
+                .padding(.horizontal, 20).padding(.top, 18)
+        }
+        .padding(.bottom, altoTabBar + 14)
     }
 }
