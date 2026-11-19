@@ -32,3 +32,11 @@ En el VPS:
 scp planes.json deploy@187.41.102.190:/opt/caigo/semilla.json
 ssh deploy@187.41.102.190 'cd /opt/caigo && docker compose run --rm --no-deps -T -v /opt/caigo/semilla.json:/semilla.json api /app/bin/caigoctl semilla /semilla.json'
 ```
+
+## Planes ficticios de Mardel (19/11/2026)
+
+15 planes de muestra, del 20 al 29/11, en lugares públicos de Mar del Plata (plazas, playas, parques),
+organizados por Nahuel, todos con ingreso «aprobacion» para que nadie quede adentro sin que los acepte.
+Pedido de Nahuel para que la app no se vea vacía. Lista y links: `/opt/caigo/semilla-mardel-ficticia.txt`;
+archivo: `/opt/caigo/semilla.json`. Copia previa: `copias/caigo-antes-semilla-mardel-202611190530.dump`.
+**Antes del lanzamiento**, cancelarlos o borrarlos (los slugs están en esa lista).
