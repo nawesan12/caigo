@@ -367,6 +367,7 @@
 	}
 	.legales {
 		display: flex;
+		align-items: center;
 		justify-content: center;
 		gap: 6px;
 		font-size: 12px;
@@ -401,7 +402,7 @@
 	.scroll {
 		max-width: 430px;
 		margin: 0 auto;
-		padding: 20px 20px 190px;
+		padding: 20px 20px 220px;
 		display: flex;
 		flex-direction: column;
 		gap: 18px;
