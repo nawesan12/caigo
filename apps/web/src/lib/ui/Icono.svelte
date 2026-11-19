@@ -17,6 +17,8 @@
 			c(9, 8, 3.5) +
 			'M2.5 20c1-3.5 3.5-5.5 6.5-5.5s5.5 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .6 3.2 2.5 3.5 5.5',
 		mas: 'M12 4v16M4 12h16',
+		/** «Hacer principal» en las fotos del perfil (I.estrella de las apps). */
+		estrella: 'M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z',
 		check: 'M5 12l5 5L20 7',
 		cerrar: 'M6 6l12 12M18 6L6 18',
 		atras: 'M15 5l-7 7 7 7',

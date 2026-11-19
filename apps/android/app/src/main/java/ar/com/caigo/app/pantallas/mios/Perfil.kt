@@ -665,7 +665,7 @@ fun EditarPerfil(ir: Ir, completar: Boolean = false, apilado: Boolean = false) {
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     MiosSeccion("Fotos")
-                    T("La primera es la principal. Mantené apretada otra para hacerla principal o\u00A0sacarla.", 13f, 500, p.texto2, alto = 1.4f)
+                    T("La primera es la principal. Tocá la estrella de otra para\u00A0cambiarla.", 13f, 500, p.texto2, alto = 1.4f)
                     val celdas = fotos.toList() + if (fotos.size < 6) listOf("") else emptyList()
                     celdas.chunked(3).forEach { fila ->
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -697,6 +697,16 @@ fun EditarPerfil(ir: Ir, completar: Boolean = false, apilado: Boolean = false) {
                                                 Modifier.align(Alignment.BottomStart).padding(8.dp).background(C.violeta, CircleShape).padding(horizontal = 8.dp, vertical = 4.dp),
                                                 unRenglon = true,
                                             )
+                                        }
+                                        // A la vista, como el ×: la estrella hace principal a esta foto (antes era un gesto escondido).
+                                        if (i > 0) Box(
+                                            Modifier.align(Alignment.BottomStart).padding(1.dp).size(44.dp).tocable { fotos.remove(url); fotos.add(0, url) }
+                                                .semantics { contentDescription = "Hacer principal"; role = Role.Button },
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Box(Modifier.size(30.dp).background(rgba(32, 29, 43, .55f), CircleShape).border(2.dp, C.blanco, CircleShape), contentAlignment = Alignment.Center) {
+                                                Icono(I.estrella, 14.dp, C.blanco, 2.4f)
+                                            }
                                         }
                                         // Se ve de 30 y se toca en 44 (con borde blanco, para leerse sobre cualquier foto).
                                         Box(

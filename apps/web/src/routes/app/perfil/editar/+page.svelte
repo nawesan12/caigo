@@ -136,8 +136,12 @@
 						{#if i === 0}
 							<span class="es-principal">Principal</span>
 						{:else}
-							<button type="button" class="hacer" onclick={() => principal(i)}
-								>Usar como principal</button
+							<!-- A la vista, como el ×: la estrella la hace principal (igual que en las apps). -->
+							<button
+								type="button"
+								class="hacer"
+								aria-label="Hacer principal la foto {i + 1}"
+								onclick={() => principal(i)}><Icono nombre="estrella" tam={14} trazo={2.4} /></button
 							>
 						{/if}
 					</div>
@@ -409,16 +413,24 @@
 	}
 	.hacer {
 		position: absolute;
-		left: 6px;
-		right: 6px;
-		bottom: 6px;
-		padding: 5px 0;
-		border-radius: 10px;
-		background: rgba(255, 255, 255, 0.18);
-		backdrop-filter: blur(8px);
+		left: 0;
+		bottom: 0;
+		width: 44px;
+		height: 44px;
+		display: grid;
+		place-items: center;
 		color: #ffffff;
-		font-size: 11px;
-		font-weight: 800;
+	}
+	.hacer::before {
+		content: '';
+		position: absolute;
+		inset: 7px;
+		border-radius: 50%;
+		background: rgba(32, 29, 43, 0.55);
+		box-shadow: inset 0 0 0 2px #ffffff;
+	}
+	.hacer :global(svg) {
+		position: relative;
 	}
 	.subir {
 		display: flex;

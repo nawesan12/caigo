@@ -87,7 +87,7 @@
 		{/if}
 		<div class="titulo-fila">
 			<h1>{titulo}</h1>
-			<nav class="seg-app" aria-label="Modo">
+			<nav class="seg-app" class:tres={modos.length > 2} aria-label="Modo">
 				{#each modos as m (m.valor)}
 					<a
 						href={m.valor === 'planes' ? '/app' : `/app?modo=${m.valor}`}
@@ -243,6 +243,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		gap: 8px;
 	}
 	h1 {
 		font:
@@ -274,6 +275,10 @@
 		background: var(--grad-coral);
 		box-shadow: var(--sh-coral);
 		color: var(--carbon);
+	}
+	/* Con los tres modos, como padOpcion 10 de las apps: entra al lado del título a 375. */
+	.seg-app.tres a {
+		padding: 8px 10px;
 	}
 	.seg-app.chico {
 		flex: none;

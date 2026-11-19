@@ -711,7 +711,7 @@ struct EditarPerfil: View {
     private var seccionFotos: some View {
         VStack(alignment: .leading, spacing: 10) {
             MiosSeccion(texto: "Fotos")
-            T("La primera es la principal. Mantené apretada otra para hacerla principal o\u{00A0}sacarla.", 13, 500, p.texto2, alto: 1.4)
+            T("La primera es la principal. Tocá la estrella de otra para\u{00A0}cambiarla.", 13, 500, p.texto2, alto: 1.4)
             // Celdas por URL (son únicas) y "" para la de sumar: al reordenar, la foto se mueve (no cambia
             // el contenido de cada lugar).
             let celdas = fotos + (fotos.count < 6 ? [""] : [])
@@ -765,6 +765,22 @@ struct EditarPerfil: View {
                     Button { withAnimation { principal(url) } } label: { Label("Usar como principal", systemImage: "star") }
                 }
                 Button(role: .destructive) { withAnimation { fotos.removeAll { $0 == url } } } label: { Label("Sacar", systemImage: "trash") }
+            }
+            .overlay(alignment: .bottomLeading) {
+                // A la vista, como el ×: la estrella hace principal a esta foto (antes era un gesto escondido).
+                if !primera {
+                    Button { withAnimation { principal(url) } } label: {
+                        Icono(I.estrella, 14, C.blanco, trazo: 2.4)
+                            .frame(width: 30, height: 30)
+                            .background(Circle().fill(rgba(32, 29, 43, 0.55)))
+                            .overlay(Circle().strokeBorder(C.blanco, lineWidth: 2))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(EstiloPlano())
+                    .padding(1)
+                    .accessibilityLabel("Hacer principal")
+                }
             }
             .overlay(alignment: .topTrailing) {
                 // Se ve de 30 y se toca en 44 (con borde blanco, para leerse sobre cualquier foto).
