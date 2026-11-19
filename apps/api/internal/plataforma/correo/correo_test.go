@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"net"
 	"net/mail"
 	"strings"
 	"testing"
@@ -66,5 +67,35 @@ func TestMemoria(t *testing.T) {
 	_ = m.Enviar(context.Background(), correo.Mensaje{Para: "a@b.c"})
 	if len(m.Para("a@b.c")) != 1 || m.Cantidad() != 1 {
 		t.Fatal("memoria")
+	}
+}
+
+// Un servidor que acepta la conexión y no contesta no traba el envío: vence el plazo.
+func TestSMTPMudoVencePlazo(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			defer c.Close()
+		}
+	}()
+	antes := correo.PlazoEnvio
+	correo.PlazoEnvio = 300 * time.Millisecond
+	defer func() { correo.PlazoEnvio = antes }()
+	inicio := time.Now()
+	err = (&correo.SMTP{Direccion: ln.Addr().String(), De: "Caigo <hola@caigo.com.ar>"}).Enviar(context.Background(),
+		correo.Mensaje{Para: "a@b.com", Asunto: "x", Texto: "x", HTML: "x"})
+	if err == nil {
+		t.Fatal("un servidor mudo no puede dar el envío por bueno")
+	}
+	if d := time.Since(inicio); d > 3*time.Second {
+		t.Fatalf("tardó %s: el plazo no se aplicó", d)
 	}
 }

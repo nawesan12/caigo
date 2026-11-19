@@ -49,7 +49,7 @@ func correr() error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	app, err := db.Abrir(ctx, cfg.BaseApp)
+	app, err := db.Abrir(ctx, cfg.BaseApp, db.TopesWorker)
 	if err != nil {
 		return err
 	}
@@ -89,6 +89,9 @@ func correr() error {
 	}
 	// Los mails del botón de arrepentimiento (acuse a quien lo pidió y aviso a hola@), por el mismo
 	// SMTP que el código del teléfono. Sin SMTP quedan en el log.
+	if err := cfg.ExigirCorreo(); err != nil {
+		return err
+	}
 	if cfg.SMTP == "" {
 		slog.Warn("sin SMTP (CAIGO_SMTP): los mails del arrepentimiento quedan en el log")
 	}

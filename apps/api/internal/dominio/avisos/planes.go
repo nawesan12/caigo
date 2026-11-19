@@ -400,8 +400,8 @@ func (p *Programados) Pasada(ctx context.Context) (int, error) {
 			INSERT INTO avisos_enviados (usuario_id, plan_id, tipo, enviado_en)
 			SELECT s.usuario_id, p.id, 'checkin', $1 FROM planes p
 			JOIN solicitudes s ON s.plan_id = p.id AND s.estado = 'aceptada' AND s.checkin_en IS NULL
-			WHERE p.cancelado_en IS NULL AND p.empieza_en - interval '30 minutes' <= $1
-				AND p.empieza_en + interval '30 minutes' > $1
+			WHERE p.cancelado_en IS NULL AND p.empieza_en <= $1::timestamptz + interval '30 minutes'
+				AND p.empieza_en > $1::timestamptz - interval '30 minutes'
 			ON CONFLICT DO NOTHING RETURNING usuario_id, plan_id)
 		INSERT INTO outbox (tipo, datos) SELECT 'plan.recordatorio',
 			jsonb_build_object('planId', plan_id, 'usuarioId', usuario_id, 'momento', 'checkin') FROM n`,

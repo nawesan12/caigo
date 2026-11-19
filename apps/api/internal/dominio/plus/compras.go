@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/nawesan12/caigo/apps/api/internal/integraciones/mercadopago"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/tiendas"
@@ -112,13 +114,24 @@ func (s *Servicio) MercadoPago(ctx context.Context, t *Tiendas, usuarioID, email
 	if email == "" {
 		return "", problema.NoProcesable("sin_email", "Para pagar con Mercado Pago necesitamos un mail en tu cuenta.")
 	}
+	// Los 7 días gratis, una sola vez: quien ya tuvo Plus pago (de cualquier tienda) paga desde el primer día.
+	var usada bool
+	if err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		var err error
+		usada, err = PruebaUsada(ctx, tx, usuarioID)
+		return err
+	}); err != nil {
+		return "", err
+	}
 	rec := map[string]any{"transaction_amount": p.Centavos / 100, "currency_id": "ARS"}
 	switch plan {
 	case "semana":
 		rec["frequency"], rec["frequency_type"] = 7, "days"
 	case "mes":
 		rec["frequency"], rec["frequency_type"] = 1, "months"
-		rec["free_trial"] = map[string]any{"frequency": 7, "frequency_type": "days"}
+		if !usada {
+			rec["free_trial"] = map[string]any{"frequency": 7, "frequency_type": "days"}
+		}
 	case "temporada":
 		rec["frequency"], rec["frequency_type"] = 3, "months"
 	}
@@ -140,6 +153,42 @@ func (s *Servicio) MercadoPago(ctx context.Context, t *Tiendas, usuarioID, email
 		return "", err
 	}
 	return r.InitPoint, nil
+}
+
+// CancelarMP da de baja en Mercado Pago las suscripciones vivas de la persona (el botón «Dar de baja» de
+// la web y la baja de la cuenta). Lo ya pago sigue hasta su vencimiento: sólo deja de renovarse.
+func (s *Servicio) CancelarMP(ctx context.Context, t *Tiendas, usuarioID string) error {
+	var ids []string
+	if err := s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT externo FROM suscripciones WHERE usuario_id = $1 AND origen = 'mercadopago'
+			AND (estado = 'pendiente' OR (estado = 'activa' AND renueva))`, usuarioID)
+		if err != nil {
+			return err
+		}
+		ids, err = pgx.CollectRows(rows, pgx.RowTo[string])
+		return err
+	}); err != nil {
+		return err
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	if t == nil || t.MP == nil || t.MP.TokenPlataforma == "" {
+		return problema.NoProcesable("apagado", "No pudimos dar de baja la suscripción en Mercado Pago. Probá de nuevo en un rato.")
+	}
+	for _, id := range ids {
+		if err := t.MP.JSON(ctx, http.MethodPut, "/preapproval/"+id, t.MP.TokenPlataforma, "", map[string]any{"status": "cancelled"}, nil); err != nil {
+			return err
+		}
+		if err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, `UPDATE suscripciones SET estado = CASE WHEN estado = 'pendiente' THEN 'cancelada' ELSE estado END,
+				renueva = false, actualizada_en = now() WHERE origen = 'mercadopago' AND externo = $1`, id)
+			return err
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ConciliarMP lee el preapproval y actualiza Plus (aviso subscription_preapproval).

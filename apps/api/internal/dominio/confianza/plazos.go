@@ -11,8 +11,8 @@ var Plazos = []string{
 		AND u.purgada_en IS NOT NULL
 		AND greatest(u.purgada_en, p.empieza_en + make_interval(mins => p.duracion_min)) < now() - interval '1 year'`,
 	// Privados con una cuenta purgada (los que mandó y los que recibió): al año de la purga.
-	`DELETE FROM privados x USING usuarios u WHERE (x.de_id = u.id OR x.a_id = u.id)
-		AND u.purgada_en < now() - interval '1 year'`,
+	`DELETE FROM privados x USING usuarios u WHERE x.de_id = u.id AND u.purgada_en < now() - interval '1 year'`,
+	`DELETE FROM privados x USING usuarios u WHERE x.a_id = u.id AND u.purgada_en < now() - interval '1 year'`,
 	// La cola de la moderación (copias de textos de esa cuenta, resueltas o no): al año de la purga.
 	`DELETE FROM moderaciones m USING usuarios u WHERE m.usuario_id = u.id AND u.purgada_en < now() - interval '1 year'`,
 	// Asistencia (a qué planes se sumó y si hizo check-in) y «¿Volverías?»: al año de la purga.
@@ -40,6 +40,9 @@ var Plazos = []string{
 	`DELETE FROM canjes_nivel WHERE creado_en < now() - interval '90 days'`,
 	// «No me interesa»: vale hasta el fin del día; al día siguiente ya no sirve.
 	`DELETE FROM planes_ocultos WHERE hasta < now() - interval '1 day'`,
+	// Los avisos de planes que se mandaron (a quién, de qué plan: «tu gente», «cerca», recordatorios):
+	// 90 días. Las ventanas que los usan para no repetir son de horas o días.
+	`DELETE FROM avisos_enviados WHERE enviado_en < now() - interval '90 days'`,
 	// «Esta semana en tu ciudad» (a quién se le mandó cada lunes): 8 semanas.
 	`DELETE FROM avisos_semana WHERE semana < current_date - 56`,
 	// Los mails de «¿Todo bien?» (la huella de la dirección, para el tope): 7 días.

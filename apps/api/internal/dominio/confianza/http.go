@@ -52,7 +52,8 @@ func Rutas(mux *http.ServeMux, s *Servicio, ses *sesion.Resolvedor, log *slog.Lo
 				return
 			}
 			defer f.Close()
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			// Un día y sin immutable: una foto que se saca deja de verse en su link (lo promete la privacidad).
+			w.Header().Set("Cache-Control", "public, max-age=86400")
 			w.Header().Set("Content-Type", a.Contenido)
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			_, _ = io.Copy(w, f)

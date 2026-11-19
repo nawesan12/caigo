@@ -86,6 +86,18 @@ type Estado struct {
 	// para cuando deje de renovar la suscripción paga.
 	RegaloHasta      *time.Time `json:"regaloHasta,omitempty"`
 	RegalosGuardados int        `json:"regalosGuardados,omitempty"`
+	// Si todavía puede usar los 7 días gratis del mes (por Mercado Pago: una sola vez por persona; en
+	// las tiendas lo decide cada tienda).
+	PruebaDisponible bool `json:"pruebaDisponible"`
+}
+
+// PruebaUsada dice si la persona ya tuvo una suscripción paga (de cualquier tienda), aunque haya vencido
+// o la haya cancelado: los 7 días gratis son una sola vez. Las semanas de regalo no cuentan.
+func PruebaUsada(ctx context.Context, tx pgx.Tx, usuarioID string) (bool, error) {
+	var usada bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM suscripciones WHERE usuario_id = $1 AND origen <> 'referido'
+		AND estado <> 'pendiente')`, usuarioID).Scan(&usada)
+	return usada, err
 }
 
 // Leer devuelve el estado dentro de una transacción ya abierta (con la persona fijada).
@@ -119,9 +131,14 @@ func Leer(ctx context.Context, tx pgx.Tx, usuarioID string, ahora time.Time) (Es
 	var ultimo *time.Time
 	err = tx.QueryRow(ctx, `SELECT
 			(SELECT count(*) FROM intereses WHERE usuario_id = $1 AND accion <> 'paso' AND creado_en >= $2),
-			(SELECT count(*) FROM intereses WHERE usuario_id = $1 AND accion = 'encanta' AND creado_en >= $2),
+			(SELECT count(*) FROM intereses WHERE usuario_id = $1 AND accion = 'encanta' AND encanta_en >= $2),
 			(SELECT max(destacado_en) FROM planes WHERE organizador_id = $1 AND destacado_en IS NOT NULL)`,
 		usuarioID, desde).Scan(&e.SumadasHoy, &e.EncantasHoy, &ultimo)
+	if err != nil {
+		return e, err
+	}
+	usada, err := PruebaUsada(ctx, tx, usuarioID)
+	e.PruebaDisponible = !usada
 	if ultimo != nil && ultimo.Add(SemanaDestacado).After(ahora) {
 		d := ultimo.Add(SemanaDestacado)
 		e.DestacarDesde = &d
@@ -173,7 +190,8 @@ func (s *Servicio) Guardar(ctx context.Context, usuarioID, origen, externo, plan
 			INSERT INTO suscripciones (usuario_id, origen, externo, plan, estado, vence_en, renueva)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			ON CONFLICT (origen, externo) DO UPDATE SET plan = excluded.plan, estado = excluded.estado,
-				vence_en = excluded.vence_en, renueva = excluded.renueva, actualizada_en = now()
+				-- Un aviso sin vencimiento (Mercado Pago al cancelar) no borra el período ya pago.
+				vence_en = coalesce(excluded.vence_en, suscripciones.vence_en), renueva = excluded.renueva, actualizada_en = now()
 			WHERE suscripciones.usuario_id = excluded.usuario_id`,
 			usuarioID, origen, externo, plan, estado, nulo(vence), renueva)
 		if err == nil && tag.RowsAffected() == 0 {

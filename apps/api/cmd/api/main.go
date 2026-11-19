@@ -54,7 +54,7 @@ func correr() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	app, err := db.Abrir(ctx, cfg.BaseApp)
+	app, err := db.Abrir(ctx, cfg.BaseApp, db.TopesAPI)
 	if err != nil {
 		return err
 	}
@@ -96,6 +96,9 @@ func correr() error {
 	// El código del teléfono sale por mail (no hay proveedor de SMS). Sin SMTP, simulado.
 	if cfg.SMTP != "" {
 		deps.Correo = correo.Elegir(cfg.SMTP, cfg.SMTPUsuario, cfg.SMTPClave, cfg.CorreoDe)
+	}
+	if err := cfg.ExigirCorreo(); err != nil {
+		return err
 	}
 	if !cfg.Desarrollo() && !cfg.CorreoReal() {
 		slog.Warn("sin SMTP (CAIGO_SMTP, CAIGO_SMTP_USUARIO, CAIGO_SMTP_CLAVE): el código del teléfono vuelve en la respuesta")

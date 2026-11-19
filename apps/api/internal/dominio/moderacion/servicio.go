@@ -13,6 +13,7 @@ import (
 
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/db"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/ia"
+	"github.com/nawesan12/caigo/apps/api/internal/plataforma/limite"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/outbox"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/problema"
 )
@@ -201,6 +202,9 @@ type revisarDatos struct {
 	Motivo    string `json:"motivo"`
 }
 
+// TopeIAPorAutor: mensajes dudosos por persona y por día que se mandan a la IA.
+const TopeIAPorAutor = 30
+
 // PublicarRevision encola la revisión con IA de un mensaje dudoso (en la tx que lo guardó).
 func PublicarRevision(ctx context.Context, tx pgx.Tx, tipo string, id int64, v Veredicto) error {
 	return outbox.Publicar(ctx, tx, EventoRevisar, revisarDatos{Tipo: tipo, ID: id, Categoria: v.Categoria, Motivo: v.Motivo})
@@ -238,8 +242,20 @@ func (s *Servicio) Manejador(ctx context.Context, ev outbox.Evento) error {
 		return nil
 	}
 	var texto, estado string
+	conIA := true
 	err := s.App.EnSistema(ctx, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT texto, moderacion FROM `+t+` WHERE id = $1`, d.ID).Scan(&texto, &estado)
+		var autor string
+		if err := tx.QueryRow(ctx, `SELECT texto, moderacion, `+autorCol+`::text FROM `+t+` WHERE id = $1`, d.ID).Scan(&texto, &estado, &autor); err != nil {
+			return err
+		}
+		if estado != EstadoPendiente || ev.Intentos > 0 {
+			return nil
+		}
+		// Un tope por autor: una sola cuenta no se gasta el tope diario de IA de toda la app. Pasado el
+		// tope, lo dudoso de esa cuenta va directo a la cola del equipo, sin IA.
+		var err error
+		conIA, err = limite.Permitido(ctx, tx, "ia:"+autor, TopeIAPorAutor, 24*time.Hour)
+		return err
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
@@ -251,7 +267,12 @@ func (s *Servicio) Manejador(ctx context.Context, ev outbox.Evento) error {
 		return nil
 	}
 	// Fuera de toda transacción: la IA puede tardar.
-	c, err := s.clasificador().Clasificar(ctx, d.Tipo, texto)
+	var c Clasificacion
+	if conIA {
+		c, err = s.clasificador().Clasificar(ctx, d.Tipo, texto)
+	} else {
+		err = ia.ErrApagada
+	}
 	var r Resultado
 	if err != nil {
 		if ia.Transitorio(err) && ev.Intentos < 2 {

@@ -80,6 +80,18 @@ func Rutas(mux *http.ServeMux, s *Servicio, t *Tiendas, ses *sesion.Resolvedor, 
 		return err
 	}))
 
+	// «Dar de baja» de la web: cancela la renovación en Mercado Pago (lo pago sigue hasta que vence).
+	mux.Handle("DELETE /v1/plus/mercadopago", h(func(w http.ResponseWriter, r *http.Request, p sesion.Persona) error {
+		if err := s.CancelarMP(r.Context(), t, p.ID); err != nil {
+			return err
+		}
+		e, err := s.Ver(r.Context(), p.ID)
+		if err == nil {
+			respuesta.JSON(w, http.StatusOK, e)
+		}
+		return err
+	}))
+
 	// App Store Server Notifications V2 (la URL se carga en App Store Connect).
 	mux.HandleFunc("POST /v1/webhooks/apple", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {

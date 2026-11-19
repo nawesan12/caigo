@@ -72,8 +72,8 @@
 			en ningún&nbsp;lado.
 		</li>
 		<li>
-			<b>Modo Citas.</b> Si elegís «Algo más romántico — Citas» en lo que buscás, se ve en tu perfil y
-			te mostramos personas para conocer. Guardamos a quién le diste «me interesa», «me encanta» o «paso»
+			<b>Modo Citas.</b> Si elegís «Algo más romántico — Citas» en lo que buscás, lo ven sólo las
+			personas que también están en Citas, y te mostramos personas para conocer. Guardamos a quién le diste «me interesa», «me encanta» o «paso»
 			(y lo mismo en el modo Gente con «me prendo»), para no mostrarte dos veces a la misma persona y
 			abrir el chat cuando el interés es mutuo. No guardamos qué género buscás.
 		</li>
@@ -268,8 +268,8 @@
 			Los códigos de verificación del teléfono: 1 día.
 		</li>
 		<li>
-			Las fotos que sacás de tu perfil o de un plan: se borran en el momento (dejan de verse en su
-			link y se borran del servidor).
+			Las fotos que sacás de tu perfil o de un plan: se borran del servidor en el momento (el
+			navegador o la app pueden tener una copia guardada hasta un&nbsp;día).
 		</li>
 		<li>
 			Las fotos del DNI y la selfie de la verificación del DNI: hasta que el equipo revisa la
@@ -283,7 +283,8 @@
 		</li>
 		<li>
 			«No me interesa»: hasta el fin del día. La lista de espera: hasta un día después del plan.
-			«Esta semana en tu ciudad» (a quién se le mandó): 8 semanas. Los beneficios por nivel usados:
+			«Esta semana en tu ciudad» (a quién se le mandó): 8 semanas. Los avisos de planes que te mandamos
+			(de qué plan y cuándo): 90 días. Los beneficios por nivel usados:
 			90 días. Los referidos: un año. Si borrás tu cuenta, todo esto se borra con la purga, a los 30
 			días.
 		</li>

@@ -156,6 +156,15 @@ func (c Config) Exigir(campos ...string) error {
 // CorreoReal dice si hay por dónde mandar mails de verdad (SMTP con usuario y clave).
 func (c Config) CorreoReal() bool { return c.SMTP != "" && c.SMTPUsuario != "" && c.SMTPClave != "" }
 
+// ExigirCorreo: en producción, sin SMTP completo la API y el worker no arrancan (si no, el código del
+// teléfono volvería en la respuesta y los mails quedarían en el log). Staging puede simularlo.
+func (c Config) ExigirCorreo() error {
+	if c.Entorno == "produccion" && (!c.CorreoReal() || c.CorreoDe == "") {
+		return fmt.Errorf("en producción hacen falta CAIGO_SMTP, CAIGO_SMTP_USUARIO, CAIGO_SMTP_CLAVE y CAIGO_CORREO_DE")
+	}
+	return nil
+}
+
 // Hosts devuelve los hosts de los orígenes (para los patrones del WebSocket).
 func (c Config) Hosts() []string {
 	var out []string

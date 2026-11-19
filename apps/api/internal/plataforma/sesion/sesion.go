@@ -320,8 +320,9 @@ func FaltaDNI() *problema.Problema {
 //   - el perfil propio, la verificación y sus fotos, la baja, la sesión y los dispositivos de push, el
 //     panel de lugares (otra regla: lo usan comercios) y el backoffice del equipo;
 //   - mirar (Mirar): las listas de planes, el detalle y los perfiles, y lo propio que esas pantallas
-//     piden al abrir (Mis planes, Mi gente, privados, invitaciones, pases, Plus), que sin DNI
-//     viene vacío;
+//     piden al abrir (Mis planes, Mi gente, privados, invitaciones, «Te sumaron», pases, Plus), que
+//     sin DNI viene vacío;
+//   - Plus: registrar la compra de una tienda y la baja (ver abajo);
 //   - lo de seguridad: bloquear y reportar (siempre, con o sin DNI);
 //   - «Traé a alguien» (el link propio y el código de quien la invitó) y «No me interesa» sobre un plan.
 //
@@ -338,7 +339,10 @@ func Exenta(patron string) bool {
 		// espera al DNI), y la hoja que lo pide trae el link propio.
 		"GET /v1/yo/invitar", "POST /v1/yo/invitado",
 		// «No me interesa» (el gesto sobre la lista de mirar): es de quien mira y no le llega a nadie.
-		"POST /v1/planes/{id}/ocultar", "DELETE /v1/planes/{id}/ocultar":
+		"POST /v1/planes/{id}/ocultar", "DELETE /v1/planes/{id}/ocultar",
+		// Plus: registrar una compra ya cobrada por la tienda nunca falla por el DNI (si no, la tienda cobra
+		// y Plus no se activa), y la baja de Mercado Pago tampoco. Comprar Plus no hace nada con otra gente.
+		"POST /v1/plus/apple", "POST /v1/plus/google", "POST /v1/plus/mercadopago", "DELETE /v1/plus/mercadopago":
 		return true
 	}
 	if Mirar(patron) {
@@ -355,7 +359,10 @@ func Mirar(patron string) bool {
 	switch patron {
 	case "GET /v1/planes/ahora", "GET /v1/planes/explorar", "GET /v1/planes/{id}", "GET /v1/planes/mios",
 		"GET /v1/personas/{id}", "PUT /v1/yo/ubicacion", "GET /v1/invitaciones", "GET /v1/pases",
-		"GET /v1/plus", "GET /v1/gente", "GET /v1/privados", "GET /v1/semana":
+		"GET /v1/plus", "GET /v1/gente", "GET /v1/privados", "GET /v1/semana",
+		// «Te sumaron» / «Les interesás»: lo propio (la campana de Ahora y el muro de Plus lo piden al abrir).
+		// Sin Plus no trae quién es; descartar (DELETE) sí pide el DNI.
+		"GET /v1/gente/recibidos":
 		return true
 	}
 	return false

@@ -110,8 +110,13 @@ func Nuevo(d Dependencias) http.Handler {
 			APIPublica: d.APIPublica, Moderacion: mod, Disco: archivos.Disco{Raiz: d.Archivos}}
 		planes.Rutas(mux, pls, ses.Exigir, d.Log)
 		equipo.Rutas(mux, &equipo.Servicio{App: d.App, Publicador: pls, Reloj: d.Reloj, Vetados: d.Vetados}, ses, d.Log)
+		if d.Tiendas == nil {
+			d.Tiendas = &plus.Tiendas{}
+		}
+		ps := &plus.Servicio{App: d.App, Reloj: d.Reloj}
 		confianza.Rutas(mux, &confianza.Servicio{App: d.App, Disco: archivos.Disco{Raiz: d.Archivos, Clave: d.ClaveVerificacion}, Correo: d.Correo, Casillas: d.Clerk,
-			Vetados: d.Vetados, Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj, Moderacion: mod, FotosPlan: pls.Firma}, ses, d.Log)
+			Vetados: d.Vetados, Log: d.Log, APIPublica: d.APIPublica, Reloj: d.Reloj, Moderacion: mod, FotosPlan: pls.Firma,
+			AntesDeLaBaja: func(ctx context.Context, usuarioID string) error { return ps.CancelarMP(ctx, d.Tiendas, usuarioID) }}, ses, d.Log)
 		personas.Rutas(mux, &personas.Servicio{App: d.App, Casillas: d.Clerk, APIPublica: d.APIPublica}, ses.Exigir, d.Log)
 		avisos.Rutas(mux, d.App, ses.Exigir, d.Log)
 		logros.Rutas(mux, &logros.Servicio{App: d.App, Sitio: d.Sitio, Reloj: d.Reloj}, ses.Exigir, d.Log)
@@ -121,10 +126,6 @@ func Nuevo(d Dependencias) http.Handler {
 		d.Hub.Servicio.Moderacion = mod
 		chat.Rutas(mux, d.Hub.Servicio, d.Hub, ses, d.Origenes, d.Log)
 		gente.Rutas(mux, &gente.Servicio{App: d.App, Reloj: d.Reloj}, ses.Exigir, d.Log)
-		if d.Tiendas == nil {
-			d.Tiendas = &plus.Tiendas{}
-		}
-		ps := &plus.Servicio{App: d.App, Reloj: d.Reloj}
 		plus.Rutas(mux, ps, d.Tiendas, ses, d.ClaveGoogle, d.Log)
 		ls := &lugares.Servicio{App: d.App, MP: d.Tiendas.MP, Cifra: d.Cifra, Firma: firma.Firmador{Clave: []byte(d.Secreto)},
 			Sitio: d.Sitio, Panel: d.Panel, APIPublica: d.APIPublica, Reloj: d.Reloj}
@@ -191,6 +192,12 @@ var Reglas = map[string]limite.Regla{
 	// Logros y gestos (18/11).
 	"POST /v1/yo/invitado":         {Max: 10, Ventana: time.Hour},
 	"POST /v1/planes/{id}/ocultar": {Max: 300, Ventana: time.Hour},
+	// Gente y Citas en la cabecera de Ahora (19/11): que no se pueda bajar la ciudad entera de a 30, ni
+	// mandar reacciones o mirar perfiles en masa.
+	"GET /v1/gente/mazo":           {Max: 120, Ventana: time.Hour},
+	"POST /v1/gente/{id}/reaccion": {Max: 300, Ventana: time.Hour},
+	"GET /v1/personas/{id}":        {Max: 300, Ventana: time.Hour},
+	"DELETE /v1/plus/mercadopago":  {Max: 10, Ventana: time.Hour},
 }
 
 // recuperar convierte un panic en un 500 con problem+json y lo registra, sin tirar el proceso.

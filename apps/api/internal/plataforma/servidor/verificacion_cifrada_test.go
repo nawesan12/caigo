@@ -108,14 +108,15 @@ func TestVerificacionCifradaYAuditada(t *testing.T) {
 	if _, err := e.app.Exec(context.Background(), `UPDATE accesos_verificacion SET ip = NULL`); err == nil {
 		t.Fatal("la app pudo cambiar el registro de accesos")
 	}
-	// Las fotos públicas siguen igual: sin cifrar y con caché.
+	// Las fotos públicas siguen igual: sin cifrar y con caché de un día (sin immutable: una foto que se saca
+	// deja de verse en su link).
 	var foto struct{ ID string }
 	e.pedir(mar, "POST", "/v1/archivos?tipo=foto", jpeg, http.StatusCreated, &foto)
 	e.valor(`SELECT ruta FROM archivos WHERE id = $1`, &ruta, foto.ID)
 	if archivos.Cifrado(ruta) {
 		t.Fatalf("la foto de perfil se cifró: %q", ruta)
 	}
-	if w := e.ver(persona{}, foto.ID, ""); w.Code != http.StatusOK || !strings.Contains(w.Header().Get("Cache-Control"), "immutable") {
+	if w := e.ver(persona{}, foto.ID, ""); w.Code != http.StatusOK || w.Header().Get("Cache-Control") != "public, max-age=86400" {
 		t.Fatalf("foto pública: %d %q", w.Code, w.Header().Get("Cache-Control"))
 	}
 }

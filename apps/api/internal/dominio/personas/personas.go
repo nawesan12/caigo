@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/nawesan12/caigo/apps/api/internal/dominio/logros"
+	"github.com/nawesan12/caigo/apps/api/internal/dominio/moderacion"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/archivos"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/clerk"
 	"github.com/nawesan12/caigo/apps/api/internal/plataforma/contacto"
@@ -259,6 +260,12 @@ func (s *Servicio) Ver(ctx context.Context, usuarioID, otroID string) (Perfil, e
 		if err != nil {
 			return err
 		}
+		// Que busca Citas lo ve sólo quien también está en Citas (es un dato íntimo).
+		var mias []string
+		if err := tx.QueryRow(ctx, `SELECT intenciones FROM usuarios WHERE id = $1`, usuarioID).Scan(&mias); err != nil {
+			return err
+		}
+		p.Intenciones = sinCitas(p.Intenciones, mias)
 		l, err := logros.Calcular(ctx, tx, p.ID, time.Now(), false)
 		if err != nil {
 			return err
@@ -288,10 +295,44 @@ func (s *Servicio) Ver(ctx context.Context, usuarioID, otroID string) (Perfil, e
 	return p, err
 }
 
+var conLink = regexp.MustCompile(`(?i)(https?://|www\.|\.(com|net|org|ar|io|ly|me|link|site)\b)`)
+
+// MotivoPerfil dice por qué un texto del perfil no puede ir ("" si puede).
+func MotivoPerfil(texto string) string {
+	v := moderacion.Filtrar(texto)
+	switch {
+	case v.Decision == moderacion.Bloquear:
+		return "Eso no puede ir en tu perfil: " + v.Motivo + "."
+	case v.Decision == moderacion.Dudoso && (v.Categoria == "contacto" || (v.Categoria == "spam" && conLink.MatchString(texto))):
+		return "Sin teléfonos, redes ni links: en Caigo se habla por el chat."
+	case v.Decision == moderacion.Dudoso && v.Categoria == "estafa":
+		return "Sin pedir plata en tu perfil."
+	case v.Decision == moderacion.Dudoso && v.Categoria == "sexual":
+		return "Eso no puede ir en tu perfil."
+	}
+	return ""
+}
+
 // SinDNI recorta el perfil ajeno para quien mira sin el DNI verificado (se puede mirar, no ubicar a
 // nadie): sin barrio, sin trabajo y sin sus próximos planes (dónde va a estar y cuándo).
 func SinDNI(p *Perfil) {
-	p.Zona, p.Trabajo, p.Proximos, p.Compartidos = "", "", []Proximo{}, 0
+	p.Zona, p.Trabajo, p.Proximos, p.Compartidos, p.Intenciones = "", "", []Proximo{}, 0, []string{}
+}
+
+// sinCitas saca «citas» de las intenciones ajenas salvo que quien mira también esté en Citas.
+func sinCitas(delOtro, mias []string) []string {
+	for _, v := range mias {
+		if v == "citas" {
+			return delOtro
+		}
+	}
+	out := make([]string, 0, len(delOtro))
+	for _, v := range delOtro {
+		if v != "citas" {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 // Cambios al perfil propio. nil: no se toca.
@@ -445,6 +486,25 @@ func (s *Servicio) Actualizar(ctx context.Context, usuarioID string, c Cambios, 
 		c.ContactoConfianza = &primero
 		contactos, _ = json.Marshal(lista)
 	}
+	// Moderación del perfil (lo que ve el mazo y cualquiera que lo abre): el filtro propio, sincrónico y
+	// sin costo. Además de lo que el filtro bloquea, no van teléfonos, redes ni links, plata por fuera ni
+	// contenido sexual: el perfil no es para sacar a la gente de Caigo.
+	revisar := func(r string, v *string) {
+		if v != nil {
+			if m := MotivoPerfil(*v); m != "" {
+				mal(r, m)
+			}
+		}
+	}
+	revisar("nombre", c.Nombre)
+	revisar("bio", c.Bio)
+	revisar("trabajo", c.Trabajo)
+	if c.Prompts != nil {
+		for _, p := range *c.Prompts {
+			r := p.R
+			revisar("prompts", &r)
+		}
+	}
 	if len(campos) > 0 {
 		return Perfil{}, problema.Invalido("Revisá tu perfil.", campos...)
 	}
@@ -558,7 +618,11 @@ func (s *Servicio) SumarAGente(ctx context.Context, usuarioID, otroID string) er
 // SacarDeGente saca a alguien de mi gente.
 func (s *Servicio) SacarDeGente(ctx context.Context, usuarioID, otroID string) error {
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `DELETE FROM mi_gente WHERE usuario_id = $1 AND otro_id::text = $2`, usuarioID, otroID)
+		if _, err := tx.Exec(ctx, `DELETE FROM mi_gente WHERE usuario_id = $1 AND otro_id = $2::uuid`, usuarioID, otroID); err != nil {
+			return err
+		}
+		// Con el «me prendo»: si no, el mazo la seguiría escondiendo y un «me prendo» de vuelta daría «es mutuo».
+		_, err := tx.Exec(ctx, `DELETE FROM intereses WHERE usuario_id = $1 AND otro_id = $2::uuid AND modo = 'gente'`, usuarioID, otroID)
 		return err
 	})
 }

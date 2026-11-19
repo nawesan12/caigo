@@ -57,6 +57,9 @@ type Servicio struct {
 	Moderacion *moderacion.Servicio
 	// Firma de los links de las fotos del plan (sólo para quienes fueron; vencen a la hora).
 	FotosPlan firma.Firmador
+	// AntesDeLaBaja corre antes de marcar la baja (cancela las suscripciones de Mercado Pago: si no, MP
+	// sigue cobrándole a una cuenta borrada). Si falla, la baja no se hace. nil: no hay nada que cancelar.
+	AntesDeLaBaja func(ctx context.Context, usuarioID string) error
 }
 
 func (s *Servicio) ahora() time.Time {

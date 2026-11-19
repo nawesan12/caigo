@@ -18,11 +18,39 @@ import (
 // Pool es la conexión de un rol.
 type Pool struct{ *pgxpool.Pool }
 
+// Topes de un pool. Cero: el valor por defecto de pgx (o sin tope).
+type Topes struct {
+	// Conexiones como máximo (pgx usa max(4, CPUs): en el VPS de 2 vCPU, 4).
+	MaxConns int32
+	// Lo más que puede tardar una consulta (statement_timeout) y una transacción abierta sin hacer
+	// nada (idle_in_transaction_session_timeout): una consulta lenta o colgada no retiene la conexión.
+	Consulta, Ociosa time.Duration
+}
+
+// Para la API: 12 conexiones, consultas de hasta 10 s. Para el worker: 5, sin tope por consulta (los
+// plazos y las pasadas en lote). Los dos con 15 s de transacción ociosa. Con el migrador y el admin
+// entran holgados en los 40 de max_connections del VPS.
+var (
+	TopesAPI    = Topes{MaxConns: 12, Consulta: 10 * time.Second, Ociosa: 15 * time.Second}
+	TopesWorker = Topes{MaxConns: 5, Ociosa: 15 * time.Second}
+)
+
 // Abrir conecta con la URL de un rol y verifica que responda.
-func Abrir(ctx context.Context, url string) (*Pool, error) {
+func Abrir(ctx context.Context, url string, topes ...Topes) (*Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, fmt.Errorf("url de la base: %w", err)
+	}
+	for _, t := range topes {
+		if t.MaxConns > 0 {
+			cfg.MaxConns = t.MaxConns
+		}
+		if t.Consulta > 0 {
+			cfg.ConnConfig.RuntimeParams["statement_timeout"] = fmt.Sprint(t.Consulta.Milliseconds())
+		}
+		if t.Ociosa > 0 {
+			cfg.ConnConfig.RuntimeParams["idle_in_transaction_session_timeout"] = fmt.Sprint(t.Ociosa.Milliseconds())
+		}
 	}
 	p, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
@@ -99,20 +127,22 @@ func (p *Pool) Escuchar(ctx context.Context, canal string, fn func(payload strin
 	}
 }
 
+// escuchar usa una conexión propia, fuera del pool: LISTEN la retiene para siempre y le sacaría una a
+// todos los pedidos. Sin statement_timeout (esperar avisos no es una consulta lenta).
 func (p *Pool) escuchar(ctx context.Context, canal string, fn func(payload string)) error {
-	c, err := p.Acquire(ctx)
+	cc := p.Config().ConnConfig.Copy()
+	delete(cc.RuntimeParams, "statement_timeout")
+	c, err := pgx.ConnectConfig(ctx, cc)
 	if err != nil {
 		return err
 	}
-	defer c.Release()
+	defer c.Close(context.WithoutCancel(ctx))
 	if _, err := c.Exec(ctx, "LISTEN "+pgx.Identifier{canal}.Sanitize()); err != nil {
 		return err
 	}
 	for {
-		n, err := c.Conn().WaitForNotification(ctx)
+		n, err := c.WaitForNotification(ctx)
 		if err != nil {
-			// La conexión quedó en un estado desconocido: que el pool no la reuse.
-			c.Conn().Close(context.WithoutCancel(ctx))
 			return err
 		}
 		fn(n.Payload)

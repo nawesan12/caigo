@@ -60,13 +60,14 @@ func TestGenteLimiteYPlus(t *testing.T) {
 	if len(gente.Gente) != 3 {
 		t.Fatalf("mi gente: %d", len(gente.Gente))
 	}
-	// Del otro lado: "Te sumaron" bloqueado sin Plus (sólo la foto).
+	// Del otro lado: "Te sumaron" bloqueado sin Plus: ni id, ni nombre, ni el link de la foto (comparándolo
+	// con el del mazo se sabría quién es).
 	var rec struct {
 		Personas  []struct{ ID, Nombre, Foto string }
 		Bloqueada bool
 	}
 	e.pedir(otros[0], "GET", "/v1/gente/recibidos?modo=gente", nil, http.StatusOK, &rec)
-	if !rec.Bloqueada || len(rec.Personas) != 1 || rec.Personas[0].ID != "" || rec.Personas[0].Nombre != "" || rec.Personas[0].Foto == "" {
+	if !rec.Bloqueada || len(rec.Personas) != 1 || rec.Personas[0].ID != "" || rec.Personas[0].Nombre != "" || rec.Personas[0].Foto != "" {
 		t.Fatalf("recibidos sin Plus: %+v", rec)
 	}
 	// Con Plus no hay límite y se ve quién es.

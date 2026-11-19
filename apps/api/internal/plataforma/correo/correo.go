@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
@@ -54,15 +55,16 @@ func Elegir(direccion, usuario, clave, de string) Correo {
 // el servidor propio: en el puerto 465 con TLS desde el arranque y en los demás con STARTTLS.
 type SMTP struct{ Direccion, De, Usuario, Clave string }
 
-func (s *SMTP) Enviar(_ context.Context, m Mensaje) error {
+// PlazoEnvio: lo más que puede tardar un envío entero (conexión, TLS, AUTH, DATA y QUIT). Un servidor que
+// acepta la conexión y no contesta no traba al que manda (el worker procesa los eventos de a uno).
+var PlazoEnvio = 30 * time.Second
+
+func (s *SMTP) Enviar(ctx context.Context, m Mensaje) error {
 	cuerpo, err := Armar(s.De, m, time.Now())
 	if err != nil {
 		return err
 	}
-	if s.Usuario == "" {
-		return smtp.SendMail(s.Direccion, nil, direccionDe(s.De), []string{m.Para}, cuerpo)
-	}
-	return s.conUsuario(m.Para, cuerpo)
+	return s.mandar(ctx, m.Para, cuerpo)
 }
 
 // Armar escribe el mail entero (encabezados y partes MIME). Exportado para los tests.
@@ -127,38 +129,50 @@ func escribirAlternativa(b *bytes.Buffer, frontera string, m Mensaje) {
 	fmt.Fprintf(b, "--%s--\r\n", frontera)
 }
 
-// conUsuario manda autenticado y siempre cifrado: nunca manda la clave en claro.
-func (s *SMTP) conUsuario(para string, cuerpo []byte) error {
+// mandar abre la conexión con el plazo del ctx (o PlazoEnvio, el que llegue primero) y lo deja puesto en la
+// conexión para todo el diálogo. Con Usuario, autenticado y siempre cifrado: nunca manda la clave en claro
+// (465: TLS desde el arranque; los demás, STARTTLS). Sin Usuario, sin TLS ni AUTH (Mailpit).
+func (s *SMTP) mandar(ctx context.Context, para string, cuerpo []byte) error {
 	host, puerto, err := net.SplitHostPort(s.Direccion)
 	if err != nil {
 		return fmt.Errorf("correo: dirección SMTP inválida: %w", err)
 	}
+	limite := time.Now().Add(PlazoEnvio)
+	if d, ok := ctx.Deadline(); ok && d.Before(limite) {
+		limite = d
+	}
+	ctx, cancelar := context.WithDeadline(ctx, limite)
+	defer cancelar()
 	cfg := &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}
-	d := &net.Dialer{Timeout: 20 * time.Second}
-	var c *smtp.Client
-	if puerto == "465" {
-		con, err := tls.DialWithDialer(d, "tcp", s.Direccion, cfg)
-		if err != nil {
-			return err
-		}
-		if c, err = smtp.NewClient(con, host); err != nil {
-			return err
-		}
+	d := &net.Dialer{}
+	var con net.Conn
+	if s.Usuario != "" && puerto == "465" {
+		con, err = (&tls.Dialer{NetDialer: d, Config: cfg}).DialContext(ctx, "tcp", s.Direccion)
 	} else {
-		con, err := d.Dial("tcp", s.Direccion)
-		if err != nil {
-			return err
-		}
-		if c, err = smtp.NewClient(con, host); err != nil {
-			return err
-		}
-		if err := c.StartTLS(cfg); err != nil {
-			return fmt.Errorf("correo: el servidor no acepta STARTTLS: %w", err)
-		}
+		con, err = d.DialContext(ctx, "tcp", s.Direccion)
+	}
+	if err != nil {
+		return err
+	}
+	if err := con.SetDeadline(limite); err != nil {
+		con.Close()
+		return err
+	}
+	c, err := smtp.NewClient(con, host)
+	if err != nil {
+		con.Close()
+		return err
 	}
 	defer c.Close()
-	if err := c.Auth(smtp.PlainAuth("", s.Usuario, s.Clave, host)); err != nil {
-		return err
+	if s.Usuario != "" {
+		if puerto != "465" {
+			if err := c.StartTLS(cfg); err != nil {
+				return fmt.Errorf("correo: el servidor no acepta STARTTLS: %w", err)
+			}
+		}
+		if err := c.Auth(smtp.PlainAuth("", s.Usuario, s.Clave, host)); err != nil {
+			return err
+		}
 	}
 	if err := c.Mail(direccionDe(s.De)); err != nil {
 		return err
@@ -218,7 +232,9 @@ func (l *Log) Enviar(_ context.Context, m Mensaje) error {
 	if log == nil {
 		log = slog.Default()
 	}
-	log.Info("correo (sin SMTP, no sale)", "para", m.Para, "asunto", m.Asunto, "adjuntos", len(m.Adjuntos), "texto", m.Texto)
+	// Ni la dirección ni el texto (puede llevar un link firmado en vivo): sólo el asunto y una huella.
+	h := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(m.Para))))
+	log.Info("correo (sin SMTP, no sale)", "para", hex.EncodeToString(h[:6]), "asunto", m.Asunto, "adjuntos", len(m.Adjuntos))
 	return nil
 }
 

@@ -71,7 +71,7 @@ const Toma = 5 * time.Minute
 func (w *Worker) Pasada(ctx context.Context) (int, error) {
 	lote := w.Lote
 	if lote == 0 {
-		lote = 100
+		lote = 20
 	}
 	var eventos []Evento
 	err := w.Pool.EnSistema(ctx, func(tx pgx.Tx) error {
@@ -121,8 +121,8 @@ func (w *Worker) guardar(ctx context.Context, tx pgx.Tx, ev Evento, err error) e
 	if intentos >= MaxIntentos {
 		// Apartado: ya no se reintenta solo. Queda en el log como error y el equipo lo ve en
 		// GET /v1/equipo/apartados (un reembolso que no salió hay que hacerlo a mano).
-		w.log().Error("outbox: evento apartado tras agotar los reintentos", "id", ev.ID, "tipo", ev.Tipo,
-			"datos", string(ev.Datos), "error", err)
+		// Sin los datos: pueden llevar el token de un dispositivo o el texto de un privado.
+		w.log().Error("outbox: evento apartado tras agotar los reintentos", "id", ev.ID, "tipo", ev.Tipo, "error", err)
 		_, e := tx.Exec(ctx, `UPDATE outbox SET intentos = $2, proximo_intento = 'infinity', ultimo_error = $3 WHERE id = $1`, ev.ID, intentos, err.Error())
 		return e
 	}
@@ -142,8 +142,14 @@ func (w *Worker) correr(ctx context.Context, ev Evento) (err error) {
 			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
+	// Un manejador colgado (un SMTP mudo, una tienda que no contesta) no frena al resto del lote.
+	ctx, cancelar := context.WithTimeout(ctx, PlazoManejador)
+	defer cancelar()
 	return m(ctx, ev)
 }
+
+// PlazoManejador: lo más que puede tardar un evento (menos que la Toma, para que no se tome dos veces).
+var PlazoManejador = 60 * time.Second
 
 // Espera creciente: 2, 4, 8… segundos, con techo de una hora.
 func Espera(intentos int) time.Duration {

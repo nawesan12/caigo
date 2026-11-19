@@ -113,6 +113,12 @@ func (s *Servicio) Baja(ctx context.Context, usuarioID, clerkID, confirmar strin
 	if len(email) > 200 {
 		email = ""
 	}
+	if s.AntesDeLaBaja != nil {
+		if err := s.AntesDeLaBaja(ctx, usuarioID); err != nil {
+			s.log().Error("baja: no se pudo cancelar la suscripción de Mercado Pago", "error", err)
+			return problema.NoProcesable("suscripcion", "No pudimos dar de baja tu Caigo Plus en Mercado Pago. Probá de nuevo en un rato.")
+		}
+	}
 	return s.App.EnUsuario(ctx, usuarioID, func(tx pgx.Tx) error {
 		if err := cancelarLoSuyo(ctx, tx, usuarioID); err != nil {
 			return err

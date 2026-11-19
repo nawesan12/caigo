@@ -80,7 +80,10 @@ func validarModo(modo string) error {
 	return nil
 }
 
-// Mazo devuelve personas para el modo, primero las que tienen más intereses en común.
+// Mazo devuelve personas para el modo, primero las que tienen más intereses en común. Primero se eligen
+// los 30 (filtros, orden y LIMIT) y recién sobre esos se calcula la asistencia, el conteo de planes y los
+// próximos planes, en una sola consulta (antes, la asistencia corría para toda la ciudad y los próximos
+// eran 30 consultas más).
 func (s *Servicio) Mazo(ctx context.Context, usuarioID, modo string) ([]Tarjeta, error) {
 	if err := validarModo(modo); err != nil {
 		return nil, err
@@ -96,76 +99,81 @@ func (s *Servicio) Mazo(ctx context.Context, usuarioID, modo string) ([]Tarjeta,
 			return problema.Conflicto("sin_citas", "Activá Citas en lo que buscás para ver este modo.")
 		}
 		rows, err := tx.Query(ctx, `
+			WITH yo AS (SELECT intereses FROM usuarios WHERE id = $1),
+			elegidos AS (
+				SELECT u.id, ARRAY(SELECT unnest(u.intereses) INTERSECT SELECT unnest(yo.intereses)) AS en_comun,
+					EXISTS (SELECT 1 FROM intereses e WHERE e.usuario_id = u.id AND e.otro_id = $1 AND e.modo = $3
+						AND e.accion = 'encanta') AS le_encanto,
+					u.actualizado_en
+				FROM usuarios u CROSS JOIN yo
+				WHERE u.id <> $1 AND u.baja_en IS NULL AND u.suspendido_en IS NULL AND u.selfie_en IS NOT NULL
+					-- Sin DNI aprobado no se muestra a nadie (el DNI es obligatorio desde el 16/11).
+					AND u.dni_en IS NOT NULL AND cardinality(u.fotos) > 0
+					-- Sin ciudad cargada (el alta de la web no la pide) también aparece.
+					AND ($2 = '' OR u.ciudad = '' OR lower(u.ciudad) = lower($2))
+					AND u.intenciones && CASE WHEN $3 = 'citas' THEN ARRAY['citas'] ELSE ARRAY['gente', 'planes', 'completar'] END
+					AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $1 AND b.bloqueado_id = u.id)
+						OR (b.usuario_id = u.id AND b.bloqueado_id = $1))
+					AND NOT EXISTS (SELECT 1 FROM intereses i WHERE i.usuario_id = $1 AND i.otro_id = u.id AND i.modo = $3
+						AND (i.accion <> 'paso' OR i.creado_en > $4))
+					AND ($3 = 'citas' OR NOT EXISTS (SELECT 1 FROM mi_gente g WHERE g.usuario_id = $1 AND g.otro_id = u.id))
+				ORDER BY le_encanto DESC, cardinality(ARRAY(SELECT unnest(u.intereses) INTERSECT SELECT unnest(yo.intereses))) DESC,
+					u.actualizado_en DESC
+				LIMIT 30)
 			SELECT u.id, u.nombre, u.edad, u.zona, u.trabajo, u.bio, u.intereses, u.intenciones, u.prompts, u.fotos,
 				u.dni_en IS NOT NULL, rep.fue, rep.de,
 				(SELECT count(*) FROM solicitudes s WHERE s.usuario_id = u.id AND s.estado = 'aceptada'),
-				ARRAY(SELECT unnest(u.intereses) INTERSECT SELECT unnest(yo.intereses))
-			FROM usuarios u CROSS JOIN (SELECT intereses FROM usuarios WHERE id = $1) yo
+				e.en_comun,
+				coalesce((SELECT jsonb_agg(jsonb_build_object('id', x.id, 'titulo', x.titulo, 'categoria', x.categoria,
+						'empiezaEn', x.empieza_en, 'foto', x.foto) ORDER BY x.empieza_en)
+					FROM (SELECT p.id, p.titulo, p.categoria, p.empieza_en, p.foto FROM planes p
+						JOIN solicitudes s ON s.plan_id = p.id AND s.usuario_id = u.id AND s.estado = 'aceptada'
+						WHERE p.cancelado_en IS NULL AND p.empieza_en > now() AND p.visibilidad = 'publico'
+							-- Ni un plan oculto por las normas ni uno de una cuenta suspendida o borrada (como en las listas).
+							AND `+planes.OrganizaActivo+`
+							AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $1 AND b.bloqueado_id = p.organizador_id)
+								OR (b.usuario_id = p.organizador_id AND b.bloqueado_id = $1))
+						ORDER BY p.empieza_en LIMIT 3) x), '[]'::jsonb)
+			FROM elegidos e JOIN usuarios u ON u.id = e.id
 			LEFT JOIN LATERAL app.asistencia(u.id) rep ON true
-			WHERE u.id <> $1 AND u.baja_en IS NULL AND u.suspendido_en IS NULL AND u.selfie_en IS NOT NULL
-				-- Sin DNI aprobado no se muestra a nadie (el DNI es obligatorio desde el 16/11).
-				AND u.dni_en IS NOT NULL AND cardinality(u.fotos) > 0
-				-- Sin ciudad cargada (el alta de la web no la pide) también aparece.
-				AND ($2 = '' OR u.ciudad = '' OR lower(u.ciudad) = lower($2))
-				AND u.intenciones && CASE WHEN $3 = 'citas' THEN ARRAY['citas'] ELSE ARRAY['gente', 'planes', 'completar'] END
-				AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $1 AND b.bloqueado_id = u.id)
-					OR (b.usuario_id = u.id AND b.bloqueado_id = $1))
-				AND NOT EXISTS (SELECT 1 FROM intereses i WHERE i.usuario_id = $1 AND i.otro_id = u.id AND i.modo = $3
-					AND (i.accion <> 'paso' OR i.creado_en > $4))
-				AND ($3 = 'citas' OR NOT EXISTS (SELECT 1 FROM mi_gente g WHERE g.usuario_id = $1 AND g.otro_id = u.id))
-			ORDER BY EXISTS (SELECT 1 FROM intereses e WHERE e.usuario_id = u.id AND e.otro_id = $1 AND e.modo = $3
-					AND e.accion = 'encanta') DESC,
-				cardinality(ARRAY(SELECT unnest(u.intereses) INTERSECT SELECT unnest(yo.intereses))) DESC,
-				u.actualizado_en DESC
-			LIMIT 30`, usuarioID, ciudad, modo, s.ahora().Add(-olvidoPaso))
+			ORDER BY e.le_encanto DESC, cardinality(e.en_comun) DESC, e.actualizado_en DESC`,
+			usuarioID, ciudad, modo, s.ahora().Add(-olvidoPaso))
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
 		for rows.Next() {
 			var t Tarjeta
-			var prompts []byte
+			var prompts, prox []byte
 			if err := rows.Scan(&t.ID, &t.Nombre, &t.Edad, &t.Zona, &t.Trabajo, &t.Bio, &t.Intereses, &t.Intenciones,
-				&prompts, &t.Fotos, &t.Verificada, &t.Asistencia.Fue, &t.Asistencia.De, &t.Planes, &t.EnComun); err != nil {
-				rows.Close()
+				&prompts, &t.Fotos, &t.Verificada, &t.Asistencia.Fue, &t.Asistencia.De, &t.Planes, &t.EnComun, &prox); err != nil {
 				return err
 			}
 			_ = json.Unmarshal(prompts, &t.Prompts)
+			t.Proximos = []ProximoPlan{}
+			_ = json.Unmarshal(prox, &t.Proximos)
+			// Que alguien busca Citas lo ve sólo quien también está en Citas.
+			t.Intenciones = IntencionesVisibles(t.Intenciones, intenciones)
 			out = append(out, t)
 		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		for i := range out {
-			if out[i].Proximos, err = proximos(ctx, tx, out[i].ID, usuarioID); err != nil {
-				return err
-			}
-		}
-		return nil
+		return rows.Err()
 	})
 	return out, err
 }
 
-// proximos: los planes públicos que vienen de una persona (organiza o va), los mismos que encuentra
-// en Explorar quien mira.
-func proximos(ctx context.Context, tx pgx.Tx, de, quienMira string) ([]ProximoPlan, error) {
-	rows, err := tx.Query(ctx, `
-		SELECT p.id, p.titulo, p.categoria, p.empieza_en, p.foto FROM planes p
-		JOIN solicitudes s ON s.plan_id = p.id AND s.usuario_id = $1 AND s.estado = 'aceptada'
-		WHERE p.cancelado_en IS NULL AND p.empieza_en > now() AND p.visibilidad = 'publico'
-			-- Ni un plan oculto por las normas ni uno de una cuenta suspendida o borrada (como en las listas).
-			AND `+planes.OrganizaActivo+`
-			AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $2 AND b.bloqueado_id = p.organizador_id)
-				OR (b.usuario_id = p.organizador_id AND b.bloqueado_id = $2))
-		ORDER BY p.empieza_en LIMIT 3`, de, quienMira)
-	if err != nil {
-		return nil, err
+// IntencionesVisibles saca «citas» de las intenciones de otra persona salvo que quien mira también esté en
+// Citas: es un dato íntimo y no se muestra fuera de ese modo.
+func IntencionesVisibles(delOtro, mias []string) []string {
+	if contiene(mias, "citas") {
+		return delOtro
 	}
-	ps, err := pgx.CollectRows(rows, pgx.RowToStructByPos[ProximoPlan])
-	if ps == nil {
-		ps = []ProximoPlan{}
+	out := make([]string, 0, len(delOtro))
+	for _, v := range delOtro {
+		if v != "citas" {
+			out = append(out, v)
+		}
 	}
-	return ps, err
+	return out
 }
 
 func contiene(xs []string, x string) bool {
@@ -185,6 +193,12 @@ type Resultado struct {
 }
 
 // Reaccionar: prendo (Gente), interesa / encanta (Citas) o paso.
+//
+// A quién: en Citas, sólo a quien el mazo mostraría (con DNI y selfie, fotos, sin suspender y en Citas), y
+// sólo si quien reacciona también eligió Citas: el consentimiento de ese modo. En Gente alcanza con una
+// cuenta con DNI y sin suspender (se suma también desde el perfil, al que se llega por la lista de un plan).
+//
+// Repetir la misma reacción no hace nada (ni gasta topes, ni corre la fecha, ni manda otro aviso).
 func (s *Servicio) Reaccionar(ctx context.Context, usuarioID, otroID, modo, accion string) (Resultado, error) {
 	if err := validarModo(modo); err != nil {
 		return Resultado{}, err
@@ -206,61 +220,103 @@ func (s *Servicio) Reaccionar(ctx context.Context, usuarioID, otroID, modo, acci
 		if err := plus.Bloquear(ctx, tx, usuarioID); err != nil {
 			return err
 		}
+		if modo == "citas" && accion != "paso" {
+			var mias []string
+			if err := tx.QueryRow(ctx, `SELECT intenciones FROM usuarios WHERE id = $1`, usuarioID).Scan(&mias); err != nil {
+				return err
+			}
+			if !contiene(mias, "citas") {
+				return problema.Conflicto("sin_citas", "Activá Citas en lo que buscás para ver este modo.")
+			}
+		}
 		var existe bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM usuarios u WHERE u.id::text = $2 AND u.baja_en IS NULL
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM usuarios u WHERE u.id = $2::uuid AND u.baja_en IS NULL
+			AND ($4 = 'paso' OR (u.suspendido_en IS NULL AND u.dni_en IS NOT NULL
+				AND ($3 <> 'citas' OR (u.selfie_en IS NOT NULL AND cardinality(u.fotos) > 0 AND 'citas' = ANY(u.intenciones)))))
 			AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $1 AND b.bloqueado_id = u.id)
-				OR (b.usuario_id = u.id AND b.bloqueado_id = $1)))`, usuarioID, otroID).Scan(&existe); err != nil {
+				OR (b.usuario_id = u.id AND b.bloqueado_id = $1)))`, usuarioID, otroID, modo, accion).Scan(&existe); err != nil {
 			return err
 		}
 		if !existe {
 			return problema.NoEncontrado("Esa persona no existe.")
 		}
+		var previa string
+		if err := tx.QueryRow(ctx, `SELECT accion FROM intereses WHERE usuario_id = $1 AND otro_id = $2::uuid AND modo = $3`,
+			usuarioID, otroID, modo).Scan(&previa); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
 		var err error
 		if r.Plus, err = plus.Leer(ctx, tx, usuarioID, s.ahora()); err != nil {
 			return err
 		}
-		if accion != "paso" && !r.Plus.Activo && r.Plus.SumadasHoy >= plus.LimiteDiario {
+		if previa == accion {
+			if accion != "paso" {
+				return mutuo(ctx, tx, usuarioID, otroID, modo, &r.Mutuo)
+			}
+			return nil
+		}
+		// «Nueva»: de nada (o de un paso) a una reacción positiva. Sólo esa gasta una sumada y avisa.
+		nueva := accion != "paso" && (previa == "" || previa == "paso")
+		if nueva && !r.Plus.Activo && r.Plus.SumadasHoy >= plus.LimiteDiario {
 			return problema.Conflicto("limite", "Llegaste a las 3 sumadas de hoy. Con Plus no tenés límite.")
 		}
-		var previa string
-		_ = tx.QueryRow(ctx, `SELECT accion FROM intereses WHERE usuario_id = $1 AND otro_id::text = $2 AND modo = $3`, usuarioID, otroID, modo).Scan(&previa)
-		if accion == "encanta" && previa != "encanta" && r.Plus.EncantasHoy >= r.Plus.LimiteEncantas {
+		if accion == "encanta" && r.Plus.EncantasHoy >= r.Plus.LimiteEncantas {
 			if r.Plus.Activo {
 				return problema.Conflicto("limite_encanta", fmt.Sprintf("Ya usaste los %d me encanta de hoy.", plus.EncantasPlus))
 			}
 			return problema.Conflicto("limite_encanta", fmt.Sprintf("Ya usaste tu me encanta de hoy. Con Plus tenés %d por día.", plus.EncantasPlus))
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO intereses (usuario_id, otro_id, modo, accion) VALUES ($1, $2, $3, $4)
-			ON CONFLICT (usuario_id, otro_id, modo) DO UPDATE SET accion = excluded.accion, creado_en = now(), descartado_en = NULL`,
+		// creado_en es el día de la sumada (o del paso, para olvidarlo): pasar de interesa a encanta no lo corre.
+		// El «me encanta» se cuenta por encanta_en.
+		if _, err := tx.Exec(ctx, `INSERT INTO intereses (usuario_id, otro_id, modo, accion, encanta_en)
+			VALUES ($1, $2::uuid, $3, $4, CASE WHEN $4 = 'encanta' THEN now() END)
+			ON CONFLICT (usuario_id, otro_id, modo) DO UPDATE SET accion = excluded.accion, descartado_en = NULL,
+				creado_en = CASE WHEN intereses.accion = 'paso' OR excluded.accion = 'paso' THEN now() ELSE intereses.creado_en END,
+				encanta_en = excluded.encanta_en`,
 			usuarioID, otroID, modo, accion); err != nil {
 			return err
 		}
 		if accion == "paso" {
 			return nil
 		}
-		if previa == "" || previa == "paso" {
+		if nueva {
 			r.Plus.SumadasHoy++
 		}
-		if accion == "encanta" && previa != "encanta" {
+		if accion == "encanta" {
 			r.Plus.EncantasHoy++
 		}
 		if modo == "gente" {
-			if _, err := tx.Exec(ctx, `INSERT INTO mi_gente (usuario_id, otro_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, usuarioID, otroID); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO mi_gente (usuario_id, otro_id) VALUES ($1, $2::uuid) ON CONFLICT DO NOTHING`, usuarioID, otroID); err != nil {
 				return err
 			}
 		}
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM intereses WHERE usuario_id::text = $2 AND otro_id = $1
-			AND modo = $3 AND accion <> 'paso')`, usuarioID, otroID, modo).Scan(&r.Mutuo); err != nil {
+		if err := mutuo(ctx, tx, usuarioID, otroID, modo, &r.Mutuo); err != nil {
 			return err
 		}
-		return outbox.Publicar(ctx, tx, "interes.nuevo", map[string]any{"de": usuarioID, "a": otroID, "modo": modo, "mutuo": r.Mutuo})
+		// Un aviso por reacción nueva (o por pasar a «me encanta»): cambiar entre interesa y encanta, o
+		// repetir, no le vuelve a llegar a la otra persona.
+		if !nueva && accion != "encanta" {
+			return nil
+		}
+		return outbox.Publicar(ctx, tx, "interes.nuevo", map[string]any{"de": usuarioID, "a": otroID, "modo": modo, "mutuo": r.Mutuo && nueva})
 	})
 	return r, err
 }
 
+// mutuo: en Gente, «ya pueden hablar» es la misma regla del privado (chat.puedenHablar): los dos se tienen
+// en Mi gente. En Citas, que el otro también reaccionó (no un paso).
+func mutuo(ctx context.Context, tx pgx.Tx, usuarioID, otroID, modo string, out *bool) error {
+	if modo == "gente" {
+		return tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM mi_gente WHERE usuario_id = $2::uuid AND otro_id = $1)
+			AND EXISTS (SELECT 1 FROM mi_gente WHERE usuario_id = $1 AND otro_id = $2::uuid)`, usuarioID, otroID).Scan(out)
+	}
+	return tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM intereses WHERE usuario_id = $2::uuid AND otro_id = $1
+		AND modo = $3 AND accion <> 'paso')`, usuarioID, otroID, modo).Scan(out)
+}
+
 // Recibido: alguien que te sumó o le interesás.
 type Recibido struct {
-	// Sin Plus sólo va la foto (la app la muestra borrosa): ni id ni nombre.
+	// Sin Plus no va nada que identifique (ni id, ni nombre, ni foto): sólo cuándo.
 	ID     string    `json:"id,omitempty"`
 	Nombre string    `json:"nombre,omitempty"`
 	Edad   *int16    `json:"edad,omitempty"`
@@ -282,11 +338,22 @@ func (s *Servicio) Recibidos(ctx context.Context, usuarioID, modo string) ([]Rec
 			return err
 		}
 		bloqueada = !e.Activo
+		// «Les interesás» es de Citas: vacío para quien no está en ese modo.
+		if modo == "citas" {
+			var mias []string
+			if err := tx.QueryRow(ctx, `SELECT intenciones FROM usuarios WHERE id = $1`, usuarioID).Scan(&mias); err != nil {
+				return err
+			}
+			if !contiene(mias, "citas") {
+				return nil
+			}
+		}
 		rows, err := tx.Query(ctx, `
 			SELECT u.id, u.nombre, u.edad, coalesce(u.fotos[1], ''), i.accion, i.creado_en
 			FROM intereses i JOIN usuarios u ON u.id = i.usuario_id
 			WHERE i.otro_id = $1 AND i.modo = $2 AND i.accion <> 'paso' AND i.descartado_en IS NULL
 				AND u.baja_en IS NULL AND u.suspendido_en IS NULL
+				AND ($2 <> 'citas' OR 'citas' = ANY(u.intenciones))
 				AND NOT EXISTS (SELECT 1 FROM intereses y WHERE y.usuario_id = $1 AND y.otro_id = u.id AND y.modo = $2)
 				AND NOT EXISTS (SELECT 1 FROM bloqueos b WHERE (b.usuario_id = $1 AND b.bloqueado_id = u.id)
 					OR (b.usuario_id = u.id AND b.bloqueado_id = $1))
@@ -300,8 +367,10 @@ func (s *Servicio) Recibidos(ctx context.Context, usuarioID, modo string) ([]Rec
 			if err := rows.Scan(&r.ID, &r.Nombre, &r.Edad, &r.Foto, &r.Accion, &r.Cuando); err != nil {
 				return err
 			}
+			// Sin Plus no va nada que identifique: ni id, ni nombre, ni el link de la foto (es el mismo del
+			// mazo y del perfil, y comparándolo se sabría quién es). La app pone caras genéricas borrosas.
 			if bloqueada {
-				r = Recibido{Foto: r.Foto, Cuando: r.Cuando}
+				r = Recibido{Cuando: r.Cuando}
 			}
 			out = append(out, r)
 		}
