@@ -1,5 +1,69 @@
 # Estado
 
+## 19/11/2026: comité completo + reportes de Nahuel (DESPLEGADO: API y web 443de18, migración 00032; iOS build 27; Android 135)
+
+**Cómo se hizo:** comité de 7 ángulos (`~/.claude/workflows/comite.js`) sobre la copia `~/Trabajo/vimo/.wt/caigo-comite`.
+- 69 hallazgos confirmados y 12 descartados con motivo; arreglos y segunda vuelta.
+- Integrado a main con merge. Copia de la base antes de migrar (`/opt/caigo/copias/`).
+- iOS se compiló en GitHub (`gh workflow run testflight -R nawesan12/caigo`) y se repartió a todos los grupos con `ultima.py`.
+- Android se compiló en grupovimo/caigo-android y se subió con `tiendas/play/subir_aab.py`.
+
+**Reportes de Nahuel que lo dispararon (iPhone en modo oscuro):**
+- El título de «¿Qué buscás en Caigo?» no se veía. Causa: el ingreso forzaba `colorScheme .light`, pero no la Paleta.
+- El perfil escondía todo detrás de un sol que no se entendía.
+- La tabla de Caigo Plus estaba rota.
+- Gente y Citas habían desaparecido de Ahora.
+
+**Qué cambió:**
+- **Ahora vuelve a tener Planes · Gente · Citas** en iOS y Android (Citas sólo con esa intención).
+  - Revierte la decisión de d4d8e61 y f0d673f del 18/11: es función principal y no se esconde.
+  - Sin DNI se ve una lámina de cartas borrosas con «Verificarme».
+  - Reaccionar pide el DNI antes. En la web, Gente y Citas dicen «está en la app».
+  - Salieron `VistaMazo` y las filas de Perfil › Mi gente.
+- **Plus (iOS):**
+  - La tabla Gratis/Plus reparte el ancho 3/7 · 2/7 · 2/7, como en Android.
+  - La × y «Restaurar compra» quedan fijas arriba.
+  - El texto chico dice que la suscripción se renueva sola y lleva links a Términos y Privacidad, en las tres plataformas.
+  - Plus pide el DNI antes de cobrar; restaurar no lo pide.
+- **Plus por Mercado Pago:**
+  - Los 7 días gratis se usan una sola vez.
+  - Cancelar no corta lo ya pagado.
+  - La web tiene «Dar de baja».
+  - Borrar la cuenta cancela la suscripción.
+- **Perfil:**
+  - Tres círculos: Ajustes · Editar perfil (destacado) · Mis pases. En la web, el tercero es Mi gente.
+  - Lápiz sobre la foto, que abre Editar perfil.
+  - En las fotos: la principal lleva una píldora «Principal» y las demás una ⭐ visible para pasarlas a principal. La × es de 44 pt.
+  - Commits 3adebea, 00366f7 y 443de18.
+- **Modo oscuro:**
+  - Cada pantalla de paleta fija también fija el esquema (iOS).
+  - La barra de estado sigue a la pantalla (Android).
+  - Pasaron a la paleta las piezas que quedaban blancas en oscuro.
+- **Gente y Citas, seguridad:**
+  - Sólo se reacciona en Citas entre gente que está en Citas.
+  - Reaccionar es idempotente; `encanta_en` no se libera al cambiar a «me interesa».
+  - «Es mutuo» usa la misma regla que el chat privado.
+  - Sin Plus, «Te sumaron» no manda la foto real.
+  - Topes por hora para el mazo, las reacciones y los perfiles.
+  - Bio, nombre, trabajo y preguntas pasan por el filtro de moderación.
+- **Otros:**
+  - «Llegué» se habilita desde media hora antes.
+  - El plan de hoy no se repite en Ahora.
+  - Operación: pool y tiempos máximos en la base, mazo en una sola consulta, plazos en mails y worker, fotos en caché 1 día.
+
+**Semilla:** 15 planes ficticios en Mardel, del 20 al 29/11. Ver `docs/semilla.md`. Hay que sacarlos antes del lanzamiento.
+
+**Pendiente:**
+- Mazo de Gente en la web.
+- Barra de estado de iOS en pantallas claras con el teléfono en oscuro.
+- Arrastrar fotos para ordenarlas.
+- RLS de intereses, mi_gente e invitaciones.
+- Revisión con IA de perfiles.
+- CSP en la web.
+- Avisos de «sólo chicas» y «aprobación» en /p.
+- Abrir la app desde la web en iPhone.
+- Decisiones abiertas para Nahuel: si se puede mirar el mazo sin DNI y si se puede comprar Plus sin DNI (hoy las dos están cerradas).
+
 ## 18/11/2026: integración de los tres frentes (rama `integracion-mejoras`, sin desplegar)
 
 Primer uso, día del plan y premios por ir, fusionados en ese orden. Conviven así: la tarjeta lleva arriba, en la foto,
