@@ -113,7 +113,7 @@ internal fun ingresoMensaje(e: Throwable): String {
 /** `.environment(\.colorScheme, .light)` de los pasos del alta: la paleta clara, aunque la app esté en oscuro. */
 @Composable
 internal fun ingresoClaro(contenido: @Composable () -> Unit) =
-    CompositionLocalProvider(ar.com.caigo.app.tema.LocalPaleta provides ar.com.caigo.app.tema.PaletaClara, contenido)
+    ar.com.caigo.app.tema.PaletaFija(ar.com.caigo.app.tema.PaletaClara, contenido)
 
 /** Título y bajada de los pasos del registro: `700 34px/1.05`, -.8px; `15px/1.5` gris. */
 @Composable

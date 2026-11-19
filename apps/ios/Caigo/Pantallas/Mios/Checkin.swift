@@ -307,7 +307,7 @@ struct Repetimos: View {
                 }
                 .buttonStyle(EstiloToque())
             } else {
-                BotonIcono(d: I.mas, tam: 40, radio: 14, iconoTam: 16, trazo: 3, gel: Gels.chip(p), color: C.violeta) { volveria[g.id] = true }
+                BotonIcono(d: I.mas, tam: 40, radio: 14, iconoTam: 16, trazo: 3, gel: Gels.chip(p), color: p.oscuro ? C.lima : C.violeta) { volveria[g.id] = true }
                     .accessibilityLabel("Sumar a tu gente")
             }
         }

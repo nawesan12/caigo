@@ -45,17 +45,18 @@ struct Opcion: Identifiable {
 struct HojaOpciones: View {
     var cerrar: () -> Void
     var filas: [Opcion]
+    @Environment(\.paleta) private var p
     var body: some View {
         ZStack(alignment: .bottom) {
             rgba(32, 29, 43, 0.45).ignoresSafeArea().onTapGesture(perform: cerrar)
             VStack(spacing: 0) {
                 ForEach(Array(filas.enumerated()), id: \.element.id) { i, f in
-                    if i > 0 { Rectangle().fill(C.lavanda).frame(height: 1) }
+                    if i > 0 { Rectangle().fill(p.separador).frame(height: 1) }
                     Button {
                         cerrar()
                         f.accion()
                     } label: {
-                        T(f.texto, 15, 700, ["Reportar", "Cancelar", "Bloquear", "Borrar"].contains { f.texto.hasPrefix($0) } ? C.coral2 : C.carbon)
+                        T(f.texto, 15, 700, ["Reportar", "Cancelar", "Bloquear", "Borrar"].contains { f.texto.hasPrefix($0) } ? C.coral2 : p.texto)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 18).padding(.vertical, 16)
                             .contentShape(Rectangle())
@@ -63,7 +64,7 @@ struct HojaOpciones: View {
                     .buttonStyle(EstiloPlano())
                 }
             }
-            .gel(24, Gels.neutra)
+            .gel(24, Gels.neutra(p))
             .padding(.horizontal, 12).padding(.bottom, 12)
             .transition(.move(edge: .bottom))
         }

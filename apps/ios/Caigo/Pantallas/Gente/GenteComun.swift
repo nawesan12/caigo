@@ -86,7 +86,7 @@ struct GenteHojaInvitar: View {
                 .fill(C.blancoCalido).ignoresSafeArea(edges: .bottom))
             .transition(.move(edge: .bottom))
         }
-        .environment(\.paleta, .clara)
+        .temaFijo(.clara)
         .zIndex(30)
         .task { mios = (try? await c.api.mios("organizo").planes) ?? [] }
     }

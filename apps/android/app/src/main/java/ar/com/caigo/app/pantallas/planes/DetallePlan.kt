@@ -631,14 +631,15 @@ private fun Fila(icono: String, color: Color, contenido: @Composable () -> Unit)
 private fun TarjetaEntrada(p: Plan) {
     val precio = p.precioCentavos ?: return
     val cargo = if (p.cargoCentavos > 0) p.cargoCentavos else Plata.cargo(precio.toLong())
+    val pal = LocalPaleta.current
     Row(
-        Modifier.fillMaxWidth().gel(22.dp, Gels.neutra).padding(16.dp),
+        Modifier.fillMaxWidth().gel(22.dp, Gels.neutra(pal)).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            T(if (p.cobro == "sena") "SEÑA ${p.senaPct ?: 0}%" else "ENTRADA", 11f, 800, C.texto2, espaciado = px(.8f, 11f))
-            T(Plata.pesos(precio.toLong()), 26f, 800, C.carbon, alto = 1f)
-            T("+ ${Plata.pesos(cargo)} de servicio" + if (p.incluye.isEmpty()) "" else " · ${p.incluye}", 12f, 600, C.texto2)
+            T(if (p.cobro == "sena") "SEÑA ${p.senaPct ?: 0}%" else "ENTRADA", 11f, 800, pal.texto2, espaciado = px(.8f, 11f))
+            T(Plata.pesos(precio.toLong()), 26f, 800, pal.texto, alto = 1f)
+            T("+ ${Plata.pesos(cargo)} de servicio" + if (p.incluye.isEmpty()) "" else " · ${p.incluye}", 12f, 600, pal.texto2)
         }
         Box(Modifier.background(C.lima, RoundedCornerShape(12.dp)).padding(horizontal = 11.dp, vertical = 7.dp)) { T("Lugar aliado", 12f, 800, C.carbon, unRenglon = true) }
     }

@@ -96,7 +96,7 @@ import ar.com.caigo.app.tema.PaletaClara
 @Composable
 fun PerfilPersona(ir: Ir, id: String, desde: String) {
     // Siempre con la paleta clara (como `.environment(\.paleta, .clara)` de iOS).
-    CompositionLocalProvider(LocalPaleta provides PaletaClara) { PerfilPersonaClaro(ir, id, desde) }
+    ar.com.caigo.app.tema.PaletaFija(PaletaClara) { PerfilPersonaClaro(ir, id, desde) }
 }
 
 @OptIn(ExperimentalLayoutApi::class)

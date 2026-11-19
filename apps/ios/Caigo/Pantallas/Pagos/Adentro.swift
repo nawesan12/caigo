@@ -17,7 +17,7 @@ struct VistaAdentro: View {
         Pantalla(fondo: AnyView(ZStack { C.lima; VistaFondo(fondo: fondoAdentro); Grano() })) {
             if let r = c.ultimoTap { contenido(r) } else { Color.clear.onAppear { if alTerminar == nil { ir.atras() } } }
         }
-        .environment(\.paleta, .clara)
+        .temaFijo(.clara)
     }
 
     private func contenido(_ r: ResultadoTap) -> some View {

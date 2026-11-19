@@ -397,7 +397,7 @@ fun Repetimos(ir: Ir, planId: String) {
                                     T("Tu gente", 13f, 800, C.carbon)
                                 }
                             } else {
-                                BotonIcono(I.mas, { volveria[g.id] = true }, Modifier.semantics { contentDescription = "Sumar a tu gente" }, tam = 40.dp, radio = 14.dp, iconoTam = 16.dp, trazo = 3f, color = C.violeta,
+                                BotonIcono(I.mas, { volveria[g.id] = true }, Modifier.semantics { contentDescription = "Sumar a tu gente" }, tam = 40.dp, radio = 14.dp, iconoTam = 16.dp, trazo = 3f, color = if (p.oscuro) C.lima else C.violeta,
                                     gel = if (p.oscuro) Gels.chipOscuro else Gels.chipClaro)
                             }
                         }

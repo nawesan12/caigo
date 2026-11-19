@@ -45,7 +45,7 @@ struct PerfilPersona: View {
                 }
             }
         }
-        .environment(\.paleta, .clara)
+        .temaFijo(.clara)
         .animation(.easeOut(duration: 0.25), value: opciones)
         .animation(.easeOut(duration: 0.25), value: reportando)
         .animation(.easeOut(duration: 0.25), value: invitando)

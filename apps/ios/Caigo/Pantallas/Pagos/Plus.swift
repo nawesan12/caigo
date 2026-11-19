@@ -78,7 +78,7 @@ struct VistaPlus: View {
                 paywall
             }
         }
-        .environment(\.paleta, .oscura)
+        .temaFijo(.oscura)
         .task { await cargar() }
         .task {
             // Contador en vivo hasta que se renuevan las sumadas.

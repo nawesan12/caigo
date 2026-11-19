@@ -146,7 +146,7 @@ struct Tap: View {
             }
             .padding(.horizontal, 24).padding(.top, 14).padding(.bottom, 30)
         }
-        .environment(\.paleta, .oscura)
+        .temaFijo(.oscura)
         .task {
             lector.alLeer = { url in Task { await leido(url.absoluteString) } }
             lector.alFallar = { m in c.avisos.error(m) }

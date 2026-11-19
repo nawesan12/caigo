@@ -90,9 +90,9 @@ struct VistaPases: View {
         HStack(spacing: 12) {
             Foto(url: fotos[e.planId]).frame(width: 62, height: 62).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             VStack(alignment: .leading, spacing: 3) {
-                T(e.titulo, 15, 800, C.carbon, renglones: 2)
+                T(e.titulo, 15, 800, p.texto, renglones: 2)
                 let detalle = e.modo == "sena" ? "Señada" : (e.cantidad > 1 ? "\(e.cantidad) entradas" : "1 entrada")
-                T("\(Fecha.cuando(e.empiezaEn)) · \(detalle)", 12, 600, C.texto2, unRenglon: true)
+                T("\(Fecha.cuando(e.empiezaEn)) · \(detalle)", 12, 600, p.texto2, unRenglon: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if PagosWallet.disponible {
@@ -103,13 +103,13 @@ struct VistaPases: View {
                         if bajando == e.id { Puntitos(color: C.blanco, tam: 5) } else { T("+ Wallet", 11, 800, C.blanco, alinear: .center, unRenglon: true) }
                     }
                     .padding(.horizontal, 11).padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(C.carbon))
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(p.oscuro ? C.oscuro1 : C.carbon))
                 }
                 .buttonStyle(EstiloToque())
             }
         }
         .padding(12)
-        .gel(22, Gels.neutra)
+        .gel(22, Gels.neutra(p))
         .tocable { ir.entrada(e.id, plan: e.planId) }
     }
 

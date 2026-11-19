@@ -618,24 +618,27 @@ internal fun BoxScope.AvisoDeshacer(ocultos: PlanesOcultos, abajo: Dp) {
 /** Beneficio por check-in ("Café y medialuna de regalo"). */
 @Composable
 internal fun PlanesBeneficio(texto: String, desbloqueado: Boolean) {
+    // Desbloqueado va en lima (igual en claro y oscuro); bloqueado, con la superficie de la paleta.
+    val p = LocalPaleta.current
+    val oscuro = p.oscuro && !desbloqueado
     Row(
         Modifier.fillMaxWidth()
             .gel(
                 22.dp,
                 if (desbloqueado) Gel(vertical(C.lima0, C.lima), listOf(interna(2f, 0f, rgba(255, 255, 255, .7f)), externa(3f, 0f, C.limaBase)))
-                else Gel(vertical(C.lavanda, C.lavanda), emptyList()),
+                else Gel(vertical(p.superficie, p.superficie), emptyList()),
             )
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(Modifier.size(44.dp).background(if (desbloqueado) C.carbon else C.blanco, RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
-            Icono(I.regalo, 22.dp, if (desbloqueado) C.lima else C.violetaTexto, 2.2f)
+        Box(Modifier.size(44.dp).background(if (desbloqueado) C.carbon else if (oscuro) C.oscuro4 else C.blanco, RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
+            Icono(I.regalo, 22.dp, if (desbloqueado || oscuro) C.lima else C.violetaTexto, 2.2f)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            T(texto, 14f, 800, C.carbon)
+            T(texto, 14f, 800, if (desbloqueado) C.carbon else p.texto)
             T(
                 if (desbloqueado) "Desbloqueado · mostralo en la caja" else "Se desbloquea cuando hacés check-in en el lugar", 12f, 600,
-                if (desbloqueado) C.limaTexto else C.texto2,
+                if (desbloqueado) C.limaTexto else p.texto2,
             )
         }
     }

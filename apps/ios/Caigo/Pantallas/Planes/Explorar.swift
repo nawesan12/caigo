@@ -228,7 +228,7 @@ struct Explorar: View {
             if !zonas.isEmpty {
                 separador
                 VStack(alignment: .leading, spacing: 10) {
-                    T("Zona", 14, 700, C.carbon, unRenglon: true)
+                    T("Zona", 14, 700, p.texto, unRenglon: true)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             Chip(texto: "Todas", on: zona == nil, tam: 13, padH: 12, padV: 8, radio: 13) { zona = nil }
@@ -252,15 +252,15 @@ struct Explorar: View {
             separador
             filaInterruptor("Solo gratis", $gratis)
         }
-        .gel(22, Gels.neutra)
+        .gel(22, Gels.neutra(p))
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
-    private var separador: some View { Rectangle().fill(C.lavanda).frame(height: 1) }
+    private var separador: some View { Rectangle().fill(p.separador).frame(height: 1) }
 
     private func titulo(_ t: String, plus: Bool = true) -> some View {
         HStack(spacing: 8) {
-            T(t, 14, 700, C.carbon, unRenglon: true)
+            T(t, 14, 700, p.texto, unRenglon: true)
             if plus && !conPlus { PlanesChipPlus() }
         }
     }

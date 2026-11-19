@@ -72,7 +72,7 @@ fun Recibidos(ir: Ir, modo: String, pestana: Int) {
     val nI = invitaciones.dato?.invitaciones?.size ?: 0
     val bloqueada = if (tab == 0) recibidos.dato?.bloqueada == true else invitaciones.dato?.bloqueada == true
 
-    CompositionLocalProvider(LocalPaleta provides PaletaClara) {
+    ar.com.caigo.app.tema.PaletaFija(PaletaClara) {
     Pantalla(oscuro = false) { arriba, abajo ->
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.padding(top = arriba + 10.dp, start = 20.dp, end = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {

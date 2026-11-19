@@ -511,22 +511,25 @@ struct AvisoDeshacer: View {
 struct PlanesBeneficio: View {
     var texto: String
     var desbloqueado: Bool
+    @Environment(\.paleta) private var p
     var body: some View {
+        // Desbloqueado va en lima (igual en claro y oscuro); bloqueado, con la superficie de la paleta.
+        let oscuro = p.oscuro && !desbloqueado
         HStack(spacing: 12) {
-            Icono(I.regalo, 22, desbloqueado ? C.lima : C.violetaTexto, trazo: 2.2)
+            Icono(I.regalo, 22, desbloqueado ? C.lima : (oscuro ? C.lima : C.violetaTexto), trazo: 2.2)
                 .frame(width: 44, height: 44)
-                .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(desbloqueado ? C.carbon : C.blanco))
+                .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(desbloqueado ? C.carbon : (oscuro ? C.oscuro4 : C.blanco)))
             VStack(alignment: .leading, spacing: 2) {
-                T(texto, 14, 800, C.carbon)
+                T(texto, 14, 800, desbloqueado ? C.carbon : p.texto)
                 T(desbloqueado ? "Desbloqueado · mostralo en la caja" : "Se desbloquea cuando hacés check-in en el lugar", 12, 600,
-                  desbloqueado ? C.limaTexto : C.texto2)
+                  desbloqueado ? C.limaTexto : p.texto2)
             }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .gel(22, desbloqueado
              ? Gel(fondo: .vertical(C.lima0, C.lima), sombras: [interna(2, 0, rgba(255, 255, 255, 0.7)), externa(3, 0, C.limaBase)])
-             : Gel(fondo: .liso(C.lavanda)))
+             : Gel(fondo: .liso(p.superficie)))
     }
 }
 

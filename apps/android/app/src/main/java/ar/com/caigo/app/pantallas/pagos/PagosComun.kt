@@ -81,16 +81,7 @@ internal fun Context.pagosActividad(): Activity? = when (this) {
  * `.environment(\.paleta, …)` de cada pantalla).
  */
 @Composable
-internal fun PagosBarraEstado(clara: Boolean) {
-    val vista = LocalView.current
-    val oscuroSistema = LocalPaleta.current.oscuro
-    DisposableEffect(clara) {
-        val ventana = vista.context.pagosActividad()?.window
-        val ctl = ventana?.let { WindowCompat.getInsetsController(it, vista) }
-        ctl?.isAppearanceLightStatusBars = !clara
-        onDispose { ctl?.isAppearanceLightStatusBars = !oscuroSistema }
-    }
-}
+internal fun PagosBarraEstado(clara: Boolean) = ar.com.caigo.app.tema.BarraEstado.Pedir(fondoOscuro = clara)
 
 /** Lima gel de los Pases NFC y el paywall (base `#7FA82E` y brillo lima). */
 internal val pagosGelLimaNfc = Gel(

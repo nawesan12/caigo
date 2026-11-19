@@ -76,7 +76,7 @@ struct VistaRecibidos: View {
                 }
             }
         }
-        .environment(\.paleta, .clara)
+        .temaFijo(.clara)
         .task {
             tab = pestana
             await cargar()

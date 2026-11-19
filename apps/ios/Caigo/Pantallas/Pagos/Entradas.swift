@@ -49,7 +49,7 @@ struct Checkout: View {
                 if let plan { Task { await pagar(plan, confirma: conf) } }
             }
         }
-        .environment(\.paleta, .clara)
+        .temaFijo(.clara)
         .task {
             q = min(max(cantidad, 1), 10)
             // El detalle deja elegido "Pagar todo" o "Señar" (como el Prototipo).
@@ -330,7 +330,7 @@ struct VistaEntrada: View {
                 }
             }
         }
-        .environment(\.paleta, .clara)
+        .temaFijo(.clara)
         .task {
             do { entrada = try await c.api.pases().entradas.first { $0.id == entradaId } } catch { self.error = mensajeDe(error) }
             cargando = false
@@ -413,7 +413,7 @@ struct QrEntrada: View {
             }
             .padding(.horizontal, 22).padding(.top, 8).padding(.bottom, 36)
         }
-        .environment(\.paleta, .clara)
+        .temaFijo(.clara)
         .task {
             do { entrada = try await c.api.pases().entradas.first { $0.id == entradaId } } catch { self.error = mensajeDe(error) }
             cargando = false

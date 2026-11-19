@@ -380,9 +380,9 @@ private struct ContenidoDetalle: View {
             let cargo = p.cargoCentavos > 0 ? p.cargoCentavos : Plata.cargo(precio)
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    T(p.cobro == "sena" ? "SEÑA \(p.senaPct ?? 0)%" : "ENTRADA", 11, 800, C.texto2, espaciado: 0.8)
-                    T(Plata.pesos(precio), 26, 800, C.carbon, alto: 1)
-                    T("+ \(Plata.pesos(cargo)) de servicio" + (p.incluye.isEmpty ? "" : " · \(p.incluye)"), 12, 600, C.texto2)
+                    T(p.cobro == "sena" ? "SEÑA \(p.senaPct ?? 0)%" : "ENTRADA", 11, 800, pal.texto2, espaciado: 0.8)
+                    T(Plata.pesos(precio), 26, 800, pal.texto, alto: 1)
+                    T("+ \(Plata.pesos(cargo)) de servicio" + (p.incluye.isEmpty ? "" : " · \(p.incluye)"), 12, 600, pal.texto2)
                 }
                 Spacer(minLength: 0)
                 T("Lugar aliado", 12, 800, C.carbon, unRenglon: true)
@@ -390,7 +390,7 @@ private struct ContenidoDetalle: View {
                     .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(C.lima))
             }
             .padding(16)
-            .gel(22, Gels.neutra)
+            .gel(22, Gels.neutra(pal))
         }
     }
 

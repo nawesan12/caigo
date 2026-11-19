@@ -127,6 +127,14 @@ extension EnvironmentValues {
     }
 }
 
+extension View {
+    /// Una pantalla que va siempre clara (o siempre oscura): la paleta y el esquema juntos, así los controles
+    /// del sistema (teclado, menús, alertas, campos) siguen a la pantalla y no al teléfono.
+    func temaFijo(_ p: Paleta) -> some View {
+        environment(\.paleta, p).environment(\.colorScheme, p.oscuro ? .dark : .light)
+    }
+}
+
 /// Pone la paleta según el modo del sistema (claro u oscuro).
 struct ConPaleta: ViewModifier {
     @Environment(\.colorScheme) private var esquema
