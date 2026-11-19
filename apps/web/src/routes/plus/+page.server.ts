@@ -13,10 +13,11 @@ type Recibidos = { personas: { id: string; foto?: string }[]; bloqueada: boolean
 
 export const load: PageServerLoad = async (event) => {
 	const vuelta = event.url.searchParams.get('vuelta') === '1';
+	const ua = event.request.headers.get('user-agent') ?? '';
 	// Plus es para cuentas verificadas (teléfono, selfie y DNI): si falta algo, a terminarlo. Si la
 	// sesión venció, sigue como anónimo.
 	await exigirVerificada(event, '/plus');
-	if (!event.locals.token) return { plus: null, vuelta, conSesion: false, teSumaron: [] };
+	if (!event.locals.token) return { plus: null, vuelta, conSesion: false, teSumaron: [], ua };
 	try {
 		const [plus, recibidos] = await Promise.all([
 			conSesion<Plus>(event, 'GET', '/v1/plus'),
@@ -24,15 +25,26 @@ export const load: PageServerLoad = async (event) => {
 			conSesion<Recibidos>(event, 'GET', '/v1/gente/recibidos?modo=gente').catch(() => null)
 		]);
 		const teSumaron = (recibidos?.personas ?? []).map((p) => p.foto ?? '');
-		return { plus, vuelta, conSesion: true, teSumaron };
+		return { plus, vuelta, conSesion: true, teSumaron, ua };
 	} catch (e) {
 		if (!(e instanceof ErrorApi)) throw e;
-		return { plus: null, vuelta, conSesion: true, teSumaron: [], error: mensajeDe(e) };
+		return { plus: null, vuelta, conSesion: true, teSumaron: [], ua, error: mensajeDe(e) };
 	}
 };
 
 export const actions: Actions = {
-	default: async (event) => {
+	// «Dar de baja» (Mercado Pago): deja de renovarse; lo pago sigue hasta que vence.
+	baja: async (event) => {
+		if (!event.locals.token) aIngresar(event, '/plus');
+		try {
+			await conSesion(event, 'DELETE', '/v1/plus/mercadopago');
+		} catch (e) {
+			if (!(e instanceof ErrorApi)) throw e;
+			return fail(400, { error: mensajeDe(e), plan: 'mes' });
+		}
+		return { baja: true };
+	},
+	comprar: async (event) => {
 		const plan = String((await event.request.formData()).get('plan') ?? '');
 		if (!['semana', 'mes', 'temporada'].includes(plan))
 			return fail(400, { error: 'Elegí un plan.', plan: 'mes' });

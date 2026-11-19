@@ -234,7 +234,8 @@ struct Ahora: View {
 
     @ViewBuilder
     private var lista: some View {
-        let planes = self.planes.map { ocultos.visibles($0) }
+        // El plan de hoy va fijo arriba (HoyTarjeta): no se repite en la lista.
+        let planes = self.planes.map { ocultos.visibles($0).filter { $0.id != hoy?.id } }
         if let planes, planes.isEmpty, !cargando {
             ScrollView { PlanesVacioAhora().padding(.bottom, altoTabBar) }
         } else {

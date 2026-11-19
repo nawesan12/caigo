@@ -157,6 +157,19 @@ public enum Dia {
         return ahora >= t.addingTimeInterval(-3 * 3600) && ahora < t.addingTimeInterval(Double(p.duracionMin) * 60 + 2 * 3600)
     }
 
+    /// «Llegué» (el check-in) anda desde media hora antes hasta una hora después del final, como la API
+    /// (planes/checkin.go: checkinAntes y checkinDespues). Antes, el botón dice desde qué hora.
+    public static func puedeLlegar(_ p: Plan, ahora: Date = Date()) -> Bool {
+        guard let t = Fecha.parse(p.empiezaEn) else { return false }
+        return ahora >= t.addingTimeInterval(-30 * 60) && ahora <= t.addingTimeInterval(Double(p.duracionMin) * 60 + 3600)
+    }
+
+    /// «Check-in desde 20:30» (cuando todavía es temprano para «Llegué»).
+    public static func llegarDesde(_ p: Plan) -> String {
+        guard let t = Fecha.parse(p.empiezaEn) else { return "Llegué" }
+        return "Check-in desde \(Fecha.hora(t.addingTimeInterval(-30 * 60)))"
+    }
+
     /// «¿Todo bien?» se activa hasta el final del plan (como la API).
     public static func puedeActivarTodoBien(_ p: Plan, ahora: Date = Date()) -> Bool {
         guard let t = Fecha.parse(p.empiezaEn) else { return false }

@@ -3,6 +3,8 @@ import {
 	avisaA,
 	caritasTexto,
 	cuentaRegresiva,
+	llegarDesde,
+	puedeLlegar,
 	diaCorto,
 	enElDia,
 	esTelefono,
@@ -73,5 +75,16 @@ describe('el día del plan', () => {
 		expect(esTelefono('mama@caigo.com.ar')).toBe(false);
 		expect(whatsapp('223 555 0101', 'hola')).toBe('https://wa.me/5492235550101?text=hola');
 		expect(whatsapp('+54 9 223 555-0101', 'hola')).toBe('https://wa.me/5492235550101?text=hola');
+	});
+});
+
+describe('puedeLlegar', () => {
+	it('desde media hora antes hasta una hora después del final, como la API', () => {
+		const p = { empiezaEn: '2026-11-20T23:30:00Z', duracionMin: 90 };
+		expect(puedeLlegar(p, new Date('2026-11-20T22:59:00Z'))).toBe(false);
+		expect(puedeLlegar(p, new Date('2026-11-20T23:00:00Z'))).toBe(true);
+		expect(puedeLlegar(p, new Date('2026-11-21T02:00:00Z'))).toBe(true);
+		expect(puedeLlegar(p, new Date('2026-11-21T02:01:00Z'))).toBe(false);
+		expect(llegarDesde(p)).toBe('Check-in desde 20:00');
 	});
 });

@@ -440,3 +440,15 @@ import Testing
         #expect(PlusTabla.leer("✓") == "sí" && PlusTabla.leer("—") == "no")
     }
 }
+
+@Suite struct LlegarTests {
+    @Test func ventanaDelCheckin() throws {
+        let p = try JSON.leer(Plan.self, Data(#"{"id":"p","empiezaEn":"2026-11-20T23:30:00Z","duracionMin":90,"organizador":{"nombre":"Lu"}}"#.utf8))
+        let f = ISO8601DateFormatter()
+        #expect(!Dia.puedeLlegar(p, ahora: f.date(from: "2026-11-20T22:59:00Z")!))
+        #expect(Dia.puedeLlegar(p, ahora: f.date(from: "2026-11-20T23:00:00Z")!))
+        #expect(Dia.puedeLlegar(p, ahora: f.date(from: "2026-11-21T02:00:00Z")!))
+        #expect(!Dia.puedeLlegar(p, ahora: f.date(from: "2026-11-21T02:01:00Z")!))
+        #expect(Dia.llegarDesde(p) == "Check-in desde 20:00")
+    }
+}

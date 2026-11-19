@@ -208,7 +208,7 @@ fun Ahora(ir: Ir, modoInicial: String?) {
             if (modoActual == "planes") Chips(categoria, { categoria = it }, chicas, { chicas = it })
             if (modoActual == "planes") Box(Modifier.weight(1f)) {
                 Lista(
-                    ir, planes?.let { ocultos.visibles(it) }, cargando, error, invitaciones, semana, ocultos,
+                    ir, planes?.let { ps -> ocultos.visibles(ps).filter { it.id != hoy?.id } }, cargando, error, invitaciones, semana, ocultos,
                     alMapa = { mapa = true }, recargar = { vuelta++ }, alDecidir = { decidiendoIds = it.map { p -> p.id } },
                     hoy = hoy, alTodoBien = { hojaHoy = true },
                 )

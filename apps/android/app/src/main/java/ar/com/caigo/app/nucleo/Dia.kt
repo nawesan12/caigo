@@ -127,6 +127,18 @@ object Dia {
         return !ahora.isBefore(t.minusHours(3)) && ahora.isBefore(t.plusMinutes(p.duracionMin.toLong()).plusHours(2))
     }
 
+    /**
+     * «Llegué» (el check-in) anda desde media hora antes hasta una hora después del final, como la API
+     * (planes/checkin.go: checkinAntes y checkinDespues). Antes, el botón dice desde qué hora.
+     */
+    fun puedeLlegar(p: Plan, ahora: ZonedDateTime = ZonedDateTime.now(ZonaAR)): Boolean {
+        val t = Fecha.parse(p.empiezaEn) ?: return false
+        return !ahora.isBefore(t.minusMinutes(30)) && !ahora.isAfter(t.plusMinutes(p.duracionMin.toLong()).plusHours(1))
+    }
+
+    /** «Check-in desde 20:30» (cuando todavía es temprano para «Llegué»). */
+    fun llegarDesde(p: Plan): String = Fecha.parse(p.empiezaEn)?.let { "Check-in desde ${Fecha.hora(it.minusMinutes(30))}" } ?: "Llegué"
+
     /** «¿Todo bien?» se activa hasta el final del plan (como la API). */
     fun puedeActivarTodoBien(p: Plan, ahora: ZonedDateTime = ZonedDateTime.now(ZonaAR)): Boolean {
         val t = Fecha.parse(p.empiezaEn) ?: return false

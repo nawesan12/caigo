@@ -314,13 +314,13 @@
 				<div class="paso-v">
 					<span class="num">1</span>
 					<div class="paso-t">
-						<b>Selfie con prueba de vida</b><span>Confirma que sos una persona real</span>
+						<b>Selfie con prueba de vida</b><span>Confirmá que sos una persona real</span>
 					</div>
 				</div>
 				<div class="paso-v">
 					<span class="num">2</span>
 					<div class="paso-t">
-						<b>DNI · badge Verificado</b><span>Frente y dorso, sin reflejos</span>
+						<b>DNI · sello de verificada</b><span>Frente y dorso, sin reflejos</span>
 					</div>
 				</div>
 			</div>

@@ -7,6 +7,8 @@
 	import { ldMigas } from '#lib/seo.ts';
 	import Icono from '#lib/ui/Icono.svelte';
 	import { pesosDeCentavos } from '#lib/precios.ts';
+	import { filasPlus, SEGURIDAD_GRATIS, textoFino } from '#lib/plus.ts';
+	import { abrirEnLaApp, sistemaDe } from '#lib/abrir-app.ts';
 
 	/*
 	 * Caigo Plus por Mercado Pago: el paywall del Prototipo (overlay "paywall") y su pantalla "Ya sos
@@ -22,7 +24,7 @@
 	const SEMANAS: Record<string, number> = { semana: 1, mes: 4, temporada: 13 };
 	const TEXTOS: Record<string, { l: string; d: string; tag: string }> = {
 		semana: { l: 'Semana', d: 'Para probar un finde\u00a0largo', tag: '' },
-		mes: { l: 'Mes', d: '7 días gratis para\u00a0arrancar', tag: 'Más elegido' },
+		mes: { l: 'Mes', d: '', tag: 'Más elegido' },
 		temporada: { l: 'Temporada', d: 'Todo el verano, 3\u00a0meses', tag: '' }
 	};
 	const centavos = (p: string) =>
@@ -40,6 +42,12 @@
 			return {
 				plan,
 				...TEXTOS[plan],
+				d:
+					plan === 'mes'
+						? diasGratis > 0
+							? `${diasGratis} días gratis para\u00a0arrancar`
+							: ''
+						: TEXTOS[plan].d,
 				l: data.plus?.planes.find((x) => x.plan === plan)?.nombre || TEXTOS[plan].l,
 				per:
 					plan === 'semana'
@@ -54,15 +62,7 @@
 	const limite = $derived(estado?.limite ?? 3);
 	// Con Plus la API da 5 "Me encanta"; sin Plus da el límite gratis (1).
 	const encantasGratis = $derived(estado && !estado.activo ? (estado.limiteEncantas ?? 1) : 1);
-	const FILAS = $derived([
-		['Sumadas en Gente', `${limite} por día`, 'Sin límite'],
-		['Ver quién te sumó', '—', '✓'],
-		['Me encanta en Citas', `${encantasGratis} por día`, '5 por día'],
-		['Tu plan destacado', '—', '1 por semana'],
-		['Edad y cupo', '—', '✓'],
-		// Plus vende comodidad, nunca seguridad: verificados y «Sólo chicas» son para todos.
-		['Sólo chicas', 'Siempre', 'Siempre']
-	]);
+	const FILAS = $derived(filasPlus(limite, encantasGratis));
 	const sinSumadas = $derived(!!estado && estado.sumadasHoy >= estado.limite);
 
 	/* Reloj hasta la medianoche de Argentina (reiniciaEn de la API), en vivo. */
@@ -81,14 +81,18 @@
 
 	let elegido = $state('mes');
 	let enviando = $state(false);
-	const cta = $derived(elegido === 'mes' ? 'Probar 7 días gratis' : `Pagar ${precio(elegido)}`);
-	const letra = $derived(
-		(elegido === 'mes'
-			? `Gratis 7 días, después ${precio('mes')} por mes.`
-			: elegido === 'semana'
-				? `Pagás ${precio('semana')} hoy.`
-				: `Pagás ${precio('temporada')} hoy por 3 meses.`) +
-			' Cancelás cuando quieras · Mercado Pago'
+	// Los 7 días gratis, una sola vez (la API lo sabe: sin sesión, se muestran).
+	const diasGratis = $derived(estado?.pruebaDisponible === false ? 0 : 7);
+	const cta = $derived(
+		elegido === 'mes' && diasGratis > 0
+			? `Probar ${diasGratis} días gratis`
+			: `Pagar ${precio(elegido)}`
+	);
+	const letra = $derived(textoFino(elegido, precio(elegido), diasGratis, 'Mercado Pago'));
+	let confirmarBaja = $state(false);
+	// «Te sumaron» y Gente están en la app: el teaser lleva ahí (en la compu, a las tiendas).
+	const enLaApp = $derived(
+		abrirEnLaApp(`${PUBLIC_SITIO.replace(/\/+$/, '')}/app`, sistemaDe(data.ua))
 	);
 	const activo = $derived(!!estado?.activo);
 
@@ -168,8 +172,8 @@
 			</div>
 			<h1 class="ya">Ya sos Plus</h1>
 			<p>
-				Sumá a toda la gente que quieras. Ya podés ver quién te sumó y tu próximo plan sale
-				destacado.
+				Sumá a toda la gente que quieras y tu próximo plan sale destacado. Quién te sumó lo ves en
+				la&nbsp;app.
 			</p>
 			{#if vence}
 				<p class="aviso">
@@ -182,7 +186,37 @@
 			{/if}
 			{#if regalo}<p class="aviso">{regalo}</p>{/if}
 			<a class="gel gel-lima cta" href="/app">Listo</a>
-			{#if estado?.renueva && comoCancelar}
+			{#if estado?.renueva && estado?.origen === 'mercadopago'}
+				<!-- La baja en el mismo canal en que se contrató (Res. SCI 316/2018): un botón, con confirmación. -->
+				{#if confirmarBaja}
+					<form
+						method="POST"
+						action="?/baja"
+						class="baja"
+						use:enhance={() => {
+							enviando = true;
+							return async ({ update }) => {
+								await update();
+								enviando = false;
+								confirmarBaja = false;
+							};
+						}}
+					>
+						<p class="cancelar">
+							Deja de renovarse. Lo que ya pagaste sigue hasta el&nbsp;{vence}.
+						</p>
+						<button class="gel gel-blanco" disabled={enviando}>Sí, dar de baja</button>
+						<button type="button" class="link-claro" onclick={() => (confirmarBaja = false)}
+							>No, seguir con Plus</button
+						>
+					</form>
+				{:else}
+					<button type="button" class="link-claro" onclick={() => (confirmarBaja = true)}
+						>Dar de baja</button
+					>
+				{/if}
+				{#if form?.error}<p class="aviso" role="alert">{form.error}</p>{/if}
+			{:else if estado?.renueva && comoCancelar}
 				<p class="cancelar">
 					{comoCancelar}
 					<a href={enlaceCancelar} target="_blank" rel="noopener noreferrer">Cancelar Plus</a>
@@ -222,7 +256,7 @@
 			</div>
 
 			{#if data.teSumaron.length}
-				<a class="teaser" href="/app">
+				<a class="teaser" href={enLaApp}>
 					<span class="caras">
 						{#each data.teSumaron.slice(0, 4) as foto, i (i)}
 							<span class="cara"
@@ -236,7 +270,7 @@
 								? '1 persona te\u00a0sumó'
 								: `${data.teSumaron.length} personas te\u00a0sumaron`}</b
 						>
-						<span>Con Plus ves quiénes son</span>
+						<span>Con Plus ves quiénes son, en la app</span>
 					</span>
 					<span class="candado" aria-hidden="true"
 						><svg width="16" height="16" viewBox="0 0 24 24" fill="#FFFFFF"
@@ -266,10 +300,13 @@
 				{/each}
 			</div>
 
+			<p class="seguridad">{SEGURIDAD_GRATIS}</p>
+
 			<h2>Elegí tu plan</h2>
 			<form
 				id="comprar"
 				method="POST"
+				action="?/comprar"
 				use:enhance={() => {
 					enviando = true;
 					return async ({ update }) => {
@@ -309,11 +346,51 @@
 					: 'Entrar y ' + cta.toLowerCase()}
 			</button>
 			<span class="letra">{letra}</span>
+			<span class="legales"
+				><a href="/terminos">Términos</a><span aria-hidden="true">·</span><a href="/privacidad"
+					>Privacidad</a
+				></span
+			>
 		</div>
 	{/if}
 </div>
 
 <style>
+	.seguridad {
+		margin-top: -6px;
+		font-size: 12px;
+		font-weight: 600;
+		line-height: 1.45;
+		color: #d3cee2;
+		text-align: center;
+		text-wrap: pretty;
+	}
+	.legales {
+		display: flex;
+		justify-content: center;
+		gap: 6px;
+		font-size: 12px;
+		font-weight: 700;
+		color: #c9c4da;
+	}
+	.legales a {
+		color: inherit;
+		text-decoration: underline;
+		padding: 6px 2px;
+	}
+	.baja {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
+	}
+	.link-claro {
+		padding: 10px 14px;
+		font-size: 14px;
+		font-weight: 700;
+		color: #c9c4da;
+		text-decoration: underline;
+	}
 	.pw {
 		position: relative;
 		min-height: 100vh;

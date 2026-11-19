@@ -139,10 +139,10 @@ struct Verificacion: View {
             fila(!v.telefono.isEmpty, 1, "Teléfono", v.telefono.isEmpty ? "Te mandamos un código por mail" : telefonoLindo(v.telefono), primera: true) {
                 if v.telefono.isEmpty { ir.telefono() }
             }
-            fila(v.selfie, 2, "Selfie con prueba de vida", "Confirma que sos una persona real") {
+            fila(v.selfie, 2, "Selfie con prueba de vida", "Confirmá que sos una persona real") {
                 if !v.selfie { ir.selfie(volver: true) }
             }
-            fila(v.dni == "aprobada", 3, "DNI · badge Verificado", {
+            fila(v.dni == "aprobada", 3, "DNI · sello de verificada", {
                 switch v.dni {
                 case "aprobada": return "Tu perfil muestra el badge"
                 case "pendiente": return "Ya estamos revisando tu DNI."

@@ -181,6 +181,9 @@ private fun VistaPlus(ir: Ir, motivo: String) {
     fun precio(p: PlanPlus): String = productos[p.producto]?.let { faseCobro(it)?.formattedPrice } ?: Plata.pesos(p.centavos)
 
     fun comprar() {
+        // Lo de Plus (sumar, ver quién te sumó, «me encanta») es con otra gente: se pide el DNI antes de
+        // cobrar, nunca después. Restaurar una compra no lo pide.
+        if (!c.conDni(ir, "gente")) return
         val p = porClave[elegido] ?: return
         val prod = productos[p.producto]
         val oferta = prod?.let { Facturacion.oferta(it) }

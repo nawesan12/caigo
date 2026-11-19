@@ -113,14 +113,18 @@
 	<h2>7. Caigo Plus</h2>
 	<ul>
 		<li>
-			Caigo Plus es una suscripción opcional que suma sumadas ilimitadas, ver quién te sumó, más «me
-			encanta» en Citas, un plan destacado por semana y todos los filtros. El precio de cada plan
-			(semana, mes o temporada) se muestra antes de pagar.
+			Caigo Plus es una suscripción opcional que suma sumadas ilimitadas en Gente, ver quién te
+			sumó, más «me encanta» en Citas, un plan destacado por semana y los filtros de edad, cupo y
+			precio. Lo de seguridad es gratis para todos: que todos tengan el DNI verificado y el filtro
+			«Sólo chicas». El precio de cada plan (semana, mes o temporada) se muestra antes
+			de&nbsp;pagar. Los 7 días gratis del mes son una sola vez por persona.
 		</li>
 		<li>
 			Se renueva sola al final de cada período hasta que la canceles. Si la compraste en la app, se
 			cancela y se reembolsa según las reglas de la App Store o de Google Play; si la compraste en
-			caigo.com.ar, se cancela desde Mercado Pago o&nbsp;escribiéndonos.
+			caigo.com.ar, se cancela con «Dar de baja» en caigo.com.ar/plus, desde Mercado Pago o
+			escribiéndonos. Lo que ya pagaste sigue hasta el final del período. Si borrás tu cuenta, la
+			suscripción de Mercado Pago se cancela con&nbsp;ella.
 		</li>
 	</ul>
 

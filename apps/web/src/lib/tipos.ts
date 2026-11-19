@@ -312,6 +312,8 @@ export type EstadoPlus = {
 	/** Semana de regalo de «Traé a alguien» activa además de la suscripción, y las guardadas. */
 	regaloHasta?: string;
 	regalosGuardados?: number;
+	/** Si todavía puede usar los 7 días gratis del mes por Mercado Pago (una sola vez). */
+	pruebaDisponible?: boolean;
 };
 
 export type Yo = {
@@ -321,6 +323,8 @@ export type Yo = {
 	zona: string;
 	ciudad: string;
 	intereses: string[];
+	/** Lo que busca (planes, gente, completar, citas): Citas abre ese modo en Ahora. */
+	intenciones?: string[];
 	fotos: string[];
 	selfie: boolean;
 	verificada: boolean;

@@ -11,7 +11,9 @@
 		cuentaRegresiva,
 		esTelefono,
 		linkUbicacion,
+		llegarDesde,
 		puedeActivarTodoBien,
+		puedeLlegar,
 		whatsapp
 	} from '#lib/dia.ts';
 	import { partes } from '#lib/fechas.ts';
@@ -199,12 +201,18 @@
 			>
 				<input type="hidden" name="lat" />
 				<input type="hidden" name="lng" />
+				<!-- Antes de la media hora previa la API no deja: el botón dice desde cuándo. -->
 				<button
 					type="button"
 					class="gel gel-lima llegue"
-					disabled={enviando === 'llegue'}
+					disabled={enviando === 'llegue' || !puedeLlegar(p, ahora)}
 					onclick={llegar}
-					><Icono nombre="check" tam={20} color="#24212D" trazo={3.4} />Llegué</button
+					>{#if puedeLlegar(p, ahora)}<Icono
+							nombre="check"
+							tam={20}
+							color="#24212D"
+							trazo={3.4}
+						/>Llegué{:else}{llegarDesde(p)}{/if}</button
 				>
 			</form>
 		{/if}

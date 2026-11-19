@@ -12,6 +12,12 @@ export const load: PageServerLoad = async (event) => {
 	// «Sólo chicas» (planes «Solo mujeres»): seguridad, gratis para todos.
 	const chicas = event.url.searchParams.get('chicas') === '1';
 	const { yo } = await event.parent();
+	// Planes · Gente · Citas (la cabecera de Ahora, como en las apps). Citas, sólo con esa intención.
+	const m = event.url.searchParams.get('modo') ?? '';
+	const modo =
+		m === 'gente' || (m === 'citas' && yo?.intenciones?.includes('citas')) ? m : 'planes';
+	if (modo !== 'planes')
+		return { planes: [], aviso: '', categoria, chicas, hoy: null, semana: null, modo };
 	const q = conUbicacion(event, { categoria, chicas: chicas ? '1' : '' }, yo?.ciudad);
 	const { planes, aviso } = await planesQuizas(
 		event,
@@ -30,6 +36,7 @@ export const load: PageServerLoad = async (event) => {
 		categoria,
 		chicas,
 		hoy,
-		semana: semana && semana.total >= 5 ? semana : null
+		semana: semana && semana.total >= 5 ? semana : null,
+		modo
 	};
 };

@@ -191,7 +191,7 @@
 								class="chip"
 								class:sel={data.fecha === fe.valor}
 								href={url({ fecha: data.fecha === fe.valor ? '' : fe.valor, dia: '' })}
-								data-sveltekit-noscroll>{fe.etiqueta}</a
+								data-sveltekit-reset="false">{fe.etiqueta}</a
 							>
 						{/each}
 						<label class="chip" class:sel={!!elegirDia}>
@@ -216,7 +216,7 @@
 								class="chip"
 								class:sel={data.zona === z}
 								href={url({ zona: data.zona === z ? '' : z })}
-								data-sveltekit-noscroll>{z}</a
+								data-sveltekit-reset="false">{z}</a
 							>
 						{/each}
 					</div>
@@ -226,7 +226,7 @@
 							class="chip"
 							class:sel={data.chicas}
 							href={url({ chicas: data.chicas ? '' : '1' })}
-							data-sveltekit-noscroll>Sólo chicas</a
+							data-sveltekit-reset="false">Sólo chicas</a
 						>
 					</div>
 					<span class="overline">CUPO</span>
@@ -236,7 +236,7 @@
 								class="chip"
 								class:sel={data.faltan === cu.valor}
 								href={url({ faltan: data.faltan === cu.valor ? '' : cu.valor })}
-								data-sveltekit-noscroll>{cu.etiqueta}<span class="plus">Plus</span></a
+								data-sveltekit-reset="false">{cu.etiqueta}<span class="plus">Plus</span></a
 							>
 						{/each}
 					</div>
@@ -244,7 +244,7 @@
 						<a
 							class="limpiar"
 							href={url({ fecha: '', zona: '', faltan: '', verificados: '', chicas: '' })}
-							data-sveltekit-noscroll>Sacar los filtros</a
+							data-sveltekit-reset="false">Sacar los filtros</a
 						>
 					{/if}
 				</div>
@@ -257,7 +257,7 @@
 					class="tile"
 					class:on={data.categoria === t.valor}
 					href={url({ categoria: data.categoria === t.valor ? '' : t.valor })}
-					data-sveltekit-noscroll
+					data-sveltekit-reset="false"
 					aria-current={data.categoria === t.valor ? 'true' : undefined}
 				>
 					<img src={t.foto} alt="" loading="lazy" />
@@ -272,7 +272,7 @@
 					class="dia"
 					class:on={data.fecha ? data.diasFecha.includes(d.valor) : d.valor === elegido.valor}
 					href={url({ dia: d.valor, fecha: '' })}
-					data-sveltekit-noscroll
+					data-sveltekit-reset="false"
 					aria-current={!data.fecha && d.valor === elegido.valor ? 'date' : undefined}
 				>
 					<span class="dc">{d.corto}</span>

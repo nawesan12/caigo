@@ -22,6 +22,24 @@ export function enElDia(
 	return n >= t - 3 * HORA && n < t + p.duracionMin * 60_000 + 2 * HORA;
 }
 
+/**
+ * «Llegué» (el check-in) anda desde media hora antes hasta una hora después del final, como la API
+ * (planes/checkin.go: checkinAntes y checkinDespues). Antes, el botón dice desde qué hora.
+ */
+export function puedeLlegar(
+	p: { empiezaEn: string; duracionMin: number },
+	ahora: Date = new Date()
+): boolean {
+	const t = new Date(p.empiezaEn).getTime();
+	const n = ahora.getTime();
+	return n >= t - 30 * 60_000 && n <= t + p.duracionMin * 60_000 + HORA;
+}
+
+/** «Check-in desde 20:30» (cuando todavía es temprano para «Llegué»). */
+export function llegarDesde(p: { empiezaEn: string }): string {
+	return `Check-in desde ${partes(new Date(new Date(p.empiezaEn).getTime() - 30 * 60_000)).hora}`;
+}
+
 /** «¿Todo bien?» se activa desde 3 h antes hasta el final del plan (como la API). */
 export function puedeActivarTodoBien(
 	p: { empiezaEn: string; duracionMin: number },

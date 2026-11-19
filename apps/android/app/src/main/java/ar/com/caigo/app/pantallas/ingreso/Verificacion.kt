@@ -152,9 +152,9 @@ fun Verificacion(ir: Ir) {
             Column(Modifier.fillMaxWidth().gel(26.dp, gelTarjetaOscura).padding(6.dp)) {
                 fila(v.telefono.isNotEmpty(), 1, "Teléfono", if (v.telefono.isEmpty()) "Te mandamos un código por mail" else telefonoLindo(v.telefono),
                     primera = true) { if (v.telefono.isEmpty()) ir.telefono() }
-                fila(v.selfie, 2, "Selfie con prueba de vida", "Confirma que sos una persona real") { if (!v.selfie) ir.selfie(volver = true) }
+                fila(v.selfie, 2, "Selfie con prueba de vida", "Confirmá que sos una persona real") { if (!v.selfie) ir.selfie(volver = true) }
                 fila(
-                    v.dni == "aprobada", 3, "DNI · badge Verificado",
+                    v.dni == "aprobada", 3, "DNI · sello de verificada",
                     when (v.dni) {
                         "aprobada" -> "Tu perfil muestra el badge"
                         "pendiente" -> "Ya estamos revisando tu DNI."

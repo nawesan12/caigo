@@ -260,6 +260,9 @@ struct VistaPlus: View {
 
     private func comprar() async {
         guard let p = plan(elegido) else { return }
+        // Lo de Plus (sumar, ver quién te sumó, «me encanta») es con otra gente: se pide el DNI antes de
+        // cobrar, nunca después. Restaurar una compra no lo pide.
+        guard c.conDni(ir, "gente") else { return }
         guard let prod = productos[p.producto] else {
             c.avisos.error("Caigo Plus todavía no está disponible en el App Store.")
             return

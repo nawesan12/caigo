@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Icono from '#lib/ui/Icono.svelte';
-	import { cuentaRegresiva } from '#lib/dia.ts';
+	import { cuentaRegresiva, llegarDesde, puedeLlegar } from '#lib/dia.ts';
 	import type { Plan } from '#lib/tipos.ts';
 
 	/*
@@ -31,10 +31,13 @@
 			<span class="gel gel-lima boton hecho"
 				><Icono nombre="check" tam={18} color="#24212D" trazo={3.4} />Llegaste</span
 			>
-		{:else}
+		{:else if puedeLlegar(p, ahora)}
 			<a class="gel gel-lima boton" href="/app/plan/{p.id}?llegue=1"
 				><Icono nombre="check" tam={18} color="#24212D" trazo={3.4} />Llegué</a
 			>
+		{:else}
+			<!-- Todavía es temprano para el check-in: desde cuándo, sin botón. -->
+			<span class="gel gel-lima boton temprano">{llegarDesde(p)}</span>
 		{/if}
 		<a class="gel gel-blanco boton" href="/app/plan/{p.id}?todobien=1"
 			><Icono nombre="escudo" tam={18} trazo={2.2} />¿Todo bien?{#if p.mio?.todoBien}<span
@@ -45,6 +48,10 @@
 </section>
 
 <style>
+	.temprano {
+		opacity: 0.55;
+		font-size: 13px;
+	}
 	.hoy {
 		margin: 0 20px 16px;
 		padding: 14px;

@@ -143,7 +143,12 @@ internal fun DiaTarjeta(ir: Ir, p: Plan, todoBien: () -> Unit) {
                 T("Llegaste", 17f, 800, C.carbon)
             }
         } else {
-            Cta("Llegué", { ir.checkin(p.id) }, Modifier.fillMaxWidth(), alto = 56.dp, color = C.carbon, icono = I.check, iconoTrazo = 3.4f, iconoTam = 20.dp)
+            // Antes de la media hora previa, la API no deja: el botón dice desde cuándo.
+            val abre = ar.com.caigo.app.nucleo.Dia.puedeLlegar(p)
+            Cta(
+                if (abre) "Llegué" else ar.com.caigo.app.nucleo.Dia.llegarDesde(p), { ir.checkin(p.id) }, Modifier.fillMaxWidth(), alto = 56.dp,
+                color = C.carbon, icono = if (abre) I.check else null, iconoTrazo = 3.4f, iconoTam = 20.dp, habilitado = abre,
+            )
         }
         Row(
             Modifier.align(Alignment.CenterHorizontally).tocable(todoBien).padding(4.dp),
@@ -199,9 +204,11 @@ internal fun HoyTarjeta(p: Plan, ir: Ir, todoBien: () -> Unit) {
                     T("Llegaste", 15f, 800, C.carbon)
                 }
             } else {
+                val abre = ar.com.caigo.app.nucleo.Dia.puedeLlegar(p)
                 Cta(
-                    "Llegué", { ir.checkin(p.id) }, Modifier.weight(1f), alto = 48.dp, radio = 16.dp, tam = 15f, color = C.carbon,
-                    icono = I.check, iconoTrazo = 3.4f, iconoTam = 18.dp,
+                    if (abre) "Llegué" else ar.com.caigo.app.nucleo.Dia.llegarDesde(p), { ir.checkin(p.id) }, Modifier.weight(1f), alto = 48.dp,
+                    radio = 16.dp, tam = if (abre) 15f else 13f, color = C.carbon,
+                    icono = if (abre) I.check else null, iconoTrazo = 3.4f, iconoTam = 18.dp, habilitado = abre,
                 )
             }
             Cta(

@@ -12,9 +12,20 @@
 	import Vacio from '#lib/ui/Vacio.svelte';
 	import { FILTROS_AHORA } from '#lib/app.ts';
 	import { pedirUbicacion } from '#lib/app-ui/ubicacion.ts';
+	import BajateLaApp from '#lib/app-ui/BajateLaApp.svelte';
 
 	/* Ahora · lista (Mockups v5, pantalla 02); sin planes, el estado vacío 13a. */
 	let { data } = $props();
+
+	const conCitas = $derived(!!data.yo?.intenciones?.includes('citas'));
+	const modos = $derived([
+		{ valor: 'planes', etiqueta: 'Planes' },
+		{ valor: 'gente', etiqueta: 'Gente' },
+		...(conCitas ? [{ valor: 'citas', etiqueta: 'Citas' }] : [])
+	]);
+	const titulo = $derived(
+		data.modo === 'gente' ? 'Gente' : data.modo === 'citas' ? 'Citas' : 'Ahora'
+	);
 
 	const lugar = $derived(
 		[data.yo?.zona, data.yo?.ciudad].filter(Boolean).join(', ') || 'Mar del Plata'
@@ -26,7 +37,8 @@
 
 	// Gestos sobre la misma lista (deslizar: Caigo / No me interesa) y «Decidí rápido».
 	const g = new GestosLista();
-	const planes = $derived(g.visibles(data.planes));
+	// El plan de hoy va fijo arriba (TarjetaHoy): no se repite en la lista.
+	const planes = $derived(g.visibles(data.planes).filter((p) => p.id !== data.hoy?.id));
 	const decidir = $derived(data.anonimo ? null : paraDecidir(planes));
 	let mazo = $state(false);
 	/** El mazo se arma al abrirlo: lo que se pasa o se suma no corre los índices. */
@@ -59,119 +71,146 @@
 	});
 </script>
 
-<svelte:head><title>Ahora · Caigo</title></svelte:head>
+<svelte:head><title>{titulo} · Caigo</title></svelte:head>
 
 <div class="scroll">
 	<div class="arriba">
-		<button class="donde" onclick={() => pedirUbicacion()} aria-label="Usar mi ubicación">
-			<Icono nombre="pin" tam={16} color="var(--c-acento)" />{lugar}<Icono
-				nombre="abajo"
-				tam={14}
-				color="#5C586B"
-				trazo={2.4}
-			/>
-		</button>
+		{#if data.modo === 'planes'}
+			<button class="donde" onclick={() => pedirUbicacion()} aria-label="Usar mi ubicación">
+				<Icono nombre="pin" tam={16} color="var(--c-acento)" />{lugar}<Icono
+					nombre="abajo"
+					tam={14}
+					color="#5C586B"
+					trazo={2.4}
+				/>
+			</button>
+		{/if}
 		<div class="titulo-fila">
-			<h1>Ahora</h1>
-			<nav class="seg-app" aria-label="Vista">
-				<a href="/app{q(data.categoria)}" aria-current="page">Lista</a>
-				<a href="/app/mapa{q(data.categoria)}">Mapa</a>
+			<h1>{titulo}</h1>
+			<nav class="seg-app" aria-label="Modo">
+				{#each modos as m (m.valor)}
+					<a
+						href={m.valor === 'planes' ? '/app' : `/app?modo=${m.valor}`}
+						class:citas={m.valor === 'citas'}
+						aria-current={data.modo === m.valor ? 'page' : undefined}>{m.etiqueta}</a
+					>
+				{/each}
 			</nav>
 		</div>
-		<div class="filtros">
-			<!-- «Sólo chicas» primero y aparte: es un interruptor (se suma a la categoría), no otra
-			     categoría. La seguridad a la vista, gratis. -->
-			<a
-				class="interruptor"
-				class:on={data.chicas}
-				href="/app{q(data.categoria, !data.chicas)}"
-				data-sveltekit-noscroll
-				role="switch"
-				aria-checked={data.chicas}
-				><Icono
-					nombre={data.chicas ? 'check' : 'escudo'}
-					tam={15}
-					trazo={data.chicas ? 3 : 2.2}
-					color="currentColor"
-				/>Sólo chicas</a
-			>
-			<span class="divisor" aria-hidden="true"></span>
-			{#each FILTROS_AHORA as f (f.valor)}
+		{#if data.modo === 'planes'}
+			<div class="filtros">
+				<!-- «Sólo chicas» primero y aparte: es un interruptor (se suma a la categoría), no otra
+				     categoría. La seguridad a la vista, gratis. -->
 				<a
-					class="filtro"
-					class:on={data.categoria === f.valor}
-					href="/app{q(f.valor)}"
-					data-sveltekit-noscroll
-					aria-current={data.categoria === f.valor ? 'true' : undefined}>{f.etiqueta}</a
+					class="interruptor"
+					class:on={data.chicas}
+					href="/app{q(data.categoria, !data.chicas)}"
+					data-sveltekit-reset="false"
+					role="switch"
+					aria-checked={data.chicas}
+					><Icono
+						nombre={data.chicas ? 'check' : 'escudo'}
+						tam={15}
+						trazo={data.chicas ? 3 : 2.2}
+						color="currentColor"
+					/>Sólo chicas</a
 				>
-			{/each}
-		</div>
+				<span class="divisor" aria-hidden="true"></span>
+				{#each FILTROS_AHORA as f (f.valor)}
+					<a
+						class="filtro"
+						class:on={data.categoria === f.valor}
+						href="/app{q(f.valor)}"
+						data-sveltekit-reset="false"
+						aria-current={data.categoria === f.valor ? 'true' : undefined}>{f.etiqueta}</a
+					>
+				{/each}
+			</div>
+		{/if}
 	</div>
 
-	{#if data.hoy}<div class="hoy-esp"><TarjetaHoy plan={data.hoy} /></div>{/if}
-
-	{#if data.semana}
-		<a class="semana" href="/app/semana">
-			<span class="sem-t">Esta semana en {data.semana.ciudad}</span>
-			<span class="sem-s"
-				>{[
-					`${data.semana.total}\u00a0planes`,
-					data.semana.aliados && `${data.semana.aliados}\u00a0en\u00a0lugares\u00a0aliados`,
-					data.semana.deTuGente && `${data.semana.deTuGente}\u00a0de\u00a0tu\u00a0gente`
-				]
-					.filter(Boolean)
-					.join(' · ')}</span
-			>
-			<span class="sem-f" aria-hidden="true">→</span>
-		</a>
-	{/if}
-
-	{#if planes.length}
-		<div class="lista">
-			<div class="resumen">
-				<span class="t">Próximas 3 horas</span>
-				{#if decidir}
-					<button
-						class="decidir"
-						type="button"
-						onclick={() => {
-							mazoPlanes = decidir ?? [];
-							mazoDesde = 0;
-							mazoSumados = 0;
-							mazo = true;
-						}}>Decidí rápido · {decidir.length}</button
-					>
-				{:else}
-					<span class="s"
-						>{planes.length} {planes.length === 1 ? 'plan cerca' : 'planes cerca'}</span
-					>
-				{/if}
-			</div>
-			{#each planes as p, i (p.id)}
-				<Deslizable
-					titulo={p.titulo}
-					onderecha={porDecidir(p) ? () => g.caigo(p) : null}
-					onizquierda={() => g.noMeInteresa(p)}
-					pista={i === 0}
-				>
-					<PlanTarjeta plan={p} />
-				</Deslizable>
-			{/each}
+	{#if data.modo !== 'planes'}
+		<!-- Gente y Citas (deslizar personas) están en la app: la web no tiene el mazo todavía. -->
+		<div class="en-la-app">
+			<BajateLaApp
+				titulo={data.modo === 'citas' ? 'Citas está en la app' : 'Gente está en la app'}
+				texto={data.modo === 'citas'
+					? 'Deslizá gente verificada que también busca una cita. Si el interés es mutuo, se\u00a0escriben.'
+					: 'Deslizá gente verificada que sale a lo mismo que vos y sumala a tu\u00a0gente.'}
+			/>
 		</div>
 	{:else}
-		<div class="vacio">
-			<Vacio
-				titulo={data.aviso
-					? 'No pudimos traer los planes'
-					: data.chicas
-						? 'No hay planes de chicas cerca. ¿Armás uno?'
-						: 'No hay planes cerca. ¿Armás uno?'}
-				texto={data.aviso || 'Si publicás algo ahora, sos lo primero que ven.'}
-			>
-				<a class="gel gel-lima" href="/app/crear">Armá un plan</a>
-				<a class="link" href="/app/explorar">Ver lo que hay mañana</a>
-			</Vacio>
-		</div>
+		{#if data.hoy}<div class="hoy-esp"><TarjetaHoy plan={data.hoy} /></div>{/if}
+
+		{#if data.semana}
+			<a class="semana" href="/app/semana">
+				<span class="sem-t">Esta semana en {data.semana.ciudad}</span>
+				<span class="sem-s"
+					>{[
+						`${data.semana.total}\u00a0planes`,
+						data.semana.aliados && `${data.semana.aliados}\u00a0en\u00a0lugares\u00a0aliados`,
+						data.semana.deTuGente && `${data.semana.deTuGente}\u00a0de\u00a0tu\u00a0gente`
+					]
+						.filter(Boolean)
+						.join(' · ')}</span
+				>
+				<span class="sem-f" aria-hidden="true">→</span>
+			</a>
+		{/if}
+
+		{#if planes.length}
+			<div class="lista">
+				<div class="resumen">
+					<div class="izq">
+						<span class="t">Próximas 3 horas</span>
+						{#if decidir}
+							<button
+								class="decidir"
+								type="button"
+								onclick={() => {
+									mazoPlanes = decidir ?? [];
+									mazoDesde = 0;
+									mazoSumados = 0;
+									mazo = true;
+								}}>Decidí rápido · {decidir.length}</button
+							>
+						{:else}
+							<span class="s"
+								>{planes.length} {planes.length === 1 ? 'plan cerca' : 'planes cerca'}</span
+							>
+						{/if}
+					</div>
+					<nav class="seg-app chico" aria-label="Vista">
+						<a href="/app{q(data.categoria)}" aria-current="page">Lista</a>
+						<a href="/app/mapa{q(data.categoria)}">Mapa</a>
+					</nav>
+				</div>
+				{#each planes as p, i (p.id)}
+					<Deslizable
+						titulo={p.titulo}
+						onderecha={porDecidir(p) ? () => g.caigo(p) : null}
+						onizquierda={() => g.noMeInteresa(p)}
+						pista={i === 0}
+					>
+						<PlanTarjeta plan={p} />
+					</Deslizable>
+				{/each}
+			</div>
+		{:else}
+			<div class="vacio">
+				<Vacio
+					titulo={data.aviso
+						? 'No pudimos traer los planes'
+						: data.chicas
+							? 'No hay planes de chicas cerca. ¿Armás uno?'
+							: 'No hay planes cerca. ¿Armás uno?'}
+					texto={data.aviso || 'Si publicás algo ahora, sos lo primero que ven.'}
+				>
+					<a class="gel gel-lima" href="/app/crear">Armá un plan</a>
+					<a class="link" href="/app/explorar">Ver lo que hay mañana</a>
+				</Vacio>
+			</div>
+		{/if}
 	{/if}
 </div>
 
@@ -230,6 +269,20 @@
 		color: var(--carbon);
 		font-weight: 700;
 		box-shadow: var(--sh-seg-on);
+	}
+	.seg-app a.citas[aria-current='page'] {
+		background: var(--grad-coral);
+		box-shadow: var(--sh-coral);
+		color: var(--carbon);
+	}
+	.seg-app.chico {
+		flex: none;
+	}
+	.seg-app.chico a {
+		padding: 7px 12px;
+	}
+	.en-la-app {
+		padding: 24px 20px var(--bajo-tabbar);
 	}
 	.filtros {
 		display: flex;
@@ -300,7 +353,14 @@
 	.resumen {
 		display: flex;
 		justify-content: space-between;
-		align-items: baseline;
+		align-items: center;
+		gap: 12px;
+	}
+	.resumen .izq {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 6px;
 	}
 	.resumen .t {
 		font-size: 15px;

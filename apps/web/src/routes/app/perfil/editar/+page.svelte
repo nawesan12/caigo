@@ -47,7 +47,16 @@
 			f.intereses.length < MIN_INTERESES && `${MIN_INTERESES} cosas que te copen`
 		].filter(Boolean) as string[]
 	);
-	const sugeridos = $derived([...new Set([...INTERESES_SUGERIDOS, ...f.intereses])]);
+	// Sin repetidos por mayúsculas («pádel» y «Pádel»): gana la forma del catálogo.
+	const sugeridos = $derived.by(() => {
+		const vistos = new Set<string>();
+		return [...INTERESES_SUGERIDOS, ...f.intereses].filter((x) => {
+			const k = x.trim().toLocaleLowerCase('es');
+			if (vistos.has(k)) return false;
+			vistos.add(k);
+			return true;
+		});
+	});
 	const libres = $derived(PREGUNTAS.filter((p) => !f.prompts.some((x) => x.p === p)));
 
 	async function subir(e: Event) {
@@ -80,15 +89,18 @@
 		const [x] = f.fotos.splice(i, 1);
 		f.fotos = [x, ...f.fotos];
 	}
+	const igual = (a: string, b: string) =>
+		a.trim().toLocaleLowerCase('es') === b.trim().toLocaleLowerCase('es');
+	const tiene = (t: string) => f.intereses.some((x) => igual(x, t));
 	function alternar(t: string) {
-		if (f.intereses.includes(t)) f.intereses = f.intereses.filter((x) => x !== t);
+		if (tiene(t)) f.intereses = f.intereses.filter((x) => !igual(x, t));
 		else if (f.intereses.length < 12) f.intereses = [...f.intereses, t];
 		else avisar('Hasta 12. Sacá uno para sumar otro.');
 	}
 	function sumar() {
 		const t = nuevo.trim();
 		nuevo = '';
-		if (t && !f.intereses.includes(t)) alternar(t);
+		if (t && !tiene(t)) alternar(t);
 	}
 </script>
 
@@ -121,8 +133,12 @@
 							onclick={() => (f.fotos = f.fotos.filter((x) => x !== foto))}
 							><Icono nombre="cerrar" tam={14} trazo={3} /></button
 						>
-						{#if i > 0}
-							<button type="button" class="hacer" onclick={() => principal(i)}>Principal</button>
+						{#if i === 0}
+							<span class="es-principal">Principal</span>
+						{:else}
+							<button type="button" class="hacer" onclick={() => principal(i)}
+								>Usar como principal</button
+							>
 						{/if}
 					</div>
 				{/each}
@@ -242,7 +258,7 @@
 					<button
 						type="button"
 						class="chip chico"
-						aria-pressed={f.intereses.includes(t)}
+						aria-pressed={tiene(t)}
 						onclick={() => alternar(t)}>{t}</button
 					>
 				{/each}
@@ -379,6 +395,17 @@
 		place-items: center;
 		color: var(--carbon);
 		background: var(--c-fondo);
+	}
+	.es-principal {
+		position: absolute;
+		left: 8px;
+		bottom: 8px;
+		padding: 4px 8px;
+		border-radius: 999px;
+		background: #7456f1;
+		color: #ffffff;
+		font-size: 11px;
+		font-weight: 800;
 	}
 	.hacer {
 		position: absolute;

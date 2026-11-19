@@ -48,7 +48,10 @@ struct DiaTarjeta: View {
                 .frame(maxWidth: .infinity).frame(height: 56)
                 .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(C.lima))
             } else {
-                Cta(texto: "Llegué", alto: 56, color: C.carbon, icono: I.check, iconoTrazo: 3.4, iconoTam: 20) { ir.checkin(p.id) }
+                // Antes de la media hora previa, la API no deja: el botón dice desde cuándo (y «Cómo llegar» queda arriba).
+                let abre = Dia.puedeLlegar(p)
+                Cta(texto: abre ? "Llegué" : Dia.llegarDesde(p), alto: 56, color: C.carbon, icono: abre ? I.check : nil, iconoTrazo: 3.4, iconoTam: 20,
+                    habilitado: abre) { ir.checkin(p.id) }
             }
             Button(action: todoBien) {
                 HStack(spacing: 6) {
@@ -120,7 +123,9 @@ struct HoyTarjeta: View {
                     .frame(maxWidth: .infinity).frame(minHeight: 48)
                     .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(C.lima))
                 } else {
-                    Cta(texto: "Llegué", alto: 48, radio: 16, tam: 15, color: C.carbon, icono: I.check, iconoTrazo: 3.4, iconoTam: 18) {
+                    let abre = Dia.puedeLlegar(p)
+                    Cta(texto: abre ? "Llegué" : Dia.llegarDesde(p), alto: 48, radio: 16, tam: abre ? 15 : 13, color: C.carbon,
+                        icono: abre ? I.check : nil, iconoTrazo: 3.4, iconoTam: 18, habilitado: abre) {
                         ir.checkin(p.id)
                     }
                 }

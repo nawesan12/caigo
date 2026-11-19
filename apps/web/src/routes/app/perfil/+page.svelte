@@ -30,33 +30,36 @@
 <svelte:head><title>Perfil · Caigo</title></svelte:head>
 
 <div class="scroll">
-	<a class="ajustes" href="/app/perfil/ajustes" aria-label="Ajustes">
-		<svg
-			width="20"
-			height="20"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-			><circle cx="12" cy="12" r="3" /><path
-				d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"
-			/></svg
-		>
-	</a>
-
 	<div class="contenido">
 		<div class="quien">
-			<a class="foto" href="/app/perfil/editar" aria-label="Editar tus fotos">
+			<a class="foto" href="/app/perfil/editar" aria-label="Editar perfil y fotos">
 				<Avatar nombre={yo.nombre || '?'} foto={yo.fotos[0]} tam={112} />
+				<span class="lapiz" aria-hidden="true"
+					><Icono nombre="lapiz" tam={16} color="#FFFFFF" trazo={2.4} /></span
+				>
 			</a>
 			<div class="nombre">
 				<span>{yo.nombre || 'Sin nombre'}{yo.edad ? `, ${yo.edad}` : ''}</span>
 				{#if yo.verificada}<Verificado tam={22} />{/if}
 			</div>
 			{#if donde}<span class="donde">{donde}</span>{/if}
+			<!-- Tres círculos, como en las apps: Editar perfil al medio y más grande; un solo lugar para cada cosa. -->
+			<nav class="rapidas" aria-label="Tu cuenta">
+				<a href="/app/perfil/ajustes"
+					><span class="circ"
+						><Icono nombre="ajustes" tam={20} trazo={2.2} color="var(--c-acento)" /></span
+					>Ajustes</a
+				>
+				<a class="principal" href="/app/perfil/editar"
+					><span class="circ"><Icono nombre="lapiz" tam={26} trazo={2.6} color="#24212D" /></span
+					>Editar perfil</a
+				>
+				<a href="/app/perfil/gente"
+					><span class="circ"
+						><Icono nombre="personas" tam={20} trazo={2.2} color="var(--c-acento)" /></span
+					>Mi gente</a
+				>
+			</nav>
 		</div>
 
 		{#if !yo.verificada}
@@ -221,19 +224,58 @@
 		align-items: center;
 		gap: 10px;
 	}
-	.ajustes {
+	.foto {
+		position: relative;
+	}
+	.lapiz {
 		position: absolute;
-		top: calc(16px + env(safe-area-inset-top));
-		right: 20px;
-		z-index: 2;
-		width: 44px;
-		height: 44px;
-		border-radius: 16px;
+		right: 0;
+		bottom: 0;
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
 		display: grid;
 		place-items: center;
-		color: var(--carbon);
+		background: #7456f1;
+		border: 3px solid #ffffff;
+	}
+	.rapidas {
+		display: flex;
+		align-items: flex-start;
+		justify-content: center;
+		gap: 30px;
+		margin-top: 8px;
+	}
+	.rapidas a {
+		min-width: 72px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 7px;
+		font-size: 12px;
+		font-weight: 700;
+		color: var(--texto-2);
+		text-decoration: none;
+		white-space: nowrap;
+	}
+	.rapidas .circ {
+		width: 48px;
+		height: 48px;
+		border-radius: 50%;
+		display: grid;
+		place-items: center;
 		background: var(--grad-off);
 		box-shadow: var(--sh-icono);
+	}
+	.rapidas .principal {
+		font-weight: 800;
+		color: var(--carbon);
+	}
+	.rapidas .principal .circ {
+		width: 64px;
+		height: 64px;
+		background: var(--grad-lima);
+		box-shadow: var(--sh-lima, var(--sh-icono));
 	}
 	.contenido {
 		padding: calc(42px + env(safe-area-inset-top)) 20px var(--bajo-tabbar);
